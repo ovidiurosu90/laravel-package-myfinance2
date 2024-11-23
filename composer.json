@@ -1,0 +1,45 @@
+{
+    "name": "ovidiuro/myfinance2",
+    "description": "Laravel package for managing my finances",
+    "keywords": [
+        "laravel",
+        "finance",
+        "management"
+    ],
+    "license": "MIT",
+    "type": "package",
+    "authors": [
+        {
+            "name": "Ovidiu Rosu",
+            "email": "ovidiu.rosu90@gmail.com"
+        }
+    ],
+    "require": {
+        "php": "^8.1",
+        "scheb/yahoo-finance-api": "^4.11.1",
+        "guzzlehttp/guzzle": "^7.9.2",
+        "symfony/process": "^6.4.15"
+    },
+    "autoload": {
+        "psr-4": {
+            "ovidiuro\\myfinance2\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "ovidiuro\\myfinance2\\Test\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "ovidiuro\\myfinance2\\MyFinance2ServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "stable"
+}
+
