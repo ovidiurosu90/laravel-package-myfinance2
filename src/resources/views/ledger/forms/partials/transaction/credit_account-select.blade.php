@@ -2,7 +2,7 @@
     <label for="credit_account" class="col-12 control-label">
         {{ trans('myfinance2::ledger.forms.transaction-form.credit_account.label') }}
     </label>
-    <div class="col-10">
+    <div class="col-9">
         <select name="credit_account" id="transaction-credit_account-select" required>
             <option value="">{{ trans('myfinance2::ledger.forms.transaction-form.credit_account.placeholder') }}</option>
             @foreach ($creditAccounts as $creditAccountKey => $creditAccount)
@@ -12,8 +12,8 @@
             @endforeach
         </select>
     </div>
-    <div class="col-2 p-0 pt-1">
-        <i class="btn p-0 m-0 fa fa-toggle-on" id="enable-transaction-credit_account-select" data-bs-toggle="tooltip" title="{{ trans('myfinance2::ledger.tooltips.enable-transaction-credit_account-select') }}" style="font-size: 24px;"></i>
+    <div class="col-3 p-0">
+        <input id="toggle-transaction-credit_account-select" type="checkbox" data-bs-toggle="toggle" data-ontitle="{{ trans('myfinance2::ledger.tooltips.disable-transaction-credit_account-select') }}" data-offtitle="{{ trans('myfinance2::ledger.tooltips.enable-transaction-credit_account-select') }}">
     </div>
     @if ($errors->has('credit_account'))
         <div class="col-12">

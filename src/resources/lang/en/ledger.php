@@ -18,6 +18,11 @@ return [
         'enable-transaction-credit_account-select'  => 'Enable Credit Account',
         'enable-transaction-credit_currency-select' => 'Enable Credit Currency',
         'enable-transaction-exchange_rate-input'    => 'Enable Exchange Rate',
+        'disable-transaction-debit_account-select'   => 'Disable Debit Account',
+        'disable-transaction-debit_currency-select'  => 'Disable Debit Currency',
+        'disable-transaction-credit_account-select'  => 'Disable Credit Account',
+        'disable-transaction-credit_currency-select' => 'Disable Credit Currency',
+        'disable-transaction-exchange_rate-input'    => 'Disable Exchange Rate',
     ],
     'forms' => [
         'transaction-form' => [
