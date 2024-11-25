@@ -22,7 +22,7 @@
         <div class="clearfix mb-4"></div>
 
         @include('myfinance2::general.modals.confirm-modal',[
-            'formTrigger' => 'confirmDelete',
+            'formTrigger' => 'confirm-delete-modal',
             'modalClass' => 'danger',
             'actionBtnIcon' => 'fa-window-close'
         ])
@@ -32,7 +32,7 @@
 @endsection
 
 @section('footer_scripts')
-    @include('myfinance2::general.scripts.confirm-modal', ['formTrigger' => '#confirmDelete'])
+    @include('myfinance2::general.scripts.confirm-modal', ['formTrigger' => 'confirm-delete-modal'])
     @include('myfinance2::positions.scripts.datatables')
     @include('myfinance2::general.scripts.tooltips')
     @include('myfinance2::positions.scripts.countdowns')

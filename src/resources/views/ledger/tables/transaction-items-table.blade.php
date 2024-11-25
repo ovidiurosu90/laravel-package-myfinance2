@@ -2,7 +2,7 @@
     <table class="table table-sm table-striped data-table transaction-items-table">
         {{-- NOTE! Pagination already has this information
         <caption class="p-1 pb-0">
-            {!! trans_choice('ledger.transactions-table.caption', $items->count(), ['count' => $items->count()]) !!}
+            {!! trans_choice('myfinance2::ledger.transactions-table.caption', $items->count(), ['count' => $items->count()]) !!}
         </caption>
         --}}
         <thead class="thead">

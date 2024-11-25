@@ -23,17 +23,19 @@
                     <tr>
                         <td data-bs-toggle="tooltip" title="{!! $item['symbol_name'] !!}"><a href="https://finance.yahoo.com/quote/{{ $item['symbol'] }}" target="_blank">{{ $item['symbol'] }}</a></td>
                         <td>{{ $item['trade_currency'] }}</td>
-                        <td><div class="row">{!! $item['marketUtils']->getMarketStatusFormatted() !!}</div></td>
+                        <td><div class="row m-0">{!! $item['marketUtils']->getMarketStatusFormatted() !!}</div></td>
                         <td>
-                            <div class="row">
-                            <div class="pr-2 pl-2" style="line-height:1.5rem">{{ $item['quantity'] }}</div>
-                            @if($item['quantity'] == 0)
-                                @include('myfinance2::trades.forms.close-symbol-sm', [
-                                    'account'         => $accountData[$account]['account'],
-                                    'accountCurrency' => $accountData[$account]['currency'],
-                                    'symbol'          => $item['symbol'],
-                                ])
-                            @endif
+                            <div class="row m-0">
+                                <div class="col pr-2 pl-2 ml-2 mr-2" style="line-height:1.5rem">{{ $item['quantity'] }}</div>
+                                @if($item['quantity'] == 0)
+                                <div class="col pr-2 pl-2">
+                                    @include('myfinance2::trades.forms.close-symbol-sm', [
+                                        'account'         => $accountData[$account]['account'],
+                                        'accountCurrency' => $accountData[$account]['currency'],
+                                        'symbol'          => $item['symbol'],
+                                    ])
+                                </div>
+                                @endif
                             </div>
                         </td>
                         <td class="text-right">

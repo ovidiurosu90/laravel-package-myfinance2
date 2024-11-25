@@ -147,7 +147,7 @@ class TradesController extends MyFinance2Controller
             ->update(['status' => 'CLOSED']);
 
         return redirect(url('/positions'))
-                ->with('success', trans_choice('trades.flash-messages.trades-closed', $numUpdated));
+                ->with('success', trans_choice('myfinance2::trades.flash-messages.trades-closed', $numUpdated));
     }
 }
 

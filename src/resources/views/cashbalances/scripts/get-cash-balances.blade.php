@@ -14,19 +14,23 @@ $(document).ready(function()
     var $infoHeader = $('#info-header');
     var $amount = $('#amount');
 
-    $timestampInput.on('change', function() {
+    $timestampInput.on('change', function()
+    {
         inputChange();
     });
-    $accountSelect.change(function() {
+    $accountSelect.change(function()
+    {
         inputChange();
     });
-    $accountCurrencySelect.change(function() {
+    $accountCurrencySelect.change(function()
+    {
         inputChange();
     });
-    $descriptionTextarea.bind('input propertychange', function() {
+    $descriptionTextarea.bind('input propertychange', function()
+    {
         // console.log('description changed');
-        numericFormula = $descriptionTextarea.val().replace(/ /g, ''); // remove spaces
-        numericFormula = numericFormula.replace(/[a-zA-Z].[a-zA-Z]/g, ''); // remove invalid '.'
+        var numericFormula = $descriptionTextarea.val().replace(/ /g, ''); // remove spaces
+        numericFormula = numericFormula.replace(/[a-zA-Z]\.[a-zA-Z]/g, ''); // remove invalid '.'
         numericFormula = numericFormula.replace(/[^\d.\-\+]/g, ''); // remove non-numeric
         console.log('Numeric Formula: ' + numericFormula); //LATER Remove this after testing
         var amount = 0.0;
@@ -34,15 +38,16 @@ $(document).ready(function()
             amount = eval(numericFormula);
             $amount.val(amount.toFixed(2));
             $descriptionTextarea.css('border', '');
-        } catch (e) {
-            // console.log(e);
+        } catch (error) {
+            console.log(error);
             $descriptionTextarea.css('border', '2px solid #f00');
         }
     });
 
     var lastAttempt = '';
 
-    var inputChange = function() {
+    var inputChange = function()
+    {
         var timestamp = $timestampInput.val();
         var account = $accountSelect[0].selectize.getValue();
         var accountCurrency = $accountCurrencySelect[0].selectize.getValue();
@@ -65,7 +70,8 @@ $(document).ready(function()
                 account: account,
                 account_currency: accountCurrency,
             },
-            success: function(data, textStatus, jqXHR) {
+            success: function(data, textStatus, jqXHR)
+            {
                 // console.log(data);
                 if (data && 'cash_balances' in data && Array.isArray(data['cash_balances'])) {
                     for (let i = 0; i < data['cash_balances'].length; i++) {
@@ -79,7 +85,8 @@ $(document).ready(function()
                 }
                 $infoHeader.html("");
             },
-            error: function(jqXHR, textStatus, errorThrown) {
+            error: function(jqXHR, textStatus, errorThrown)
+            {
                 $infoHeader.html('<i class="btn p-0 fa fa-exclamation" ' +
                     'data-bs-toggle="tooltip" title="Error: ' + errorThrown +
                     '! ' + jqXHR.responseJSON.message +
