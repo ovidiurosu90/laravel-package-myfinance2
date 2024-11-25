@@ -171,7 +171,7 @@ class CashBalancesUtils
                     break;
                 default:
                     Log::error('Invalid trade action: ' . $trade->action);
-                    continue;
+                    continue 2; // continue the foreach loop
             }
             $cashBalances[] = $sign . round($amount, 2) .
                 ($trade->fee != 0.0 ?

@@ -4,6 +4,8 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+use ovidiuro\myfinance2\App\Models\LedgerTransaction;
+
 class CreateLedgerTransactionsTable extends Migration
 {
     /**
@@ -13,8 +15,8 @@ class CreateLedgerTransactionsTable extends Migration
      */
     public function up()
     {
-        $connection = config('ledger.connection');
-        $table = config('ledger.ledgerTransactionsTable');
+        $connection = config('myfinance2.db_connection');
+        $table = (new LedgerTransaction())->getTable();
         $tableCheck = Schema::connection($connection)->hasTable($table);
 
         if (!$tableCheck) {
@@ -46,8 +48,8 @@ class CreateLedgerTransactionsTable extends Migration
      */
     public function down()
     {
-        $connection = config('ledger.connection');
-        $table = config('ledger.ledgerTransactionsTable');
+        $connection = config('myfinance2.db_connection');
+        $table = (new LedgerTransaction())->getTable();
         Schema::connection($connection)->dropIfExists($table);
     }
 }

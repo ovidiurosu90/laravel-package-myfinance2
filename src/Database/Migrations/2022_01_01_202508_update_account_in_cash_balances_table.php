@@ -15,8 +15,8 @@ class UpdateAccountInCashBalancesTable extends Migration
      */
     public function up()
     {
-        $connection = config('cashbalances.database_connection');
-        $table = config('cashbalances.database_table');
+        $connection = config('myfinance2.db_connection');
+        $table = (new CashBalance())->getTable();
         $tableCheck = Schema::connection($connection)->hasTable($table);
 
         if (!$tableCheck) {
@@ -24,7 +24,7 @@ class UpdateAccountInCashBalancesTable extends Migration
         }
 
         //NOTE Jan 2022: Laravel doesn't yet support changing ENUM columns
-        \DB::statement("ALTER TABLE `$table` CHANGE `account` `account` enum('TD Ameritrade','DEGIRO','E-Trade','Binance','Bitvavo') COLLATE utf8mb4_unicode_ci NOT NULL;");
+        \DB::connection($connection)->statement("ALTER TABLE `$table` CHANGE `account` `account` enum('TD Ameritrade','DEGIRO','E-Trade','Binance','Bitvavo') COLLATE utf8mb4_unicode_ci NOT NULL;");
     }
 
     /**
@@ -34,8 +34,8 @@ class UpdateAccountInCashBalancesTable extends Migration
      */
     public function down()
     {
-        $connection = config('cashbalances.database_connection');
-        $table = config('cashbalances.database_table');
+        $connection = config('myfinance2.db_connection');
+        $table = (new CashBalance())->getTable();
         $tableCheck = Schema::connection($connection)->hasTable($table);
 
         if (!$tableCheck) {
@@ -53,7 +53,7 @@ class UpdateAccountInCashBalancesTable extends Migration
             exit("Can't remove ENUM value Bitvavo as we have $count rows with that value");
         }
 
-        \DB::statement("ALTER TABLE `$table` CHANGE `account` `account` enum('TD Ameritrade','DEGIRO','E-Trade') COLLATE utf8mb4_unicode_ci NOT NULL;");
+        \DB::connection($connection)->statement("ALTER TABLE `$table` CHANGE `account` `account` enum('TD Ameritrade','DEGIRO','E-Trade') COLLATE utf8mb4_unicode_ci NOT NULL;");
     }
 }
 

@@ -110,6 +110,10 @@ class FinanceUtils
      */
     public function getExchangeRates(array $exchangeRateData): array
     {
+        if (empty($exchangeRateData)) {
+            return $exchangeRateData;
+        }
+
         $options = [/*...*/];
         $guzzleClient = new Client($options);
         $client = ApiClientFactory::createApiClient($guzzleClient);
@@ -176,6 +180,11 @@ class FinanceUtils
      */
     public function getQuotes($symbols)
     {
+        $quotesArray = [];
+        if (empty($symbols)) {
+            return $quotesArray;
+        }
+
         $options = [/*...*/];
         $guzzleClient = new Client($options);
         $client = ApiClientFactory::createApiClient($guzzleClient);
@@ -194,7 +203,6 @@ class FinanceUtils
         }
         // LOG::debug('quotes 190: ' . print_r($quotes, true));
 
-        $quotesArray = [];
         foreach ($quotes as $quote) {
             $currency = $quote->getCurrency();
             $quoteTimestamp = $quote->getRegularMarketTime();

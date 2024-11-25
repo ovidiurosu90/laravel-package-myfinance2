@@ -4,6 +4,8 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+use ovidiuro\myfinance2\App\Models\Trade;
+
 class CreateTradesTable extends Migration
 {
     /**
@@ -13,8 +15,8 @@ class CreateTradesTable extends Migration
      */
     public function up()
     {
-        $connection = config('trades.database_connection');
-        $table = config('trades.database_table');
+        $connection = config('myfinance2.db_connection');
+        $table = (new Trade())->getTable();
         $tableCheck = Schema::connection($connection)->hasTable($table);
 
         if (!$tableCheck) {
@@ -44,8 +46,8 @@ class CreateTradesTable extends Migration
      */
     public function down()
     {
-        $connection = config('trades.database_connection');
-        $table = config('trades.database_table');
+        $connection = config('myfinance2.db_connection');
+        $table = (new Trade())->getTable();
         Schema::connection($connection)->dropIfExists($table);
     }
 }

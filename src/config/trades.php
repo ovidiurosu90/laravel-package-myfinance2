@@ -1,9 +1,6 @@
 <?php
 
 return [
-    'database_connection' => env('TRADES_DATABASE_CONNECTION', null),
-    'database_table'      => env('TRADES_DATABASE_TABLE', 'trades'),
-
     'actions' => [
         'BUY'  => 'Buy',
         'SELL' => 'Sell',

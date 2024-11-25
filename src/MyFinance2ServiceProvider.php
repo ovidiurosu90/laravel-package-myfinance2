@@ -3,6 +3,7 @@
 namespace ovidiuro\myfinance2;
 
 use Illuminate\Support\ServiceProvider;
+use Config;
 
 class MyFinance2ServiceProvider extends ServiceProvider
 {
@@ -22,6 +23,8 @@ class MyFinance2ServiceProvider extends ServiceProvider
      */
     public function boot()
     {
+        Config::set('database.connections.myfinance2_mysql',
+            Config::get($this->_packageTag . '.connections.myfinance2_mysql'));
         $this->loadTranslationsFrom(__DIR__ . '/resources/lang/', $this->_packageTag);
     }
 

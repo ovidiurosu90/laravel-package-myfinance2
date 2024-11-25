@@ -4,6 +4,8 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+use ovidiuro\myfinance2\App\Models\Trade;
+
 class UpdateDescriptionInTradesTable extends Migration
 {
     /**
@@ -13,12 +15,12 @@ class UpdateDescriptionInTradesTable extends Migration
      */
     public function up()
     {
-        $connection = config('trades.database_connection');
-        $table = config('trades.database_table');
+        $connection = config('myfinance2.db_connection');
+        $table = (new Trade())->getTable();
         $tableCheck = Schema::connection($connection)->hasTable($table);
 
         if ($tableCheck) {
-            Schema::table($table, function (Blueprint $table) {
+            Schema::connection($connection)->table($table, function (Blueprint $table) {
                 $table->string('description', 512)->nullable()->change();
             });
         }
@@ -31,12 +33,12 @@ class UpdateDescriptionInTradesTable extends Migration
      */
     public function down()
     {
-        $connection = config('trades.database_connection');
-        $table = config('trades.database_table');
+        $connection = config('myfinance2.db_connection');
+        $table = (new Trade())->getTable();
         $tableCheck = Schema::connection($connection)->hasTable($table);
 
         if ($tableCheck) {
-            Schema::table($table, function (Blueprint $table) {
+            Schema::connection($connection)->table($table, function (Blueprint $table) {
                 $table->string('description', 127)->nullable()->change();
             });
         }

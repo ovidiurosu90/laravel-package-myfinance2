@@ -4,6 +4,8 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+use ovidiuro\myfinance2\App\Models\Trade;
+
 class UpdateQuantityInTradesTable extends Migration
 {
     /**
@@ -13,15 +15,15 @@ class UpdateQuantityInTradesTable extends Migration
      */
     public function up()
     {
-        $connection = config('trades.database_connection');
-        $table = config('trades.database_table');
+        $connection = config('myfinance2.db_connection');
+        $table = (new Trade())->getTable();
         $tableCheck = Schema::connection($connection)->hasTable($table);
 
         if (!$tableCheck) {
             return;
         }
 
-        Schema::table($table, function (Blueprint $table) {
+        Schema::connection($connection)->table($table, function (Blueprint $table) {
             $table->decimal('quantity', 16, 8)->unsigned()->change();
         });
     }
@@ -33,15 +35,15 @@ class UpdateQuantityInTradesTable extends Migration
      */
     public function down()
     {
-        $connection = config('trades.database_connection');
-        $table = config('trades.database_table');
+        $connection = config('myfinance2.db_connection');
+        $table = (new Trade())->getTable();
         $tableCheck = Schema::connection($connection)->hasTable($table);
 
         if (!$tableCheck) {
             return;
         }
 
-        Schema::table($table, function (Blueprint $table) {
+        Schema::connection($connection)->table($table, function (Blueprint $table) {
             $table->integer('quantity')->unsigned()->change();
         });
     }

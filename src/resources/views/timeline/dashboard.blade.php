@@ -15,7 +15,7 @@
 
         <div class="row">
             <div class="col-sm-12">
-                <div id="timeline" style="height: 600px;"></div>
+                <div id="timeline" style="height: 600px;">No Data</div>
             </div>
         </div>
 

@@ -4,6 +4,8 @@ google.charts.load('current', {'packages':['timeline']});
 google.charts.setOnLoadCallback(drawChart);
 function drawChart()
 {
+    @if(!empty($items))
+
     var container = document.getElementById('timeline');
     var chart = new google.visualization.Timeline(container);
     var dataTable = new google.visualization.DataTable();
@@ -29,6 +31,8 @@ function drawChart()
     };
 
     chart.draw(dataTable, options);
+
+    @endif
 }
 </script>
 

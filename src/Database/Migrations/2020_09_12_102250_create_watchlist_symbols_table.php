@@ -4,6 +4,8 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+use ovidiuro\myfinance2\App\Models\WatchlistSymbol;
+
 class CreateWatchlistSymbolsTable extends Migration
 {
     /**
@@ -13,8 +15,8 @@ class CreateWatchlistSymbolsTable extends Migration
      */
     public function up()
     {
-        $connection = config('watchlistsymbols.database_connection');
-        $table = config('watchlistsymbols.database_table');
+        $connection = config('myfinance2.db_connection');
+        $table = (new WatchlistSymbol())->getTable();
         $tableCheck = Schema::connection($connection)->hasTable($table);
 
         if (!$tableCheck) {
@@ -36,8 +38,8 @@ class CreateWatchlistSymbolsTable extends Migration
      */
     public function down()
     {
-        $connection = config('watchlistsymbols.database_connection');
-        $table = config('watchlistsymbols.database_table');
+        $connection = config('myfinance2.db_connection');
+        $table = (new WatchlistSymbol())->getTable();
         Schema::connection($connection)->dropIfExists($table);
     }
 }

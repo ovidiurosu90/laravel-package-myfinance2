@@ -1,9 +1,6 @@
 <?php
 
 return [
-    'connection'              => env('LEDGER_DATABASE_CONNECTION', null),
-    'ledgerTransactionsTable' => env('LEDGER_TRANSACTIONS_DATABASE_TABLE', 'ledger_transactions'),
-
     'transaction_types' => [
         'DEBIT'  => 'Debit',
         'CREDIT' => 'Credit',

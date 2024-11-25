@@ -1,7 +1,6 @@
 <script type="module">
 $(document).ready(function ()
 {
-
     var $debitCurrencySelect = $("#transaction-debit_currency-select").selectize({
         placeholder: ' {{ trans('myfinance2::ledger.forms.transaction-form.debit_currency.placeholder') }} ',
         allowClear: true,
@@ -12,7 +11,7 @@ $(document).ready(function ()
             currencyChange();
         }
     });
-    var debitCurrencySelectize = $debitCurrencySelect[0].selectize;
+    var debitCurrencySelectize = $debitCurrencySelect[0] ? $debitCurrencySelect[0].selectize : null;
 
     var $creditCurrencySelect = $("#transaction-credit_currency-select").selectize({
         placeholder: ' {{ trans('myfinance2::ledger.forms.transaction-form.credit_currency.placeholder') }} ',
@@ -24,7 +23,7 @@ $(document).ready(function ()
             currencyChange();
         }
     });
-    var creditCurrencySelectize = $creditCurrencySelect[0].selectize;
+    var creditCurrencySelectize = $creditCurrencySelect[0] ? $creditCurrencySelect[0].selectize : null;
 
     var $exchangeRateInput = $('input#exchange_rate');
     var $amountInput = $('input#amount');

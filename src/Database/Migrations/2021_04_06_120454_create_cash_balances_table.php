@@ -4,6 +4,8 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+use ovidiuro\myfinance2\App\Models\CashBalance;
+
 class CreateCashBalancesTable extends Migration
 {
     /**
@@ -13,8 +15,8 @@ class CreateCashBalancesTable extends Migration
      */
     public function up()
     {
-        $connection = config('cashbalances.database_connection');
-        $table = config('cashbalances.database_table');
+        $connection = config('myfinance2.db_connection');
+        $table = (new CashBalance())->getTable();
         $tableCheck = Schema::connection($connection)->hasTable($table);
 
         if (!$tableCheck) {
@@ -39,8 +41,8 @@ class CreateCashBalancesTable extends Migration
      */
     public function down()
     {
-        $connection = config('cashbalances.database_connection');
-        $table = config('cashbalances.database_table');
+        $connection = config('myfinance2.db_connection');
+        $table = (new CashBalance())->getTable();
         Schema::connection($connection)->dropIfExists($table);
     }
 }

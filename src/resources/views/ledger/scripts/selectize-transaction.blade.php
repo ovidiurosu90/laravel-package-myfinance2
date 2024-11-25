@@ -8,7 +8,7 @@ $(document).ready(function ()
         highlight: true,
         diacritics: true
     });
-    var typeSelectize = $typeSelect[0].selectize;
+    var typeSelectize = $typeSelect[0] ? $typeSelect[0].selectize : null;
 
     var $debitAccountSelect = $("#transaction-debit_account-select").selectize({
         placeholder: ' {{ trans('myfinance2::ledger.forms.transaction-form.debit_account.placeholder') }} ',
@@ -17,7 +17,7 @@ $(document).ready(function ()
         highlight: true,
         diacritics: true
     });
-    var debitAccountSelectize = $debitAccountSelect[0].selectize;
+    var debitAccountSelectize = $debitAccountSelect[0] ? $debitAccountSelect[0].selectize : null;
 
     var $toggleTransactionDebitAccountSelect = $("#toggle-transaction-debit_account-select");
     $toggleTransactionDebitAccountSelect.change(function()
@@ -36,7 +36,7 @@ $(document).ready(function ()
         highlight: true,
         diacritics: true
     });
-    var creditAccountSelectize = $creditAccountSelect[0].selectize;
+    var creditAccountSelectize = $creditAccountSelect[0] ? $creditAccountSelect[0].selectize : null;
 
     var $toggleTransactionCreditAccountSelect = $("#toggle-transaction-credit_account-select");
     $toggleTransactionCreditAccountSelect.change(function()
@@ -59,7 +59,7 @@ $(document).ready(function ()
             currencyChange();
         }
     }); // end $debitCurrencySelect
-    var debitCurrencySelectize = $debitCurrencySelect[0].selectize;
+    var debitCurrencySelectize = $debitCurrencySelect[0] ? $debitCurrencySelect[0].selectize : null;
 
     var $toggleTransactionDebitCurrencySelect = $("#toggle-transaction-debit_currency-select");
     $toggleTransactionDebitCurrencySelect.change(function()
@@ -82,7 +82,7 @@ $(document).ready(function ()
             currencyChange();
         }
     }); // end $creditCurrencySelect
-    var creditCurrencySelectize = $creditCurrencySelect[0].selectize;
+    var creditCurrencySelectize = $creditCurrencySelect[0] ? $creditCurrencySelect[0].selectize : null;
 
     var $toggleTransactionCreditCurrencySelect = $("#toggle-transaction-credit_currency-select");
     $toggleTransactionCreditCurrencySelect.change(function()

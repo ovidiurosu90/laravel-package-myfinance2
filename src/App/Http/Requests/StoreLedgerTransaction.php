@@ -5,6 +5,8 @@ namespace ovidiuro\myfinance2\App\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
+use ovidiuro\myfinance2\App\Models\LedgerTransaction;
+
 class StoreLedgerTransaction extends FormRequest
 {
     /**
@@ -37,7 +39,7 @@ class StoreLedgerTransaction extends FormRequest
                 'required',
                 Rule::in(array_keys(config('ledger.transaction_types'))),
             ],
-            'parent_id'            => 'nullable|integer|exists:' . config('ledger.ledgerTransactionsTable').',id',
+            'parent_id'            => 'nullable|integer|exists:' . (new LedgerTransaction())->getTable() .',id',
             'debit_account'        => [
                 'required',
                 Rule::in(array_keys(config('general.ledger_accounts'))),
