@@ -33,13 +33,16 @@ class StoreLedgerTransaction extends FormRequest
      */
     public function rules()
     {
+        $dbConnection = config('myfinance2.db_connection');
+        $tableName = $dbConnection . '.' . (new LedgerTransaction())->getTable();
+
         return [
             'timestamp'            => 'required|date_format:Y-m-d H:i:s',
             'type'                 => [
                 'required',
                 Rule::in(array_keys(config('ledger.transaction_types'))),
             ],
-            'parent_id'            => 'nullable|integer|exists:' . (new LedgerTransaction())->getTable() .',id',
+            'parent_id'            => 'nullable|integer|exists:' . $tableName . ',id',
             'debit_account'        => [
                 'required',
                 Rule::in(array_keys(config('general.ledger_accounts'))),

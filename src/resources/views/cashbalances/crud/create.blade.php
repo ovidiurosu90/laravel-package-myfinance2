@@ -1,13 +1,9 @@
 @extends('layouts.app')
 
-@section('template_title')
-    {{ trans('myfinance2::general.titles.create-item', ['type' => 'Cash Balance']) }}
-@endsection
+@section('template_title'){{ trans('myfinance2::general.titles.create-item', ['type' => 'Cash Balance']) }}@endsection
 
 @section('template_linked_css')
     @include('myfinance2::general.partials.styles')
-    @include('myfinance2::general.partials.bs-visibility-css')
-    @include('myfinance2::general.partials.selectize-css') {{-- NOTE! We copied it locally to get rid of the zoom warning --}}
 @endsection
 
 @section('content')
@@ -34,9 +30,9 @@
 @endsection
 
 @section('footer_scripts')
+    @include('myfinance2::general.scripts.timestamp-picker')
     @include('myfinance2::cashbalances.scripts.selectize-item')
     @include('myfinance2::cashbalances.scripts.get-cash-balances')
-    @include('myfinance2::general.scripts.timestamp-picker')
     @include('myfinance2::general.scripts.tooltips')
     @include('myfinance2::general.scripts.account-currency')
 @endsection

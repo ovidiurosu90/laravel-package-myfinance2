@@ -1,13 +1,9 @@
 @extends('layouts.app')
 
-@section('template_title')
-    {{ trans('myfinance2::general.titles.edit-item', ['type' => 'Watchlist Symbol']) }}
-@endsection
+@section('template_title'){{ trans('myfinance2::general.titles.edit-item', ['type' => 'Watchlist Symbol']) }}@endsection
 
 @section('template_linked_css')
     @include('myfinance2::general.partials.styles')
-    @include('myfinance2::general.partials.bs-visibility-css')
-    @include('myfinance2::general.partials.selectize-css') {{-- NOTE! We copied it locally to get rid of the zoom warning --}}
 @endsection
 
 @section('content')

@@ -6,7 +6,11 @@ $(document).ready(function ()
         allowClear: true,
         create: true,
         highlight: true,
-        diacritics: true
+        diacritics: true,
+        onChange: function(value)
+        {
+            currencyChange();
+        }
     });
     var typeSelectize = $typeSelect[0] ? $typeSelect[0].selectize : null;
 
@@ -95,6 +99,12 @@ $(document).ready(function ()
     });
 
     var $exchangeRateInput = $('input#exchange_rate');
+    var $amountCurrencyLabelTooltip = $('#amount_currency-label-tooltip');
+    var $feeCurrencyLabelTooltip = $('#fee_currency-label-tooltip');
+    var currenciesDisplay = {!! json_encode(config('general.currencies_display')) !!};
+    var amountCurrencyDisplay;
+    var feeCurrencyDisplay;
+
     var $toggleTransactionExchangeRateInput = $("#toggle-transaction-exchange_rate-input");
     $toggleTransactionExchangeRateInput.change(function()
     {
@@ -116,10 +126,40 @@ $(document).ready(function ()
             $exchangeRateInput.val('');
             $toggleTransactionExchangeRateInput.bootstrapToggle('on');
         }
+
+        var type = typeSelectize.getValue();
+        if (!type) {
+            $amountCurrencyLabelTooltip.html('');
+            $feeCurrencyLabelTooltip.html('');
+            return;
+        }
+
+        var selectedCurrency;
+        if (type == 'DEBIT' && debitCurrency) {
+            selectedCurrency = debitCurrency;
+        } else if (type == 'CREDIT' && creditCurrency) {
+            selectedCurrency = creditCurrency;
+        } else {
+            $amountCurrencyLabelTooltip.html('');
+            $feeCurrencyLabelTooltip.html('');
+            return;
+        }
+
+        // Change the amount & fee currency in the label tooltip
+        if (selectedCurrency in currenciesDisplay) {
+            amountCurrencyDisplay = currenciesDisplay[selectedCurrency];
+            feeCurrencyDisplay = currenciesDisplay[selectedCurrency];
+        } else {
+            amountCurrencyDisplay = selectedCurrency;
+            feeCurrencyDisplay = selectedCurrency;
+        }
+        $amountCurrencyLabelTooltip.html(amountCurrencyDisplay);
+        $feeCurrencyLabelTooltip.html(feeCurrencyDisplay);
+
     }; // end currencyChange
 
     var $calculatedAmount = $('#calculated-amount');
-    var $timestampPicker = $('#timestamp-picker');
+    // var $timestampPicker = $('#timestamp-picker');
     localStorage.setItem('parentTransactionsJSON', JSON.stringify(@json($rootTransactions)));
 
     var clearParentChilds = function()

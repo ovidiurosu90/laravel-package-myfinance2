@@ -9,7 +9,7 @@
         <span style="cursor: pointer" data-bs-toggle="tooltip" title=""></span>
     </div>
     <div class="col-12">
-        <input type="number" step=".0001" id="amount" name="amount" class="form-control" value="{{ $amount ? @number_format($amount, 4) : '' }}" placeholder="{{ trans('myfinance2::cashbalances.forms.item-form.amount.placeholder') }}" required />
+        <input type="number" step=".0001" id="amount" name="amount" class="form-control" value="{{ $amount ? $amount : '' }}" placeholder="{{ trans('myfinance2::cashbalances.forms.item-form.amount.placeholder') }}" required />
     </div>
     @if ($errors->has('amount'))
         <div class="col-12">
