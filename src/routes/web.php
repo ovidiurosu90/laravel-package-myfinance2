@@ -1,7 +1,7 @@
 <?php
 
 Route::group([
-    'middleware'    => ['web'],
+    'middleware'    => ['web', 'activity', 'checkblocked', 'role:admin|financeadmin'],
     'as'            => 'myfinance2::',
     'namespace'     => 'ovidiuro\myfinance2\App\Http\Controllers',
 ], function ()
@@ -16,7 +16,7 @@ Route::group([
     Route::resource('dividends', 'DividendsController');
     Route::resource('watchlist-symbols', 'WatchlistSymbolsController');
 
-    Route::get('/', 'HomeController@index')->name('home');
+    Route::get('finance-home', 'HomeController@index')->name('home');
     Route::get('positions', 'PositionsController@index');
     Route::get('funding', 'FundingController@index');
     Route::get('timeline', 'TimelineController@index')->name('timeline');

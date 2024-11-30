@@ -1,7 +1,7 @@
 <?php
 
 Route::group([
-    'middleware'    => ['web'],
+    'middleware'    => ['web', 'activity', 'checkblocked', 'role:admin|financeadmin'],
     'as'            => 'myfinance2::',
     'namespace'     => 'ovidiuro\myfinance2\App\Http\Controllers\Api',
 ], function ()

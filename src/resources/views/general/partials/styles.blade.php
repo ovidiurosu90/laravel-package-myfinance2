@@ -197,5 +197,11 @@ table.data-table {
 .selectize-control.single .selectize-input.input-active.locked {
     background-color: #e9ecef;
 }
+.selectize-control .selectize-input:not(.has-items) input {
+    width: 90% !important;
+}
+.selectize-control.single .selectize-input:after {
+    right: 12px;
+}
 </style>
 

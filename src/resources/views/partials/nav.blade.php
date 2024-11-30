@@ -1,9 +1,14 @@
-@if (Auth::check())
+@role(['admin', 'financeadmin'])
 <li class="nav-item dropdown">
     <a class="nav-link dropdown-toggle" href="#" id="navbar-dropdown-myfinance2" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
         {!! trans('myfinance2::titles.navbarDropdownFinance') !!}
     </a>
     <div class="dropdown-menu" aria-labelledby="navbar-dropdown-myfinance2">
+        <a class="dropdown-item {{ Request::is('finance-home') ? 'active' : null }}" href="{{ url('/finance-home') }}">
+            {!! trans('myfinance2::titles.home') !!}
+        </a>
+        <div class="dropdown-divider"></div>
+
         <a class="dropdown-item {{ Request::is('ledger-transactions') ? 'active' : null }}" href="{{ url('/ledger-transactions') }}">
             {!! trans('myfinance2::ledger.titles.dashboard') !!}
         </a>
@@ -44,5 +49,5 @@
         </a>
     </div>
 </li>
-@endif
+@endrole
 

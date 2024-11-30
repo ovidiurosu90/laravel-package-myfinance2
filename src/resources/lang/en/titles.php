@@ -2,5 +2,6 @@
 
 return [
     'navbarDropdownFinance' => 'Finance',
+    'home' => 'Home',
 ];
 
