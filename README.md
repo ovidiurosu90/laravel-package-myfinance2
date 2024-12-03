@@ -20,6 +20,12 @@ mysql -uroot -p
     CREATE DATABASE [MYFINANCE2_DB_DATABASE];
     CREATE USER '[MYFINANCE2_DB_USERNAME]'@'localhost' IDENTIFIED WITH mysql_native_password BY '[MYFINANCE2_DB_PASSWORD]';
     GRANT ALL PRIVILEGES ON [MYFINANCE2_DB_DATABASE].* TO '[MYFINANCE2_DB_USERNAME]'@'localhost';
+
+    -- For foreign key constraints
+    GRANT SELECT ON [DB_DATABASE].users TO '[DB_USERNAME]'@'localhost';
+    GRANT REFERENCES ON [DB_DATABASE].users TO '[DB_USERNAME]'@'localhost';
+    FLUSH PRIVILEGES;
+
     exit
 
 mysql -u[MYFINANCE2_DB_USERNAME] -p [MYFINANCE2_DB_DATABASE] # use [MYFINANCE2_DB_PASSWORD] set above
@@ -28,6 +34,19 @@ mysql -u[MYFINANCE2_DB_USERNAME] -p [MYFINANCE2_DB_DATABASE] # use [MYFINANCE2_D
 #NOTE Execute the following if the Database Migration was not already run in the main package
 php artisan migrate --pretend
 php artisan migrate
+# php artisan migrate:rollback # If needed
+
+#NOTE If there were database entries that didn't have user_id before, execute the following
+
+mysql -u[MYFINANCE2_DB_USERNAME] -p [MYFINANCE2_DB_DATABASE] # use [MYFINANCE2_DB_PASSWORD] set above
+    select * from `[DB_DATABASE]`.`users`;
+
+    update `cash_balances` set user_id = [USER_ID] where user_id is null;
+    update `dividends` set user_id = [USER_ID] where user_id is null;
+    update `ledger_transactions` set user_id = [USER_ID] where user_id is null;
+    update `trades` set user_id = [USER_ID] where user_id is null;
+    update `watchlist_symbols` set user_id = [USER_ID] where user_id is null;
+
 ```
 
 ### Get market status (used by /positions)
