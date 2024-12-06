@@ -2,15 +2,15 @@
     <table class="table table-sm data-table watchlist-symbol-items-table table-hover">
         <thead class="thead">
             <tr>
-                <th scope="col">Symbol</th>
-                <th scope="col" style="max-width: 96px">Name</th>
-                <th scope="col" class="text-right">Price</th>
+                <th scope="col" style="min-width: 98px">Symbol</th>
+                <th scope="col">Name</th>
+                <th scope="col" class="text-right" style="min-width: 98px">Price</th>
                 <th scope="col" class="text-right">Day change</th>
-                <th scope="col" class="text-right">Day change %</th>
-                <th scope="col" class="text-right">52-Wk low</th>
-                <th scope="col" class="text-right">% Above low</th>
-                <th scope="col" class="text-right">52-Wk high</th>
-                <th scope="col" class="text-right">% Below high</th>
+                <th scope="col" class="text-right" style="min-width: 88px">Day change %</th>
+                <th scope="col" class="text-right" style="min-width: 98px">52-Wk low</th>
+                <th scope="col" class="text-right" style="min-width: 80px">% Above low</th>
+                <th scope="col" class="text-right" style="min-width: 98px">52-Wk high</th>
+                <th scope="col" class="text-right" style="min-width: 80px">% Below high</th>
                 <!--
                 <th scope="col" class="text-right hidden-xs">Id</th>
                 <th scope="col" class="hidden-xs">Timestamp</th>
@@ -18,7 +18,7 @@
                 <th scope="col" class="hidden-xs hidden-sm">Created</th>
                 <th scope="col" class="hidden-xs hidden-sm">Updated</th>
                  -->
-                <th class="no-search no-sort" style="min-width: 236px">Open Positions</th>
+                <th class="no-search no-sort" style="min-width: 240px">Open Positions</th>
                 <th class="no-search no-sort">Actions</th>
                 <th class="no-search no-sort"></th>
             </tr>
@@ -34,15 +34,16 @@
                             @endif
                         </td>
                         <td>
-                            <div data-bs-toggle="tooltip" data-html="true" title="Id: {{ $quoteData['item']->id }}<br />
+                            <div data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips" data-bs-html="true" title="<p class='text-left'>
+Id: {{ $quoteData['item']->id }}<br />
 Timestamp: {{ $quoteData['item']->timestamp }}<br />
 Description: {{ $quoteData['item']->description }}<br />
 Created: {{ $quoteData['item']->created_at }}<br />
-Updated: {{ $quoteData['item']->updated_at }}">{!! $quoteData['name'] ? $quoteData['name'] : $symbol !!}
+Updated: {{ $quoteData['item']->updated_at }}</p>">{!! $quoteData['name'] ? $quoteData['name'] : $symbol !!}
                             </div>
                         </td>
                         <td class="text-right">
-                            <div data-bs-toggle="tooltip" title="Quote timestamp: {{ $quoteData['quote_timestamp']->format(trans('myfinance2::general.datetime-format')) }}">
+                            <div data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips" title="Quote timestamp: {{ $quoteData['quote_timestamp']->format(trans('myfinance2::general.datetime-format')) }}">
                                 {!! ovidiuro\myfinance2\App\Services\MoneyFormat::get_formatted_balance($quoteData['currency'], $quoteData['price']) !!}
                             </div>
                         </td>
@@ -67,26 +68,29 @@ Updated: {{ $quoteData['item']->updated_at }}">{!! $quoteData['name'] ? $quoteDa
                         </td>
                         --}}
                         <td>
-                            @if( !empty($quoteData['open_positions']) )
+                        @if( !empty($quoteData['open_positions']) )
+                            @foreach( $quoteData['open_positions'] as $key => $openPosition )
                             <div class="row">
-                                @foreach( $quoteData['open_positions'] as $openPosition )
                                 <div class="col-sm">
-                                <div class="card">
-                                    <div class="card-body">
-                                        <div class="card-title">Acc: {{ $openPosition['account'] }}</div>
-                                        <div class="card-text">
-                                            Quantity: {{ $openPosition['quantity'] }}<br />
-                                            Cost: {!! $openPosition['cost_in_account_currency'] !!}<br />
-                                            Value: {!! $openPosition['market_value_in_account_currency'] !!}<br />
-                                            Change value: {!! $openPosition['overall_change_in_account_currency'] !!}<br />
-                                            Change %: {!! $openPosition['overall_change_in_percentage'] !!}<br />
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <div class="card-title">Acc: {{ $openPosition['account'] }}</div>
+                                            <div class="card-text">
+                                                Quantity: {{ $openPosition['quantity'] }}<br />
+                                                Cost: {!! $openPosition['cost_in_account_currency'] !!}<br />
+                                                Value: {!! $openPosition['market_value_in_account_currency'] !!}<br />
+                                                Change value: {!! $openPosition['overall_change_in_account_currency'] !!}<br />
+                                                Change %: {!! $openPosition['overall_change_in_percentage'] !!}<br />
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                                </div>
-                                @endforeach
                             </div>
+                            @if (array_key_last($quoteData['open_positions']) != $key)
+                            <div class="clearfix mb-1"></div>
                             @endif
+                            @endforeach
+                        @endif
                         </td>
                         <td>
                             <a class="btn btn-sm btn-outline-secondary btn-block" href="{{ route('myfinance2::watchlist-symbols.edit', $quoteData['item']->id) }}" data-bs-toggle="tooltip" title="{{ trans('myfinance2::general.tooltips.edit-item', ['type' => 'Watchlist Symbol']) }}">

@@ -4,16 +4,16 @@
             <tr role="row">
                 <th>Symbol</th>
                 <th data-bs-toggle="tooltip" title="Trade Currency">Currency</th>
-                <th style="width: 136px">Market</th>
+                <th style="min-width: 168px">Market</th>
                 <th>Quantity</th>
-                <th class="text-right" data-bs-toggle="tooltip" title="Cost in account currency">Cost</th>
-                <th class="text-right" data-bs-toggle="tooltip" title="Current market value in account currency">Mkt value*</th>
-                <th class="text-right" data-bs-toggle="tooltip" title="Average purchased unit cost in trade currency">Avg cost</th>
-                <th class="text-right" data-bs-toggle="tooltip" title="Current unit price in trade currency">Price*</th>
-                <th class="text-right" data-bs-toggle="tooltip" title="Day gain in account currency">Day gain*</th>
-                <th class="text-right" data-bs-toggle="tooltip" title="Day gain in percentage">Day gain (%)*</th>
-                <th class="text-right" data-bs-toggle="tooltip" title="Overall gain in account currency">Gain*</th>
-                <th class="text-right" data-bs-toggle="tooltip" title="Overall gain in percentage">Gain (%)*</th>
+                <th class="text-right" data-bs-toggle="tooltip" title="Cost in account currency" style="min-width: 95px">Cost</th>
+                <th class="text-right" data-bs-toggle="tooltip" title="Current market value in account currency" style="min-width: 135px">Mkt value*</th>
+                <th class="text-right" data-bs-toggle="tooltip" title="Average purchased unit cost in trade currency" style="min-width: 86px">Avg cost</th>
+                <th class="text-right" data-bs-toggle="tooltip" title="Current unit price in trade currency" style="min-width: 92px">Price*</th>
+                <th class="text-right" data-bs-toggle="tooltip" title="Day gain in account currency" style="min-width: 88px">Day gain*</th>
+                <th class="text-right" data-bs-toggle="tooltip" title="Day gain in percentage" style="min-width: 106px">Day gain (%)*</th>
+                <th class="text-right" data-bs-toggle="tooltip" title="Overall gain in account currency" style="min-width: 90px">Gain*</th>
+                <th class="text-right" data-bs-toggle="tooltip" title="Overall gain in percentage" style="min-width: 80px">Gain (%)*</th>
                 <th>Symbol</th>
             </tr>
         </thead>
@@ -45,7 +45,7 @@
                                 <span data-bs-toggle="tooltip" title="Value without factoring any gains from selling actions!" style="font-style:italic">{!! $item['cost2_in_account_currency'] !!}</span>
                             @endif
                         </td>
-                        <td class="text-right" data-bs-toggle="tooltip" title="Quote timestamp: {{ $item['quote_timestamp'] }}">{!! $item['market_value_in_account_currency'] !!}</td>
+                        <td class="text-right" data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips" title="Quote timestamp: {{ $item['quote_timestamp'] }}">{!! $item['market_value_in_account_currency'] !!}</td>
                         <td class="text-right pr-2">
                             {!! $item['average_unit_cost_in_trade_currency'] !!}
                             @if($item['average_unit_cost2_in_trade_currency'])
@@ -53,7 +53,7 @@
                                 <span data-bs-toggle="tooltip" title="Value without factoring any gains from selling actions!" style="font-style:italic">{!! $item['average_unit_cost2_in_trade_currency'] !!}</span>
                             @endif
                         </td>
-                        <td class="text-right pr-2" data-bs-toggle="tooltip" title="Quote timestamp: {{ $item['quote_timestamp'] }}">{!! $item['current_unit_price_in_trade_currency'] !!}</td>
+                        <td class="text-right pr-2" data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips" title="Quote timestamp: {{ $item['quote_timestamp'] }}">{!! $item['current_unit_price_in_trade_currency'] !!}</td>
                         <td class="text-right pr-2">{!! $item['day_change_in_account_currency'] !!}</td>
                         <td class="text-right pr-2">{!! $item['day_change_in_percentage'] !!}</td>
                         <td class="text-right pr-2">
@@ -77,11 +77,11 @@
         </tbody>
         <tfoot class="tfoot">
             <tr>
-                <td colspan="4"></td>
-                <td class="text-right"><span class="font-weight-bold" data-bs-toggle="tooltip" title="Total Cost in account currency">Total: </span>{!! $accountData[$account]['total_cost_formatted'] !!}</td>
+                <td colspan="3"></td>
+                <td colspan="2" class="text-right"><span class="font-weight-bold" data-bs-toggle="tooltip" title="Total Cost in account currency">Total: </span>{!! $accountData[$account]['total_cost_formatted'] !!}</td>
                 <td class="text-right"><span class="font-weight-bold" data-bs-toggle="tooltip" title="Total Current Market Value in account currency">Total: </span>{!! $accountData[$account]['total_market_value_formatted'] !!}</td>
-                <td colspan="4"></td>
-                <td class="text-right"><span class="font-weight-bold" data-bs-toggle="tooltip" title="Total Overall Gain in account currency">Total: </span>{!! $accountData[$account]['total_change_formatted'] !!}</td>
+                <td colspan="3"></td>
+                <td colspan="2" class="text-right pr-2"><span class="font-weight-bold" data-bs-toggle="tooltip" title="Total Overall Gain in account currency">Total: </span>{!! $accountData[$account]['total_change_formatted'] !!}</td>
                 <td colspan="2"></td>
             </tr>
             <tr>
@@ -97,4 +97,6 @@
         </tfoot>
     </table>
 </div>
+
+<div class="clearfix mb-4"></div>
 

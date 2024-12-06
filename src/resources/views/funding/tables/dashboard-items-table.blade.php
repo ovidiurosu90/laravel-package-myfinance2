@@ -10,17 +10,17 @@
             </tr>
             <tr role="row">
                 <th class="pl-2">Date</th>
-                <th style="min-width: 136px">Account</th>
-                <th class="text-right">Amount</th>
+                <th style="min-width: 108px">Account</th>
+                <th class="text-right" style="min-width: 100px">Amount</th>
                 <th class="pl-2">Exchange</th>
-                <th class="text-right bordered-right">Fee</th>
+                <th class="text-right bordered-right" style="min-width: 80px">Fee</th>
                 <th class="pl-2">Date</th>
-                <th>Account</th>
-                <th class="text-right">Amount</th>
+                <th style="min-width: 108px">Account</th>
+                <th class="text-right" style="min-width: 100px">Amount</th>
                 <th class="pl-2">Exchange</th>
-                <th class="text-right bordered-right">Fee</th>
+                <th class="text-right bordered-right" style="min-width: 80px">Fee</th>
                 @foreach($balances as $account => $balance)
-                    <th class="text-right pr-2">{{ $account }}</th>
+                <th class="text-right pr-2" style="min-width: 114px">{{ $account }}</th>
                 @endforeach
             </tr>
         </thead>
@@ -69,5 +69,8 @@
             @endif
         </tbody>
     </table>
+
+    <div class="clearfix mb-4"></div>
+
 </div>
 

@@ -3,6 +3,7 @@
 namespace ovidiuro\myfinance2\App\Services;
 
 use Illuminate\Support\Facades\Log;
+use Scheb\YahooFinanceApi\UserAgent;
 use Scheb\YahooFinanceApi\ApiClient;
 use Scheb\YahooFinanceApi\ApiClientFactory;
 use Scheb\YahooFinanceApi\Results\Quote;
@@ -13,6 +14,23 @@ use ovidiuro\myfinance2\App\Models\Trade;
 
 class FinanceUtils
 {
+    public function __construct()
+    {
+        //NOTE Sometimes we get an GuzzleHttp\Exception\ClientException
+        /*
+        Client error: `GET https://query2.finance.yahoo.com/v1/test/getcrumb` resulted in a `401 Unauthorized`
+        response: {"finance":{"result":null,"error":{"code":"Unauthorized","description":"Invalid Cookie"}}}
+        */
+        if (empty($_SERVER['HTTP_USER_AGENT'])) {
+            return;
+        }
+
+        UserAgent::setUserAgents([
+            $_SERVER['HTTP_USER_AGENT']
+        ]);
+    }
+
+
     /**
      * @param string $symbol
      * @param string $timestamp

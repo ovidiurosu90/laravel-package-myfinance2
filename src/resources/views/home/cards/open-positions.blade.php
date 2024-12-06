@@ -1,4 +1,4 @@
-<div class="col-sm-4 mb-3 d-flex">
+<div class="col-5">
     <div class="card">
         <div class="card-header">
             <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -15,7 +15,7 @@
                 </div>
             </div>
         </div>
-        <div class="card-body p-0">
+        <div class="card-body p-0" style="height: 360px; overflow: auto">
             <div class="list-group-flush flex-fill">
                 @if(count(array_keys($openPositions)) != 0)
                 <table class="table table-striped">

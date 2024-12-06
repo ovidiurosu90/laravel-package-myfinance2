@@ -203,5 +203,11 @@ table.data-table {
 .selectize-control.single .selectize-input:after {
     right: 12px;
 }
+.big-tooltips .tooltip-inner {
+    min-width: 246px;
+}
+.big-tooltips2 .tooltip-inner {
+    min-width: 266px;
+}
 </style>
 

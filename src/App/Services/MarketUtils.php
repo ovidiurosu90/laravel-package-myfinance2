@@ -21,10 +21,15 @@ class MarketUtils
 
     public function __toString()
     {
-        return sprintf("name: %s, state: %s, exhange_name: %s, exchange_timezone: %s, %s",
+        $marketStatus = '';
+        foreach ($this->getMarketStatus() as $key => $value) {
+            $marketStatus .= "$key: $value<br />";
+        }
+
+        return sprintf("name: %s<br /> state: %s<br /> exhange_name: %s<br /> exchange_timezone: %s<br /> %s",
             $this->getName(), $this->getState(), $this->getExchangeName(),
             $this->getExchangeTimezone(),
-            print_r($this->getMarketStatus(), true)
+            $marketStatus
         );
     }
 
@@ -194,7 +199,7 @@ class MarketUtils
 
         if ($countdownClass != '' && $countdownTimestamp != '') {
             $countdown = '<span class="' . $countdownClass .
-                ' d-none small text-secondary"' .
+                ' d-none small text-secondary" ' .
                 'data-timestamp="' . $countdownTimestamp . '" data-bs-toggle="tooltip" ' .
                 'title="' .
                 date(trans('myfinance2::general.datetime-short-format'), $countdownTimestamp) .
@@ -202,7 +207,8 @@ class MarketUtils
         }
 
         $output = $warning . '<div class="col"><span class="market_status text-left badge rounded-pill ' .
-            $class . '" data-bs-toggle="tooltip" title="' . $tooltip . '">' .
+            $class . '" data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips2" data-bs-html="true" title="<p class=\'text-left\'>' .
+            $tooltip . '</p>">' .
             $text . '</span></div> <div class="col-md-auto">' . $countdown . "</div>";
 
         return $output;

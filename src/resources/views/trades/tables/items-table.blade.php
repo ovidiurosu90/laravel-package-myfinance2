@@ -4,16 +4,16 @@
             <tr>
                 <th scope="col">Id</th>
                 <th scope="col">Timestamp</th>
-                <th scope="col">Account</th>
+                <th scope="col" style="min-width: 116px">Account</th>
                 <th scope="col">Status</th>
                 <th scope="col">Action</th>
                 <th scope="col">Symbol</th>
                 <th scope="col">Quantity</th>
-                <th scope="col" class="text-right" style="width: 100px">Unit Price</th>
-                <th scope="col" class="text-right" style="width: 100px" data-bs-toggle="tooltip" title="Quantity * Unit Price">Principle Amount</th>
+                <th scope="col" class="text-right" style="min-width: 106px">Unit Price</th>
+                <th scope="col" class="text-right" style="min-width: 106px" data-bs-toggle="tooltip" title="Quantity * Unit Price">Principle Amount</th>
                 <th scope="col" class="hidden-xs">Exchange Rate</th>
-                <th scope="col" class="text-right hidden-xs" style="width: 60px">Fee</th>
-                <th scope="col" class="hidden-xs">Description</th>
+                <th scope="col" class="text-right hidden-xs" style="min-width: 65px">Fee</th>
+                <th scope="col" class="hidden-xs" style="min-width: 172px">Description</th>
                 <th scope="col" class="hidden-xs hidden-sm">Created</th>
                 <th scope="col" class="hidden-xs hidden-sm">Updated</th>
                 <th class="no-search no-sort">Actions</th>
@@ -94,5 +94,8 @@
             </tr>
         </tfoot>
     </table>
+
+    <div class="clearfix mb-4"></div>
+
 </div>
 

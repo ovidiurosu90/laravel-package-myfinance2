@@ -34,8 +34,8 @@ $(document).ready(function ()
     var $estimatedGain = $('#estimated-gain');
 
     var currencyChange = function() {
-        debitCurrency = debitCurrencySelectize.getValue();
-        creditCurrency = creditCurrencySelectize.getValue();
+        var debitCurrency = debitCurrencySelectize.getValue();
+        var creditCurrency = creditCurrencySelectize.getValue();
         if (debitCurrency && creditCurrency && debitCurrency == creditCurrency) {
             $exchangeRateInput.val(1);
         }

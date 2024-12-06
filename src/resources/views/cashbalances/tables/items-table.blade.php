@@ -4,8 +4,8 @@
             <tr>
                 <th scope="col">Id</th>
                 <th scope="col">Timestamp</th>
-                <th scope="col">Account</th>
-                <th scope="col" class="text-right" style="width: 120px">Amount</th>
+                <th scope="col" style="min-width: 118px">Account</th>
+                <th scope="col" class="text-right" style="min-width: 120px">Amount</th>
                 <th scope="col" class="hidden-xs">Description</th>
                 <th scope="col" class="hidden-xs hidden-sm">Created</th>
                 <th scope="col" class="hidden-xs hidden-sm">Updated</th>

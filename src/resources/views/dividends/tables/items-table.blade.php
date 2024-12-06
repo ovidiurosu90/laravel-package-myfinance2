@@ -6,9 +6,9 @@
                 <th scope="col">Timestamp</th>
                 <th scope="col">Account</th>
                 <th scope="col">Symbol</th>
-                <th scope="col" class="text-right" style="width: 100px">Amount</th>
-                <th scope="col" class="hidden-xs">Exchange Rate</th>
-                <th scope="col" class="text-right hidden-xs" style="width: 60px">Fee</th>
+                <th scope="col" class="text-right" style="min-width: 108px">Amount</th>
+                <th scope="col" class="hidden-xs" style="min-width: 128px">Exchange Rate</th>
+                <th scope="col" class="text-right hidden-xs" style="min-width: 74px">Fee</th>
                 <th scope="col" class="hidden-xs">Description</th>
                 <th scope="col" class="hidden-xs hidden-sm">Created</th>
                 <th scope="col" class="hidden-xs hidden-sm">Updated</th>

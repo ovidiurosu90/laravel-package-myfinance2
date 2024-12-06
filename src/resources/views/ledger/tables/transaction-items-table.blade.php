@@ -11,11 +11,11 @@
                 <th scope="col">Parent Id</th>
                 <th scope="col">Timestamp</th>
                 <th scope="col">Type</th>
-                <th scope="col">Debit Account</th>
-                <th scope="col">Credit Account</th>
-                <th scope="col" class="text-right" style="width: 65px">Amount</th>
+                <th scope="col" style="min-width: 108px">Debit Account</th>
+                <th scope="col" style="min-width: 108px">Credit Account</th>
+                <th scope="col" class="text-right" style="min-width: 96px">Amount</th>
                 <th scope="col" class="hidden-xs">Exchange Rate</th>
-                <th scope="col" class="text-right hidden-xs" style="width: 35px">Fee</th>
+                <th scope="col" class="text-right hidden-xs" style="min-width: 74px">Fee</th>
                 <th scope="col" class="hidden-xs">Description</th>
                 <th scope="col" class="hidden-xs hidden-sm">Created</th>
                 <th scope="col" class="hidden-xs hidden-sm">Updated</th>
