@@ -10,6 +10,7 @@ Route::group([
     Route::patch('trades/{id}/close', 'TradesController@close')->name('trades.close');
     Route::patch('trades/close-symbol', 'TradesController@closeSymbol')->name('trades.close-symbol');
 
+    Route::resource('currencies', 'CurrenciesController');
     Route::resource('ledger-transactions', 'LedgerTransactionsController');
     Route::resource('trades', 'TradesController');
     Route::resource('cash-balances', 'CashBalancesController');

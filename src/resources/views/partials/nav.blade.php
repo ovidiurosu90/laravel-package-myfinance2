@@ -47,6 +47,12 @@
         <a class="dropdown-item {{ Request::is('timeline') ? 'active' : null }}" href="{{ url('/timeline') }}">
             {!! trans('myfinance2::timeline.titles.dashboard') !!}
         </a>
+        <div class="dropdown-divider"></div>
+
+        <a class="dropdown-item {{ Request::is('currencies') ? 'active' : null }}"
+           href="{{ url('/currencies') }}">
+            {!! trans('myfinance2::currencies.titles.dashboard') !!}
+        </a>
     </div>
 </li>
 @endrole

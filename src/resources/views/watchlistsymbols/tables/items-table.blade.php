@@ -105,5 +105,6 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">{!! $quoteData['name'] ? $quo
             @endif
         </tbody>
     </table>
+    <div class="clearfix mb-3"></div>
 </div>
 

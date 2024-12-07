@@ -96,7 +96,6 @@
             </tr>
         </tfoot>
     </table>
+    <div class="clearfix mb-3"></div>
 </div>
-
-<div class="clearfix mb-4"></div>
 

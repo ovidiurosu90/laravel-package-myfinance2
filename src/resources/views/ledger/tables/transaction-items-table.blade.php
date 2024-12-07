@@ -65,5 +65,6 @@
             @endif
         </tbody>
     </table>
+    <div class="clearfix mb-3"></div>
 </div>
 
