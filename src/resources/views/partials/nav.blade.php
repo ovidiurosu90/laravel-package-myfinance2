@@ -53,6 +53,12 @@
            href="{{ url('/currencies') }}">
             {!! trans('myfinance2::currencies.titles.dashboard') !!}
         </a>
+        <div class="dropdown-divider"></div>
+
+        <a class="dropdown-item {{ Request::is('accounts') ? 'active' : null }}"
+           href="{{ url('/accounts') }}">
+            {!! trans('myfinance2::accounts.titles.dashboard') !!}
+        </a>
     </div>
 </li>
 @endrole

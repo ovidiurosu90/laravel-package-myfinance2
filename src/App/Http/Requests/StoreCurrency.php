@@ -55,9 +55,12 @@ class StoreCurrency extends FormRequest
             'iso_code'             => $this->iso_code,
             'display_code'         => $this->display_code,
             'name'                 => $this->name,
-            'is_ledger_currency'   => $this->is_ledger_currency ? $this->is_ledger_currency : false,
-            'is_trade_currency'    => $this->is_trade_currency ? $this->is_trade_currency : false,
-            'is_dividend_currency' => $this->is_dividend_currency ? $this->is_dividend_currency : false,
+            'is_ledger_currency'   => $this->is_ledger_currency ?
+                                        $this->is_ledger_currency : false,
+            'is_trade_currency'    => $this->is_trade_currency ?
+                                        $this->is_trade_currency : false,
+            'is_dividend_currency' => $this->is_dividend_currency ?
+                                        $this->is_dividend_currency : false,
         ];
     }
 }

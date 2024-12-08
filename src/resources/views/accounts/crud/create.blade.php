@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
-@section('template_title'){{ trans('myfinance2::general.titles.edit-item',
-                                   ['type' => 'Currency']) }}@endsection
+@section('template_title'){{ trans('myfinance2::general.titles.create-item',
+                                   ['type' => 'Account']) }}@endsection
 
 @section('template_linked_css')
     @include('myfinance2::general.partials.styles')
@@ -14,13 +14,13 @@
             <div class="col-12">
                 <div class="card card-post" id="post_card">
                     <div class="card-header">
-                        {!! trans('myfinance2::general.titles.edit-item',
-                                  ['type' => 'Currency']) !!}
+                        {!! trans('myfinance2::general.titles.create-item',
+                                  ['type' => 'Account']) !!}
                         <div class="pull-right">
-                            <a href="{{ url('currencies') }}"
+                            <a href="{{ url('accounts') }}"
                                class="btn btn-outline-secondary btn-sm float-right"
                                data-bs-toggle="tooltip" data-placement="left"
-                               title="Back to {{ trans('myfinance2::currencies.'
+                               title="Back to {{ trans('myfinance2::accounts.'
                                                  . 'titles.dashboard') }} Dashboard">
                                 <i class="fa fa-fw fa-reply-all" aria-hidden="true">
                                 </i>
@@ -28,7 +28,7 @@
                             </a>
                         </div>
                     </div>
-                    @include('myfinance2::currencies.forms.edit-item-form')
+                    @include('myfinance2::accounts.forms.create-item-form')
                 </div>
             </div>
         </div>
@@ -37,6 +37,7 @@
 @endsection
 
 @section('footer_scripts')
+    @include('myfinance2::accounts.scripts.selectize-item')
     @include('myfinance2::general.scripts.tooltips')
 @endsection
 

@@ -1,7 +1,8 @@
-<form action="{{ route('myfinance2::currencies.destroy', $id) }}" method="POST"
+<form action="{{ route('myfinance2::accounts.destroy', $id) }}" method="POST"
       accept-charset="utf-8" data-bs-toggle="tooltip"
       title="{{ trans('myfinance2::general.tooltips.delete-item',
                       ['type' => $type]) }}">
+
     {{ csrf_field() }}
     {{ method_field('DELETE') }}
 

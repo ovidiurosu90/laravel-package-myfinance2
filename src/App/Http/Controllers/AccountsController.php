@@ -5,12 +5,12 @@ namespace ovidiuro\myfinance2\App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
-use ovidiuro\myfinance2\App\Models\Currency;
-use ovidiuro\myfinance2\App\Services\CurrencyFormFields;
-use ovidiuro\myfinance2\App\Http\Requests\StoreCurrency;
-use ovidiuro\myfinance2\App\Http\Requests\UpdateCurrency;
+use ovidiuro\myfinance2\App\Models\Account;
+use ovidiuro\myfinance2\App\Services\AccountFormFields;
+use ovidiuro\myfinance2\App\Http\Requests\StoreAccount;
+use ovidiuro\myfinance2\App\Http\Requests\UpdateAccount;
 
-class CurrenciesController extends MyFinance2Controller
+class AccountsController extends MyFinance2Controller
 {
     public function __construct()
     {
@@ -24,8 +24,8 @@ class CurrenciesController extends MyFinance2Controller
      */
     public function index()
     {
-        $items = Currency::all();
-        return view('myfinance2::currencies.crud.dashboard', ['items' => $items]);
+        $items = Account::all();
+        return view('myfinance2::accounts.crud.dashboard', ['items' => $items]);
     }
 
     /**
@@ -37,28 +37,28 @@ class CurrenciesController extends MyFinance2Controller
      */
     public function create(Request $request)
     {
-        $service = new CurrencyFormFields();
+        $service = new AccountFormFields();
         $data = $service->handle(); // associative array having form fields as keys
 
-        return view('myfinance2::currencies.crud.create', $data);
+        return view('myfinance2::accounts.crud.create', $data);
     }
 
     /**
      * Store a newly created item.
      *
-     * @param \App\Http\Requests\StoreCurrency $request
+     * @param \App\Http\Requests\StoreAccount $request
      *
      * @return \Illuminate\Http\Response
      */
-    public function store(StoreCurrency $request)
+    public function store(StoreAccount $request)
     {
         $data = $request->fillData();
-        $item = Currency::create($data);
+        $item = Account::create($data);
 
-        return redirect()->route('myfinance2::currencies.index')
+        return redirect()->route('myfinance2::accounts.index')
             ->with('success',
                    trans('myfinance2::general.flash-messages.item-created',
-                         ['type' => 'Currency', 'id' => $item->id]));
+                         ['type' => 'Account', 'id' => $item->id]));
     }
 
     /**
@@ -70,31 +70,31 @@ class CurrenciesController extends MyFinance2Controller
      */
     public function edit(Request $request, $id)
     {
-        $service = new CurrencyFormFields($id);
+        $service = new AccountFormFields($id);
         $data = $service->handle(); // associative array having form fields as keys
 
-        return view('myfinance2::currencies.crud.edit', $data);
+        return view('myfinance2::accounts.crud.edit', $data);
     }
 
     /**
      * Update the specified item.
      *
-     * @param \App\Http\Requests\UpdateCurrency $request
+     * @param \App\Http\Requests\UpdateAccount $request
      * @param int                            $id
      *
      * @return \Illuminate\Http\Response
      */
-    public function update(UpdateCurrency $request, $id)
+    public function update(UpdateAccount $request, $id)
     {
         $data = $request->fillData($id);
-        $item = Currency::findOrFail($id);
+        $item = Account::findOrFail($id);
         $item->fill($data);
         $item->save();
 
-        return redirect()->route('myfinance2::currencies.index')
+        return redirect()->route('myfinance2::accounts.index')
             ->with('success',
                    trans('myfinance2::general.flash-messages.item-updated',
-                         ['type' => 'Currency', 'id' => $item->id]));
+                         ['type' => 'Account', 'id' => $item->id]));
     }
 
     /**
@@ -106,13 +106,13 @@ class CurrenciesController extends MyFinance2Controller
      */
     public function destroy($id)
     {
-        $item = Currency::findOrFail($id);
+        $item = Account::findOrFail($id);
         $item->delete();
 
-        return redirect(route('myfinance2::currencies.index'))
+        return redirect(route('myfinance2::accounts.index'))
             ->with('success',
                    trans('myfinance2::general.flash-messages.item-deleted',
-                         ['type' => 'Currency', 'id' => $item->id]));
+                         ['type' => 'Account', 'id' => $item->id]));
     }
 }
 
