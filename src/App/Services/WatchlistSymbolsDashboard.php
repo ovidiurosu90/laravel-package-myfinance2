@@ -29,8 +29,18 @@ class WatchlistSymbolsDashboard
             return [];
         }
 
+        // LOG::debug('watchlistSymbolsDictionary: '); LOG::debug($watchlistSymbolsDictionary);
         $items = $positionsData['quotes'];
         foreach ($items as $symbol => $quoteData) {
+            if (empty($watchlistSymbolsDictionary[$symbol])) {
+                // We have a trade for a symbol that is not in tnhe watchlist
+                $newWatchlistSymbol = WatchlistSymbol::create([
+                    'symbol' => $symbol,
+                    'description' => 'Automatically created due to existing trades!',
+                ]);
+                $watchlistSymbolsDictionary[$symbol] = $newWatchlistSymbol;
+
+            }
             $items[$symbol]['item'] = $watchlistSymbolsDictionary[$symbol];
             $items[$symbol]['open_positions'] = [];
 
