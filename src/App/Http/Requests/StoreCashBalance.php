@@ -5,6 +5,8 @@ namespace ovidiuro\myfinance2\App\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
+use ovidiuro\myfinance2\App\Models\Account;
+
 class StoreCashBalance extends FormRequest
 {
     /**
@@ -15,7 +17,8 @@ class StoreCashBalance extends FormRequest
     public function authorize()
     {
         if (config('cashbalances.guiCreateMiddlewareType') == 'role') {
-            return $this->user()->hasRole(config('cashbalances.guiCreateMiddleware'));
+            return $this->user()->hasRole(
+                config('cashbalances.guiCreateMiddleware'));
         }
         if (config('cashbalances.guiCreateMiddlewareType') == 'permissions') {
             return $this->user()->hasPermission(
@@ -32,16 +35,12 @@ class StoreCashBalance extends FormRequest
      */
     public function rules()
     {
+        $dbConnection = config('myfinance2.db_connection');
+        $tableName = $dbConnection . '.' . (new Account())->getTable();
+
         return [
             'timestamp'         => 'required|date_format:Y-m-d H:i:s',
-            'account'           => [
-                'required',
-                Rule::in(array_keys(config('general.trade_accounts'))),
-            ],
-            'account_currency'  => [
-                'required',
-                Rule::in(array_keys(config('general.ledger_currencies'))),
-            ],
+            'account_id'        => 'required|integer|exists:' . $tableName . ',id',
             'amount'            => 'required|numeric',
             'description'       => 'nullable|string|max:512',
         ];
@@ -56,8 +55,7 @@ class StoreCashBalance extends FormRequest
     {
         return [
             'timestamp'         => $this->timestamp,
-            'account'           => $this->account,
-            'account_currency'  => $this->account_currency,
+            'account_id'        => $this->account_id,
             'amount'            => $this->amount,
             'description'       => $this->description,
         ];

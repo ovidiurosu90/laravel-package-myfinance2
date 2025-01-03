@@ -11,7 +11,7 @@
             @foreach ($dividendCurrencies as $dividendCurrencyKey => $dividendCurrencyValue)
                 <option @if ($dividendCurrencyKey == $dividend_currency) selected @endif value="{{ $dividendCurrencyKey }}">
                     {{ $dividendCurrencyValue }}
-                </option>}
+                </option>
             @endforeach
         </select>
     </div>

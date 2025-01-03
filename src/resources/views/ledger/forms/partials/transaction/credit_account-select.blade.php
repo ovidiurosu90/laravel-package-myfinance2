@@ -8,7 +8,7 @@
             @foreach ($creditAccounts as $creditAccountKey => $creditAccount)
                 <option @if ($creditAccount == $credit_account) selected @endif value="{{ $creditAccountKey }}">
                     {{ $creditAccount }}
-                </option>}
+                </option>
             @endforeach
         </select>
     </div>

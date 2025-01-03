@@ -11,7 +11,7 @@
             @foreach ($tradeCurrencies as $tradeCurrencyKey => $tradeCurrencyValue)
                 <option @if ($tradeCurrencyKey == $trade_currency) selected @endif value="{{ $tradeCurrencyKey }}">
                     {{ $tradeCurrencyValue }}
-                </option>}
+                </option>
             @endforeach
         </select>
     </div>

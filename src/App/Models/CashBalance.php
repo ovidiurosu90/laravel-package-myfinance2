@@ -4,6 +4,8 @@ namespace ovidiuro\myfinance2\App\Models;
 
 use ovidiuro\myfinance2\App\Services\MoneyFormat;
 
+use Illuminate\Database\Eloquent\Relations\HasOne;
+
 class CashBalance extends MyFinance2Model
 {
     /**
@@ -29,6 +31,7 @@ class CashBalance extends MyFinance2Model
 
     protected $casts = [
         'id'            => 'integer',
+        'account_id'    => 'integer',
         'timestamp'     => 'datetime',
         'amount'        => 'decimal:4',
         'created_at'    => 'datetime',
@@ -38,20 +41,23 @@ class CashBalance extends MyFinance2Model
 
     protected $fillable = [
         'timestamp',
-        'account',
-        'account_currency',
+        'account_id',
         'amount',
         'description',
     ];
 
-    public function getAccount()
+    /**
+     * Get the account associated with the cash balance.
+     */
+    public function accountModel(): HasOne
     {
-        return $this->account . ' ' . $this->account_currency;
+        return $this->hasOne(Account::class, 'id', 'account_id');
     }
 
     public function getFormattedAmount()
     {
-        return MoneyFormat::get_formatted_balance($this->account_currency, $this->amount);
+        return MoneyFormat::get_formatted_balance(
+            $this->accountModel->currency->iso_code, $this->amount);
     }
 }
 

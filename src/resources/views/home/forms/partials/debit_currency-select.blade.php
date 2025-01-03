@@ -8,7 +8,7 @@
             @foreach ($debitCurrencies as $debitCurrencyKey => $debitCurrency)
                 <option value="{{ $debitCurrencyKey }}">
                     {{ $debitCurrency }}
-                </option>}
+                </option>
             @endforeach
         </select>
     </div>

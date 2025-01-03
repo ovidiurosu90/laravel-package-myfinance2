@@ -15,7 +15,7 @@ class CashBalancesDashboard
      */
     public function handle()
     {
-        $items = CashBalance::all();
+        $items = CashBalance::with('accountModel')->get();
         // LOG::debug('items'); LOG::debug($items);
 
         return $items;

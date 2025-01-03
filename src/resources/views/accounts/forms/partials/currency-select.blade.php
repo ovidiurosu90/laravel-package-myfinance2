@@ -14,7 +14,7 @@
             <option @if ($currency_id == $currency->id) selected @endif
                 value="{{ $currency->id }}">
                 {{ $currency->name }} ({!! $currency->display_code !!})
-            </option>}
+            </option>
             @endforeach
         </select>
     </div>

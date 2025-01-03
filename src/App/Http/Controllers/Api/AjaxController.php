@@ -104,26 +104,23 @@ class AjaxController extends MyFinance2Controller
      */
     public function getCashBalances(Request $request)
     {
-        if (!$request->has('account') || !$request->account) {
-            return response()->json(['message' => 'Missing parameter account!'], 422);
-        }
-        if (!$request->has('account_currency') || !$request->account_currency) {
-            return response()->json(['message' => 'Missing parameter account_currency!'], 422);
+        if (!$request->has('account_id') || !$request->account_id) {
+            return response()->json([
+                'message' => 'Missing parameter account_id!',
+            ], 422);
         }
         $timestamp = $request->has('timestamp') ? $request->timestamp : null;
-        $account = $request->account;
-        $accountCurrency = $request->account_currency;
 
-        $service = new CashBalancesUtils($account, $accountCurrency);
+        $service = new CashBalancesUtils($request->account_id);
         $cashBalances = $service->getCashBalances($timestamp);
         if (is_null($cashBalances)) {
-            return response()->json(['message' => 'Cash Balances not found!'], 400);
+            return response()->json([
+                'message' => 'Cash Balances not found!',
+            ], 400);
         }
 
-        // Log::debug($financeData);
-
         return response()->json([
-            'cash_balances' => $cashBalances
+            'cash_balances' => $cashBalances,
         ]);
     }
 }

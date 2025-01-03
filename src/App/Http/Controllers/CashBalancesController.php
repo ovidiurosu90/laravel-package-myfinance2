@@ -26,7 +26,7 @@ class CashBalancesController extends MyFinance2Controller
     public function index()
     {
         $service = new CashBalancesDashboard();
-        $items = $service->handle(); // returns an associative array (symbol => array(quote_data))
+        $items = $service->handle(); // array (symbol => array(quote_data))
         return view('myfinance2::cashbalances.crud.dashboard', ['items' => $items]);
     }
 
@@ -57,8 +57,8 @@ class CashBalancesController extends MyFinance2Controller
         $data = $request->fillData();
         $item = CashBalance::create($data);
 
-        return redirect()->route('myfinance2::cash-balances.index')
-            ->with('success', trans('myfinance2::general.flash-messages.item-created',
+        return redirect()->route('myfinance2::cash-balances.index')->with('success',
+             trans('myfinance2::general.flash-messages.item-created',
                 ['type' => 'Cash Balance', 'id' => $item->id]));
     }
 
@@ -80,8 +80,8 @@ class CashBalancesController extends MyFinance2Controller
     /**
      * Update the specified item.
      *
-     * @param \App\Http\Requests\UpdateCashBalance $request
-     * @param int                            $id
+     * @param UpdateCashBalance $request
+     * @param int               $id
      *
      * @return \Illuminate\Http\Response
      */
@@ -92,8 +92,8 @@ class CashBalancesController extends MyFinance2Controller
         $item->fill($data);
         $item->save();
 
-        return redirect()->route('myfinance2::cash-balances.index')
-            ->with('success', trans('myfinance2::general.flash-messages.item-updated',
+        return redirect()->route('myfinance2::cash-balances.index')->with('success',
+            trans('myfinance2::general.flash-messages.item-updated',
                 ['type' => 'Cash Balance', 'id' => $item->id]));
     }
 
@@ -109,9 +109,9 @@ class CashBalancesController extends MyFinance2Controller
         $item = CashBalance::findOrFail($id);
         $item->delete();
 
-        return redirect(route('myfinance2::cash-balances.index'))
-                ->with('success', trans('myfinance2::general.flash-messages.item-deleted',
-                    ['type' => 'Cash Balance', 'id' => $item->id]));
+        return redirect(route('myfinance2::cash-balances.index'))->with('success',
+            trans('myfinance2::general.flash-messages.item-deleted',
+                ['type' => 'Cash Balance', 'id' => $item->id]));
     }
 }
 

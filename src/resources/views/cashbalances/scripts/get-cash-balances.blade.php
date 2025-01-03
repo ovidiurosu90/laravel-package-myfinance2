@@ -9,7 +9,6 @@ $(document).ready(function()
 
     var $timestampInput = $('#timestamp-picker>input');
     var $accountSelect = $('#account-select');
-    var $accountCurrencySelect = $('#account_currency-select');
     var $descriptionTextarea = $('#description');
     var $infoHeader = $('#info-header');
     var $amount = $('#amount');
@@ -22,17 +21,25 @@ $(document).ready(function()
     {
         inputChange();
     });
-    $accountCurrencySelect.change(function()
-    {
-        inputChange();
-    });
     $descriptionTextarea.bind('input propertychange', function()
     {
         // console.log('description changed');
-        var numericFormula = $descriptionTextarea.val().replace(/ /g, ''); // remove spaces
-        numericFormula = numericFormula.replace(/[a-zA-Z]\.[a-zA-Z]/g, ''); // remove invalid '.'
-        numericFormula = numericFormula.replace(/[^\d.\-\+]/g, ''); // remove non-numeric
-        console.log('Numeric Formula: ' + numericFormula); //LATER Remove this after testing
+
+        // remove spaces
+        var numericFormula = $descriptionTextarea.val().replace(/ /g, '');
+
+        // remove invalid '.'
+        numericFormula = numericFormula.replace(/[a-zA-Z]\.[a-zA-Z]/g, '');
+
+        // remove invalid '-'
+        numericFormula = numericFormula.replace(/[a-zA-Z]\-[a-zA-Z]/g, '');
+
+        // remove non-numeric
+        numericFormula = numericFormula.replace(/[^\d.\-\+]/g, '');
+
+        //LATER Remove this after testing
+        console.log('Numeric Formula: ' + numericFormula);
+
         var amount = 0.0;
         try {
             amount = eval(numericFormula);
@@ -49,14 +56,13 @@ $(document).ready(function()
     var inputChange = function()
     {
         var timestamp = $timestampInput.val();
-        var account = $accountSelect[0].selectize.getValue();
-        var accountCurrency = $accountCurrencySelect[0].selectize.getValue();
+        var account_id = $accountSelect[0].selectize.getValue();
         var description = $descriptionTextarea.val();
 
-        if (!timestamp || !account || !accountCurrency || description) {
+        if (!timestamp || !account_id || description) {
             return;
         }
-        var attemptKey = timestamp + '_' + account + '_' + accountCurrency;
+        var attemptKey = timestamp + '_' + account_id;
         if (attemptKey == lastAttempt) { // Avoid making duplicate requests
             return;
         }
@@ -67,8 +73,7 @@ $(document).ready(function()
             url:  "{{ url('/get-cash-balances') }}",
             data: {
                 timestamp: timestamp,
-                account: account,
-                account_currency: accountCurrency,
+                account_id: account_id,
             },
             success: function(data, textStatus, jqXHR)
             {
@@ -94,8 +99,8 @@ $(document).ready(function()
             }
         });
 
-        // console.log('inputChange! timestamp: ' + timestamp + ', account: ' +
-        //     account + ', accountCurrency: ' + accountCurrency);
+        // console.log('inputChange! timestamp: ' + timestamp + ', account_id: ' +
+        //     account_id);
     };
 
 });

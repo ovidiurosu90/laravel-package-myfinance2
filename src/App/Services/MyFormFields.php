@@ -36,7 +36,9 @@ abstract class MyFormFields
         }
 
         foreach ($fields as $fieldName => $fieldValue) {
-            $fields[$fieldName] = old($fieldName, $fieldValue);
+            if (in_array($fieldName, $this->fieldList)) {
+                $fields[$fieldName] = old($fieldName, $fieldValue);
+            }
         }
 
         // Get the additional data for the form fields

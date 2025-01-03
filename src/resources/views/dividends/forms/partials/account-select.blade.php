@@ -8,7 +8,7 @@
             @foreach ($accounts as $accountKey => $accountValue)
                 <option @if ($accountKey == $account) selected @endif value="{{ $accountKey }}">
                     {{ $accountValue }}
-                </option>}
+                </option>
             @endforeach
         </select>
     </div>

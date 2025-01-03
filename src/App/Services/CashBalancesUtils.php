@@ -4,6 +4,7 @@ namespace ovidiuro\myfinance2\App\Services;
 
 use Illuminate\Support\Facades\Log;
 
+use ovidiuro\myfinance2\App\Models\Account;
 use ovidiuro\myfinance2\App\Models\CashBalance;
 use ovidiuro\myfinance2\App\Models\LedgerTransaction;
 use ovidiuro\myfinance2\App\Models\Trade;
@@ -17,22 +18,15 @@ class CashBalancesUtils
     private $_cashBalance;
 
     /**
-     * @var string
+     * @var Account
      */
     private $_account;
 
-    /**
-     * @var string
-     */
-    private $_accountCurrency;
-
-    public function __construct($account, $accountCurrency)
+    public function __construct($accountId)
     {
-        $this->_account = $account;
-        $this->_accountCurrency = $accountCurrency;
+        $this->_account = Account::with('currency')->findOrFail($accountId);
 
-        $this->_cashBalance = CashBalance::where('account', $this->_account)
-            ->where('account_currency', $this->_accountCurrency)
+        $this->_cashBalance = CashBalance::where('account_id', $this->_account->id)
             ->orderBy('timestamp', 'DESC')
             ->first();
     }
@@ -52,7 +46,7 @@ class CashBalancesUtils
 
     public function getFormattedCurrency()
     {
-        return MoneyFormat::get_currency_display($this->_accountCurrency);
+        return $this->_account->currency->display_code;
     }
 
     public function getFormattedDetails()
@@ -60,7 +54,8 @@ class CashBalancesUtils
         if (empty($this->_cashBalance)) {
             return '';
         }
-        $data = $this->_cashBalance->timestamp . ' ' . $this->_cashBalance->description;
+        $data = $this->_cashBalance->timestamp . ' ' .
+            $this->_cashBalance->description;
 
         return '<span class="small text-secondary">' . $data . '</span>';
     }
@@ -82,8 +77,8 @@ class CashBalancesUtils
 
         // Get all debit ledger transactions
         $ledgerTransactionsDebitWhere = [
-            ['debit_account', '=', $this->_account],
-            ['debit_currency', '=', $this->_accountCurrency],
+            ['debit_account', '=', $this->_account->name],
+            ['debit_currency', '=', $this->_account->currency->iso_code],
             ['type', '=', 'DEBIT'],
         ];
         if (!empty($timestamp)) {
@@ -111,8 +106,8 @@ class CashBalancesUtils
 
         // Get all credit ledger transactions
         $ledgerTransactionsDebitWhere = [
-            ['credit_account', '=', $this->_account],
-            ['credit_currency', '=', $this->_accountCurrency],
+            ['credit_account', '=', $this->_account->name],
+            ['credit_currency', '=', $this->_account->currency->iso_code],
             ['type', '=', 'CREDIT'],
         ];
         if (!empty($timestamp)) {
@@ -140,8 +135,8 @@ class CashBalancesUtils
 
         // Get all trades
         $tradesWhere = [
-            ['account', '=', $this->_account],
-            ['account_currency', '=', $this->_accountCurrency],
+            ['account', '=', $this->_account->name],
+            ['account_currency', '=', $this->_account->currency->iso_code],
         ];
         if (!empty($timestamp)) {
             $tradesWhere[] = ['timestamp', '<', $timestamp];
@@ -183,8 +178,8 @@ class CashBalancesUtils
 
         // Get all dividends
         $dividendsWhere = [
-            ['account', '=', $this->_account],
-            ['account_currency', '=', $this->_accountCurrency],
+            ['account', '=', $this->_account->name],
+            ['account_currency', '=', $this->_account->currency->iso_code],
         ];
         if (!empty($timestamp)) {
             $dividendsWhere[] = ['timestamp', '<', $timestamp];

@@ -5,6 +5,7 @@ namespace ovidiuro\myfinance2\App\Services;
 use Illuminate\Support\Facades\Log;
 
 use ovidiuro\myfinance2\App\Models\Trade;
+use ovidiuro\myfinance2\App\Models\Account;
 
 class PositionsDashboard
 {
@@ -219,8 +220,17 @@ class PositionsDashboard
             $accountData[$account]['total_market_value_formatted'] = MoneyFormat::get_formatted_balance(
                 $position['account_currency'], $accountData[$account]['total_market_value']);
 
-            $accountData[$account]['cash'] = new CashBalancesUtils($accountData[$account]['account'],
-                $accountData[$account]['currency']);
+
+            $currency = $accountData[$account]['currency'];
+            $myLocalAcccount = Account::where('name', $accountData[$account]['account'])
+                ->with('currency')
+                ->whereHas('currency', function($query) use ($currency)
+                {
+                    $query->where('iso_code', $currency);
+                })
+                ->first();
+
+            $accountData[$account]['cash'] = new CashBalancesUtils($myLocalAcccount->id);
         }
 
         return [

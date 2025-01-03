@@ -4,7 +4,7 @@
             <tr>
                 <th scope="col">Id</th>
                 <th scope="col">Timestamp</th>
-                <th scope="col" style="min-width: 118px">Account</th>
+                <th scope="col" style="min-width: 128px">Account</th>
                 <th scope="col" class="text-right" style="min-width: 120px">Amount</th>
                 <th scope="col" class="hidden-xs">Description</th>
                 <th scope="col" class="hidden-xs hidden-sm">Created</th>
@@ -19,7 +19,7 @@
                     <tr>
                         <td>{{ $item->id }}</td>
                         <td>{{ $item->timestamp }}</td>
-                        <td>{{ $item->getAccount() }}</td>
+                        <td>{{ $item->accountModel->name }} ({!! $item->accountModel->currency->display_code !!})</td>
                         <td class="text-right pr-2">
                             <div data-bs-toggle="tooltip" title="Amount in account currency">{!! $item->getFormattedAmount() !!}</div>
                         </td>
@@ -27,7 +27,10 @@
                         <td class="hidden-xs hidden-sm">{{ $item->created_at }}</td>
                         <td class="hidden-xs hidden-sm">{{ $item->updated_at }}</td>
                         <td>
-                            <a class="btn btn-sm btn-outline-secondary btn-block" href="{{ route('myfinance2::cash-balances.edit', $item->id) }}" data-bs-toggle="tooltip" title="{{ trans('myfinance2::general.tooltips.edit-item', ['type' => 'Cash Balance']) }}">
+                            <a class="btn btn-sm btn-outline-secondary btn-block"
+                                href="{{ route('myfinance2::cash-balances.edit', $item->id) }}"
+                                data-bs-toggle="tooltip"
+                                title="{{ trans('myfinance2::general.tooltips.edit-item', ['type' => 'Cash Balance']) }}">
                                 {!! trans('myfinance2::general.buttons.edit') !!}
                             </a>
                         </td>

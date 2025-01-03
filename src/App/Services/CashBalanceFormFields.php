@@ -3,6 +3,7 @@
 namespace ovidiuro\myfinance2\App\Services;
 
 use ovidiuro\myfinance2\App\Models\CashBalance;
+use ovidiuro\myfinance2\App\Models\Account;
 
 class CashBalanceFormFields extends MyFormFields
 {
@@ -14,11 +15,10 @@ class CashBalanceFormFields extends MyFormFields
      * @var array
      */
     protected $fieldList = [
-        'timestamp'         => '',
-        'account'           => '',
-        'account_currency'  => '',
-        'amount'            => '',
-        'description'       => '',
+        'timestamp'   => '',
+        'account_id'  => null,
+        'amount'      => '',
+        'description' => '',
     ];
 
     /**
@@ -29,9 +29,34 @@ class CashBalanceFormFields extends MyFormFields
     protected function formFieldData()
     {
         return [
-            'accounts'           => config('general.trade_accounts'),
-            'accountCurrencies'  => config('general.ledger_currencies'),
+            'accounts' => Account::with('currency')
+                            ->where('is_trade_account', 1)->get(),
         ];
+    }
+
+    /**
+     * Return the field values from the model.
+     *
+     * @param int   $id
+     * @param array $fields
+     *
+     * @return array
+     */
+    protected function fieldsFromModel($id, array $fields)
+    {
+        $item = CashBalance::with('accountModel')->findOrFail($id);
+
+        $fieldNames = array_keys($fields);
+
+        $fields = [
+            'id'           => $id,
+            'accountModel' => $item->accountModel,
+        ];
+        foreach ($fieldNames as $field) {
+            $fields[$field] = $item->{$field};
+        }
+
+        return $fields;
     }
 }
 
