@@ -30,7 +30,7 @@
                     @foreach($dividends as $account => $symbols)
                         @foreach($symbols as $symbol => $totals)
                         <tr>
-                            <th scope="row">{{ $account }}</th>
+                            <th scope="row">{!! $account !!}</th>
                             <th scope="row">{{ $symbol }}</th>
                             <td class="text-right">{!! ovidiuro\myfinance2\App\Services\MoneyFormat::get_formatted_gain($totals['account_currency'], $totals['total_gain_in_account_currency']) !!}</td>
                         </tr>

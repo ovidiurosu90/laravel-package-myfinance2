@@ -33,7 +33,7 @@ class CashBalancesController extends MyFinance2Controller
     /**
      * Show the form for creating an item.
      *
-     * @param \Illuminate\Http\Request $request
+     * @param Request $request
      *
      * @return \Illuminate\Http\Response
      */
@@ -48,7 +48,7 @@ class CashBalancesController extends MyFinance2Controller
     /**
      * Store a newly created item.
      *
-     * @param \App\Http\Requests\StoreCashBalance $request
+     * @param StoreCashBalance $request
      *
      * @return \Illuminate\Http\Response
      */

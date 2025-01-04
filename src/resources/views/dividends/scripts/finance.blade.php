@@ -1,6 +1,13 @@
 <script type="module">
 $(document).ready(function()
 {
+    var dividendCurrencies = {!! json_encode($dividendCurrencies) !!};
+    var dividendCurrenciesByIsoCode = {};
+    for (let i in dividendCurrencies) {
+        dividendCurrenciesByIsoCode[dividendCurrencies[i]['iso_code']] =
+            dividendCurrencies[i];
+    }
+
     $.ajaxSetup({
         headers: {
             'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
@@ -13,7 +20,8 @@ $(document).ready(function()
     var $fetchedSymbolName       = $('#fetched-symbol-name');
     var $fetchedDividendCurrency = $('#fetched-dividend-currency');
 
-    $getFinanceData.click(function() {
+    $getFinanceData.click(function()
+    {
         $.ajax({
             type: 'GET',
             url:  "{{ url('/get-finance-data') }}",
@@ -21,7 +29,8 @@ $(document).ready(function()
                 symbol: $symbolInput.val(),
                 timestamp: $timestampPickerInput.val(),
             },
-            success: function(data, textStatus, jqXHR) {
+            success: function(data, textStatus, jqXHR)
+            {
                 $getFinanceData.addClass('text-success');
                 $getFinanceData.removeClass('text-danger');
                 $getFinanceData.attr('data-bs-original-title', 'Get Finance Data');
@@ -33,18 +42,14 @@ $(document).ready(function()
                 $fetchedDividendCurrency.show();
 
                 // Populating the account currency
-                var currency = data.currency;
-                var currenciesMapping = {!! json_encode(config('general.currencies_mapping')) !!};
-                if (currency in currenciesMapping) {
-                    currency = currenciesMapping[currency];
-                }
                 var $select = $('#dividend_currency-select').selectize();
                 var selectize = $select[0].selectize;
-                selectize.setValue(currency);
+                selectize.setValue(dividendCurrenciesByIsoCode[data.currency]['id']);
 
                 // console.log(data);
             },
-            error: function(jqXHR, textStatus, errorThrown) {
+            error: function(jqXHR, textStatus, errorThrown)
+            {
                 $getFinanceData.addClass('text-danger');
                 $getFinanceData.removeClass('text-success');
                 $getFinanceData.attr('data-bs-original-title', jqXHR.responseJSON.message);

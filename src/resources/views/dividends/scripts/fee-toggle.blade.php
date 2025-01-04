@@ -25,7 +25,8 @@ $(document).ready(function ()
 
     var $accountCurrencyLabelTooltip = $("#account_currency-label-tooltip");
 
-    $feeCurrencyToggle.on("my-reset", function() {
+    $feeCurrencyToggle.on("my-reset", function()
+    {
         $feeCurrencyToggle.bootstrapToggle('destroy');
         $feeCurrencyToggle.bootstrapToggle();
 
@@ -40,7 +41,8 @@ $(document).ready(function ()
     });
     $feeCurrencyToggle.trigger("my-reset");
 
-    $feeCurrencyToggle.change(function() {
+    $feeCurrencyToggle.change(function()
+    {
         $feeInput.toggle();
         $feeDividendCurrencyInput.toggle();
         if ($feeCurrencyToggle.prop('checked')) {
@@ -50,7 +52,8 @@ $(document).ready(function ()
         }
     });
 
-    $feeInput.change(function() {
+    $feeInput.change(function()
+    {
         if ($feeInput.val() && $exchangeRateInput.val()) {
             var value = $feeInput.val() * $exchangeRateInput.val();
             $feeDividendCurrencyInput.val(value.toFixed(2));
@@ -59,7 +62,8 @@ $(document).ready(function ()
         }
     });
 
-    $feeDividendCurrencyInput.change(function() {
+    $feeDividendCurrencyInput.change(function()
+    {
         if ($feeDividendCurrencyInput.val() && $exchangeRateInput.val()) {
             var value = $feeDividendCurrencyInput.val() / $exchangeRateInput.val();
             $feeInput.val(value.toFixed(2));
@@ -68,7 +72,8 @@ $(document).ready(function ()
         }
     });
 
-    $exchangeRateInput.change(function() {
+    $exchangeRateInput.change(function()
+    {
         $feeInput.val("");
         $feeDividendCurrencyInput.val("");
     });

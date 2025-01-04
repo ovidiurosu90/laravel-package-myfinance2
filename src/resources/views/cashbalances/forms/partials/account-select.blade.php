@@ -8,10 +8,10 @@
             <option value="">{{ trans('myfinance2::cashbalances.forms.item-form.'
                                       . 'account.placeholder') }}</option>
             @foreach ($accounts as $account)
-                <option @if ($account_id == $account->id) selected @endif
-                    value="{{ $account->id }}">
-                    {{ $account->name }} ({!! $account->currency->display_code !!})
-                </option>
+            <option @if ($account_id == $account->id) selected @endif
+                value="{{ $account->id }}">
+                {{ $account->name }} ({!! $account->currency->display_code !!})
+            </option>
             @endforeach
         </select>
     </div>

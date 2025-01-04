@@ -222,8 +222,8 @@ class PositionsDashboard
 
 
             $currency = $accountData[$account]['currency'];
-            $myLocalAcccount = Account::where('name', $accountData[$account]['account'])
-                ->with('currency')
+            $myLocalAcccount = Account::with('currency')
+                ->where('name', $accountData[$account]['account'])
                 ->whereHas('currency', function($query) use ($currency)
                 {
                     $query->where('iso_code', $currency);

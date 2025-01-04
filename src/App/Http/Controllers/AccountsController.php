@@ -24,7 +24,7 @@ class AccountsController extends MyFinance2Controller
      */
     public function index()
     {
-        $items = Account::all();
+        $items = Account::with('currency')->get();
         return view('myfinance2::accounts.crud.dashboard', ['items' => $items]);
     }
 

@@ -24,14 +24,14 @@ class DividendsController extends MyFinance2Controller
      */
     public function index()
     {
-        $items = Dividend::all();
+        $items = Dividend::with('accountModel', 'dividendCurrencyModel')->get();
         return view('myfinance2::dividends.crud.dashboard', ['items' => $items]);
     }
 
     /**
      * Show the form for creating an item.
      *
-     * @param \Illuminate\Http\Request $request
+     * @param Request $request
      *
      * @return \Illuminate\Http\Response
      */
@@ -46,7 +46,7 @@ class DividendsController extends MyFinance2Controller
     /**
      * Store a newly created item.
      *
-     * @param \App\Http\Requests\StoreDividend $request
+     * @param StoreDividend $request
      *
      * @return \Illuminate\Http\Response
      */
@@ -78,8 +78,8 @@ class DividendsController extends MyFinance2Controller
     /**
      * Update the specified item.
      *
-     * @param \App\Http\Requests\UpdateDividend $request
-     * @param int                            $id
+     * @param UpdateDividend $request
+     * @param int            $id
      *
      * @return \Illuminate\Http\Response
      */
@@ -90,8 +90,8 @@ class DividendsController extends MyFinance2Controller
         $item->fill($data);
         $item->save();
 
-        return redirect()->route('myfinance2::dividends.index')
-            ->with('success', trans('myfinance2::general.flash-messages.item-updated',
+        return redirect()->route('myfinance2::dividends.index')->with('success',
+            trans('myfinance2::general.flash-messages.item-updated',
                 ['type' => 'Dividend', 'id' => $item->id]));
     }
 
@@ -107,9 +107,9 @@ class DividendsController extends MyFinance2Controller
         $item = Dividend::findOrFail($id);
         $item->delete();
 
-        return redirect(route('myfinance2::dividends.index'))
-                ->with('success', trans('myfinance2::general.flash-messages.item-deleted',
-                    ['type' => 'Dividend', 'id' => $item->id]));
+        return redirect(route('myfinance2::dividends.index'))->with('success',
+            trans('myfinance2::general.flash-messages.item-deleted',
+                ['type' => 'Dividend', 'id' => $item->id]));
     }
 }
 

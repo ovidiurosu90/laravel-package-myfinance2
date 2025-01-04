@@ -59,11 +59,13 @@ class TimelineDashboard
             ];
         }
 
-        $dividends = Dividend::all();
+        $dividends = Dividend::with('accountModel', 'dividendCurrencyModel')->get();
         foreach ($dividends as $dividend) {
             $items[] = [
                 'row_label' => 'Dividend',
-                'bar_label' => $dividend->getAccount() . ' ' . $dividend->symbol . ' => ' . $dividend->amount,
+                'bar_label' => $dividend->accountModel->name . ' (' .
+                               $dividend->accountModel->currency->iso_code .
+                               ') ' . $dividend->symbol . ' => ' . $dividend->amount,
                 'tooltip'   => view('myfinance2::timeline.partials.dividend-tooltip', ['dividend' => $dividend]),
                 'start'     => $dividend->timestamp,
                 'end'       => $dividend->timestamp,

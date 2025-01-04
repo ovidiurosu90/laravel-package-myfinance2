@@ -21,7 +21,10 @@ class PositionsController extends MyFinance2Controller
     public function index()
     {
         $service = new PositionsDashboard();
-        $data = $service->handle(); // returns an associative array with items grouped by account and account data
+
+        // array with items grouped by account and account data
+        $data = $service->handle();
+
         return view('myfinance2::positions.dashboard', $data);
     }
 }

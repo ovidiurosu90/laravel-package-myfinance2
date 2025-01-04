@@ -17,7 +17,7 @@ function drawChart()
     dataTable.addColumn({ type: 'date', id: 'End' });
     dataTable.addRows([
     @foreach($items as $item)
-        ['{{ $item['row_label'] }}', '{!! $item['bar_label'] !!}', `{!! $item['tooltip'] !!}`, new Date('{{ $item['start'] }}'), new Date('{{ $item['end'] }}')],
+        ['{{ $item['row_label'] }}', `{!! $item['bar_label'] !!}`, `{!! $item['tooltip'] !!}`, new Date('{{ $item['start'] }}'), new Date('{{ $item['end'] }}')],
     @endforeach
     ]);
     var options = {

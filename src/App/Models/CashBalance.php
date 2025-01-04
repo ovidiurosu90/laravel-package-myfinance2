@@ -31,8 +31,8 @@ class CashBalance extends MyFinance2Model
 
     protected $casts = [
         'id'            => 'integer',
-        'account_id'    => 'integer',
         'timestamp'     => 'datetime',
+        'account_id'    => 'integer',
         'amount'        => 'decimal:4',
         'created_at'    => 'datetime',
         'updated_at'    => 'datetime',
@@ -51,7 +51,8 @@ class CashBalance extends MyFinance2Model
      */
     public function accountModel(): HasOne
     {
-        return $this->hasOne(Account::class, 'id', 'account_id');
+        return $this->hasOne(Account::class, 'id', 'account_id')
+            ->with('currency');
     }
 
     public function getFormattedAmount()

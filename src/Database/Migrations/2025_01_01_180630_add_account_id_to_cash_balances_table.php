@@ -49,12 +49,12 @@ return new class extends Migration
                 FROM `$accountsTable` a
                 LEFT OUTER JOIN `$currenciesTable` c ON a.currency_id = c.id
                     AND a.user_id = c.user_id
-                RIGHT OUTER JOIN `$table` cb on a.name = cb.account
+                RIGHT OUTER JOIN `$table` cb ON a.name = cb.account
                     AND c.iso_code = cb.account_currency
                     AND cb.user_id = a.user_id
             ) as myjoin
             SET ucb.account_id = myjoin.account_id
-            WHERE myjoin.cash_balance_id = ucb.id
+            WHERE myjoin.cash_balance_id = ucb.id;
         ");
     }
 

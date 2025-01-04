@@ -26,7 +26,8 @@ class CashBalancesUtils
     {
         $this->_account = Account::with('currency')->findOrFail($accountId);
 
-        $this->_cashBalance = CashBalance::where('account_id', $this->_account->id)
+        $this->_cashBalance = CashBalance::with('accountModel')
+            ->where('account_id', $this->_account->id)
             ->orderBy('timestamp', 'DESC')
             ->first();
     }
@@ -178,8 +179,7 @@ class CashBalancesUtils
 
         // Get all dividends
         $dividendsWhere = [
-            ['account', '=', $this->_account->name],
-            ['account_currency', '=', $this->_account->currency->iso_code],
+            ['account_id', '=', $this->_account->id],
         ];
         if (!empty($timestamp)) {
             $dividendsWhere[] = ['timestamp', '<', $timestamp];
@@ -189,8 +189,8 @@ class CashBalancesUtils
                 'timestamp', '>=', $this->_cashBalance->timestamp
             ];
         }
-        $dividends = Dividend
-            ::where($dividendsWhere)
+        $dividends = Dividend::with('accountModel', 'dividendCurrencyModel')
+            ->where($dividendsWhere)
             ->orderBy('timestamp', 'ASC')
             ->get();
         // Log::debug($dividends);

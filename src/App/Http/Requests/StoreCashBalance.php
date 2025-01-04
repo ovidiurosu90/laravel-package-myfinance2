@@ -39,10 +39,10 @@ class StoreCashBalance extends FormRequest
         $tableName = $dbConnection . '.' . (new Account())->getTable();
 
         return [
-            'timestamp'         => 'required|date_format:Y-m-d H:i:s',
-            'account_id'        => 'required|integer|exists:' . $tableName . ',id',
-            'amount'            => 'required|numeric',
-            'description'       => 'nullable|string|max:512',
+            'timestamp'   => 'required|date_format:Y-m-d H:i:s',
+            'account_id'  => 'required|integer|exists:' . $tableName . ',id',
+            'amount'      => 'required|numeric',
+            'description' => 'nullable|string|max:512',
         ];
     }
 
@@ -54,10 +54,10 @@ class StoreCashBalance extends FormRequest
     public function fillData()
     {
         return [
-            'timestamp'         => $this->timestamp,
-            'account_id'        => $this->account_id,
-            'amount'            => $this->amount,
-            'description'       => $this->description,
+            'timestamp'   => $this->timestamp,
+            'account_id'  => $this->account_id,
+            'amount'      => $this->amount,
+            'description' => $this->description,
         ];
     }
 }

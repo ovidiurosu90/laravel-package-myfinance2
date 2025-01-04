@@ -10,7 +10,9 @@
         </tr>
         <tr>
             <th scope="row">Account</th>
-            <td>{{ $dividend->getAccount() }}</td>
+            <td>{{ $dividend->accountModel->name }}
+                ({!! $dividend->accountModel->currency->display_code !!})
+            </td>
         </tr>
         <tr>
             <th scope="row">Symbol</th>
