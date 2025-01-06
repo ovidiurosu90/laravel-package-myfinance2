@@ -74,7 +74,10 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">{!! $quoteData['name'] ? $quo
                                 <div class="col-sm">
                                     <div class="card">
                                         <div class="card-body">
-                                            <div class="card-title">Acc: {{ $openPosition['account'] }}</div>
+                                            <div class="card-title">Acc:
+                                                {{ $openPosition['accountModel']->name }}
+                                                ({!! $openPosition['accountModel']->currency->display_code !!})
+                                            </div>
                                             <div class="card-text">
                                                 Quantity: {{ $openPosition['quantity'] }}<br />
                                                 Cost: {!! $openPosition['cost_in_account_currency'] !!}<br />

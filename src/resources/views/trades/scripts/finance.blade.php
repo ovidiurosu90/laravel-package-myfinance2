@@ -1,6 +1,13 @@
 <script type="module">
 $(document).ready(function()
 {
+    var tradeCurrencies = {!! json_encode($tradeCurrencies) !!};
+    var tradeCurrenciesByIsoCode = {};
+    for (let i in tradeCurrencies) {
+        tradeCurrenciesByIsoCode[tradeCurrencies[i]['iso_code']] =
+            tradeCurrencies[i];
+    }
+
     $.ajaxSetup({
         headers: {
             'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
@@ -17,7 +24,6 @@ $(document).ready(function()
 
     var $actionSelect          = $('#action-select');
     var $accountSelect         = $('#account-select');
-    var $accountCurrencySelect = $('#account_currency-select');
 
     var $quantityInput         = $('#quantity-input');
     var $editTradeForm         = $('#edit-trade-form');
@@ -32,8 +38,7 @@ $(document).ready(function()
 
                 // Used for SELL
                 trade_id: $editTradeForm.find('[name="id"]').val(),
-                account: $accountSelect.val(),
-                account_currency: $accountCurrencySelect.val()
+                account_id: $accountSelect.val()
             },
             success: function(data, textStatus, jqXHR) {
                 $getFinanceData.addClass('text-success');
@@ -46,18 +51,13 @@ $(document).ready(function()
                 $fetchedTradeCurrency.find('span').text(data.currency);
                 $fetchedTradeCurrency.show();
 
-                // Populating the account currency
-                var currency = data.currency;
-                var currenciesMapping = {!! json_encode(config('general.currencies_mapping')) !!};
-                if (currency in currenciesMapping) {
-                    currency = currenciesMapping[currency];
-                }
                 var $select = $('#trade_currency-select').selectize();
                 var selectize = $select[0].selectize;
-                selectize.setValue(currency);
+                selectize.setValue(tradeCurrenciesByIsoCode[data.currency]['id']);
 
                 $fetchedUnitPrice.find('span').text(data.price);
-                $fetchedUnitPrice.find('span').attr('data-bs-original-title', data.quote_timestamp);
+                $fetchedUnitPrice.find('span').attr('data-bs-original-title',
+                    data.quote_timestamp);
                 $fetchedUnitPrice.show();
 
                 if (data.available_quantity != null) {
@@ -72,7 +72,8 @@ $(document).ready(function()
             error: function(jqXHR, textStatus, errorThrown) {
                 $getFinanceData.addClass('text-danger');
                 $getFinanceData.removeClass('text-success');
-                $getFinanceData.attr('data-bs-original-title', jqXHR.responseJSON.message);
+                $getFinanceData.attr('data-bs-original-title',
+                    jqXHR.responseJSON.message);
 
                 $fetchedSymbolName.find('span').text('');
                 $fetchedSymbolName.hide();

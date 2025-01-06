@@ -41,7 +41,6 @@ $(document).ready(function()
                 $fetchedDividendCurrency.find('span').text(data.currency);
                 $fetchedDividendCurrency.show();
 
-                // Populating the account currency
                 var $select = $('#dividend_currency-select').selectize();
                 var selectize = $select[0].selectize;
                 selectize.setValue(dividendCurrenciesByIsoCode[data.currency]['id']);
@@ -52,7 +51,8 @@ $(document).ready(function()
             {
                 $getFinanceData.addClass('text-danger');
                 $getFinanceData.removeClass('text-success');
-                $getFinanceData.attr('data-bs-original-title', jqXHR.responseJSON.message);
+                $getFinanceData.attr('data-bs-original-title',
+                    jqXHR.responseJSON.message);
 
                 $fetchedSymbolName.find('span').text('');
                 $fetchedSymbolName.hide();
@@ -64,7 +64,6 @@ $(document).ready(function()
             }
         });
     });
-
 });
 </script>
 

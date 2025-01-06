@@ -5,6 +5,9 @@ namespace ovidiuro\myfinance2\App\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
+use ovidiuro\myfinance2\App\Models\Account;
+use ovidiuro\myfinance2\App\Models\Currency;
+
 use ovidiuro\myfinance2\App\Rules\TradeQuantityIsAvailable;
 
 class StoreTrade extends FormRequest
@@ -17,10 +20,12 @@ class StoreTrade extends FormRequest
     public function authorize()
     {
         if (config('trades.guiCreateMiddlewareType') == 'role') {
-            return $this->user()->hasRole(config('trades.guiCreateMiddleware'));
+            return $this->user()->hasRole(
+                config('trades.guiCreateMiddleware'));
         }
         if (config('trades.guiCreateMiddlewareType') == 'permissions') {
-            return $this->user()->hasPermission(config('trades.guiCreateMiddleware'));
+            return $this->user()->hasPermission(
+                config('trades.guiCreateMiddleware'));
         }
 
         return false;
@@ -33,35 +38,31 @@ class StoreTrade extends FormRequest
      */
     public function rules()
     {
+        $dbConnection = config('myfinance2.db_connection');
+        $accountsTableName = $dbConnection . '.' . (new Account())->getTable();
+        $currenciesTableName = $dbConnection . '.' . (new Currency())->getTable();
+
         return [
-            'timestamp'        => 'required|date_format:Y-m-d H:i:s',
-            'action'           => [
+            'timestamp'         => 'required|date_format:Y-m-d H:i:s',
+            'account_id'        => 'required|integer|exists:' .
+                                        $accountsTableName . ',id',
+            'trade_currency_id' => 'required|integer|exists:' .
+                                        $currenciesTableName . ',id',
+            'action'            => [
                 'required',
                 Rule::in(array_keys(config('trades.actions'))),
             ],
-            'account'          => [
-                'required',
-                Rule::in(array_keys(config('general.trade_accounts'))),
-            ],
-            'account_currency' => [
-                'required',
-                Rule::in(array_keys(config('general.ledger_currencies'))),
-            ],
-            'trade_currency'   => [
-                'required',
-                Rule::in(array_keys(config('general.trade_currencies'))),
-            ],
-            'exchange_rate'    => 'required|numeric',
-            'symbol'           => 'required|string|max:16',
-            'quantity'         => [
+            'exchange_rate'     => 'required|numeric',
+            'symbol'            => 'required|string|max:16',
+            'quantity'          => [
                 'required',
                 'numeric',
-                new TradeQuantityIsAvailable($this->id, $this->timestamp, $this->action,
-                    $this->account, $this->account_currency, $this->symbol),
+                new TradeQuantityIsAvailable($this->id, $this->timestamp,
+                    $this->action, $this->account_id, $this->symbol),
             ],
-            'unit_price'       => 'required|numeric',
-            'fee'              => 'required|numeric',
-            'description'      => 'nullable|string|max:512',
+            'unit_price'        => 'required|numeric',
+            'fee'               => 'required|numeric',
+            'description'       => 'nullable|string|max:512',
         ];
     }
 
@@ -73,17 +74,16 @@ class StoreTrade extends FormRequest
     public function fillData()
     {
         return [
-            'timestamp'        => $this->timestamp,
-            'action'           => $this->action,
-            'account'          => $this->account,
-            'account_currency' => $this->account_currency,
-            'trade_currency'   => $this->trade_currency,
-            'exchange_rate'    => $this->exchange_rate,
-            'symbol'           => $this->symbol,
-            'quantity'         => $this->quantity,
-            'unit_price'       => $this->unit_price,
-            'fee'              => $this->fee,
-            'description'      => $this->description,
+            'timestamp'         => $this->timestamp,
+            'account_id'        => $this->account_id,
+            'trade_currency_id' => $this->trade_currency_id,
+            'action'            => $this->action,
+            'exchange_rate'     => $this->exchange_rate,
+            'symbol'            => $this->symbol,
+            'quantity'          => $this->quantity,
+            'unit_price'        => $this->unit_price,
+            'fee'               => $this->fee,
+            'description'       => $this->description,
         ];
     }
 }

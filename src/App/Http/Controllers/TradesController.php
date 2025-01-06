@@ -25,14 +25,14 @@ class TradesController extends MyFinance2Controller
      */
     public function index()
     {
-        $items = Trade::all();
+        $items = Trade::with('accountModel', 'tradeCurrencyModel')->get();
         return view('myfinance2::trades.crud.dashboard', ['items' => $items]);
     }
 
     /**
      * Show the form for creating an item.
      *
-     * @param \Illuminate\Http\Request $request
+     * @param Request $request
      *
      * @return \Illuminate\Http\Response
      */
@@ -47,7 +47,7 @@ class TradesController extends MyFinance2Controller
     /**
      * Store a newly created item.
      *
-     * @param \App\Http\Requests\StoreTrade $request
+     * @param StoreTrade $request
      *
      * @return \Illuminate\Http\Response
      */
@@ -56,8 +56,8 @@ class TradesController extends MyFinance2Controller
         $data = $request->fillData();
         $item = Trade::create($data);
 
-        return redirect()->route('myfinance2::trades.index')
-            ->with('success', trans('myfinance2::general.flash-messages.item-created',
+        return redirect()->route('myfinance2::trades.index')->with('success',
+            trans('myfinance2::general.flash-messages.item-created',
                 ['type' => 'Trade', 'id' => $item->id]));
     }
 
@@ -79,8 +79,8 @@ class TradesController extends MyFinance2Controller
     /**
      * Update the specified item.
      *
-     * @param \App\Http\Requests\UpdateTrade $request
-     * @param int                            $id
+     * @param UpdateTrade $request
+     * @param int         $id
      *
      * @return \Illuminate\Http\Response
      */
@@ -91,8 +91,8 @@ class TradesController extends MyFinance2Controller
         $item->fill($data);
         $item->save();
 
-        return redirect()->route('myfinance2::trades.index')
-            ->with('success', trans('myfinance2::general.flash-messages.item-updated',
+        return redirect()->route('myfinance2::trades.index')->with('success',
+            trans('myfinance2::general.flash-messages.item-updated',
                 ['type' => 'Trade', 'id' => $item->id]));
     }
 
@@ -108,9 +108,9 @@ class TradesController extends MyFinance2Controller
         $item = Trade::findOrFail($id);
         $item->delete();
 
-        return redirect(route('myfinance2::trades.index'))
-                ->with('success', trans('myfinance2::general.flash-messages.item-deleted',
-                    ['type' => 'Trade', 'id' => $item->id]));
+        return redirect(route('myfinance2::trades.index'))->with('success',
+            trans('myfinance2::general.flash-messages.item-deleted',
+                ['type' => 'Trade', 'id' => $item->id]));
     }
 
     /**
@@ -126,28 +126,28 @@ class TradesController extends MyFinance2Controller
         $item->status = 'CLOSED';
         $item->save();
 
-        return redirect(route('myfinance2::trades.index'))
-                ->with('success', trans('myfinance2::trades.flash-messages.trade-closed',
-                    ['id' => $item->id]));
+        return redirect(route('myfinance2::trades.index'))->with('success',
+            trans('myfinance2::trades.flash-messages.trade-closed',
+                ['id' => $item->id]));
     }
 
     /**
      * Close all that match the parameters in the request.
      *
-     * @param \App\Http\Requests\CloseTrades $request
+     * @param CloseTrades $request
      *
      * @return \Illuminate\Http\Response
      */
     public function closeSymbol(CloseTrades $request)
     {
-        $numUpdated = Trade::where('account', $request->account)
-            ->where('account_currency', $request->account_currency)
+        $numUpdated = Trade::where('account_id', $request->account_id)
             ->where('symbol', $request->symbol)
             ->where('status', 'OPEN')
             ->update(['status' => 'CLOSED']);
 
-        return redirect(url('/positions'))
-                ->with('success', trans_choice('myfinance2::trades.flash-messages.trades-closed', $numUpdated));
+        return redirect(url('/positions'))->with('success',
+            trans_choice('myfinance2::trades.flash-messages.trades-closed',
+                $numUpdated));
     }
 }
 

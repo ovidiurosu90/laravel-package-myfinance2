@@ -6,7 +6,10 @@
         </tr>
         <tr>
             <th scope="row">Timestamp</th>
-            <td>{{ $dividend->timestamp->format(trans('myfinance2::general.datetime-format')) }}</td>
+            <td>
+                {{ $dividend->timestamp
+                    ->format(trans('myfinance2::general.datetime-format')) }}
+            </td>
         </tr>
         <tr>
             <th scope="row">Account</th>
@@ -22,7 +25,8 @@
             <th scope="row">Amount</th>
             <td>
                 {!! $dividend->getFormattedAmount() !!}
-                @if($dividend->account_currency != $dividend->dividend_currency)
+                @if($dividend->accountModel->currency->iso_code !=
+                    $dividend->dividendCurrencyModel->iso_code)
                 <br />{!! $dividend->getFormattedAmountInAccountCurrency() !!}
                 @endif
             </td>

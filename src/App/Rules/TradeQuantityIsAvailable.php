@@ -26,14 +26,9 @@ class TradeQuantityIsAvailable implements Rule
     private $_action;
 
     /**
-     * @var string
+     * @var integer
      */
-    private $_account;
-
-    /**
-     * @var string
-     */
-    private $_accountCurrency;
+    private $_accountId;
 
     /**
      * @var string
@@ -44,18 +39,16 @@ class TradeQuantityIsAvailable implements Rule
      * @param integer $id
      * @param string  $timestamp
      * @param string  $action
-     * @param string  $account
-     * @param string  $accountCurrency
+     * @param string  $account_id
      * @param string  $symbol
      */
-    public function __construct($id, $timestamp, $action, $account, $accountCurrency, $symbol)
+    public function __construct($id, $timestamp, $action, $account_id, $symbol)
     {
-        $this->_id              = $id;
-        $this->_timestamp       = $timestamp;
-        $this->_action          = $action;
-        $this->_account         = $account;
-        $this->_accountCurrency = $accountCurrency;
-        $this->_symbol          = $symbol;
+        $this->_id         = $id;
+        $this->_timestamp  = $timestamp;
+        $this->_action     = $action;
+        $this->_account_id = $account_id;
+        $this->_symbol     = $symbol;
     }
 
     /**
@@ -74,7 +67,7 @@ class TradeQuantityIsAvailable implements Rule
 
         $financeUtils = new FinanceUtils();
         $availableQuantity = $financeUtils->getAvailableQuantity($this->_symbol,
-            $this->_account, $this->_accountCurrency, $this->_timestamp, $this->_id);
+            $this->_account_id, $this->_timestamp, $this->_id);
 
         if ($value > $availableQuantity) {
             return false;
@@ -90,7 +83,8 @@ class TradeQuantityIsAvailable implements Rule
      */
     public function message()
     {
-        return 'The :attribute is invalid as it is bigger than the available quantity.';
+        return 'The :attribute is invalid as it is bigger than '
+            . 'the available quantity.';
     }
 }
 

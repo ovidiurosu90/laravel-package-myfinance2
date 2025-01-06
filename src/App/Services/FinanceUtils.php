@@ -18,8 +18,10 @@ class FinanceUtils
     {
         //NOTE Sometimes we get an GuzzleHttp\Exception\ClientException
         /*
-        Client error: `GET https://query2.finance.yahoo.com/v1/test/getcrumb` resulted in a `401 Unauthorized`
-        response: {"finance":{"result":null,"error":{"code":"Unauthorized","description":"Invalid Cookie"}}}
+        Client error: `GET https://query2.finance.yahoo.com/v1/test/getcrumb`
+            resulted in a `401 Unauthorized`
+        response: {"finance":{"result":null,"error":{"code":"Unauthorized",
+            "description":"Invalid Cookie"}}}
         */
         if (empty($_SERVER['HTTP_USER_AGENT'])) {
             return;
@@ -43,13 +45,15 @@ class FinanceUtils
         $guzzleClient = new Client($options);
         $client = ApiClientFactory::createApiClient($guzzleClient);
 
-        //NOTE We need the quote even for historical data (to get the currency and name)
+        //NOTE We need the quote even for historical data
+        // (to get the currency and name)
         $quote;
         try {
             // Returns Scheb\YahooFinanceApi\Results\Quote
             $quote = $client->getQuote($symbol);
         } catch (Exception $e) {
-            LOG::warning("Couldn't get quote for symbol $symbol. Exception message: " . $e->getMessage());
+            LOG::warning("Couldn't get quote for symbol $symbol. "
+                . "Exception message: " . $e->getMessage());
         }
         if (empty($quote) || !($quote instanceof Quote)) {
             return null;
@@ -65,7 +69,8 @@ class FinanceUtils
         // LOG::debug('quote'); LOG::debug(var_export($quote, true));
 
         if (!empty($timestamp) && // Has timestamp
-            date('Ymd') > date('Ymd', strtotime($timestamp)) // Timestamp is in the past
+            // Timestamp is in the past
+            date('Ymd') > date('Ymd', strtotime($timestamp))
         ) {
             $timestamp1 = new \DateTime($timestamp);
             $timestamp1->setTime(0, 0, 0, 0);
@@ -73,8 +78,10 @@ class FinanceUtils
             $timestamp2->add(new \DateInterval('P1D'));
             $offset = self::get_timezone_offset($quoteTimezone);
 
-            // LOG::debug('quoteTimezone'); LOG::debug(var_export($quoteTimezone, true));
-            // LOG::debug('timestampTimezone'); LOG::debug(var_export($timestamp1->getTimezone()->getName(), true));
+            // LOG::debug('quoteTimezone');
+            // LOG::debug(var_export($quoteTimezone, true));
+            // LOG::debug('timestampTimezone');
+            // LOG::debug(var_export($timestamp1->getTimezone()->getName(), true));
             // LOG::debug('offset'); LOG::debug(var_export($offset, true));
 
             //NOTE Adding 1 day when origin timezone is ahead of remote timezone
@@ -86,11 +93,13 @@ class FinanceUtils
             $historicalData;
             try {
                 // Returns an array of Scheb\YahooFinanceApi\Results\HistoricalData
-                $historicalData = $client->getHistoricalData($symbol, ApiClient::INTERVAL_1_DAY,
-                    $timestamp1, $timestamp2);
+                $historicalData = $client->getHistoricalData($symbol,
+                    ApiClient::INTERVAL_1_DAY,
+                    $timestamp1,
+                    $timestamp2);
             } catch (Exception $e) {
-                LOG::warning("Couldn't get historical data for symbol $symbol. Exception message: " .
-                          $e->getMessage());
+                LOG::warning("Couldn't get historical data for symbol $symbol. "
+                    . "Exception message: " . $e->getMessage());
             }
             if (empty($historicalData) || !is_array($historicalData) ||
                 !($historicalData[0] instanceof HistoricalData)
@@ -98,13 +107,16 @@ class FinanceUtils
                 return null;
             }
 
-            // LOG::debug('historicalData'); LOG::debug(var_export($historicalData, true));
+            // LOG::debug('historicalData');
+            // LOG::debug(var_export($historicalData, true));
             $price = $historicalData[0]->getClose();
             $quoteTimestamp = $historicalData[0]->getDate();
         }
 
-        $offset2 = self::get_timezone_offset($quoteTimestamp->getTimezone()->getName());
-        $quoteTimestamp->add(\DateInterval::createFromDateString((string)$offset2 . 'seconds'));
+        $offset2 = self::get_timezone_offset(
+            $quoteTimestamp->getTimezone()->getName());
+        $quoteTimestamp->add(
+            \DateInterval::createFromDateString((string)$offset2 . 'seconds'));
         // LOG::debug('offset2'); LOG::debug(var_export($offset2, true));
 
         return [
@@ -114,17 +126,22 @@ class FinanceUtils
             'quote_timestamp' => $quoteTimestamp,
 
             'fiftyTwoWeekHigh'              => $quote->getFiftyTwoWeekHigh(),
-            'fiftyTwoWeekHighChangePercent' => $quote->getFiftyTwoWeekHighChangePercent(),
+            'fiftyTwoWeekHighChangePercent' =>
+                $quote->getFiftyTwoWeekHighChangePercent(),
             'fiftyTwoWeekLow'               => $quote->getFiftyTwoWeekLow(),
-            'fiftyTwoWeekLowChangePercent'  => $quote->getFiftyTwoWeekLowChangePercent(),
+            'fiftyTwoWeekLowChangePercent'  =>
+                $quote->getFiftyTwoWeekLowChangePercent(),
         ];
     }
 
 
     /**
-     * @param $exchangeRateData array(array(account_currency => 'EUR', trade_currency => 'USD'))
+     * @param $exchangeRateData array(array(account_currency  => 'EUR',
+     *                                      trade_currency    => 'USD'))
      *
-     * @return $exchangeRateData array(array(account_currency => 'EUR', trade_currency => 'USD', exchange_rate => 1.1))
+     * @return $exchangeRateData array(array(account_currency => 'EUR',
+     *                                       trade_currency   => 'USD',
+     *                                       exchange_rate    => 1.1))
      */
     public function getExchangeRates(array $exchangeRateData): array
     {
@@ -141,11 +158,16 @@ class FinanceUtils
 
         $currencyPairs = [];
         foreach ($exchangeRateData as $exchangeRateIndex => $exchangeRateDataItem) {
-            if ($exchangeRateDataItem['account_currency'] == $exchangeRateDataItem['trade_currency']) {
+            if ($exchangeRateDataItem['account_currency'] ==
+                $exchangeRateDataItem['trade_currency']
+            ) {
                 $exchangeRateData[$exchangeRateIndex]['exchange_rate'] = 1;
                 continue;
             }
-            $currencyPair = [$exchangeRateDataItem['account_currency'], $exchangeRateDataItem['trade_currency']];
+            $currencyPair = [
+                $exchangeRateDataItem['account_currency'],
+                $exchangeRateDataItem['trade_currency']
+            ];
             if (!empty($currenciesReverseMapping[$currencyPair[1]])) {
                 $currencyPair[1] = $currenciesReverseMapping[$currencyPair[1]];
             }
@@ -156,13 +178,17 @@ class FinanceUtils
         $quotes = null;
         try {
             // Returns an array of Scheb\YahooFinanceApi\Results\Quote
-            // LOG::debug("getExchangeRates for currencyPairs 134: " . print_r($currencyPairs, true));
+            // LOG::debug("getExchangeRates for currencyPairs 134: " .
+            // print_r($currencyPairs, true));
             $quotes = $client->getExchangeRates($currencyPairs);
         } catch (Exception $e) {
-            LOG::warning("Couldn't get exchange rates for currencyPairs" . print_r($currencyPairs, true) .
-                      ". Exception message: " . $e->getMessage());
+            LOG::warning("Couldn't get exchange rates for currencyPairs" .
+                print_r($currencyPairs, true) .
+                ". Exception message: " . $e->getMessage());
         }
-        if (empty($quotes) || !is_array($quotes) || !($quotes[0] instanceof Quote)) {
+        if (empty($quotes) || !is_array($quotes) ||
+            !($quotes[0] instanceof Quote)
+        ) {
             return null;
         }
         // LOG::debug('exchange rate quotes 143: ' . print_r($quotes, true));
@@ -180,7 +206,8 @@ class FinanceUtils
                 $currencyPairs[$i][1] = $currenciesMapping[$currencyPairs[$i][1]];
             }
 
-            $exchangeRateIndex = $currencyPairs[$i][0] . $currencyPairs[$i][1]; // EURUSD
+            // EURUSD
+            $exchangeRateIndex = $currencyPairs[$i][0] . $currencyPairs[$i][1];
             $exchangeRateData[$exchangeRateIndex]['exchange_rate'] = $exchangeRate;
 
             $i++;
@@ -216,7 +243,9 @@ class FinanceUtils
             LOG::warning("Couldn't get quotes for symbols " . join(', ', $symbols) .
                       ". Exception message: " . $e->getMessage());
         }
-        if (empty($quotes) || !is_array($quotes) || !($quotes[0] instanceof Quote)) {
+        if (empty($quotes) || !is_array($quotes) ||
+            !($quotes[0] instanceof Quote)
+        ) {
             return null;
         }
         // LOG::debug('quotes 190: ' . print_r($quotes, true));
@@ -224,8 +253,10 @@ class FinanceUtils
         foreach ($quotes as $quote) {
             $currency = $quote->getCurrency();
             $quoteTimestamp = $quote->getRegularMarketTime();
-            $offset = self::get_timezone_offset($quoteTimestamp->getTimezone()->getName());
-            $quoteTimestamp->add(\DateInterval::createFromDateString((string)$offset . 'seconds'));
+            $offset = self::get_timezone_offset(
+                $quoteTimestamp->getTimezone()->getName());
+            $quoteTimestamp->add(
+                \DateInterval::createFromDateString((string)$offset . 'seconds'));
 
             $quotesArray[$quote->getSymbol()] = [
                 'price'                 => $quote->getRegularMarketPrice(),
@@ -236,9 +267,11 @@ class FinanceUtils
                 'day_change_percentage' => $quote->getRegularMarketChangePercent(),
 
                 'fiftyTwoWeekHigh'              => $quote->getFiftyTwoWeekHigh(),
-                'fiftyTwoWeekHighChangePercent' => $quote->getFiftyTwoWeekHighChangePercent(),
+                'fiftyTwoWeekHighChangePercent' =>
+                    $quote->getFiftyTwoWeekHighChangePercent(),
                 'fiftyTwoWeekLow'               => $quote->getFiftyTwoWeekLow(),
-                'fiftyTwoWeekLowChangePercent'  => $quote->getFiftyTwoWeekLowChangePercent(),
+                'fiftyTwoWeekLowChangePercent'  =>
+                    $quote->getFiftyTwoWeekLowChangePercent(),
 
                 'marketUtils' => new MarketUtils($quote),
             ];
@@ -248,33 +281,30 @@ class FinanceUtils
     }
 
     /**
-     * @param string $symbol
-     * @param string $account
-     * @param string $accountCurrency
-     * @param string $timestamp
+     * @param string  $symbol
+     * @param integer $account_id
+     * @param string  $timestamp
      * @param integer $tradeId
      *
      * @return integer $availableQuantity or null if failure
      */
-    public function getAvailableQuantity($symbol, $account, $accountCurrency, $timestamp = null, $tradeId = null)
-    {
-        if (!in_array($account, array_keys(config('general.trade_accounts')))) {
-            LOG::error('Invalid account: ' . $account);
+    public function getAvailableQuantity($symbol, $account_id,
+        $timestamp = null, $tradeId = null
+    ) {
+        if (empty($account_id) || !is_numeric($account_id)) {
+            LOG::error('Invalid account_id: ' . $account_id);
             return null;
         }
-        if (!in_array($accountCurrency, array_keys(config('general.ledger_currencies')))) {
-            LOG::error('Invalid account currency: ' . $accountCurrency);
-            return null;
-        }
-        if (empty($timestamp) || !\DateTime::createFromFormat(trans('myfinance2::general.datetime-format'), $timestamp)) {
+        if (empty($timestamp) || !\DateTime::createFromFormat(
+            trans('myfinance2::general.datetime-format'), $timestamp)
+        ) {
             $timestamp = date(trans('myfinance2::general.datetime-format'));
         }
 
         $availableQuantity = 0;
         $tradesQuery = Trade::whereDate('timestamp', '<=', $timestamp)
             ->where('symbol', $symbol)
-            ->where('account', $account)
-            ->where('account_currency', $accountCurrency)
+            ->where('account_id', $account_id)
             ->orderBy('timestamp', 'asc');
         if (!empty($tradeId)) {
             $tradesQuery->where('id', '!=', $tradeId);
@@ -302,13 +332,17 @@ class FinanceUtils
     }
 
     /**
-     * Returns the offset from the origin timezone to the remote timezone, in seconds.
+     * Returns the offset from the origin timezone to the remote timezone,
+     *      in seconds.
      *
      * @param $remote_tz;
-     * @param $origin_tz; If null the servers current timezone is used as the origin.
+     * @param $origin_tz; If null the servers current timezone is used
+     *          as the origin.
      *
-     * @return int; Offset in seconds (positive when origin is ahead of remote; negative otherwise)
-     *              e.g. for MSFT (America/New_York) to Europe/Amsterdam, offset is 21600s (6h)
+     * @return int; Offset in seconds (positive when origin is ahead of remote;
+     *                                 negative otherwise)
+     *              e.g. for MSFT (America/New_York) to Europe/Amsterdam,
+     *                  offset is 21600s (6h)
      */
     public static function get_timezone_offset($remote_tz, $origin_tz = null)
     {
@@ -321,7 +355,8 @@ class FinanceUtils
         $remote_dtz = new \DateTimeZone($remote_tz);
         $origin_dt = new \DateTime("now", $origin_dtz);
         $remote_dt = new \DateTime("now", $remote_dtz);
-        $offset = $origin_dtz->getOffset($origin_dt) - $remote_dtz->getOffset($remote_dt);
+        $offset = $origin_dtz->getOffset($origin_dt)
+            - $remote_dtz->getOffset($remote_dt);
         return $offset;
     }
 }

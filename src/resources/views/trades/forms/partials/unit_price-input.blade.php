@@ -1,15 +1,23 @@
-<div class="form-group required has-feedback row {{ $errors->has('unit_price') ? ' has-error ' : '' }}">
+<div class="form-group required has-feedback row {{ $errors->has('unit_price') ?
+                                                    'has-error' : '' }}">
     <label for="unit_price" class="col-7 control-label">
         {{ trans('myfinance2::trades.forms.item-form.unit_price.label') }}
-        <span id="trade_currency-label-tooltip" data-bs-toggle="tooltip" title="Trade Currency">
-            {{ $trade_currency ? config('general.currencies_display.' . $trade_currency) : '' }}
+        <span id="trade_currency-label-tooltip" data-bs-toggle="tooltip"
+            title="Trade Currency">
+            {!! !empty($tradeCurrencyModel) ? $tradeCurrencyModel->display_code
+                                            : '' !!}
         </span>
     </label>
-    <div class="col-5 p-0 m-0 pt-1 pr-3 text-muted text-right small" id="fetched-unit-price" style="display: none">
+    <div class="col-5 p-0 m-0 pt-1 pr-3 text-muted text-right small"
+        id="fetched-unit-price" style="display: none">
         <span style="cursor: pointer" data-bs-toggle="tooltip" title=""></span>
     </div>
     <div class="col-12">
-        <input type="number" step=".0001" id="unit_price" name="unit_price" class="form-control" value="{{ $unit_price ? @number_format($unit_price, 4) : '' }}" placeholder="{{ trans('myfinance2::trades.forms.item-form.unit_price.placeholder') }}" required />
+        <input type="number" step=".0001" id="unit_price" name="unit_price"
+            class="form-control"
+            value="{{ $unit_price ? @number_format($unit_price, 4) : '' }}"
+            placeholder="{{ trans('myfinance2::trades.forms.item-form.unit_price'
+                                  . '.placeholder') }}" required />
     </div>
     @if ($errors->has('unit_price'))
         <div class="col-12">

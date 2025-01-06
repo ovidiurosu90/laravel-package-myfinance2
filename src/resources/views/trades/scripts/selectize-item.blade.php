@@ -1,8 +1,21 @@
 <script type="module">
 $(document).ready(function ()
 {
+    var accounts = {!! json_encode($accounts) !!};
+    var accountsById = {};
+    for (let i in accounts) {
+        accountsById[accounts[i]['id']] = accounts[i];
+    }
+
+    var tradeCurrencies = {!! json_encode($tradeCurrencies) !!};
+    var tradeCurrenciesById = {};
+    for (let i in tradeCurrencies) {
+        tradeCurrenciesById[tradeCurrencies[i]['id']] = tradeCurrencies[i];
+    }
+
     var $actionSelect = $("#action-select").selectize({
-        placeholder: ' {{ trans('myfinance2::trades.forms.item-form.action.placeholder') }} ',
+        placeholder: ' {{ trans('myfinance2::trades.forms.item-form.'
+                                . 'action.placeholder') }} ',
         allowClear: true,
         create: true,
         highlight: true,
@@ -11,33 +24,28 @@ $(document).ready(function ()
     var actionSelectize = $actionSelect[0].selectize;
 
     var $accountSelect = $("#account-select").selectize({
-        placeholder: ' {{ trans('myfinance2::trades.forms.item-form.account.placeholder') }} ',
-        allowClear: true,
-        create: true,
-        highlight: true,
-        diacritics: true
-    });
-    var accountSelectize = $accountSelect[0].selectize;
-
-    var $accountCurrencySelect = $("#account_currency-select").selectize({
-        placeholder: ' {{ trans('myfinance2::trades.forms.item-form.account_currency.placeholder') }} ',
+        placeholder: ' {{ trans('myfinance2::trades.forms.item-form.'
+                                . 'account.placeholder') }} ',
         allowClear: true,
         create: true,
         highlight: true,
         diacritics: true,
-        onChange: function(value) {
+        onChange: function(value)
+        {
             currencyChange();
         }
     });
-    var accountCurrencySelectize = $accountCurrencySelect[0].selectize;
+    var accountSelectize = $accountSelect[0].selectize;
 
     var $tradeCurrencySelect = $("#trade_currency-select").selectize({
-        placeholder: ' {{ trans('myfinance2::trades.forms.item-form.trade_currency.placeholder') }} ',
+        placeholder: ' {{ trans('myfinance2::trades.forms.item-form.'
+                                . 'trade_currency.placeholder') }} ',
         allowClear: true,
         create: true,
         highlight: true,
         diacritics: true,
-        onChange: function(value) {
+        onChange: function(value)
+        {
             currencyChange();
         }
     });
@@ -46,30 +54,38 @@ $(document).ready(function ()
     var $exchangeRateInput = $('input#exchange_rate');
     var $tradeCurrencyLabelTooltip = $('#trade_currency-label-tooltip');
     var $accountCurrencyLabelTooltip = $('#account_currency-label-tooltip');
-    var currenciesDisplay = {!! json_encode(config('general.currencies_display')) !!};
+
     var tradeCurrencyDisplay;
     var accountCurrencyDisplay;
 
-    var currencyChange = function() {
-        var accountCurrency = accountCurrencySelectize.getValue();
-        var tradeCurrency = tradeCurrencySelectize.getValue();
-        if (accountCurrency && tradeCurrency && accountCurrency == tradeCurrency) {
+    var currencyChange = function()
+    {
+        var accountId = accountSelectize.getValue();
+        var accountCurrency = accountId ? accountsById[accountId]['currency']
+                                        : null;
+        var tradeCurrencyId = tradeCurrencySelectize.getValue();
+        var tradeCurrency = tradeCurrencyId ? tradeCurrenciesById[tradeCurrencyId]
+                                            : null;
+
+        if (accountCurrency && tradeCurrency &&
+            accountCurrency.iso_code == tradeCurrency.iso_code
+        ) {
             $exchangeRateInput.val(1);
         }
 
         // Change the trade currency in the label tooltip
-        if (tradeCurrency in currenciesDisplay) {
-            tradeCurrencyDisplay = currenciesDisplay[tradeCurrency];
+        if (tradeCurrency) {
+            tradeCurrencyDisplay = tradeCurrency['display_code'];
         } else {
-            tradeCurrencyDisplay = tradeCurrency;
+            tradeCurrencyDisplay = '&curren;';
         }
         $tradeCurrencyLabelTooltip.html(tradeCurrencyDisplay);
 
         // Change the account currency in the label tooltip
-        if (accountCurrency in currenciesDisplay) {
-            accountCurrencyDisplay = currenciesDisplay[accountCurrency];
+        if (accountCurrency) {
+            accountCurrencyDisplay = accountCurrency['display_code'];
         } else {
-            accountCurrencyDisplay = accountCurrency;
+            accountCurrencyDisplay = '&curren;';
         }
         $accountCurrencyLabelTooltip.html(accountCurrencyDisplay);
     };

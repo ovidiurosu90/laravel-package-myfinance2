@@ -6,11 +6,16 @@
         </tr>
         <tr>
             <th scope="row">Timestamp</th>
-            <td>{{ $trade->timestamp->format(trans('myfinance2::general.datetime-format')) }}</td>
+            <td>
+                {{ $trade->timestamp
+                    ->format(trans('myfinance2::general.datetime-format')) }}
+            </td>
         </tr>
         <tr>
             <th scope="row">Account</th>
-            <td>{{ $trade->getAccount() }}</td>
+            <td>{{ $trade->accountModel->name }}
+                ({!! $trade->accountModel->currency->display_code !!})
+            </td>
         </tr>
         <tr>
             <th scope="row">Action</th>

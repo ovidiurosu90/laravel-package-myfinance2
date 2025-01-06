@@ -55,8 +55,8 @@ class DividendsController extends MyFinance2Controller
         $data = $request->fillData();
         $item = Dividend::create($data);
 
-        return redirect()->route('myfinance2::dividends.index')
-            ->with('success', trans('myfinance2::general.flash-messages.item-created',
+        return redirect()->route('myfinance2::dividends.index')->with('success',
+            trans('myfinance2::general.flash-messages.item-created',
                 ['type' => 'Dividend', 'id' => $item->id]));
     }
 

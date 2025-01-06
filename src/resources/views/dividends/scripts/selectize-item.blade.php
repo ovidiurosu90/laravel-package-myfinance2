@@ -55,10 +55,11 @@ $(document).ready(function ()
         var accountCurrency = accountId ? accountsById[accountId]['currency']
                                         : null;
         var dividendCurrencyId = dividendCurrencySelectize.getValue();
-        var dividendCurrency = dividendCurrenciesById[dividendCurrencyId];
+        var dividendCurrency = dividendCurrencyId ?
+                               dividendCurrenciesById[dividendCurrencyId] : null;
 
         if (accountCurrency && dividendCurrency &&
-            accountCurrency == dividendCurrency
+            accountCurrency.iso_code == dividendCurrency.iso_code
         ) {
             $exchangeRateInput.val(1);
         }

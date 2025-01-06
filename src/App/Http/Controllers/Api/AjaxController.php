@@ -27,9 +27,12 @@ class AjaxController extends MyFinance2Controller
     public function getFinanceData(Request $request)
     {
         if (!$request->has('symbol') || !$request->symbol) {
-            return response()->json(['message' => 'Missing parameter symbol!'], 422);
+            return response()->json([
+                'message' => 'Missing parameter symbol!'
+            ], 422);
         }
         $symbol = $request->symbol;
+
         $timestamp = $request->has('timestamp') ? $request->timestamp : null;
 
         $financeUtils = new FinanceUtils();
@@ -39,60 +42,72 @@ class AjaxController extends MyFinance2Controller
         }
 
         $availableQuantity = null;
-        if ($request->has('account') && $request->account &&
-            $request->has('account_currency') && $request->account_currency
-        ) {
+        if ($request->has('account_id')) {
             $availableQuantity = $financeUtils->getAvailableQuantity($symbol,
-                $request->account, $request->account_currency, $timestamp,
+                $request->account_id,
+                $timestamp,
                 $request->has('trade_id') ? $request->trade_id : null
             );
 
             if (is_null($availableQuantity)) {
-                return response()->json(['message' => 'Could not get the available quantity!'], 400);
+                return response()->json([
+                    'message' => 'Could not get the available quantity!'
+                ], 400);
             }
         }
 
         // Log::debug($financeData);
 
         return response()->json([
-            'price'           => @number_format($financeData['price'], 4),
-            'currency'        => $financeData['currency'],
-            'name'            => $financeData['name'],
-            'quote_timestamp' => $financeData['quote_timestamp']->format(trans('myfinance2::general.datetime-format')),
+            'price'              => @number_format($financeData['price'], 4),
+            'currency'           => $financeData['currency'],
+            'name'               => $financeData['name'],
+            'quote_timestamp'    => $financeData['quote_timestamp']
+                ->format(trans('myfinance2::general.datetime-format')),
 
             'available_quantity' => $availableQuantity,
 
             'fiftyTwoWeekHigh'              => $financeData['fiftyTwoWeekHigh'],
-            'fiftyTwoWeekHighChangePercent' => $financeData['fiftyTwoWeekHighChangePercent'],
+            'fiftyTwoWeekHighChangePercent' =>
+                $financeData['fiftyTwoWeekHighChangePercent'],
             'fiftyTwoWeekLow'               => $financeData['fiftyTwoWeekLow'],
-            'fiftyTwoWeekLowChangePercent'  => $financeData['fiftyTwoWeekLowChangePercent'],
+            'fiftyTwoWeekLowChangePercent'  =>
+                $financeData['fiftyTwoWeekLowChangePercent'],
         ]);
     }
 
     /**
-     * @param \App\Http\Requests\GetCurrencyExchangeGainEstimate $request
+     * @param GetCurrencyExchangeGainEstimate $request
      *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function getCurrencyExchangeGainEstimate(GetCurrencyExchangeGainEstimate $request)
-    {
+    public function getCurrencyExchangeGainEstimate(
+        GetCurrencyExchangeGainEstimate $request
+    ) {
         $service = new FundingDashboard();
-        $currencyExchanges = $service->getCurrencyExchanges($request->debit_currency, $request->credit_currency, [
-            'exchange_rate' => $request->exchange_rate,
-            'amount'        => $request->amount,
-            'fee'           => $request->fee,
-        ]);
+        $currencyExchanges = $service->getCurrencyExchanges(
+            $request->debit_currency,
+            $request->credit_currency,
+            [
+                'exchange_rate' => $request->exchange_rate,
+                'amount'        => $request->amount,
+                'fee'           => $request->fee,
+            ]);
 
         $estimatedGain = $currencyExchanges['estimated_gain'];
         $estimatedGain = array_merge($estimatedGain, [
-            'formatted_cost'          => MoneyFormat::get_formatted_gain($request->credit_currency,
-                                                                         -abs($estimatedGain['cost'])),
-            'formatted_amount'        => MoneyFormat::get_formatted_gain($request->credit_currency,
-                                                                         $estimatedGain['amount']),
-            'formatted_credit_amount' => MoneyFormat::get_formatted_gain($request->credit_currency,
-                                                                         $estimatedGain['credit_amount']),
-            'formatted_gain'          => MoneyFormat::get_formatted_gain($request->credit_currency,
-                                                                         $estimatedGain['gain']),
+            'formatted_cost'          => MoneyFormat::get_formatted_gain(
+                                            $request->credit_currency,
+                                            -abs($estimatedGain['cost'])),
+            'formatted_amount'        => MoneyFormat::get_formatted_gain(
+                                            $request->credit_currency,
+                                            $estimatedGain['amount']),
+            'formatted_credit_amount' => MoneyFormat::get_formatted_gain(
+                                            $request->credit_currency,
+                                            $estimatedGain['credit_amount']),
+            'formatted_gain'          => MoneyFormat::get_formatted_gain(
+                                            $request->credit_currency,
+                                            $estimatedGain['gain']),
         ]);
         return response()->json($estimatedGain);
     }
@@ -104,9 +119,11 @@ class AjaxController extends MyFinance2Controller
      */
     public function getCashBalances(Request $request)
     {
-        if (!$request->has('account_id') || !$request->account_id) {
+        if (!$request->has('account_id') || !$request->account_id
+            || !is_numeric($request->account_id)
+        ) {
             return response()->json([
-                'message' => 'Missing parameter account_id!',
+                'message' => 'Missing or invalid parameter account_id!',
             ], 422);
         }
         $timestamp = $request->has('timestamp') ? $request->timestamp : null;

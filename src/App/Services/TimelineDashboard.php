@@ -37,23 +37,32 @@ class TimelineDashboard
             $items[] = [
                 'row_label' => 'Funding',
                 'bar_label' => $debitText . ' => ' . $creditText,
-                'tooltip'   => view('myfinance2::timeline.partials.funding-tooltip', $fundingItem),
+                'tooltip'   => view('myfinance2::timeline.partials.funding-tooltip',
+                                    $fundingItem),
                 'start'     => $fundingItem['debit_transaction'] ?
-                    $fundingItem['debit_transaction']->timestamp->format(trans('myfinance2::general.date-format')) :
-                    $fundingItem['credit_transaction']->timestamp->format(trans('myfinance2::general.date-format')),
+                    $fundingItem['debit_transaction']->timestamp
+                        ->format(trans('myfinance2::general.date-format')) :
+                    $fundingItem['credit_transaction']->timestamp
+                        ->format(trans('myfinance2::general.date-format')),
                 'end'       => $fundingItem['credit_transaction'] ?
-                    $fundingItem['credit_transaction']->timestamp->format(trans('myfinance2::general.date-format')) :
-                    $fundingItem['debit_transaction']->timestamp->format(trans('myfinance2::general.date-format')),
+                    $fundingItem['credit_transaction']->timestamp
+                        ->format(trans('myfinance2::general.date-format')) :
+                    $fundingItem['debit_transaction']->timestamp
+                        ->format(trans('myfinance2::general.date-format')),
             ];
         }
 
-        $trades = Trade::all();
+        $trades = Trade::with('accountModel', 'tradeCurrencyModel')->get();
         foreach ($trades as $trade) {
             $items[] = [
                 'row_label' => 'Trade',
-                'bar_label' => $trade->getAccount() . ' ' . $trade->action . ' ' . $trade->quantity . ' ' .
-                               $trade->symbol . ' for ' . $trade->getPrincipleAmount(),
-                'tooltip'   => view('myfinance2::timeline.partials.trade-tooltip', ['trade' => $trade]),
+                'bar_label' => $trade->accountModel->name . ' (' .
+                               $trade->accountModel->currency->iso_code .
+                               ') ' . $trade->action . ' ' . $trade->quantity .
+                               ' ' . $trade->symbol . ' for ' .
+                               $trade->getPrincipleAmount(),
+                'tooltip'   => view('myfinance2::timeline.partials.trade-tooltip',
+                                    ['trade' => $trade]),
                 'start'     => $trade->timestamp,
                 'end'       => $trade->timestamp,
             ];
@@ -66,7 +75,8 @@ class TimelineDashboard
                 'bar_label' => $dividend->accountModel->name . ' (' .
                                $dividend->accountModel->currency->iso_code .
                                ') ' . $dividend->symbol . ' => ' . $dividend->amount,
-                'tooltip'   => view('myfinance2::timeline.partials.dividend-tooltip', ['dividend' => $dividend]),
+                'tooltip'   => view('myfinance2::timeline.partials.dividend-tooltip',
+                                    ['dividend' => $dividend]),
                 'start'     => $dividend->timestamp,
                 'end'       => $dividend->timestamp,
             ];

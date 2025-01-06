@@ -136,8 +136,7 @@ class CashBalancesUtils
 
         // Get all trades
         $tradesWhere = [
-            ['account', '=', $this->_account->name],
-            ['account_currency', '=', $this->_account->currency->iso_code],
+            ['account_id', '=', $this->_account->id],
         ];
         if (!empty($timestamp)) {
             $tradesWhere[] = ['timestamp', '<', $timestamp];
@@ -147,14 +146,16 @@ class CashBalancesUtils
                 'timestamp', '>=', $this->_cashBalance->timestamp
             ];
         }
-        $trades = Trade
-            ::where($tradesWhere)
+        $trades = Trade::with('accountModel', 'tradeCurrencyModel')
+            ->where($tradesWhere)
             ->orderBy('timestamp', 'ASC')
             ->get();
         // Log::debug($trades);
         foreach ($trades as $trade) {
             $amount = $trade->quantity * $trade->unit_price;
-            if ($trade->account_currency != $trade->trade_currency) {
+            if ($trade->accountModel->currency->iso_code !=
+                $trade->tradeCurrencyModel->iso_code
+            ) {
                 $amount /= $trade->exchange_rate;
             }
             $sign = '?';
@@ -196,7 +197,9 @@ class CashBalancesUtils
         // Log::debug($dividends);
         foreach ($dividends as $dividend) {
             $amount = $dividend->amount;
-            if ($dividend->account_currency != $dividend->dividend_currency) {
+            if ($dividend->accountModel->currency->iso_code !=
+                $dividend->dividendCurrencyModel->iso_code
+            ) {
                 $amount /= $dividend->exchange_rate;
             }
             $cashBalances[] = '+' . round($amount, 2) .

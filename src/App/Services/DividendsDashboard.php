@@ -11,7 +11,7 @@ class DividendsDashboard
     /**
      * Execute the job.
      *
-     * @return array (account => array(symbol => array(totalsData)))
+     * @return array (accountId => array(symbol => array(totalsData)))
      */
     public function handle()
     {
@@ -19,16 +19,14 @@ class DividendsDashboard
         $groupedItems = [];
 
         foreach ($dividends as $dividend) {
-            $key1 = $dividend->accountModel->name . ' (' .
-                $dividend->accountModel->currency->display_code . ')';
+            $key1 = $dividend->accountModel->id;
             $key2 = $dividend->symbol;
             if (empty($groupedItems[$key1])) {
                 $groupedItems[$key1] = [];
             }
             if (empty($groupedItems[$key1][$key2])) {
                 $groupedItems[$key1][$key2] = [
-                    'account_currency' =>
-                        $dividend->accountModel->currency->iso_code,
+                    'accountModel' => $dividend->accountModel,
                     'total_gain_in_account_currency' => 0,
                 ];
             }

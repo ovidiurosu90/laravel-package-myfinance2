@@ -5,6 +5,9 @@ namespace ovidiuro\myfinance2\App\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
+use ovidiuro\myfinance2\App\Models\Account;
+use ovidiuro\myfinance2\App\Models\Currency;
+
 class CloseTrades extends FormRequest
 {
     /**
@@ -15,10 +18,12 @@ class CloseTrades extends FormRequest
     public function authorize()
     {
         if (config('trades.guiCreateMiddlewareType') == 'role') {
-            return $this->user()->hasRole(config('trades.guiCreateMiddleware'));
+            return $this->user()->hasRole(
+                config('trades.guiCreateMiddleware'));
         }
         if (config('trades.guiCreateMiddlewareType') == 'permissions') {
-            return $this->user()->hasPermission(config('trades.guiCreateMiddleware'));
+            return $this->user()->hasPermission(
+                config('trades.guiCreateMiddleware'));
         }
 
         return false;
@@ -31,16 +36,16 @@ class CloseTrades extends FormRequest
      */
     public function rules()
     {
+        $dbConnection = config('myfinance2.db_connection');
+        $accountsTableName = $dbConnection . '.' . (new Account())->getTable();
+        $currenciesTableName = $dbConnection . '.' . (new Currency())->getTable();
+
         return [
-            'account'          => [
-                'required',
-                Rule::in(array_keys(config('general.trade_accounts'))),
-            ],
-            'account_currency' => [
-                'required',
-                Rule::in(array_keys(config('general.ledger_currencies'))),
-            ],
-            'symbol'           => 'required|string|max:16',
+            'account_id'        => 'required|integer|exists:' .
+                                        $accountsTableName . ',id',
+            'trade_currency_id' => 'required|integer|exists:' .
+                                        $currenciesTableName . ',id',
+            'symbol'            => 'required|string|max:16',
         ];
     }
 }
