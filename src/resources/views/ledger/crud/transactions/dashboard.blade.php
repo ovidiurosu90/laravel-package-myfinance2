@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
-@section('template_title'){!! trans('myfinance2::ledger.titles.dashboard') !!}@endsection
+@section('template_title'){!!
+    trans('myfinance2::ledger.titles.dashboard') !!}@endsection
 
 @section('template_linked_css')
     @include('myfinance2::general.partials.styles')
@@ -18,7 +19,7 @@
 
         <div class="clearfix mb-4"></div>
 
-        @include('myfinance2::general.modals.confirm-modal',[
+        @include('myfinance2::general.modals.confirm-modal', [
             'formTrigger' => 'confirm-delete-modal',
             'modalClass' => 'danger',
             'actionBtnIcon' => 'fa-trash-o'
@@ -29,7 +30,9 @@
 @endsection
 
 @section('footer_scripts')
-    @include('myfinance2::general.scripts.confirm-modal', ['formTrigger' => 'confirm-delete-modal'])
+    @include('myfinance2::general.scripts.confirm-modal', [
+        'formTrigger' => 'confirm-delete-modal'
+    ])
     @include('myfinance2::ledger.scripts.datatables')
     @include('myfinance2::general.scripts.tooltips')
 @endsection

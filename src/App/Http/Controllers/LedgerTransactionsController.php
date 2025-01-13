@@ -24,14 +24,16 @@ class LedgerTransactionsController extends MyFinance2Controller
      */
     public function index()
     {
-        $items = LedgerTransaction::all();
-        return view('myfinance2::ledger.crud.transactions.dashboard', ['items' => $items]);
+        $items = LedgerTransaction::with('debitAccountModel', 'creditAccountModel')
+            ->get();
+        return view('myfinance2::ledger.crud.transactions.dashboard',
+                    ['items' => $items]);
     }
 
     /**
      * Show the form for creating a new ledger transaction.
      *
-     * @param \Illuminate\Http\Request $request
+     * @param Request $request
      *
      * @return \Illuminate\Http\Response
      */
@@ -43,7 +45,9 @@ class LedgerTransactionsController extends MyFinance2Controller
         if ($request->has('parent_id')) {
             $parentId = $request->parent_id;
         }
-        $data = $service->handle($parentId); // associative array having form fields as keys
+
+        // associative array having form fields as keys
+        $data = $service->handle($parentId);
 
         return view('myfinance2::ledger.crud.transactions.create', $data);
     }
@@ -51,7 +55,7 @@ class LedgerTransactionsController extends MyFinance2Controller
     /**
      * Store a newly created ledger transaction.
      *
-     * @param \App\Http\Requests\StoreLedgerTransaction $request
+     * @param StoreLedgerTransaction $request
      *
      * @return \Illuminate\Http\Response
      */
@@ -61,8 +65,9 @@ class LedgerTransactionsController extends MyFinance2Controller
         $item = LedgerTransaction::create($data);
 
         return redirect()->route('myfinance2::ledger-transactions.index')
-            ->with('success', trans('myfinance2::general.flash-messages.item-created',
-                ['type' => 'Ledger Transaction', 'id' => $item->id]));
+            ->with('success',
+                   trans('myfinance2::general.flash-messages.item-created',
+                          ['type' => 'Ledger Transaction', 'id' => $item->id]));
     }
 
     /**
@@ -83,8 +88,8 @@ class LedgerTransactionsController extends MyFinance2Controller
     /**
      * Update the specified ledger transaction.
      *
-     * @param \App\Http\Requests\UpdateLedgerTransaction $request
-     * @param int                                        $id
+     * @param UpdateLedgerTransaction $request
+     * @param int                     $id
      *
      * @return \Illuminate\Http\Response
      */
@@ -96,8 +101,9 @@ class LedgerTransactionsController extends MyFinance2Controller
         $item->save();
 
         return redirect()->route('myfinance2::ledger-transactions.index')
-            ->with('success', trans('myfinance2::general.flash-messages.item-updated',
-                ['type' => 'Ledger Transaction', 'id' => $item->id]));
+            ->with('success',
+                   trans('myfinance2::general.flash-messages.item-updated',
+                         ['type' => 'Ledger Transaction', 'id' => $item->id]));
     }
 
     /**
@@ -113,8 +119,9 @@ class LedgerTransactionsController extends MyFinance2Controller
         $item->delete();
 
         return redirect(route('myfinance2::ledger-transactions.index'))
-                ->with('success', trans('myfinance2::general.flash-messages.item-deleted',
-                    ['type' => 'Transaction', 'id' => $item->id]));
+            ->with('success',
+                   trans('myfinance2::general.flash-messages.item-deleted',
+                         ['type' => 'Transaction', 'id' => $item->id]));
     }
 }
 

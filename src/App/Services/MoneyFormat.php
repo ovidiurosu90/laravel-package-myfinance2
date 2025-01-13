@@ -27,24 +27,6 @@ class MoneyFormat
     }
 
     /**
-     * @param string $account
-     *
-     * @return string $currency OR null on failure
-     */
-    public static function get_currency_from_account($account)
-    {
-        $ledgerCurrencies = config('general.ledger_currencies');
-
-        foreach ($ledgerCurrencies as $currency => $name) {
-            if (self::ends_with($account, $currency)) {
-                return $currency;
-            }
-        }
-
-        return null;
-    }
-
-    /**
      * @param string $haystack
      * @param string $needle
      *
@@ -68,8 +50,8 @@ class MoneyFormat
         if ($value == 0) {
             return '0 ' . $currencyDisplay;
         }
-        return '<span class="">' . @number_format($value, 2) . ' ' . $currencyDisplay .
-               '</span>';
+        return '<span class="">' . @number_format($value, 2) . ' '
+               . $currencyDisplay . '</span>';
     }
 
     /**
@@ -97,8 +79,9 @@ class MoneyFormat
      *
      * @return string (formatted value)
      */
-    public static function get_formatted_amount($currency, $value, $type = 'credit', $numDecimals = 4)
-    {
+    public static function get_formatted_amount($currency, $value,
+        $type = 'credit', $numDecimals = 4
+    ) {
         $amountFormats = config('general.row-format-amount');
         $formatAmount = config('general.row-format-amount.unknown');
         if (!empty($amountFormats[$type])) {
@@ -139,23 +122,11 @@ class MoneyFormat
             return '0 ' . $currencyDisplay;
         }
         if ($value < 0) {
-            return '<span class="text-danger">- ' . number_format(abs($value), 2) . ' ' . $currencyDisplay .
-                   '</span>';
+            return '<span class="text-danger">- ' . number_format(abs($value), 2)
+                   . ' ' . $currencyDisplay . '</span>';
         }
-        return '<span class="text-success">+ ' . number_format($value, 2) . ' ' . $currencyDisplay .
-               '</span>';
-    }
-
-    /**
-     * @param string $account
-     * @param double $value
-     *
-     * @return string (formatted value)
-     */
-    public static function get_formatted_gain_from_account($account, $value)
-    {
-        $currency = self::get_currency_from_account($account);
-        return self::get_formatted_gain($currency, $value);
+        return '<span class="text-success">+ ' . number_format($value, 2) . ' '
+               . $currencyDisplay . '</span>';
     }
 
     /**
@@ -169,9 +140,11 @@ class MoneyFormat
             return '0 %';
         }
         if ($value < 0) {
-            return '<span class="text-danger">- ' . number_format(abs($value), 2) . ' %</span>';
+            return '<span class="text-danger">- ' . number_format(abs($value), 2)
+                   . ' %</span>';
         }
-        return '<span class="text-success">+ ' . number_format($value, 2) . ' %</span>';
+        return '<span class="text-success">+ ' . number_format($value, 2)
+               . ' %</span>';
     }
 
     /**
@@ -191,9 +164,11 @@ class MoneyFormat
         }
 
         if ($value < 0) {
-            return '<span class="' . $class . '">- ' . number_format(abs($value), 2) . ' %</span>';
+            return '<span class="' . $class . '">- '
+                   . number_format(abs($value), 2) . ' %</span>';
         }
-        return '<span class="' . $class . '">+ ' . number_format($value, 2) . ' %</span>';
+        return '<span class="' . $class . '">+ '
+               . number_format($value, 2) . ' %</span>';
     }
 
     /**
@@ -202,8 +177,9 @@ class MoneyFormat
      *
      * @return string (formatted value)
      */
-    public static function get_formatted_52wk_high_percentage($value, $hasOpenPositions = false)
-    {
+    public static function get_formatted_52wk_high_percentage(
+        $value, $hasOpenPositions = false
+    ) {
         if ($value == 0) {
             return '0 %';
         }
@@ -214,9 +190,11 @@ class MoneyFormat
         }
 
         if ($value < 0) {
-            return '<span class="' . $class . '">- ' . number_format(abs($value), 2) . ' %</span>';
+            return '<span class="' . $class . '">- '
+                   . number_format(abs($value), 2) . ' %</span>';
         }
-        return '<span class="' . $class . '">+ ' . number_format($value, 2) . ' %</span>';
+        return '<span class="' . $class . '">+ '
+                   . number_format($value, 2) . ' %</span>';
     }
 }
 

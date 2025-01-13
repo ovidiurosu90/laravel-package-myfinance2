@@ -78,8 +78,7 @@ class CashBalancesUtils
 
         // Get all debit ledger transactions
         $ledgerTransactionsDebitWhere = [
-            ['debit_account', '=', $this->_account->name],
-            ['debit_currency', '=', $this->_account->currency->iso_code],
+            ['debit_account_id', '=', $this->_account->id],
             ['type', '=', 'DEBIT'],
         ];
         if (!empty($timestamp)) {
@@ -91,45 +90,52 @@ class CashBalancesUtils
             ];
         }
         $ledgerTransactionsDebit = LedgerTransaction
-            ::where($ledgerTransactionsDebitWhere)
+            ::with('debitAccountModel', 'creditAccountModel')
+            ->where($ledgerTransactionsDebitWhere)
             ->orderBy('timestamp', 'ASC')
             ->get();
         // Log::debug($ledgerTransactionsDebit);
         foreach ($ledgerTransactionsDebit as $ledgerTransactionDebit) {
-            $cashBalances[] = '-' . round($ledgerTransactionDebit->amount, 2) .
-                ($ledgerTransactionDebit->fee != 0.0 ?
-                    ' -' . round($ledgerTransactionDebit->fee, 2) : '') .
-                ' funding to ' . $ledgerTransactionDebit->credit_account . '(' .
-                $ledgerTransactionDebit->credit_currency . ')'
+            $cashBalances[] = '-' . round($ledgerTransactionDebit->amount, 2)
+                . ($ledgerTransactionDebit->fee != 0.0 ?
+                    ' -' . round($ledgerTransactionDebit->fee, 2) : '')
+                . ' funding to '
+                . $ledgerTransactionDebit->creditAccountModel->name . '('
+                . $ledgerTransactionDebit->creditAccountModel->currency
+                    ->display_code
+                . ')'
             ;
         }
 
 
         // Get all credit ledger transactions
-        $ledgerTransactionsDebitWhere = [
-            ['credit_account', '=', $this->_account->name],
-            ['credit_currency', '=', $this->_account->currency->iso_code],
+        $ledgerTransactionsCreditWhere = [
+            ['credit_account_id', '=', $this->_account->id],
             ['type', '=', 'CREDIT'],
         ];
         if (!empty($timestamp)) {
-            $ledgerTransactionsDebitWhere[] = ['timestamp', '<', $timestamp];
+            $ledgerTransactionsCreditWhere[] = ['timestamp', '<', $timestamp];
         }
         if (!empty($this->_cashBalance) && !empty($this->_cashBalance->timestamp)) {
-            $ledgerTransactionsDebitWhere[] = [
+            $ledgerTransactionsCreditWhere[] = [
                 'timestamp', '>=', $this->_cashBalance->timestamp
             ];
         }
         $ledgerTransactionsCredit = LedgerTransaction
-            ::where($ledgerTransactionsDebitWhere)
+            ::with('debitAccountModel', 'creditAccountModel')
+            ->where($ledgerTransactionsCreditWhere)
             ->orderBy('timestamp', 'ASC')
             ->get();
         // Log::debug($ledgerTransactionsCredit);
         foreach ($ledgerTransactionsCredit as $ledgerTransactionCredit) {
-            $cashBalances[] = '+' . round($ledgerTransactionCredit->amount, 2) .
-                ($ledgerTransactionCredit->fee != 0.0 ?
-                    ' -' . round($ledgerTransactionCredit->fee, 2) : '') .
-                ' funding from ' . $ledgerTransactionCredit->debit_account . '(' .
-                $ledgerTransactionCredit->debit_currency . ')'
+            $cashBalances[] = '+' . round($ledgerTransactionCredit->amount, 2)
+                . ($ledgerTransactionCredit->fee != 0.0 ?
+                    ' -' . round($ledgerTransactionCredit->fee, 2) : '')
+                . ' funding from '
+                . $ledgerTransactionCredit->debitAccountModel->name . '('
+                . $ledgerTransactionCredit->debitAccountModel->currency
+                    ->display_code
+                . ')'
             ;
         }
 

@@ -21,7 +21,7 @@ class FundingController extends MyFinance2Controller
     public function index()
     {
         $service = new FundingDashboard();
-        $data = $service->handle(); // returns an associative array with items & balances
+        $data = $service->handle(); // associative array with items & balances
         return view('myfinance2::funding.dashboard', $data);
     }
 }

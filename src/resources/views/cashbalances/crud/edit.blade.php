@@ -34,6 +34,5 @@
     @include('myfinance2::cashbalances.scripts.selectize-item')
     @include('myfinance2::cashbalances.scripts.get-cash-balances')
     @include('myfinance2::general.scripts.tooltips')
-    @include('myfinance2::general.scripts.account-currency')
 @endsection
 

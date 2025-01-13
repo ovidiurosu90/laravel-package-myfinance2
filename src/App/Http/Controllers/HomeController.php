@@ -4,6 +4,7 @@ namespace ovidiuro\myfinance2\App\Http\Controllers;
 
 use Illuminate\Support\Facades\Log;
 
+use ovidiuro\myfinance2\App\Models\Currency;
 use ovidiuro\myfinance2\App\Services\FundingDashboard;
 use ovidiuro\myfinance2\App\Services\PositionsDashboard;
 use ovidiuro\myfinance2\App\Services\DividendsDashboard;
@@ -23,26 +24,32 @@ class HomeController extends MyFinance2Controller
     public function index()
     {
         $fundingService = new FundingDashboard();
+        $positionsService = new PositionsDashboard();
+        $dividendsService = new DividendsDashboard();
+
         $fundingData = $fundingService->handle(); // items & balances
         $currencyExchangesData = $fundingService->getCurrencyExchanges();
 
-        $positionsService = new PositionsDashboard();
-        $positionsData = $positionsService->handle(); // items grouped by account and account data
-        $gainsPerYear = $positionsService->getGainsPerYear(); // items grouped by year, account, symbol
+        // items grouped by account and account data
+        $positionsData = $positionsService->handle();
 
-        $dividendsService = new DividendsDashboard();
-        $dividendsData = $dividendsService->handle(); // array with items grouped by account, symbol
+        // items grouped by year, account, symbol
+        $gainsPerYear = $positionsService->getGainsPerYear();
+
+        // array with items grouped by account, symbol
+        $dividendsData = $dividendsService->handle();
+
+        $ledgerCurrencies = Currency::where('is_ledger_currency', 1)->get();
 
         return view('myfinance2::home.dashboard', [
             'balances'          => $fundingData['balances'],
+            'accounts'          => $fundingData['accounts'],
             'openPositions'     => $positionsData['accountData'],
             'gainsPerYear'      => $gainsPerYear,
             'dividends'         => $dividendsData,
             'currencyExchanges' => $currencyExchangesData['currency_exchanges'],
             'currencyBalances'  => $currencyExchangesData['currency_balances'],
-
-            'debitCurrencies'   => config('general.ledger_currencies'),
-            'creditCurrencies'  => config('general.ledger_currencies'),
+            'ledgerCurrencies'  => $ledgerCurrencies,
         ]);
     }
 }

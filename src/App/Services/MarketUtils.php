@@ -26,7 +26,8 @@ class MarketUtils
             $marketStatus .= "$key: $value<br />";
         }
 
-        return sprintf("name: %s<br /> state: %s<br /> exhange_name: %s<br /> exchange_timezone: %s<br /> %s",
+        return sprintf("name: %s<br />state: %s<br />exhange_name: %s<br />"
+            . "exchange_timezone: %s<br />%s",
             $this->getName(), $this->getState(), $this->getExchangeName(),
             $this->getExchangeTimezone(),
             $marketStatus
@@ -35,7 +36,8 @@ class MarketUtils
 
     public function getName()
     {
-        return $this->_quote->getMarket(); # us_market, fr_market, nl_market, gb_market
+        # us_market, fr_market, nl_market, gb_market
+        return $this->_quote->getMarket();
     }
 
     public function getState()
@@ -45,7 +47,8 @@ class MarketUtils
 
     public function getExchangeName()
     {
-        return $this->_quote->getFullExchangeName(); # NasdaqGS, Paris, Amsterdam, LSE
+        # NasdaqGS, Paris, Amsterdam, LSE
+        return $this->_quote->getFullExchangeName();
     }
 
     public function getExchangeTimezone()
@@ -173,8 +176,10 @@ class MarketUtils
 
         #NOTE Mapping market state to a known status
         if (!empty($data['market_state'])) {
-            if ($data['market_state'] == 'PREPRE' || $data['market_state'] == 'PRE'
-                || $data['market_state'] == 'POST' || $data['market_state'] == 'POSTPOST'
+            if ($data['market_state'] == 'PREPRE'
+                || $data['market_state'] == 'PRE'
+                || $data['market_state'] == 'POST'
+                || $data['market_state'] == 'POSTPOST'
             ) {
                 $data['market_state'] = 'CLOSED';
             }
@@ -193,23 +198,28 @@ class MarketUtils
         }
 
         if ($warningText != '') {
-            $warning = '<i class="btn p-0 m-0 fa fa-exclamation" data-bs-toggle="tooltip" '
-                . 'title="' . $warningText . '" style="font-size: 24px;"></i>';
+            $warning = '<i class="btn p-0 m-0 fa fa-exclamation" '
+                . 'data-bs-toggle="tooltip" title="' . $warningText
+                . '" style="font-size: 24px;"></i>';
         }
 
         if ($countdownClass != '' && $countdownTimestamp != '') {
-            $countdown = '<span class="' . $countdownClass .
-                ' d-none small text-secondary" ' .
-                'data-timestamp="' . $countdownTimestamp . '" data-bs-toggle="tooltip" ' .
-                'title="' .
-                date(trans('myfinance2::general.datetime-short-format'), $countdownTimestamp) .
-                '"></span>';
+            $countdown = '<span class="' . $countdownClass
+                . ' d-none small text-secondary" '
+                . 'data-timestamp="' . $countdownTimestamp
+                . '" data-bs-toggle="tooltip" '
+                . 'title="'
+                . date(trans('myfinance2::general.datetime-short-format'),
+                       $countdownTimestamp)
+                . '"></span>';
         }
 
-        $output = $warning . '<div class="col"><span class="market_status text-left badge rounded-pill ' .
-            $class . '" data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips2" data-bs-html="true" title="<p class=\'text-left\'>' .
-            $tooltip . '</p>">' .
-            $text . '</span></div> <div class="col-md-auto">' . $countdown . "</div>";
+        $output = $warning . '<div class="col"><span class="market_status '
+            . 'text-left badge rounded-pill ' . $class
+            . '" data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips2" '
+            . 'data-bs-html="true" title="<p class=\'text-left\'>'
+            . $tooltip . '</p>">' . $text
+            . '</span></div> <div class="col-md-auto">' . $countdown . "</div>";
 
         return $output;
     }

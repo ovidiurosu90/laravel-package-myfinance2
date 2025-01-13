@@ -1,5 +1,6 @@
 @if (session('message'))
-    <div class="alert alert-{{ Session::get('status') }} status-box alert-dismissable fade show" role="alert">
+    <div class="alert alert-{{ Session::get('status') }}
+                status-box alert-dismissable fade show" role="alert">
         <a href="#" class="close" data-bs-dismiss="alert" aria-label="close">
             &times;
             <span class="sr-only">
@@ -26,18 +27,17 @@
     </div>
 @endif
 
-@if(session()->has('status'))
-    @if(session()->get('status') == 'wrong')
-        <div class="alert alert-danger status-box alert-dismissable fade show" role="alert">
-            <a href="#" class="close" data-bs-dismiss="alert" aria-label="close">
-                &times;
-                <span class="sr-only">
-                    {!! trans('myfinance2::general.flash-messages.close') !!}
-                </span>
-            </a>
-            {!! session('message') !!}
-        </div>
-    @endif
+@if(session()->has('status') && session()->get('status') == 'wrong')
+    <div class="alert alert-danger status-box alert-dismissable fade show"
+        role="alert">
+        <a href="#" class="close" data-bs-dismiss="alert" aria-label="close">
+            &times;
+            <span class="sr-only">
+                {!! trans('myfinance2::general.flash-messages.close') !!}
+            </span>
+        </a>
+        {!! session('message') !!}
+    </div>
 @endif
 
 @if (session('error'))

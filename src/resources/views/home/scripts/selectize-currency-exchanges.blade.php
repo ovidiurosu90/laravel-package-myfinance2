@@ -2,7 +2,8 @@
 $(document).ready(function ()
 {
     var $debitCurrencySelect = $("#transaction-debit_currency-select").selectize({
-        placeholder: ' {{ trans('myfinance2::ledger.forms.transaction-form.debit_currency.placeholder') }} ',
+        placeholder: ' {{ trans('myfinance2::ledger.forms.transaction-form.'
+                                . 'debit_currency.placeholder') }} ',
         allowClear: true,
         create: true,
         highlight: true,
@@ -11,10 +12,12 @@ $(document).ready(function ()
             currencyChange();
         }
     });
-    var debitCurrencySelectize = $debitCurrencySelect[0] ? $debitCurrencySelect[0].selectize : null;
+    var debitCurrencySelectize = $debitCurrencySelect[0]
+        ? $debitCurrencySelect[0].selectize : null;
 
     var $creditCurrencySelect = $("#transaction-credit_currency-select").selectize({
-        placeholder: ' {{ trans('myfinance2::ledger.forms.transaction-form.credit_currency.placeholder') }} ',
+        placeholder: ' {{ trans('myfinance2::ledger.forms.transaction-form.'
+                                . 'credit_currency.placeholder') }} ',
         allowClear: true,
         create: true,
         highlight: true,
@@ -23,7 +26,8 @@ $(document).ready(function ()
             currencyChange();
         }
     });
-    var creditCurrencySelectize = $creditCurrencySelect[0] ? $creditCurrencySelect[0].selectize : null;
+    var creditCurrencySelectize = $creditCurrencySelect[0]
+        ? $creditCurrencySelect[0].selectize : null;
 
     var $exchangeRateInput = $('input#exchange_rate');
     var $amountInput = $('input#amount');
@@ -61,7 +65,8 @@ $(document).ready(function ()
             success: function(data, textStatus, jqXHR) {
                 $estimateGainButton.addClass('text-success');
                 $estimateGainButton.removeClass('text-danger');
-                $estimateGainButton.attr('data-bs-original-title', 'Get Currency Exchange Gain Estimate');
+                $estimateGainButton.attr('data-bs-original-title',
+                    'Get Currency Exchange Gain Estimate');
 
                 $estimatedCost.html(data.formatted_cost);
                 $estimatedAmount.html(data.formatted_credit_amount);
@@ -75,7 +80,9 @@ $(document).ready(function ()
 
                 var title = jqXHR.responseJSON.message;
                 if (jqXHR.responseJSON.errors) {
-                    for (let [key, value] of Object.entries(jqXHR.responseJSON.errors)) {
+                    for (let [key, value]
+                         of Object.entries(jqXHR.responseJSON.errors)
+                    ) {
                         title += "\n" + key + ": " + value;
                     }
                 }

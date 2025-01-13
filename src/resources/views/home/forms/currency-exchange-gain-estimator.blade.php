@@ -18,7 +18,10 @@
     </div>
     <div class="col-12 col-md-4">
         <label class="col-12 control-label pl-0">Estimate</label>
-        <button class="btn btn-dark w-100 text-left" id="estimate-gain-button" data-bs-toggle="tooltip" title="Get Currency Exchange Gain Estimate"><i class="fa fa-sign-in"></i> Get Gain</button>
+        <button class="btn btn-dark w-100 text-left" id="estimate-gain-button"
+            data-bs-toggle="tooltip" title="Get Currency Exchange Gain Estimate">
+            <i class="fa fa-sign-in"></i> Get Gain
+        </button>
     </div>
 </div>
 

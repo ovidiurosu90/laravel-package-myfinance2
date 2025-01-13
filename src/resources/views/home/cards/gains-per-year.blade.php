@@ -29,7 +29,8 @@
                             <th scope="col">Symbol</th>
                             <th scope="col" class="text-right"
                                 data-bs-toggle="tooltip"
-                                title="Total Gain (after deducting fees) in account currency">Total gain</th>
+                                title="Total Gain (after deducting fees)
+                                       in account currency">Total gain</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -38,22 +39,32 @@
                         @foreach($accounts as $account => $symbols)
                             @foreach($symbols as $symbol => $totals)
                         <tr>
-                            <th scope="row">
+                            <td scope="row">
                                 {{ $totals['accountModel']->name }}
-                                ({!! $totals['accountModel']->currency->display_code !!})
-                            </th>
-                            <th scope="row">{{ $symbol }}</th>
+                                ({!! $totals['accountModel']->currency
+                                                            ->display_code !!})
+                            </td>
+                            <td scope="row">{{ $symbol }}</td>
                             <td class="text-right">
                                 {!! ovidiuro\myfinance2\App\Services\MoneyFormat
-                                ::get_formatted_gain($totals['accountModel']
-                                    ->currency->iso_code,
-                                $totals['total_gain_in_account_currency']) !!}</td>
+                                ::get_formatted_gain(
+                                    $totals['accountModel']->currency->iso_code,
+                                    $totals['total_gain_in_account_currency'])
+                                !!}
+                            </td>
                         </tr>
-                            @if(empty($yearTotals[$totals['accountModel']->currency->iso_code]))
-                            @php $yearTotals[$totals['accountModel']->currency->iso_code] = 0 @endphp
+                            @if(empty($yearTotals[$totals['accountModel']
+                                        ->currency->iso_code]))
+                                @php
+                                    $yearTotals[$totals['accountModel']
+                                        ->currency->iso_code] = 0
+                                @endphp
                             @endif
-                            @php $yearTotals[$totals['accountModel']->currency->iso_code] +=
-                                $totals['total_gain_in_account_currency'] @endphp
+                            @php
+                                $yearTotals[$totals['accountModel']
+                                    ->currency->iso_code] +=
+                                        $totals['total_gain_in_account_currency']
+                            @endphp
                             @endforeach
                         @endforeach
                         <tr class="border border-bottom border-success">

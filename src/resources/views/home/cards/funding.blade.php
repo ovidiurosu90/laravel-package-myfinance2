@@ -1,14 +1,19 @@
 <div class="col-3">
     <div class="card">
         <div class="card-header">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; justify-content: space-between;
+                        align-items: center;">
                 <span id="card_title">
                     <a target="_blank" href="{{ url('/funding') }}">
                         {!! trans('myfinance2::funding.titles.dashboard') !!}
                     </a>
                 </span>
                 <div class="float-right">
-                    <a class="btn btn-sm" href="{{ route('myfinance2::ledger-transactions.create') }}" target="_blank" data-bs-toggle="tooltip" title="{{ trans('myfinance2::general.tooltips.create-item', ['type' => 'Ledger Transaction']) }}">
+                    <a class="btn btn-sm"
+                        href="{{ route('myfinance2::ledger-transactions.create') }}"
+                        target="_blank" data-bs-toggle="tooltip"
+                        title="{{ trans('myfinance2::general.tooltips.create-item',
+                                        ['type' => 'Ledger Transaction']) }}">
                         <i class="fa fa-fw fa-plus" aria-hidden="true"></i>
                         {!! trans('myfinance2::general.buttons.create') !!}
                     </a>
@@ -26,16 +31,27 @@
                         </tr>
                     </thead>
                     <tbody>
-                    @foreach($balances as $account => $balance)
+                    @foreach($balances as $accountId => $balance)
                         <tr>
-                            <th scope="row">{{ $account }}</th>
-                            <td class="text-right">{!! ovidiuro\myfinance2\App\Services\MoneyFormat::get_formatted_gain_from_account($account, $balance) !!}</td>
+                            <td scope="row">
+                                {{ $accounts[$accountId]->name }}
+                                ({!! $accounts[$accountId]->currency
+                                                          ->display_code !!})
+                            </td>
+                            <td class="text-right">
+                                {!! ovidiuro\myfinance2\App\Services\MoneyFormat
+                                ::get_formatted_gain(
+                                    $accounts[$accountId]->currency->iso_code,
+                                    $balance) !!}
+                            </td>
                         </tr>
                     @endforeach
                     </tbody>
                 </table>
                 @else
-                <p class="m-3">{{ trans('myfinance2::home.cards.funding.no-items') }}</p>
+                <p class="m-3">
+                    {{ trans('myfinance2::home.cards.funding.no-items') }}
+                </p>
                 @endif
             </div>
         </div>

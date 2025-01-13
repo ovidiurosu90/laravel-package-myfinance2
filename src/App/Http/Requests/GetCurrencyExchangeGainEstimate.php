@@ -5,6 +5,8 @@ namespace ovidiuro\myfinance2\App\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
+use ovidiuro\myfinance2\App\Models\Currency;
+
 class GetCurrencyExchangeGainEstimate extends FormRequest
 {
     /**
@@ -15,10 +17,13 @@ class GetCurrencyExchangeGainEstimate extends FormRequest
     public function authorize()
     {
         if (config('ledger.guiCreateNewTransactionMiddlewareType') == 'role') {
-            return $this->user()->hasRole(config('ledger.guiCreateNewTransactionMiddleware'));
+            return $this->user()->hasRole(
+                config('ledger.guiCreateNewTransactionMiddleware'));
         }
-        if (config('ledger.guiCreateNewTransactionMiddlewareType') == 'permissions') {
-            return $this->user()->hasPermission(config('ledger.guiCreateNewTransactionMiddleware'));
+        if (config('ledger.guiCreateNewTransactionMiddlewareType') == 'permissions'
+        ) {
+            return $this->user()->hasPermission(
+                config('ledger.guiCreateNewTransactionMiddleware'));
         }
 
         return false;
@@ -31,14 +36,20 @@ class GetCurrencyExchangeGainEstimate extends FormRequest
      */
     public function rules()
     {
+        $isoCodes = [];
+        $ledgerCurrencies = Currency::where('is_ledger_currency', 1)->get();
+        foreach ($ledgerCurrencies as $currency) {
+            $isoCodes[$currency->iso_code] = 1;
+        }
+
         return [
             'debit_currency'  => [
                 'required',
-                Rule::in(array_keys(config('general.ledger_currencies'))),
+                Rule::in(array_keys($isoCodes)),
             ],
             'credit_currency' => [
                 'required',
-                Rule::in(array_keys(config('general.ledger_currencies'))),
+                Rule::in(array_keys($isoCodes)),
             ],
             'exchange_rate'   => 'required|numeric',
             'amount'          => 'required|numeric',

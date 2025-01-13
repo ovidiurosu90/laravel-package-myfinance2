@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
-@section('template_title'){!! trans('myfinance2::funding.titles.dashboard') !!}@endsection
+@section('template_title'){!!
+    trans('myfinance2::funding.titles.dashboard') !!}@endsection
 
 @section('template_linked_css')
     @include('myfinance2::general.partials.styles')

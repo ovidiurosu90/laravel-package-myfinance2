@@ -4,6 +4,7 @@ namespace ovidiuro\myfinance2\App\Services;
 
 use Illuminate\Support\Facades\Log;
 
+use ovidiuro\myfinance2\App\Models\Account;
 use ovidiuro\myfinance2\App\Models\LedgerTransaction;
 
 class FundingDashboard
@@ -19,14 +20,18 @@ class FundingDashboard
         $items = [];
         $itemsOrder = [];
         $sortedItems = [];
+        $accounts = [];
 
-        $ledgerTransactions = LedgerTransaction::orderBy('timestamp')->get();
+        $ledgerTransactions = LedgerTransaction
+            ::with('debitAccountModel', 'creditAccountModel')
+            ->orderBy('timestamp')
+            ->get();
 
         foreach ($ledgerTransactions as $transaction) {
             switch($transaction->type) {
                 case 'DEBIT':
                     // Update balances
-                    $balancesKey = $transaction->getDebitAccount();
+                    $balancesKey = $transaction->debitAccountModel->id;
                     if (!isset($balances[$balancesKey])) {
                         $balances[$balancesKey] = 0;
                     }
@@ -39,11 +44,13 @@ class FundingDashboard
                         'balances'          => $balances,
                     ];
                     $itemsOrder[] = $transaction->id;
+                    $accounts[$transaction->debitAccountModel->id] =
+                        $transaction->debitAccountModel;
 
                     break;
                 case 'CREDIT':
                     // Update balances
-                    $balancesKey = $transaction->getCreditAccount();
+                    $balancesKey = $transaction->creditAccountModel->id;
                     if (!isset($balances[$balancesKey])) {
                         $balances[$balancesKey] = 0;
                     }
@@ -52,8 +59,11 @@ class FundingDashboard
 
                     // Add item
                     $itemsKey = 'ID-' . $transaction->id;
-                    if (!$transaction->parent_id || // Orphan credit = missing parent
-                        !isset($items[$transaction->parent_id]) // Lost credit = has parent but not found
+
+                    if (!$transaction->parent_id // Orphan credit = missing parent
+
+                        // Lost credit = has parent but not found
+                        || !isset($items[$transaction->parent_id])
                     ) {
                         $items[$itemsKey] = [];
                         $itemsOrder[] = $itemsKey;
@@ -65,6 +75,8 @@ class FundingDashboard
                         'credit_transaction' => $transaction,
                         'balances'           => $balances,
                     ];
+                    $accounts[$transaction->creditAccountModel->id] =
+                        $transaction->creditAccountModel;
 
                     break;
                 default:
@@ -76,13 +88,19 @@ class FundingDashboard
             $debitTransaction = !empty($items[$itemKey]['debit_transaction']) ?
                                 $items[$itemKey]['debit_transaction'] : null;
             if (empty($items[$itemKey]['credits'])) {
+                $newBalances = []; // set 0 in all the other accounts
+                foreach ($balances as $accountId => $balance) {
+                    if (!empty($items[$itemKey]['balances'][$accountId])) {
+                        $newBalances[$accountId] =
+                            $items[$itemKey]['balances'][$accountId];
+                    } else {
+                        $newBalances[$accountId] = 0;
+                    }
+                }
                 $sortedItems[] = [
                     'debit_transaction'  => $debitTransaction,
                     'credit_transaction' => null,
-                    'balances'           => array_merge(
-                        array_combine(array_keys($balances), array_fill(0, count(array_keys($balances)), 0)),
-                        $items[$itemKey]['balances']
-                    ),
+                    'balances'           => $newBalances,
                     'tooltip'            => '',
                 ];
                 continue;
@@ -92,25 +110,40 @@ class FundingDashboard
                 $creditTransaction = $itemCredit['credit_transaction'];
                 $tooltip = '';
 
-                if ($debitTransaction && $debitTransaction->exchange_rate != $creditTransaction->exchange_rate) {
-                    $tooltip .= sprintf('Debit exchange rate is different than Credit exchange rate ' .
-                        '(%.4f != %.4f). ', $debitTransaction->exchange_rate, $creditTransaction->exchange_rate);
-                }
-                if ($debitTransaction && 1 < abs(abs($creditTransaction->amount) -
-                    abs($debitTransaction->amount) * $debitTransaction->exchange_rate)
+                if ($debitTransaction &&
+                    $debitTransaction->exchange_rate !=
+                        $creditTransaction->exchange_rate
                 ) {
-                    $tooltip .= sprintf('Calculated credit amount is different than credit amount ' .
-                        '(%.2f != %.2f). ', abs($debitTransaction->amount) * $debitTransaction->exchange_rate,
+                    $tooltip .= sprintf('Debit exchange rate is different '
+                        . 'than credit exchange rate (%.4f != %.4f). ',
+                        $debitTransaction->exchange_rate,
+                        $creditTransaction->exchange_rate);
+                }
+                if ($debitTransaction &&
+                    1 < abs(abs($creditTransaction->amount) -
+                        abs($debitTransaction->amount) *
+                            $debitTransaction->exchange_rate)
+                ) {
+                    $tooltip .= sprintf('Calculated credit amount is different '
+                        . 'than credit amount (%.2f != %.2f). ',
+                        abs($debitTransaction->amount) *
+                            $debitTransaction->exchange_rate,
                         abs($creditTransaction->amount));
                 }
 
+                $newBalances = []; // set 0 in all the other accounts
+                foreach ($balances as $accountId => $balance) {
+                    if (!empty($itemCredit['balances'][$accountId])) {
+                        $newBalances[$accountId] =
+                            $itemCredit['balances'][$accountId];
+                    } else {
+                        $newBalances[$accountId] = 0;
+                    }
+                }
                 $sortedItems[] = [
                     'debit_transaction'  => $debitTransaction,
                     'credit_transaction' => $creditTransaction,
-                    'balances'           => array_merge(
-                        array_combine(array_keys($balances), array_fill(0, count(array_keys($balances)), 0)),
-                        $itemCredit['balances']
-                    ),
+                    'balances'           => $newBalances,
                     'tooltip'            => $tooltip,
                 ];
             }
@@ -119,6 +152,7 @@ class FundingDashboard
         return [
             'items'    => $sortedItems,
             'balances' => $balances,
+            'accounts' => $accounts,
         ];
     }
 
@@ -128,8 +162,11 @@ class FundingDashboard
      * @param array  $estimate (exchange_rate, amount, fee)
      * @return array (debit_transactionId => array(currencyExchangesData))
      */
-    public function getCurrencyExchanges($debitCurrency = 'USD', $creditCurrency = 'EUR', $estimate = null)
-    {
+    public function getCurrencyExchanges(
+        $debitCurrency  = 'USD',
+        $creditCurrency = 'EUR',
+        $estimate = null
+    ) {
         // Initialization
         $intent = $debitCurrency . $creditCurrency;
         $currencyExchanges = [
@@ -137,25 +174,39 @@ class FundingDashboard
             ($creditCurrency . $debitCurrency) => [],
         ];
         $currencyBalances = [
-            ($debitCurrency . $creditCurrency) => [$debitCurrency => 0, $creditCurrency => 0],
-            ($creditCurrency . $debitCurrency) => [$debitCurrency => 0, $creditCurrency => 0],
+            ($debitCurrency . $creditCurrency) => [
+                $debitCurrency => 0, $creditCurrency => 0
+            ],
+            ($creditCurrency . $debitCurrency) => [
+                $debitCurrency => 0, $creditCurrency => 0
+            ],
         ];
 
         $fundingEntries = $this->handle();
         foreach ($fundingEntries['items'] as $item) {
-            if (empty($item['debit_transaction']) || empty($item['credit_transaction'])
-                || $item['debit_transaction']->getCurrency() == $item['credit_transaction']->getCurrency()
+            if (empty($item['debit_transaction'])
+                || empty($item['credit_transaction'])
+                || $item['debit_transaction']->getCurrency() ==
+                    $item['credit_transaction']->getCurrency()
+                || empty($currencyBalances[$item['debit_transaction']->getCurrency()
+                    . $item['credit_transaction']->getCurrency()])
             ) {
                 continue;
             }
             $debitTransaction = $item['debit_transaction'];
             $creditTransaction = $item['credit_transaction'];
-            // LOG::debug($debitTransaction->amount . ' ' . $debitTransaction->getCurrency() . ' -> ' . $creditTransaction->amount . ' ' . $creditTransaction->getCurrency());
+            // LOG::debug($debitTransaction->amount . ' '
+            //     . $debitTransaction->getCurrency() . ' -> '
+            //     . $creditTransaction->amount . ' '
+            //     . $creditTransaction->getCurrency());
 
-            $key = $debitTransaction->getCurrency() . $creditTransaction->getCurrency();
-            $keyReverse = $creditTransaction->getCurrency() . $debitTransaction->getCurrency();
+            $key = $debitTransaction->getCurrency() .
+                $creditTransaction->getCurrency();
+            $keyReverse = $creditTransaction->getCurrency() .
+                $debitTransaction->getCurrency();
 
-            if ($key == $intent && $currencyBalances[$keyReverse][$debitTransaction->getCurrency()]
+            if ($key == $intent
+                && $currencyBalances[$keyReverse][$debitTransaction->getCurrency()]
                 && $currencyBalances[$keyReverse][$creditTransaction->getCurrency()]
             ) {
                 $computedGain = $this->computeGain([
@@ -188,7 +239,8 @@ class FundingDashboard
                 'debit_amount'    => $estimate['amount'],
                 'debit_currency'  => $debitCurrency,
                 'debit_fee'       => $estimate['fee'],
-                'credit_amount'   => $estimate['amount'] * $estimate['exchange_rate'],
+                'credit_amount'   => $estimate['amount'] *
+                                     $estimate['exchange_rate'],
                 'credit_currency' => $creditCurrency,
                 'credit_fee'      => 0,
             ], $currencyBalances);
@@ -204,8 +256,14 @@ class FundingDashboard
     }
 
     /**
-     * @param $item array(debit_amount, debit_currency, debit_fee, credit_amount, credit_currency, credit_fee)
-     * @param $currencyBalances array(credit_currency.debit_currency => (credit_currency => balance, debit_currency => balance), ...)
+     * @param $item array(debit_amount, debit_currency, debit_fee,
+     *                    credit_amount, credit_currency, credit_fee)
+     * @param $currencyBalances array(
+     *            credit_currency.debit_currency => (
+     *                credit_currency => balance, debit_currency => balance
+     *            ),
+     *            ...
+     *        )
      *
      * @return array (amount, credit_amount, cost, gain)
      */
@@ -213,24 +271,32 @@ class FundingDashboard
     {
         $keyReverse = $item['credit_currency'] . $item['debit_currency'];
 
-        if ($item['debit_amount'] > abs($currencyBalances[$keyReverse][$item['debit_currency']])) {
-            // LOG::debug('----- Calculate gain on what I exchanged already, not on the full amount');
-            $amount       = abs($currencyBalances[$keyReverse][$item['debit_currency']])
-                            + $item['debit_fee'];
-            $creditAmount = $amount * $item['credit_amount'] / $item['debit_amount']
-                            - $item['credit_fee'];
-            $cost         = abs($currencyBalances[$keyReverse][$item['credit_currency']]);
+        if ($item['debit_amount'] >
+            abs($currencyBalances[$keyReverse][$item['debit_currency']])
+        ) {
+            // LOG::debug('----- Calculate gain on what I exchanged already, '
+            //            . 'not on the full amount');
+            $amount = abs($currencyBalances[$keyReverse][$item['debit_currency']])
+                        + $item['debit_fee'];
+            $creditAmount = $amount * $item['credit_amount']
+                        / $item['debit_amount']
+                        - $item['credit_fee'];
+            $cost = abs($currencyBalances[$keyReverse][$item['credit_currency']]);
         } else {
-            $amount       = $item['debit_amount'] + $item['debit_fee'];
+            $amount = $item['debit_amount'] + $item['debit_fee'];
             $creditAmount = $item['credit_amount'] - $item['credit_fee'];
-            $cost         = ($item['debit_amount'] + $item['debit_fee'])
-                            * abs($currencyBalances[$keyReverse][$item['credit_currency']])
-                            / abs($currencyBalances[$keyReverse][$item['debit_currency']]);
+            $cost = ($item['debit_amount'] + $item['debit_fee'])
+                * abs($currencyBalances[$keyReverse][$item['credit_currency']])
+                / abs($currencyBalances[$keyReverse][$item['debit_currency']]);
         }
         $gain = $creditAmount - $cost;
 
-        // LOG::debug(sprintf("----- I paid %.2f %s for %.2f %s", $cost, $item['credit_currency'], $amount, $item['debit_currency']));
-        // LOG::debug(sprintf("----- I got %.2f %s => gained %.2f %s", $creditAmount, $item['credit_currency'], $gain, $item['credit_currency']));
+        // LOG::debug(sprintf("----- I paid %.2f %s for %.2f %s",
+        //            $cost, $item['credit_currency'], $amount,
+        //            $item['debit_currency']));
+        // LOG::debug(sprintf("----- I got %.2f %s => gained %.2f %s",
+        //            $creditAmount, $item['credit_currency'], $gain,
+        //            $item['credit_currency']));
 
         return [
             'amount'        => $amount,

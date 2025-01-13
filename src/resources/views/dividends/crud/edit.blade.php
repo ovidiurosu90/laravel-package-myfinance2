@@ -31,7 +31,6 @@
     @include('myfinance2::dividends.scripts.selectize-item')
     @include('myfinance2::general.scripts.timestamp-picker')
     @include('myfinance2::general.scripts.tooltips')
-    @include('myfinance2::general.scripts.account-currency')
 
     @include('myfinance2::dividends.scripts.finance')
     @include('myfinance2::dividends.scripts.fee-toggle')

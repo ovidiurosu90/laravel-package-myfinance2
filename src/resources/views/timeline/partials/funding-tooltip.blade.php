@@ -19,23 +19,75 @@
         </tr>
         <tr>
             <th scope="row">Account</th>
-            <td>{!! $debit_transaction ? $debit_transaction->getDebitAccount() : $credit_transaction->getDebitAccount() !!}</td>
-            <td>{!! $credit_transaction ? $credit_transaction->getCreditAccount() : $debit_transaction->getCreditAccount() !!}</td>
+            <td>
+                {!! $debit_transaction
+                    ? $debit_transaction->debitAccountModel->name
+                    . ' ('
+                    . $debit_transaction->debitAccountModel->currency->display_code
+                    . ')'
+                    : $credit_transaction->debitAccountModel->name
+                    . ' ('
+                    . $credit_transaction->debitAccountModel->currency->display_code
+                    . ')'
+                !!}
+            </td>
+            <td>
+                {!! $credit_transaction
+                    ? $credit_transaction->creditAccountModel->name
+                    . ' ('
+                    . $credit_transaction->creditAccountModel->currency->display_code
+                    . ')'
+                    : $debit_transaction->creditAccountModel->name
+                    . ' ('
+                    . $debit_transaction->creditAccountModel->currency->display_code
+                    . ')'
+                !!}
+            </td>
         </tr>
         <tr>
             <th scope="row">Amount</th>
-            <td>{!! $debit_transaction ? $debit_transaction->getFormattedAmount() : '' !!}</td>
-            <td>{!! $credit_transaction ? $credit_transaction->getFormattedAmount() : '' !!}</td>
+            <td>
+                {!! $debit_transaction
+                    ? $debit_transaction->getFormattedAmount()
+                    : ''
+                !!}
+            </td>
+            <td>
+                {!! $credit_transaction
+                    ? $credit_transaction->getFormattedAmount()
+                    : ''
+                !!}
+            </td>
         </tr>
         <tr>
             <th scope="row">Fee</th>
-            <td>{!! $debit_transaction ? $debit_transaction->getFormattedFee() : '' !!}</td>
-            <td>{!! $credit_transaction ? $credit_transaction->getFormattedFee() : '' !!}</td>
+            <td>
+                {!! $debit_transaction
+                    ? $debit_transaction->getFormattedFee()
+                    : ''
+                !!}
+            </td>
+            <td>
+                {!! $credit_transaction
+                    ? $credit_transaction->getFormattedFee()
+                    : ''
+                !!}
+            </td>
         </tr>
         <tr>
             <th scope="row">Exchange</th>
-            <td>{!! $debit_transaction ? $debit_transaction->exchange_rate : '' !!}</td>
-            <td>{!! $credit_transaction ? $credit_transaction->exchange_rate : '' !!}</td>
+            <td>
+                {!! $debit_transaction
+                    ? $debit_transaction->exchange_rate
+                    : ''
+                !!}
+            </td>
+            <td>
+                {!! $credit_transaction
+                    ? $credit_transaction->exchange_rate
+                    : ''
+                !!}
+            </td>
         </tr>
     </tbody>
 </table>
