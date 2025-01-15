@@ -7,52 +7,78 @@ use Illuminate\Support\Facades\Log;
 class MoneyFormat
 {
     /**
-     * @param string $currency
-     *
-     * @return string $currencyDisplay
-     */
-    public static function get_currency_display($currency)
-    {
-        $currencyDisplay = config('general.currencies_display.unknown');
-
-        if (!$currency) {
-            return $currencyDisplay;
-        }
-
-        $currenciesDisplay = config('general.currencies_display');
-        if (isset($currenciesDisplay[$currency])) {
-            $currencyDisplay = $currenciesDisplay[$currency];
-        }
-        return $currencyDisplay;
-    }
-
-    /**
-     * @param string $haystack
-     * @param string $needle
-     *
-     * @return boolean
-     */
-    public static function ends_with($haystack, $needle)
-    {
-        return substr_compare($haystack, $needle, -strlen($needle)) === 0;
-    }
-
-    /**
-     * @param string $currency
+     * @param string $currencyDisplayCode
      * @param double $value
      *
      * @return string (formatted value)
      */
-    public static function get_formatted_balance($currency, $value)
+    public static function get_formatted_balance($currencyDisplayCode, $value)
     {
-        $currencyDisplay = self::get_currency_display($currency);
-
         if ($value == 0) {
-            return '0 ' . $currencyDisplay;
+            return '0 ' . $currencyDisplayCode;
         }
         return '<span class="">' . @number_format($value, 2) . ' '
-               . $currencyDisplay . '</span>';
+               . $currencyDisplayCode . '</span>';
     }
+
+    /**
+     * @param string  $currencyDisplayCode
+     * @param double  $value
+     * @param string  $type
+     * @param integer $numDecimals
+     *
+     * @return string (formatted value)
+     */
+    public static function get_formatted_amount($currencyDisplayCode, $value,
+        $type = 'credit', $numDecimals = 4
+    ) {
+        $amountFormats = config('general.row-format-amount');
+        $formatAmount = config('general.row-format-amount.unknown');
+        if (!empty($amountFormats[$type])) {
+            $formatAmount = $amountFormats[$type];
+        }
+
+        return '<span class="' . $formatAmount . '">' .
+            @number_format($value, $numDecimals) . ' ' .
+            $currencyDisplayCode . '</span>';
+    }
+
+    /**
+     * @param string $currencyDisplayCode
+     * @param double $value
+     *
+     * @return string (formatted value)
+     */
+    public static function get_formatted_fee($currencyDisplayCode, $value)
+    {
+        if ($value == 0) {
+            return '0 ' . $currencyDisplayCode;
+        }
+
+        return self::get_formatted_gain($currencyDisplayCode, -abs($value));
+    }
+
+    /**
+     * @param string $currencyDisplayCode
+     * @param double $value
+     *
+     * @return string (formatted value)
+     */
+    //NOTE This is used a lot
+    public static function get_formatted_gain($currencyDisplayCode, $value)
+    {
+        if ($value == 0) {
+            return '0 ' . $currencyDisplayCode;
+        }
+        if ($value < 0) {
+            return '<span class="text-danger">- ' . number_format(abs($value), 2)
+                   . ' ' . $currencyDisplayCode . '</span>';
+        }
+        return '<span class="text-success">+ ' . number_format($value, 2) . ' '
+               . $currencyDisplayCode . '</span>';
+    }
+
+
 
     /**
      * @param double $value
@@ -68,65 +94,6 @@ class MoneyFormat
             return '<span>- ' . number_format(abs($value), 2) . ' %</span>';
         }
         return '<span>+ ' . number_format($value, 2) . ' %</span>';
-    }
-
-
-    /**
-     * @param string  $currency
-     * @param double  $value
-     * @param string  $type
-     * @param integer $numDecimals
-     *
-     * @return string (formatted value)
-     */
-    public static function get_formatted_amount($currency, $value,
-        $type = 'credit', $numDecimals = 4
-    ) {
-        $amountFormats = config('general.row-format-amount');
-        $formatAmount = config('general.row-format-amount.unknown');
-        if (!empty($amountFormats[$type])) {
-            $formatAmount = $amountFormats[$type];
-        }
-
-        return '<span class="' . $formatAmount . '">' .
-            @number_format($value, $numDecimals) . ' ' .
-            MoneyFormat::get_currency_display($currency) . '</span>';
-    }
-
-    /**
-     * @param string $currency
-     * @param double $value
-     *
-     * @return string (formatted value)
-     */
-    public static function get_formatted_fee($currency, $value)
-    {
-        if ($value == 0) {
-            return '0 ' . self::get_currency_display($currency);
-        }
-
-        return self::get_formatted_gain($currency, -abs($value));
-    }
-
-    /**
-     * @param string $currency
-     * @param double $value
-     *
-     * @return string (formatted value)
-     */
-    public static function get_formatted_gain($currency, $value)
-    {
-        $currencyDisplay = self::get_currency_display($currency);
-
-        if ($value == 0) {
-            return '0 ' . $currencyDisplay;
-        }
-        if ($value < 0) {
-            return '<span class="text-danger">- ' . number_format(abs($value), 2)
-                   . ' ' . $currencyDisplay . '</span>';
-        }
-        return '<span class="text-success">+ ' . number_format($value, 2) . ' '
-               . $currencyDisplay . '</span>';
     }
 
     /**

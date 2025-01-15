@@ -48,7 +48,7 @@
                             <td class="text-right">
                                 {!! ovidiuro\myfinance2\App\Services\MoneyFormat
                                 ::get_formatted_gain(
-                                    $totals['accountModel']->currency->iso_code,
+                                    $totals['accountModel']->currency->display_code,
                                     $totals['total_gain_in_account_currency'])
                                 !!}
                             </td>
@@ -73,7 +73,11 @@
                             @foreach($yearTotals as $currency => $total)
                                 &nbsp;&nbsp;&nbsp;
                                 {!! ovidiuro\myfinance2\App\Services\MoneyFormat
-                                ::get_formatted_gain($currency, $total) !!}
+                                ::get_formatted_gain(
+                                    $currencyUtilsService->getCurrencyByIsoCode(
+                                        $currency)->display_code,
+                                    $total
+                                ) !!}
                             @endforeach
                             </td>
                         </tr>

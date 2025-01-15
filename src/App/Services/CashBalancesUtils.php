@@ -24,12 +24,12 @@ class CashBalancesUtils
 
     public function __construct($accountId)
     {
-        $this->_account = Account::with('currency')->findOrFail($accountId);
-
+        // $this->_account = Account::with('currency')->findOrFail($accountId);
         $this->_cashBalance = CashBalance::with('accountModel')
-            ->where('account_id', $this->_account->id)
+            ->where('account_id', $accountId)
             ->orderBy('timestamp', 'DESC')
             ->first();
+        $this->_account = $this->_cashBalance->accountModel;
     }
 
     public function getLastCashBalance()

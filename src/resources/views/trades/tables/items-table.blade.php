@@ -4,7 +4,7 @@
             <tr>
                 <th scope="col">Id</th>
                 <th scope="col">Timestamp</th>
-                <th scope="col" style="min-width: 128px">Account</th>
+                <th scope="col" style="min-width: 122px">Account</th>
                 <th scope="col">Status</th>
                 <th scope="col">Action</th>
                 <th scope="col">Symbol</th>

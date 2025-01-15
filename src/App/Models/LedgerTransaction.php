@@ -86,7 +86,7 @@ class LedgerTransaction extends MyFinance2Model
     public function getFormattedAmount()
     {
         return MoneyFormat::get_formatted_amount(
-            $this->getCurrency(),
+            $this->getCurrency(true),
             $this->amount,
             strtolower($this->type),
             2
@@ -95,22 +95,30 @@ class LedgerTransaction extends MyFinance2Model
 
     public function getFormattedFee()
     {
-        return MoneyFormat::get_formatted_fee($this->getCurrency(), $this->fee);
+        return MoneyFormat::get_formatted_fee(
+            $this->getCurrency(true),
+            $this->fee
+        );
     }
 
     /**
+     * @param boolean $isDisplayCurrency
      * @return string $currency
      */
-    public function getCurrency()
+    public function getCurrency($isDisplayCurrency = false)
     {
         $currency = null;
 
         switch ($this->type) {
             case 'DEBIT':
-                $currency = $this->debitAccountModel->currency->iso_code;
+                $currency = $isDisplayCurrency
+                    ? $this->debitAccountModel->currency->display_code
+                    : $this->debitAccountModel->currency->iso_code;
                 break;
             case 'CREDIT':
-                $currency = $this->creditAccountModel->currency->iso_code;
+                $currency = $isDisplayCurrency
+                    ? $this->creditAccountModel->currency->display_code
+                    : $this->creditAccountModel->currency->iso_code;
                 break;
             default:
                 return null;

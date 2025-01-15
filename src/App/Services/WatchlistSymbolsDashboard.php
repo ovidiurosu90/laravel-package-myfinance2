@@ -17,6 +17,7 @@ class WatchlistSymbolsDashboard
      */
     public function handle()
     {
+        $currencyUtilsService = new CurrencyUtils(true);
         $watchlistSymbols = WatchlistSymbol::all();
         $watchlistSymbolsDictionary = [];
         foreach ($watchlistSymbols as $watchlistSymbol) {
@@ -24,12 +25,15 @@ class WatchlistSymbolsDashboard
         }
 
         $positionsService = new PositionsDashboard();
-        $positionsData = $positionsService->handle(array_keys($watchlistSymbolsDictionary));
+        $positionsData = $positionsService->handle(
+            array_keys($watchlistSymbolsDictionary)
+        );
         if (empty($positionsData['quotes'])) {
             return [];
         }
 
-        // LOG::debug('watchlistSymbolsDictionary: '); LOG::debug($watchlistSymbolsDictionary);
+        // LOG::debug('watchlistSymbolsDictionary: ');
+        // LOG::debug($watchlistSymbolsDictionary);
         $items = $positionsData['quotes'];
         foreach ($items as $symbol => $quoteData) {
             if (empty($watchlistSymbolsDictionary[$symbol])) {
@@ -41,6 +45,8 @@ class WatchlistSymbolsDashboard
                 $watchlistSymbolsDictionary[$symbol] = $newWatchlistSymbol;
 
             }
+            $items[$symbol]['tradeCurrencyModel'] =
+                $currencyUtilsService->getCurrencyByIsoCode($quoteData['currency']);
             $items[$symbol]['item'] = $watchlistSymbolsDictionary[$symbol];
             $items[$symbol]['open_positions'] = [];
 

@@ -41,7 +41,7 @@
                             <td class="text-right">
                                 {!! ovidiuro\myfinance2\App\Services\MoneyFormat
                                 ::get_formatted_gain(
-                                    $accounts[$accountId]->currency->iso_code,
+                                    $accounts[$accountId]->currency->display_code,
                                     $balance) !!}
                             </td>
                         </tr>

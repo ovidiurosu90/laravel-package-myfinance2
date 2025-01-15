@@ -1,14 +1,16 @@
 <?php
 
 Route::group([
-    'middleware'    => ['web', 'activity', 'checkblocked', 'role:admin|financeadmin'],
-    'as'            => 'myfinance2::',
-    'namespace'     => 'ovidiuro\myfinance2\App\Http\Controllers',
+    'middleware' => ['web', 'activity', 'checkblocked', 'role:admin|financeadmin'],
+    'as'         => 'myfinance2::',
+    'namespace'  => 'ovidiuro\myfinance2\App\Http\Controllers',
 ], function ()
 {
     #NOTE These have to be before Route::resource
-    Route::patch('trades/{id}/close', 'TradesController@close')->name('trades.close');
-    Route::patch('trades/close-symbol', 'TradesController@closeSymbol')->name('trades.close-symbol');
+    Route::patch('trades/{id}/close',
+                 'TradesController@close')->name('trades.close');
+    Route::patch('trades/close-symbol',
+                 'TradesController@closeSymbol')->name('trades.close-symbol');
 
     Route::resource('currencies', 'CurrenciesController');
     Route::resource('accounts', 'AccountsController');

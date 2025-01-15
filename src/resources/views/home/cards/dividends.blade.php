@@ -47,7 +47,7 @@
                             <td class="text-right">
                                 {!! ovidiuro\myfinance2\App\Services\MoneyFormat
                                 ::get_formatted_gain($totals['accountModel']
-                                    ->currency->iso_code,
+                                    ->currency->display_code,
                                 $totals['total_gain_in_account_currency']) !!}</td>
                         </tr>
                         @endforeach

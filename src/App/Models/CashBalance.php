@@ -58,7 +58,9 @@ class CashBalance extends MyFinance2Model
     public function getFormattedAmount()
     {
         return MoneyFormat::get_formatted_balance(
-            $this->accountModel->currency->iso_code, $this->amount);
+            $this->accountModel->currency->display_code,
+            $this->amount
+        );
     }
 }
 

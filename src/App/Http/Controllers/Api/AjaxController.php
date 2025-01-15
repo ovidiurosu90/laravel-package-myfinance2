@@ -9,6 +9,7 @@ use ovidiuro\myfinance2\App\Services\FundingDashboard;
 use ovidiuro\myfinance2\App\Services\FinanceUtils;
 use ovidiuro\myfinance2\App\Services\MoneyFormat;
 use ovidiuro\myfinance2\App\Services\CashBalancesUtils;
+use ovidiuro\myfinance2\App\Services\CurrencyUtils;
 use ovidiuro\myfinance2\App\Http\Requests\GetCurrencyExchangeGainEstimate;
 use ovidiuro\myfinance2\App\Http\Controllers\MyFinance2Controller;
 
@@ -84,6 +85,7 @@ class AjaxController extends MyFinance2Controller
     public function getCurrencyExchangeGainEstimate(
         GetCurrencyExchangeGainEstimate $request
     ) {
+        $currencyUtilsService = new CurrencyUtils(true);
         $service = new FundingDashboard();
         $currencyExchanges = $service->getCurrencyExchanges(
             $request->debit_currency,
@@ -97,17 +99,21 @@ class AjaxController extends MyFinance2Controller
         $estimatedGain = $currencyExchanges['estimated_gain'];
         $estimatedGain = array_merge($estimatedGain, [
             'formatted_cost'          => MoneyFormat::get_formatted_gain(
-                                            $request->credit_currency,
-                                            -abs($estimatedGain['cost'])),
+                $currencyUtilsService->getCurrencyByIsoCode(
+                    $request->credit_currency)->display_code,
+                -abs($estimatedGain['cost'])),
             'formatted_amount'        => MoneyFormat::get_formatted_gain(
-                                            $request->credit_currency,
-                                            $estimatedGain['amount']),
+                $currencyUtilsService->getCurrencyByIsoCode(
+                    $request->credit_currency)->display_code,
+                $estimatedGain['amount']),
             'formatted_credit_amount' => MoneyFormat::get_formatted_gain(
-                                            $request->credit_currency,
-                                            $estimatedGain['credit_amount']),
+                $currencyUtilsService->getCurrencyByIsoCode(
+                    $request->credit_currency)->display_code,
+                $estimatedGain['credit_amount']),
             'formatted_gain'          => MoneyFormat::get_formatted_gain(
-                                            $request->credit_currency,
-                                            $estimatedGain['gain']),
+                $currencyUtilsService->getCurrencyByIsoCode(
+                    $request->credit_currency)->display_code,
+                $estimatedGain['gain']),
         ]);
         return response()->json($estimatedGain);
     }

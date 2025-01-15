@@ -69,7 +69,7 @@
                                 {!! ovidiuro\myfinance2\App\Services\MoneyFormat
                                 ::get_formatted_balance(
                                     $data['debit_transaction']->debitAccountModel
-                                        ->currency->iso_code,
+                                        ->currency->display_code,
                                     $data['debit_transaction']->amount
                                 ) !!}
                                 ON
@@ -82,7 +82,7 @@
                                 {!! ovidiuro\myfinance2\App\Services\MoneyFormat
                                 ::get_formatted_gain(
                                     $data['debit_transaction']->creditAccountModel
-                                        ->currency->iso_code,
+                                        ->currency->display_code,
                                     -abs($data['cost']
                                 )) !!}
                             </td>
@@ -90,7 +90,7 @@
                                 {!! ovidiuro\myfinance2\App\Services\MoneyFormat
                                 ::get_formatted_gain(
                                     $data['debit_transaction']->creditAccountModel
-                                        ->currency->iso_code,
+                                        ->currency->display_code,
                                     abs($data['amount']
                                 )) !!}
                             </td>
@@ -98,7 +98,7 @@
                                 {!! ovidiuro\myfinance2\App\Services\MoneyFormat
                                 ::get_formatted_gain(
                                     $data['debit_transaction']->creditAccountModel
-                                        ->currency->iso_code,
+                                        ->currency->display_code,
                                     $data['gain']
                                 ) !!}
                             </td>
@@ -147,14 +147,14 @@
                                     <span class="badge badge-light">
                                     {!! ovidiuro\myfinance2\App\Services\MoneyFormat
                                     ::get_formatted_gain(
-                                        'EUR',
+                                        '&euro;',
                                         $currencyBalances['EUR']
                                     ) !!}
                                     </span>
                                     <span class="badge badge-light">
                                     {!! ovidiuro\myfinance2\App\Services\MoneyFormat
                                     ::get_formatted_gain(
-                                        'USD',
+                                        '&dollar;',
                                         $currencyBalances['USD']
                                     ) !!}
                                     </span>

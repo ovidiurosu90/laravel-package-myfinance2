@@ -8,6 +8,7 @@ use ovidiuro\myfinance2\App\Models\Currency;
 use ovidiuro\myfinance2\App\Services\FundingDashboard;
 use ovidiuro\myfinance2\App\Services\PositionsDashboard;
 use ovidiuro\myfinance2\App\Services\DividendsDashboard;
+use ovidiuro\myfinance2\App\Services\CurrencyUtils;
 
 class HomeController extends MyFinance2Controller
 {
@@ -26,6 +27,7 @@ class HomeController extends MyFinance2Controller
         $fundingService = new FundingDashboard();
         $positionsService = new PositionsDashboard();
         $dividendsService = new DividendsDashboard();
+        $currencyUtilsService = new CurrencyUtils(true);
 
         $fundingData = $fundingService->handle(); // items & balances
         $currencyExchangesData = $fundingService->getCurrencyExchanges();
@@ -50,6 +52,7 @@ class HomeController extends MyFinance2Controller
             'currencyExchanges' => $currencyExchangesData['currency_exchanges'],
             'currencyBalances'  => $currencyExchangesData['currency_balances'],
             'ledgerCurrencies'  => $ledgerCurrencies,
+            'currencyUtilsService' => $currencyUtilsService,
         ]);
     }
 }

@@ -73,7 +73,7 @@ class Dividend extends MyFinance2Model
     public function getFormattedAmount()
     {
         return MoneyFormat::get_formatted_amount(
-            $this->dividendCurrencyModel->iso_code, $this->amount);
+            $this->dividendCurrencyModel->display_code, $this->amount);
     }
 
     public function getFormattedAmountInAccountCurrency()
@@ -82,13 +82,13 @@ class Dividend extends MyFinance2Model
         $amount = $this->amount * 1 / $this->exchange_rate;
 
         return MoneyFormat::get_formatted_amount(
-            $this->accountModel->currency->iso_code, $amount);
+            $this->accountModel->currency->display_code, $amount);
     }
 
     public function getFormattedFee()
     {
         return MoneyFormat::get_formatted_fee(
-            $this->accountModel->currency->iso_code, $this->fee);
+            $this->accountModel->currency->display_code, $this->fee);
     }
 }
 

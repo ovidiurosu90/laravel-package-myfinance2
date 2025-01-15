@@ -27,14 +27,6 @@ return [
     'trade_currencies'      => array_intersect_key($allCurrencies, array_fill_keys(['USD', 'EUR', 'GBX'], 1)),
     'dividend_currencies'   => array_intersect_key($allCurrencies, array_fill_keys(['USD', 'EUR', 'GBX'], 1)),
 
-    'currencies_display' => [
-        'unknown' => '&curren;',
-        'EUR'     => '&euro;',
-        'USD'     => '$',
-        'GBX'     => 'GBX', // No symbol
-        'GBp'     => 'GBX', // No symbol
-    ],
-
     'currencies_mapping' => [
         'GBp'     => 'GBX',
     ],

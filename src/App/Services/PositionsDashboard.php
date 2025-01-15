@@ -18,6 +18,14 @@ class PositionsDashboard
      */
     public function handle(array $extraSymbols = array())
     {
+        /*
+        $accounts = Account::with('currency')->get();
+        $accountsDictionary = [];
+        foreach ($accounts as $account) {
+            $accountsDictionary[$account->id] = $account;
+        }
+        */
+
         $trades = Trade::with('accountModel', 'tradeCurrencyModel')
             ->where('status', 'OPEN')
             ->orderBy('timestamp')
@@ -206,32 +214,32 @@ class PositionsDashboard
                     'quantity'                             => $position['quantity'],
                     'cost_in_account_currency'             =>
                         MoneyFormat::get_formatted_balance(
-                            $position['accountModel']->currency->iso_code,
+                            $position['accountModel']->currency->display_code,
                             $position['cost_in_account_currency']),
                     'cost2_in_account_currency'            => !$hasCost2 ? '' :
                         MoneyFormat::get_formatted_balance(
-                            $position['accountModel']->currency->iso_code,
+                            $position['accountModel']->currency->display_code,
                             $position['cost2_in_account_currency']),
                     'market_value_in_account_currency'     =>
                         MoneyFormat::get_formatted_balance(
-                            $position['accountModel']->currency->iso_code,
+                            $position['accountModel']->currency->display_code,
                             $marketValueInAccountCurrency),
                     'exchange_rate'                        => $exchangeRate,
                     'average_unit_cost_in_trade_currency'  =>
                         !$position['quantity'] ? '' :
                             MoneyFormat::get_formatted_balance(
-                                $tradeCurrency,
+                                $position['tradeCurrencyModel']->display_code,
                                 $position['cost_in_trade_currency']
                                 / $position['quantity']),
                     'average_unit_cost2_in_trade_currency'  =>
                         !$position['quantity'] || !$hasCost2 ? '' :
                             MoneyFormat::get_formatted_balance(
-                                $tradeCurrency,
+                                $position['tradeCurrencyModel']->display_code,
                                 $position['cost2_in_trade_currency']
                                 / $position['quantity']),
                     'current_unit_price_in_trade_currency' =>
                         MoneyFormat::get_formatted_balance(
-                            $tradeCurrency,
+                            $position['tradeCurrencyModel']->display_code,
                             $quotes[$symbol]['price']),
                     'quote_timestamp'                      =>
                         $quotes[$symbol]['quote_timestamp']
@@ -239,7 +247,7 @@ class PositionsDashboard
                     'day_change_in_account_currency'       =>
                         !$position['quantity'] ? '' :
                             MoneyFormat::get_formatted_gain(
-                                $position['accountModel']->currency->iso_code,
+                                $position['accountModel']->currency->display_code,
                                 $position['quantity']
                                 * $quotes[$symbol]['day_change']
                                 / $exchangeRate),
@@ -249,12 +257,12 @@ class PositionsDashboard
                                 $quotes[$symbol]['day_change_percentage']),
                     'overall_change_in_account_currency'   =>
                         MoneyFormat::get_formatted_gain(
-                            $position['accountModel']->currency->iso_code,
+                            $position['accountModel']->currency->display_code,
                             $orverallChangeInAccountCurrency),
                     'overall_change2_in_account_currency'   =>
                         !$hasCost2 ? '' :
                             MoneyFormat::get_formatted_gain(
-                            $position['accountModel']->currency->iso_code,
+                            $position['accountModel']->currency->display_code,
                             $orverallChange2InAccountCurrency),
                     'overall_change_in_percentage'         =>
                         !$position['quantity'] ? '' :
@@ -279,23 +287,18 @@ class PositionsDashboard
             }
             $accountData[$accountId]['total_change_formatted']       =
                 MoneyFormat::get_formatted_gain(
-                    $position['accountModel']->currency->iso_code,
+                    $position['accountModel']->currency->display_code,
                     $accountData[$accountId]['total_change']);
             $accountData[$accountId]['total_cost_formatted']         =
                 MoneyFormat::get_formatted_balance(
-                    $position['accountModel']->currency->iso_code,
+                    $position['accountModel']->currency->display_code,
                     $accountData[$accountId]['total_cost']);
             $accountData[$accountId]['total_market_value_formatted'] =
                 MoneyFormat::get_formatted_balance(
-                    $position['accountModel']->currency->iso_code,
+                    $position['accountModel']->currency->display_code,
                     $accountData[$accountId]['total_market_value']);
 
-            $myLocalAcccount = Account::with('currency')
-                ->where('id', $accountId)
-                ->first();
-
-            $accountData[$accountId]['cash'] = new CashBalancesUtils(
-                $myLocalAcccount->id);
+            $accountData[$accountId]['cash'] = new CashBalancesUtils($accountId);
         }
 
         return [

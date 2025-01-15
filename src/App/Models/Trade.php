@@ -82,7 +82,7 @@ class Trade extends MyFinance2Model
     public function getFormattedUnitPrice()
     {
         return MoneyFormat::get_formatted_amount(
-            $this->tradeCurrencyModel->iso_code,
+            $this->tradeCurrencyModel->display_code,
             $this->unit_price,
             strtolower($this->action)
         );
@@ -97,7 +97,7 @@ class Trade extends MyFinance2Model
     {
         $amount = $this->quantity * $this->unit_price;
         return MoneyFormat::get_formatted_amount(
-            $this->tradeCurrencyModel->iso_code,
+            $this->tradeCurrencyModel->display_code,
             $amount,
             strtolower($this->action),
             2
@@ -108,7 +108,7 @@ class Trade extends MyFinance2Model
     {
         $amount = $this->quantity * $this->unit_price / $this->exchange_rate;
         return MoneyFormat::get_formatted_amount(
-            $this->accountModel->currency->iso_code,
+            $this->accountModel->currency->display_code,
             $amount,
             strtolower($this->action),
             2
@@ -118,7 +118,7 @@ class Trade extends MyFinance2Model
     public function getFormattedFee()
     {
         return MoneyFormat::get_formatted_fee(
-            $this->accountModel->currency->iso_code, $this->fee);
+            $this->accountModel->currency->display_code, $this->fee);
     }
 }
 
