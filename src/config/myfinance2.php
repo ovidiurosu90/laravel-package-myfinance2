@@ -28,5 +28,7 @@ return [
             ]) : [],
         ],
     ],
+
+    'myfinance2_invite_token' => env('MYFINANCE2_INVITE_TOKEN'),
 ];
 
