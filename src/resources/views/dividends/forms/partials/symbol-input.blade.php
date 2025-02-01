@@ -9,9 +9,12 @@
     </div>
     <div class="col-10">
         <input type="text" id="symbol-input" name="symbol" class="form-control"
-        value="{{ $symbol }}"
-        placeholder="{{ trans('myfinance2::dividends.forms.item-form.symbol.'
-                              . 'placeholder') }}" required maxlength="16" />
+            value="{{ $symbol }}"
+            placeholder="{{ trans('myfinance2::dividends.forms.item-form.symbol.'
+                                  . 'placeholder') }}"
+            required maxlength="16"
+            oninput="this.value = this.value.toUpperCase()"
+        />
     </div>
     <div class="col-2 p-0 pt-1">
         <i class="btn p-0 m-0 fa fa-sign-in" id="get-finance-data"

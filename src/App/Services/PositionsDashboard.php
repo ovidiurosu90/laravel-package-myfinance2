@@ -43,7 +43,10 @@ class PositionsDashboard
             ];
             $exchangeRateIndex = $trade->accountModel->currency->iso_code .
                 $trade->tradeCurrencyModel->iso_code; // EURUSD
-            if (empty($exchangeRateData[$exchangeRateIndex])) {
+            if (empty($exchangeRateData[$exchangeRateIndex])
+                && $trade->accountModel->currency->iso_code !=
+                        $trade->tradeCurrencyModel->iso_code
+            ) {
                 $exchangeRateData[$exchangeRateIndex] = [
                     'account_currency' => $trade->accountModel->currency->iso_code,
                     'trade_currency'   => $trade->tradeCurrencyModel->iso_code,
@@ -127,12 +130,15 @@ class PositionsDashboard
 
         $financeUtils = new FinanceUtils();
 
+        // LOG::debug("exchangeRateData 131: " . print_r($exchangeRateData, true));
         $exchangeRateData = $financeUtils->getExchangeRates($exchangeRateData);
 
         $quotes = $financeUtils->getQuotes(
             array_merge(array_keys($symbols), $extraSymbols));
 
         $currenciesMapping = config('general.currencies_mapping');
+
+        // LOG::debug("positions 141: " . print_r($positions, true));
 
         // Add market data
         $items = [];

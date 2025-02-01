@@ -9,6 +9,7 @@
                                   . 'description.placeholder') }}"
             required maxlength="127">{{ $description }}</textarea>
     </div>
+
     @if ($errors->has('description'))
         <div class="col-12">
             <span class="help-block">

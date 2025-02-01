@@ -178,8 +178,8 @@ class FinanceUtils
         $quotes = null;
         try {
             // Returns an array of Scheb\YahooFinanceApi\Results\Quote
-            // LOG::debug("getExchangeRates for currencyPairs 134: " .
-            // print_r($currencyPairs, true));
+            // LOG::debug("getExchangeRates for currencyPairs 181: " .
+            //      print_r($currencyPairs, true));
             $quotes = $client->getExchangeRates($currencyPairs);
         } catch (Exception $e) {
             LOG::warning("Couldn't get exchange rates for currencyPairs" .
