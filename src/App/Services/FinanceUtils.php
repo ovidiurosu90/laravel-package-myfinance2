@@ -3,36 +3,13 @@
 namespace ovidiuro\myfinance2\App\Services;
 
 use Illuminate\Support\Facades\Log;
-use Scheb\YahooFinanceApi\UserAgent;
 use Scheb\YahooFinanceApi\ApiClient;
-use Scheb\YahooFinanceApi\ApiClientFactory;
 use Scheb\YahooFinanceApi\Results\Quote;
 use Scheb\YahooFinanceApi\Results\HistoricalData;
-use GuzzleHttp\Client;
-
 use ovidiuro\myfinance2\App\Models\Trade;
 
 class FinanceUtils
 {
-    public function __construct()
-    {
-        //NOTE Sometimes we get an GuzzleHttp\Exception\ClientException
-        /*
-        Client error: `GET https://query2.finance.yahoo.com/v1/test/getcrumb`
-            resulted in a `401 Unauthorized`
-        response: {"finance":{"result":null,"error":{"code":"Unauthorized",
-            "description":"Invalid Cookie"}}}
-        */
-        if (empty($_SERVER['HTTP_USER_AGENT'])) {
-            return;
-        }
-
-        UserAgent::setUserAgents([
-            $_SERVER['HTTP_USER_AGENT']
-        ]);
-    }
-
-
     /**
      * @param string $symbol
      * @param string $timestamp
@@ -41,21 +18,9 @@ class FinanceUtils
      */
     public function getFinanceDataBySymbol($symbol, $timestamp = null)
     {
-        $options = [/*...*/];
-        $guzzleClient = new Client($options);
-        $client = ApiClientFactory::createApiClient($guzzleClient);
-
-        //NOTE We need the quote even for historical data
-        // (to get the currency and name)
-        $quote;
-        try {
-            // Returns Scheb\YahooFinanceApi\Results\Quote
-            $quote = $client->getQuote($symbol);
-        } catch (Exception $e) {
-            LOG::warning("Couldn't get quote for symbol $symbol. "
-                . "Exception message: " . $e->getMessage());
-        }
-        if (empty($quote) || !($quote instanceof Quote)) {
+        $financeAPI = new FinanceAPI();
+        $quote = $financeAPI->getQuote($symbol);
+        if (empty($quote)) {
             return null;
         }
 
@@ -64,60 +29,28 @@ class FinanceUtils
         $currency = $quote->getCurrency();
         $name = $quote->getLongName();
         $quoteTimestamp = $quote->getRegularMarketTime();
-        $quoteTimezone = $quote->getExchangeTimezoneName();
-
-        // LOG::debug('quote'); LOG::debug(var_export($quote, true));
 
         if (!empty($timestamp) && // Has timestamp
-            // Timestamp is in the past
-            date('Ymd') > date('Ymd', strtotime($timestamp))
+            date('Ymd') > date('Ymd', strtotime($timestamp)) // in the past
         ) {
-            $timestamp1 = new \DateTime($timestamp);
-            $timestamp1->setTime(0, 0, 0, 0);
-            $timestamp2 = clone $timestamp1;
-            $timestamp2->add(new \DateInterval('P1D'));
-            $offset = self::get_timezone_offset($quoteTimezone);
+            $historicalData = $financeAPI->getHistoricalQuoteData(
+                $quote, new \DateTime($timestamp));
 
-            // LOG::debug('quoteTimezone');
-            // LOG::debug(var_export($quoteTimezone, true));
-            // LOG::debug('timestampTimezone');
-            // LOG::debug(var_export($timestamp1->getTimezone()->getName(), true));
-            // LOG::debug('offset'); LOG::debug(var_export($offset, true));
-
-            //NOTE Adding 1 day when origin timezone is ahead of remote timezone
-            if ($offset > 0) { // For stocks like GOOGL, AMZN, MSFT
-                $timestamp1->add(new \DateInterval('P1D'));
-                $timestamp2->add(new \DateInterval('P1D'));
-            }
-
-            $historicalData;
-            try {
-                // Returns an array of Scheb\YahooFinanceApi\Results\HistoricalData
-                $historicalData = $client->getHistoricalData($symbol,
-                    ApiClient::INTERVAL_1_DAY,
-                    $timestamp1,
-                    $timestamp2);
-            } catch (Exception $e) {
-                LOG::warning("Couldn't get historical data for symbol $symbol. "
-                    . "Exception message: " . $e->getMessage());
-            }
-            if (empty($historicalData) || !is_array($historicalData) ||
-                !($historicalData[0] instanceof HistoricalData)
-            ) {
+            if (empty($historicalData)) {
                 return null;
             }
 
             // LOG::debug('historicalData');
             // LOG::debug(var_export($historicalData, true));
-            $price = $historicalData[0]->getClose();
-            $quoteTimestamp = $historicalData[0]->getDate();
+            $price = $historicalData->getClose();
+            $quoteTimestamp = $historicalData->getDate();
         }
 
-        $offset2 = self::get_timezone_offset(
+        $offset = self::get_timezone_offset(
             $quoteTimestamp->getTimezone()->getName());
         $quoteTimestamp->add(
-            \DateInterval::createFromDateString((string)$offset2 . 'seconds'));
-        // LOG::debug('offset2'); LOG::debug(var_export($offset2, true));
+            \DateInterval::createFromDateString((string)$offset . 'seconds'));
+        // LOG::debug('offset'); LOG::debug(var_export($offset, true));
 
         return [
             'price'           => $price,
@@ -143,15 +76,11 @@ class FinanceUtils
      *                                       trade_currency   => 'USD',
      *                                       exchange_rate    => 1.1))
      */
-    public function getExchangeRates(array $exchangeRateData): array
+    public function getExchangeRates(array $exchangeRateData): ?array
     {
         if (empty($exchangeRateData)) {
             return $exchangeRateData;
         }
-
-        $options = [/*...*/];
-        $guzzleClient = new Client($options);
-        $client = ApiClientFactory::createApiClient($guzzleClient);
 
         $currenciesMapping = config('general.currencies_mapping');
         $currenciesReverseMapping = config('general.currencies_reverse_mapping');
@@ -168,6 +97,9 @@ class FinanceUtils
                 $exchangeRateDataItem['account_currency'],
                 $exchangeRateDataItem['trade_currency']
             ];
+            if (!empty($currenciesReverseMapping[$currencyPair[0]])) {
+                $currencyPair[0] = $currenciesReverseMapping[$currencyPair[0]];
+            }
             if (!empty($currenciesReverseMapping[$currencyPair[1]])) {
                 $currencyPair[1] = $currenciesReverseMapping[$currencyPair[1]];
             }
@@ -175,29 +107,15 @@ class FinanceUtils
         }
         // LOG::debug('currencyPairs: ' . print_r($currencyPairs, true));
 
-        $quotes = null;
-        try {
-            // Returns an array of Scheb\YahooFinanceApi\Results\Quote
-            // LOG::debug("getExchangeRates for currencyPairs 181: " .
-            //      print_r($currencyPairs, true));
-            $quotes = $client->getExchangeRates($currencyPairs);
-        } catch (Exception $e) {
-            LOG::warning("Couldn't get exchange rates for currencyPairs" .
-                print_r($currencyPairs, true) .
-                ". Exception message: " . $e->getMessage());
-        }
-        if (empty($quotes) || !is_array($quotes) ||
-            !($quotes[0] instanceof Quote)
-        ) {
+        $financeAPI = new FinanceAPI();
+        $quotes = $financeAPI->getExchangeRates($currencyPairs);
+        if (empty($quotes)) {
             return null;
         }
-        // LOG::debug('exchange rate quotes 143: ' . print_r($quotes, true));
-
+        // LOG::debug('exchange rate quotes 133: ' . print_r($quotes, true));
 
         $i = 0;
         foreach ($quotes as $quote) {
-            // LOG::debug('quote'); LOG::debug(var_export($quote, true));
-
             $exchangeRate = $quote->getRegularMarketPrice();
             if ($currencyPairs[$i][1] == 'GBp') { // The exchange rate is for GBP
                 $exchangeRate *= 100;
@@ -230,22 +148,9 @@ class FinanceUtils
             return $quotesArray;
         }
 
-        $options = [/*...*/];
-        $guzzleClient = new Client($options);
-        $client = ApiClientFactory::createApiClient($guzzleClient);
-
-        $quotes = null;
-        try {
-            // Returns an array of Scheb\YahooFinanceApi\Results\Quote
-            // LOG::debug("getQuotes for symbols 184: " . print_r($symbols, true));
-            $quotes = $client->getQuotes($symbols);
-        } catch (Exception $e) {
-            LOG::warning("Couldn't get quotes for symbols " . join(', ', $symbols) .
-                      ". Exception message: " . $e->getMessage());
-        }
-        if (empty($quotes) || !is_array($quotes) ||
-            !($quotes[0] instanceof Quote)
-        ) {
+        $financeAPI = new FinanceAPI();
+        $quotes = $financeAPI->getQuotes($symbols);
+        if (empty($quotes)) {
             return null;
         }
         // LOG::debug('quotes 190: ' . print_r($quotes, true));

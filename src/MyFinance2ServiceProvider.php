@@ -66,6 +66,10 @@ class MyFinance2ServiceProvider extends ServiceProvider
             return new App\Http\Controllers\MyService2Controller();
         });
         $this->app->alias(MyService2Controller::class, $this->_packageTag);
+
+        $this->commands([
+            \ovidiuro\myfinance2\App\Console\Commands\FinanceApiCron::class,
+        ]);
     }
 
     private function loadMigrations()

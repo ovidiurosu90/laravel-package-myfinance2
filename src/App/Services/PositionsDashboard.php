@@ -16,7 +16,7 @@ class PositionsDashboard
      *
      * @return array (items => array(positionData))
      */
-    public function handle(array $extraSymbols = array())
+    public function handle(array $extraSymbols = array()): ?array
     {
         /*
         $accounts = Account::with('currency')->get();
@@ -25,6 +25,11 @@ class PositionsDashboard
             $accountsDictionary[$account->id] = $account;
         }
         */
+        $return = [
+            'groupedItems' => [],
+            'accountData'  => [],
+            'quotes'       => [],
+        ];
 
         $trades = Trade::with('accountModel', 'tradeCurrencyModel')
             ->where('status', 'OPEN')
@@ -81,7 +86,7 @@ class PositionsDashboard
                 ) {
                     LOG::error("Inconsistent trade currency for accountId: "
                         . "$accountId, symbol: $symbol");
-                    return null;
+                    return $return;
                 }
             }
 
@@ -164,8 +169,10 @@ class PositionsDashboard
                 }
                 if ($tradeCurrency != $position['tradeCurrencyModel']->iso_code) {
                     LOG::error("Inconsistent quote trade currency for accountId: "
-                        . "$accountId, symbol $symbol");
-                    return null;
+                        . "$accountId, symbol $symbol! tradeCurrency: "
+                        . $tradeCurrency . ", positionTradeCurrency: "
+                        . $position['tradeCurrencyModel']->iso_code);
+                    return $return;
                 }
 
                 $exchangeRate = 1;
@@ -185,7 +192,7 @@ class PositionsDashboard
                             . $position['tradeCurrencyModel']->iso_code
                             . ", exchangeRateData: "
                             . print_r($exchangeRateData, true));
-                        return null;
+                        return $return;
                     }
                     $exchangeRate =
                         $exchangeRateData[$exchangeRateIndex]['exchange_rate'];
@@ -317,7 +324,7 @@ class PositionsDashboard
     /**
      * @return array(year => array(account => array(symbol => array(totalsData))))
      */
-    public function getGainsPerYear()
+    public function getGainsPerYear(): ?array
     {
         $trades = Trade::with('accountModel', 'tradeCurrencyModel')
             ->orderBy('timestamp')->get();
@@ -373,7 +380,7 @@ class PositionsDashboard
                     } else if ($previousQuantity - $currentQuantity < 0) {
                         LOG::error("Inconsistent quantity for accountId: "
                             . "$accountId, symbol: $symbol");
-                        return null;
+                        return [];
                     } else {
                         //NOTE We don't need to recompute price per share on sell
                         // $groupedItems[$accountId][$symbol]['price_per_share'] =

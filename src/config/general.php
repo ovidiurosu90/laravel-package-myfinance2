@@ -42,5 +42,10 @@ return [
         'sell'    => 'text-success transaction-credit',
         'credit'  => 'text-success transaction-credit',
     ],
+
+    // Skip these symbols. They don't exist anymore
+    'obsolete_symbols' => [
+        'ATVI', // Activision got acquired by Microsoft on October 13, 2023
+    ],
 ];
 

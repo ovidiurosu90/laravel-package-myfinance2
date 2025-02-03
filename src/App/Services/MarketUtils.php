@@ -2,13 +2,12 @@
 
 namespace ovidiuro\myfinance2\App\Services;
 
+use Cache;
+
 use Illuminate\Support\Facades\Log;
 use Scheb\YahooFinanceApi\Results\Quote;
-
 use Symfony\Component\Process\Process;
 use Symfony\Component\Process\Exception\ProcessFailedException;
-
-use Cache;
 
 class MarketUtils
 {

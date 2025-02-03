@@ -64,3 +64,22 @@ sudo pip install pandas-market-calendars
 ./src/scripts/market_status.py 'LSE'
 ```
 
+### Enable finance-api-cron for better performance
+
+```bash
+cd ~/Repositories/laravel-admin/
+>storage/logs/finance-api-cron.log
+chown :www-data storage/logs/finance-api-cron.log
+ls -la storage/logs/finance-api-cron.log
+tail -f storage/logs/finance-api-cron.log
+
+sudo su
+crontab -e
+
+#############
+# We need two jobs to run every 30 seconds
+* * * * * su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Repositories/laravel-admin/ && php artisan app:finance-api-cron >> [USER_HOME]/Repositories/laravel-admin/storage/logs/finance-api-cron.log 2>&1"
+* * * * * ( sleep 30; su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Repositories/laravel-admin/ && php artisan app:finance-api-cron >> [USER_HOME]/Repositories/laravel-admin/storage/logs/finance-api-cron.log 2>&1" )
+#############
+```
+

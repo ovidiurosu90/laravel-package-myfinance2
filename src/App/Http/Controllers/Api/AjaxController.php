@@ -43,7 +43,7 @@ class AjaxController extends MyFinance2Controller
         }
 
         $availableQuantity = null;
-        if ($request->has('account_id')) {
+        if ($request->has('account_id') && !empty($request->account_id)) {
             $availableQuantity = $financeUtils->getAvailableQuantity($symbol,
                 $request->account_id,
                 $timestamp,
