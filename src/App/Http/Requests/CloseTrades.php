@@ -43,8 +43,6 @@ class CloseTrades extends FormRequest
         return [
             'account_id'        => 'required|integer|exists:' .
                                         $accountsTableName . ',id',
-            'trade_currency_id' => 'required|integer|exists:' .
-                                        $currenciesTableName . ',id',
             'symbol'            => 'required|string|max:16',
         ];
     }
