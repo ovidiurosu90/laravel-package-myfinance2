@@ -209,5 +209,17 @@ table.data-table {
 .big-tooltips2 .tooltip-inner {
     min-width: 266px;
 }
+.card-body.open-positions hr {
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+.card-body.open-positions .trades {
+    font-size: 0.8rem;
+}
+.card-body.open-positions .trades td {
+    padding-top: 0.1rem;
+    padding-bottom: 0.1rem;
+}
+
 </style>
 

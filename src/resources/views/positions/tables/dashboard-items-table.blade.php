@@ -12,11 +12,11 @@
                     style="min-width: 95px">Cost</th>
                 <th class="text-right" data-bs-toggle="tooltip"
                     title="Current market value in account currency"
-                    style="min-width: 135px">Mkt value*</th>
-                <th class="text-right" data-bs-toggle="tooltip"
+                    style="min-width: 136px">Mkt value*</th>
+                <th class="no-search no-sort text-right" data-bs-toggle="tooltip"
                     title="Average purchased unit cost in trade currency"
                     style="min-width: 86px">Avg cost</th>
-                <th class="text-right" data-bs-toggle="tooltip"
+                <th class="no-search no-sort text-right" data-bs-toggle="tooltip"
                     title="Current unit price in trade currency"
                     style="min-width: 92px">Price*</th>
                 <th class="text-right" data-bs-toggle="tooltip"
@@ -102,13 +102,19 @@
                     title="Quote timestamp: {{ $item['quote_timestamp'] }}">
                     {!! $item['current_unit_price_in_trade_currency'] !!}
                 </td>
-                <td class="text-right pr-2">
+                <td class="text-right pr-2"
+                    data-order="{{
+                        $item['day_change_in_account_currency_unformatted'] }}">
                     {!! $item['day_change_in_account_currency'] !!}
                 </td>
-                <td class="text-right pr-2">
+                <td class="text-right pr-2"
+                    data-order="{{
+                        $item['day_change_in_percentage_unformatted'] }}">
                     {!! $item['day_change_in_percentage'] !!}
                 </td>
-                <td class="text-right pr-2">
+                <td class="text-right pr-2"
+                    data-order="{{
+                        $item['overall_change_in_account_currency_unformatted'] }}">
                     {!! $item['overall_change_in_account_currency'] !!}
                     @if($item['overall_change2_in_account_currency'])
                     <br />
@@ -120,7 +126,9 @@
                     </span>
                     @endif
                 </td>
-                <td class="text-right pr-2">
+                <td class="text-right pr-2"
+                    data-order="{{
+                        $item['overall_change_in_percentage_unformatted'] }}">
                     {!! $item['overall_change_in_percentage'] !!}
                     @if($item['overall_change2_in_percentage'])
                     <br />

@@ -218,7 +218,7 @@ class MarketUtils
             . '" data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips2" '
             . 'data-bs-html="true" title="<p class=\'text-left\'>'
             . $tooltip . '</p>">' . $text
-            . '</span></div> <div class="col-md-auto">' . $countdown . "</div>";
+            . '</span></div> <div class="col-md-auto p-0">' . $countdown . "</div>";
 
         return $output;
     }

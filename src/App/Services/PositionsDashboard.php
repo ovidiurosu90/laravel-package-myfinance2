@@ -78,6 +78,7 @@ class PositionsDashboard
                     'quantity2'                 => 0,
                     'cost2_in_account_currency' => 0,
                     'cost2_in_trade_currency'   => 0,
+                    'trades'                    => [],
                 ];
             } else {
                 // Check if trade_currency changed
@@ -131,6 +132,8 @@ class PositionsDashboard
                 default:
                     LOG::warning("Unknown trade action " . $trade->action);
             }
+
+            $positions[$accountId][$symbol]['trades'][] = $trade;
         }
 
         $financeUtils = new FinanceUtils();
@@ -264,14 +267,24 @@ class PositionsDashboard
                                 $position['quantity']
                                 * $quotes[$symbol]['day_change']
                                 / $exchangeRate),
+                    'day_change_in_account_currency_unformatted' =>
+                        !$position['quantity'] ? 0 :
+                                $position['quantity']
+                                * $quotes[$symbol]['day_change']
+                                / $exchangeRate,
                     'day_change_in_percentage'             =>
                         !$position['quantity'] ? '' :
                             MoneyFormat::get_formatted_gain_percentage(
                                 $quotes[$symbol]['day_change_percentage']),
+                    'day_change_in_percentage_unformatted' =>
+                        !$position['quantity'] ? 0 :
+                            $quotes[$symbol]['day_change_percentage'],
                     'overall_change_in_account_currency'   =>
                         MoneyFormat::get_formatted_gain(
                             $position['accountModel']->currency->display_code,
                             $orverallChangeInAccountCurrency),
+                    'overall_change_in_account_currency_unformatted' =>
+                        $orverallChangeInAccountCurrency,
                     'overall_change2_in_account_currency'   =>
                         !$hasCost2 ? '' :
                             MoneyFormat::get_formatted_gain(
@@ -282,6 +295,10 @@ class PositionsDashboard
                             MoneyFormat::get_formatted_gain_percentage(
                                 -100 + $marketValueInAccountCurrency * 100
                                 / $position['cost_in_account_currency']),
+                    'overall_change_in_percentage_unformatted' =>
+                        !$position['quantity'] ? 0 :
+                            -100 + $marketValueInAccountCurrency * 100
+                            / $position['cost_in_account_currency'],
                     'overall_change2_in_percentage'         =>
                         !$position['quantity'] || !$hasCost2 ? '' :
                             MoneyFormat::get_formatted_gain_percentage(
@@ -289,6 +306,7 @@ class PositionsDashboard
                                 / $position['cost2_in_account_currency']),
 
                     'marketUtils' => $quotes[$symbol]['marketUtils'],
+                    'trades'      => $position['trades'],
                 ];
 
                 $accountData[$accountId]['total_change'] +=

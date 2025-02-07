@@ -5,16 +5,18 @@
             <tr>
                 <th scope="col" style="min-width: 98px">Symbol</th>
                 <th scope="col">Name</th>
-                <th scope="col" class="text-right"
+                <th scope="col" class="text-right no-search no-sort"
                     style="min-width: 98px">Price</th>
-                <th scope="col" class="text-right">Day change</th>
+                <th scope="col" class="text-right no-search no-sort">
+                    Day change
+                </th>
                 <th scope="col" class="text-right"
                     style="min-width: 88px">Day change %</th>
-                <th scope="col" class="text-right"
+                <th scope="col" class="text-right no-search no-sort"
                     style="min-width: 98px">52-Wk low</th>
                 <th scope="col" class="text-right"
                     style="min-width: 80px">% Above low</th>
-                <th scope="col" class="text-right"
+                <th scope="col" class="text-right no-search no-sort"
                     style="min-width: 98px">52-Wk high</th>
                 <th scope="col" class="text-right"
                     style="min-width: 80px">% Below high</th>
@@ -26,7 +28,7 @@
                 <th scope="col" class="hidden-xs hidden-sm">Updated</th>
                  -->
                 <th class="no-search no-sort"
-                    style="min-width: 240px">Open Positions</th>
+                    style="min-width: 294px">Open Positions</th>
                 <th class="no-search no-sort">Actions</th>
                 <th class="no-search no-sort"></th>
             </tr>
@@ -68,7 +70,7 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                         ) !!}
                     </div>
                 </td>
-                <td class="text-right">
+                <td class="text-right" data-order="{{ $quoteData['day_change'] }}">
                     {!! ovidiuro\myfinance2\App\Services\MoneyFormat
                     ::get_formatted_balance(
                         $quoteData['tradeCurrencyModel']->display_code,
@@ -137,24 +139,9 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                     <div class="row">
                         <div class="col-sm">
                             <div class="card">
-                                <div class="card-body">
-                                    <div class="card-title">Acc:
-                                        {{ $openPosition['accountModel']->name }}
-                                        ({!! $openPosition['accountModel']
-                                                ->currency->display_code !!})
-                                    </div>
-                                    <div class="card-text">
-                                        Quantity: {{ $openPosition['quantity'] }}
-                                        <br />
-                                        Cost: {!! $openPosition['cost_in_account_currency'] !!}
-                                        <br />
-                                        Value: {!! $openPosition['market_value_in_account_currency'] !!}
-                                        <br />
-                                        Change value: {!! $openPosition['overall_change_in_account_currency'] !!}
-                                        <br />
-                                        Change %: {!! $openPosition['overall_change_in_percentage'] !!}
-                                        <br />
-                                    </div>
+                                <div class="card-body open-positions">
+                                    @include('myfinance2::watchlistsymbols.'
+                                        . 'tables.open-positions-card')
                                 </div>
                             </div>
                         </div>
