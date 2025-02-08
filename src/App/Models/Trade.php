@@ -88,11 +88,6 @@ class Trade extends MyFinance2Model
         );
     }
 
-    public function getPrincipleAmount()
-    {
-        return $this->quantity * $this->unit_price . ' ' . $this->trade_currency;
-    }
-
     public function getFormattedPrincipleAmount()
     {
         $amount = $this->quantity * $this->unit_price;

@@ -13,6 +13,22 @@ Laravel package for managing my finances
 - dividends
 - timeline
 
+
+## Images
+
+![Finance Dashboard](./images/finance_dashboard.png "Finance Dashboard")
+
+![Funding](./images/funding.png "Funding")
+
+![Watchlist](./images/watchlist.png "Watchlist")
+
+![Open Positions](./images/open_positions.png "Open Positions")
+
+![Create Trade](./images/trade_create.png "Create Trade")
+
+More images in the [images folder](images).
+
+
 ## Installation instructions
 
 ```bash

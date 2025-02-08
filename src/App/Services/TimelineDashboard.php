@@ -63,12 +63,15 @@ class TimelineDashboard
 
         $trades = Trade::with('accountModel', 'tradeCurrencyModel')->get();
         foreach ($trades as $trade) {
+            $quantity = is_int($trade->quantity) ? (int) $trade->quantity
+                : round($trade->quantity, 4);
             $items[] = [
                 'row_label' => 'Trade',
                 'bar_label' => $trade->accountModel->name . ' ('
                     . $trade->accountModel->currency->iso_code . ') '
-                    . $trade->action . ' ' . $trade->quantity . ' '
-                    . $trade->symbol . ' for ' . $trade->getPrincipleAmount(),
+                    . $trade->action . ' ' . $quantity . 'x '
+                    . $trade->symbol . ' @ ' . round($trade->unit_price, 2) . ' '
+                    . $trade->tradeCurrencyModel->iso_code,
                 'tooltip'   => view('myfinance2::timeline.partials.trade-tooltip',
                                     ['trade' => $trade]),
                 'start'     => $trade->timestamp,
@@ -82,7 +85,9 @@ class TimelineDashboard
                 'row_label' => 'Dividend',
                 'bar_label' => $dividend->accountModel->name . ' ('
                     . $dividend->accountModel->currency->iso_code
-                    . ') ' . $dividend->symbol . ' => ' . $dividend->amount,
+                    . ') ' . $dividend->symbol . ' => '
+                    . round($dividend->amount, 2) . ' '
+                    . $dividend->dividendCurrencyModel->iso_code,
                 'tooltip'   => view(
                     'myfinance2::timeline.partials.dividend-tooltip',
                     ['dividend' => $dividend]),
