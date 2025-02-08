@@ -2,6 +2,8 @@
 
 Laravel package for managing my finances
 
+- account
+- currency
 - ledger
 - funding
 - watchlist
