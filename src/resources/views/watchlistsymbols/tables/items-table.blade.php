@@ -54,7 +54,9 @@ Timestamp: {{ $quoteData['item']->timestamp }}<br />
 Description: {{ $quoteData['item']->description }}<br />
 Created: {{ $quoteData['item']->created_at }}<br />
 Updated: {{ $quoteData['item']->updated_at }}</p>">
-                        {!! $quoteData['name'] ? $quoteData['name'] : $symbol !!}
+                        {!! !empty($quoteData['name'])
+                            ? $quoteData['name']
+                            : $symbol !!}
                     </div>
                 </td>
                 <td class="text-right">

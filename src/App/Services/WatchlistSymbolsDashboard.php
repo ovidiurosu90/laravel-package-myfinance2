@@ -37,12 +37,9 @@ class WatchlistSymbolsDashboard
         $items = $positionsData['quotes'];
         foreach ($items as $symbol => $quoteData) {
             if (empty($watchlistSymbolsDictionary[$symbol])) {
-                // We have a trade for a symbol that is not in tnhe watchlist
-                $newWatchlistSymbol = WatchlistSymbol::create([
-                    'symbol' => $symbol,
-                    'description' => 'Automatically created due to existing trades!',
-                ]);
-                $watchlistSymbolsDictionary[$symbol] = $newWatchlistSymbol;
+                // We have a trade for a symbol that is not in the watchlist
+                $watchlistSymbolsDictionary[$symbol] =
+                    $this->createWatchlistSymbol($symbol);
 
             }
             $items[$symbol]['tradeCurrencyModel'] =
@@ -57,12 +54,24 @@ class WatchlistSymbolsDashboard
 
         foreach ($positionsData['groupedItems'] as $account => $openPositions) {
             foreach ($openPositions as $openPosition) {
+                $isUnlisted = FinanceAPI::isUnlisted($openPosition['symbol']);
+                if (empty($items[$openPosition['symbol']]) && $isUnlisted) {
+                    continue;
+                }
                 $items[$openPosition['symbol']]['open_positions'][] = $openPosition;
             }
         }
 
         // LOG::debug('WatchlistSymbols handle items: '); LOG::debug($items);
         return $items;
+    }
+
+    public function createWatchlistSymbol(string $symbol): WatchlistSymbol
+    {
+        return WatchlistSymbol::create([
+            'symbol' => $symbol,
+            'description' => 'Automatically created due to existing trades!',
+        ]);
     }
 
 }

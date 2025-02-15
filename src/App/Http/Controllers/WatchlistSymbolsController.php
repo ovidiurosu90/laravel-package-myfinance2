@@ -26,8 +26,13 @@ class WatchlistSymbolsController extends MyFinance2Controller
     public function index()
     {
         $service = new WatchlistSymbolsDashboard();
-        $items = $service->handle(); // returns an associative array (symbol => array(quote_data))
-        return view('myfinance2::watchlistsymbols.crud.dashboard', ['items' => $items]);
+
+        // associative array (symbol => array(quote_data))
+        $items = $service->handle();
+
+        return view('myfinance2::watchlistsymbols.crud.dashboard', [
+            'items' => $items
+        ]);
     }
 
     /**
@@ -58,8 +63,9 @@ class WatchlistSymbolsController extends MyFinance2Controller
         $item = WatchlistSymbol::create($data);
 
         return redirect()->route('myfinance2::watchlist-symbols.index')
-            ->with('success', trans('myfinance2::general.flash-messages.item-created',
-                ['type' => 'Watchlist Symbol', 'id' => $item->id]));
+            ->with('success',
+                trans('myfinance2::general.flash-messages.item-created',
+                      ['type' => 'Watchlist Symbol', 'id' => $item->id]));
     }
 
     /**
@@ -93,8 +99,9 @@ class WatchlistSymbolsController extends MyFinance2Controller
         $item->save();
 
         return redirect()->route('myfinance2::watchlist-symbols.index')
-            ->with('success', trans('myfinance2::general.flash-messages.item-updated',
-                ['type' => 'Watchlist Symbol', 'id' => $item->id]));
+            ->with('success',
+                trans('myfinance2::general.flash-messages.item-updated',
+                      ['type' => 'Watchlist Symbol', 'id' => $item->id]));
     }
 
     /**
@@ -110,8 +117,9 @@ class WatchlistSymbolsController extends MyFinance2Controller
         $item->delete();
 
         return redirect(route('myfinance2::watchlist-symbols.index'))
-                ->with('success', trans('myfinance2::general.flash-messages.item-deleted',
-                    ['type' => 'Watchlist Symbol', 'id' => $item->id]));
+            ->with('success',
+                trans('myfinance2::general.flash-messages.item-deleted',
+                      ['type' => 'Watchlist Symbol', 'id' => $item->id]));
     }
 }
 

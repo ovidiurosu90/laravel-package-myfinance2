@@ -15,7 +15,7 @@
     <div class="col-12">
         <input type="number" step=".0001" id="amount" name="amount"
             class="form-control"
-            value="{{ $amount ? @number_format($amount, 4) : '' }}"
+            value="{{ !empty($amount) ? $amount + 0 : '' }}"
             placeholder="{{ trans('myfinance2::dividends.forms.item-form.amount'
                                   . '.placeholder') }}" required />
     </div>

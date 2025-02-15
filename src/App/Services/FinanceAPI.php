@@ -40,8 +40,18 @@ class FinanceAPI
         return ApiClientFactory::createApiClient($guzzleClient);
     }
 
+    public static function isUnlisted(string $symbol): bool
+    {
+        return str_starts_with($symbol, config('trades.unlisted'));
+    }
+
     public function getQuote(string $symbol, bool $checkCache = true): ?Quote
     {
+        if (self::isUnlisted($symbol)) {
+            LOG::info("Unlisted quote, returning null");
+            return null;
+        }
+
         $quote = $checkCache ? $this->getCachedQuote($symbol) : null;
 
         if (!empty($quote)) {
@@ -53,7 +63,9 @@ class FinanceAPI
 
             try {
                 $quote = $client->getQuote($symbol);
-                $this->cacheQuote($quote);
+                if (!empty($quote)) {
+                    $this->cacheQuote($quote);
+                }
             } catch (\Exception $e) {
                 LOG::warning("Couldn't get quote for symbol $symbol. "
                              . "Exception message: " . $e->getMessage());
@@ -79,7 +91,9 @@ class FinanceAPI
             if (!empty($quote)) {
                 $quotes[] = $quote;
             } else {
-                if (!in_array($symbol, $obsoleteSymbols)) {
+                if (!in_array($symbol, $obsoleteSymbols)
+                    && !self::isUnlisted($symbol)
+                ) {
                     $missingCachedSymbols[] = $symbol;
                 }
             }

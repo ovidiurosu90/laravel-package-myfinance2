@@ -3,6 +3,7 @@
 namespace ovidiuro\myfinance2\App\Models;
 
 use ovidiuro\myfinance2\App\Services\MoneyFormat;
+use ovidiuro\myfinance2\App\Services\FinanceAPI;
 
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
@@ -75,16 +76,41 @@ class Trade extends MyFinance2Model
 
     public function getCleanQuantity()
     {
-        return round($this->quantity) == $this->quantity ?
-            round($this->quantity) : $this->quantity;
+        return round($this->quantity) == $this->quantity
+            ? round($this->quantity)
+            : round($this->quantity, 6);
+    }
+
+    public function getCleanExchangeRate()
+    {
+        return round($this->exchange_rate) == $this->exchange_rate
+            ? round($this->exchange_rate)
+            : round($this->exchange_rate, 4);
+    }
+
+    public function getFormattedSymbol()
+    {
+        if (FinanceAPI::isUnlisted($this->symbol)) {
+            return '<span class="unlisted small">' . $this->symbol . '</span>';
+        }
+
+        return $this->symbol;
     }
 
     public function getFormattedUnitPrice()
     {
+        $numDecimals = 0;
+        if (round($this->unit_price, 2) == round($this->unit_price, 4)) {
+            $numDecimals = 2;
+        } else {
+            $numDecimals = 4;
+        }
+
         return MoneyFormat::get_formatted_amount(
             $this->tradeCurrencyModel->display_code,
             $this->unit_price,
-            strtolower($this->action)
+            strtolower($this->action),
+            $numDecimals
         );
     }
 

@@ -18,7 +18,7 @@
                 </div>
             </div>
         </div>
-        <div class="card-body p-0" style="height: 360px; overflow: auto">
+        <div class="card-body p-0" style="height: 496px; overflow: auto">
             <div class="list-group-flush flex-fill">
                 @if(count(array_keys($gainsPerYear)) != 0)
                 <table class="table table-striped">

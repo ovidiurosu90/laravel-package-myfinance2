@@ -83,6 +83,13 @@ class LedgerTransaction extends MyFinance2Model
         return $this->hasMany(LedgerTransaction::class, 'parent_id');
     }
 
+    public function getCleanExchangeRate()
+    {
+        return round($this->exchange_rate) == $this->exchange_rate
+            ? round($this->exchange_rate)
+            : round($this->exchange_rate, 4);
+    }
+
     public function getFormattedAmount()
     {
         return MoneyFormat::get_formatted_amount(

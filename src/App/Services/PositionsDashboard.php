@@ -79,6 +79,7 @@ class PositionsDashboard
                     'cost2_in_account_currency' => 0,
                     'cost2_in_trade_currency'   => 0,
                     'trades'                    => [],
+                    'unit_price'                => $trade->unit_price,
                 ];
             } else {
                 // Check if trade_currency changed
@@ -166,7 +167,10 @@ class PositionsDashboard
             }
 
             foreach ($accountPositions as $symbol => $position) {
-                $tradeCurrency = $quotes[$symbol]['currency'];
+                $isUnlisted = FinanceAPI::isUnlisted($symbol);
+
+                $tradeCurrency = !$isUnlisted ? $quotes[$symbol]['currency']
+                    : $position['tradeCurrencyModel']->iso_code;
                 if (!empty($currenciesMapping[$tradeCurrency])) {
                     $tradeCurrency = $currenciesMapping[$tradeCurrency];
                 }
@@ -212,7 +216,32 @@ class PositionsDashboard
                 $hasCost2 = round($position['cost_in_account_currency'], 4) !=
                             round($position['cost2_in_account_currency'], 4);
 
-                $marketValueInAccountCurrency = $quotes[$symbol]['price']
+                $price = !$isUnlisted ? $quotes[$symbol]['price']
+                    : $position['unit_price'];
+                $dayChange = !$isUnlisted ? $quotes[$symbol]['day_change'] : 0;
+                $dayChangePercentage = !$isUnlisted
+                    ? $quotes[$symbol]['day_change_percentage']
+                    : 0;
+                $symbolName = !$isUnlisted ? $quotes[$symbol]['name'] : $symbol;
+                $timestamp = !$isUnlisted ? $quotes[$symbol]['quote_timestamp']
+                    : (new \DateTime());
+                $marketUtils = !$isUnlisted ? $quotes[$symbol]['marketUtils']
+                    : null;
+
+                if ($isUnlisted) {
+                    $unlistedFMV = config('trades.unlisted_fmv');
+                    if (!empty($unlistedFMV[$symbol])) {
+                        if (!empty($unlistedFMV[$symbol]['price'])) {
+                            $price = $unlistedFMV[$symbol]['price'];
+                        }
+                        if (!empty($unlistedFMV[$symbol]['timestamp'])) {
+                            $timestamp = new \DateTime(
+                                $unlistedFMV[$symbol]['timestamp']);
+                        }
+                    }
+                }
+
+                $marketValueInAccountCurrency = $price
                     * $position['quantity'] / $exchangeRate;
                 $orverallChangeInAccountCurrency = $marketValueInAccountCurrency
                     - $position['cost_in_account_currency'];
@@ -225,8 +254,7 @@ class PositionsDashboard
                     'tradeCurrencyModel'                   =>
                         $position['tradeCurrencyModel'],
                     'symbol'                               => $symbol,
-                    'symbol_name'                          =>
-                        $quotes[$symbol]['name'],
+                    'symbol_name'                          => $symbolName,
                     'quantity'                             => $position['quantity'],
                     'cost_in_account_currency'             =>
                         MoneyFormat::get_formatted_balance(
@@ -256,29 +284,28 @@ class PositionsDashboard
                     'current_unit_price_in_trade_currency' =>
                         MoneyFormat::get_formatted_balance(
                             $position['tradeCurrencyModel']->display_code,
-                            $quotes[$symbol]['price']),
+                            $price),
                     'quote_timestamp'                      =>
-                        $quotes[$symbol]['quote_timestamp']
+                        $timestamp
                             ->format(trans('myfinance2::general.datetime-format')),
                     'day_change_in_account_currency'       =>
                         !$position['quantity'] ? '' :
                             MoneyFormat::get_formatted_gain(
                                 $position['accountModel']->currency->display_code,
                                 $position['quantity']
-                                * $quotes[$symbol]['day_change']
+                                * $dayChange
                                 / $exchangeRate),
                     'day_change_in_account_currency_unformatted' =>
                         !$position['quantity'] ? 0 :
                                 $position['quantity']
-                                * $quotes[$symbol]['day_change']
+                                * $dayChange
                                 / $exchangeRate,
                     'day_change_in_percentage'             =>
                         !$position['quantity'] ? '' :
                             MoneyFormat::get_formatted_gain_percentage(
-                                $quotes[$symbol]['day_change_percentage']),
+                                $dayChangePercentage),
                     'day_change_in_percentage_unformatted' =>
-                        !$position['quantity'] ? 0 :
-                            $quotes[$symbol]['day_change_percentage'],
+                        !$position['quantity'] ? 0 : $dayChangePercentage,
                     'overall_change_in_account_currency'   =>
                         MoneyFormat::get_formatted_gain(
                             $position['accountModel']->currency->display_code,
@@ -305,7 +332,7 @@ class PositionsDashboard
                                 -100 + $marketValueInAccountCurrency * 100
                                 / $position['cost2_in_account_currency']),
 
-                    'marketUtils' => $quotes[$symbol]['marketUtils'],
+                    'marketUtils' => $marketUtils,
                     'trades'      => $position['trades'],
                 ];
 

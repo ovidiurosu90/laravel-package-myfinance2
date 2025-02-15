@@ -60,7 +60,7 @@ class AjaxController extends MyFinance2Controller
         // Log::debug($financeData);
 
         return response()->json([
-            'price'              => @number_format($financeData['price'], 4),
+            'price'              => round($financeData['price'], 2),
             'currency'           => $financeData['currency'],
             'name'               => $financeData['name'],
             'quote_timestamp'    => $financeData['quote_timestamp']

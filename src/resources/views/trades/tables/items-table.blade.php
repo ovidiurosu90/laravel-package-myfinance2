@@ -16,9 +16,9 @@
                     title="Quantity * Unit Price">Principle Amount</th>
                 <th scope="col" class="hidden-xs">Exchange Rate</th>
                 <th scope="col" class="text-right hidden-xs"
-                    style="min-width: 65px">Fee</th>
+                    style="min-width: 88px">Fee</th>
                 <th scope="col" class="hidden-xs"
-                    style="min-width: 168px">Description</th>
+                    style="min-width: 180px">Description</th>
                 <th scope="col" class="hidden-xs hidden-sm">Created</th>
                 <th scope="col" class="hidden-xs hidden-sm">Updated</th>
                 <th class="no-search no-sort">Actions</th>
@@ -36,7 +36,7 @@
                     ({!! $item->accountModel->currency->display_code !!})</td>
                 <td>{{ $item->status }}</td>
                 <td>{{ $item->action }}</td>
-                <td>{{ $item->symbol }}</td>
+                <td>{!! $item->getFormattedSymbol() !!}</td>
                 <td>{{ $item->getCleanQuantity() }}</td>
                 <td class="text-right">{!! $item->getFormattedUnitPrice() !!}</td>
                 <td class="text-right">
@@ -53,7 +53,7 @@
                     @endif
                 </td>
                 <td class="hidden-xs">
-                    {{ @number_format($item->exchange_rate, 4) }}
+                    {{ $item->getCleanExchangeRate() }}
                 </td>
                 <td class="text-right hidden-xs">
                     {!! $item->getFormattedFee() !!}

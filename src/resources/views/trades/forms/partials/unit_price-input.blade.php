@@ -15,7 +15,7 @@
     <div class="col-12">
         <input type="number" step=".0001" id="unit_price" name="unit_price"
             class="form-control"
-            value="{{ $unit_price ? @number_format($unit_price, 4) : '' }}"
+            value="{{ !empty($unit_price) ? $unit_price + 0 : '' }}"
             placeholder="{{ trans('myfinance2::trades.forms.item-form.unit_price'
                                   . '.placeholder') }}" required />
     </div>

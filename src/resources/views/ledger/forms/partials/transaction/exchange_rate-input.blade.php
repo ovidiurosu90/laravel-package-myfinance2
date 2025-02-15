@@ -6,7 +6,7 @@
     <div class="col-9">
         <input type="number" step=".0001" id="exchange_rate" name="exchange_rate"
             class="form-control"
-            value="{{ $exchange_rate ? @number_format($exchange_rate, 4) : '' }}"
+            value="{{ !empty($exchange_rate) ? $exchange_rate + 0 : '' }}"
             placeholder="{{ trans('myfinance2::ledger.forms.transaction-form.'
                                   . 'exchange_rate.placeholder') }}" required />
     </div>

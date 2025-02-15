@@ -28,7 +28,28 @@ $(document).ready(function()
     var $quantityInput         = $('#quantity-input');
     var $editTradeForm         = $('#edit-trade-form');
 
-    $getFinanceData.click(function() {
+    var $isListedButton        = $('#is-listed');
+
+    $isListedButton.click(function()
+    {
+        var unlisted = '{{ config('trades.unlisted') }}';
+        var symbol = $symbolInput.val().replace(unlisted + '_', '');
+        symbol = symbol.replace(unlisted, '');
+
+        var text = $isListedButton.html();
+        if (text == 'Listed') { // was listed, we want UNLISTED
+            $symbolInput.val(unlisted + '_' + symbol);
+            $isListedButton.html('Unlisted');
+            $getFinanceData.parent().parent().toggle();
+        } else { // was unlisted, we want LISTED
+            $symbolInput.val(symbol);
+            $isListedButton.html('Listed');
+            $getFinanceData.parent().parent().toggle();
+        }
+    });
+
+    $getFinanceData.click(function()
+    {
         $.ajax({
             type: 'GET',
             url:  "{{ url('/get-finance-data') }}",
@@ -40,7 +61,8 @@ $(document).ready(function()
                 trade_id: $editTradeForm.find('[name="id"]').val(),
                 account_id: $accountSelect.val()
             },
-            success: function(data, textStatus, jqXHR) {
+            success: function(data, textStatus, jqXHR)
+            {
                 $getFinanceData.addClass('text-success');
                 $getFinanceData.removeClass('text-danger');
                 $getFinanceData.attr('data-bs-original-title', 'Get Finance Data');
@@ -69,7 +91,8 @@ $(document).ready(function()
                 }
                 // console.log(data);
             },
-            error: function(jqXHR, textStatus, errorThrown) {
+            error: function(jqXHR, textStatus, errorThrown)
+            {
                 $getFinanceData.addClass('text-danger');
                 $getFinanceData.removeClass('text-success');
                 $getFinanceData.attr('data-bs-original-title',

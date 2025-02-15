@@ -7,20 +7,25 @@
         id="fetched-symbol-name" style="display: none">
         <span></span>
     </div>
-    <div class="col-10">
-        <input type="text" id="symbol-input" name="symbol" class="form-control"
-            value="{{ $symbol }}"
-            placeholder="{{ trans('myfinance2::dividends.forms.item-form.symbol.'
-                                  . 'placeholder') }}"
-            required maxlength="16"
-            oninput="this.value = this.value.toUpperCase()"
-        />
-    </div>
-    <div class="col-2 p-0 pt-1">
-        <i class="btn p-0 m-0 fa fa-sign-in" id="get-finance-data"
-            data-bs-toggle="tooltip"
-            title="{{ trans('myfinance2::dividends.tooltips.get-finance-data') }}"
-            style="font-size: 24px;"></i>
+    <div class="col-12">
+        <div class="input-group">
+            <input type="text" id="symbol-input" name="symbol" class="form-control"
+                value="{{ $symbol }}"
+                placeholder="{{ trans('myfinance2::dividends.forms.item-form.symbol.'
+                                      . 'placeholder') }}"
+                required maxlength="16"
+                oninput="this.value = this.value.toUpperCase()"
+            />
+            <div class="input-group-append">
+                <span class="input-group-text" role="button">
+                    <span class="fas fa-sign-in" id="get-finance-data"
+                        data-bs-toggle="tooltip"
+                        title="{{ trans('myfinance2::dividends.tooltips.'
+                                        . 'get-finance-data') }}"
+                        ></span>
+                </span>
+            </div>
+        </div>
     </div>
     @if ($errors->has('symbol'))
         <div class="col-12">

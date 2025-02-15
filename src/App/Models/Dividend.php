@@ -70,6 +70,13 @@ class Dividend extends MyFinance2Model
         return $this->hasOne(Currency::class, 'id', 'dividend_currency_id');
     }
 
+    public function getCleanExchangeRate()
+    {
+        return round($this->exchange_rate) == $this->exchange_rate
+            ? round($this->exchange_rate)
+            : round($this->exchange_rate, 4);
+    }
+
     public function getFormattedAmount()
     {
         return MoneyFormat::get_formatted_amount(

@@ -10,7 +10,7 @@
     </label>
     <div class="col-12">
         <input type="number" step=".01" id="fee" name="fee" class="form-control"
-            value="{{ $fee }}"
+            value="{{ !empty($fee) ? $fee + 0 : '' }}"
             placeholder="{{ trans('myfinance2::trades.forms.item-form.fee.'
                                   . 'placeholder') }}" required />
     </div>

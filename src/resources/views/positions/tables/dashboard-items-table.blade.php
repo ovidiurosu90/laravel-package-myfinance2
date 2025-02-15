@@ -24,13 +24,13 @@
                     style="min-width: 88px">Day gain*</th>
                 <th class="text-right" data-bs-toggle="tooltip"
                     title="Day gain in percentage"
-                    style="min-width: 106px">Day gain (%)*</th>
+                    style="min-width: 110px">Day gain (%)*</th>
                 <th class="text-right" data-bs-toggle="tooltip"
                     title="Overall gain in account currency"
                     style="min-width: 90px">Gain*</th>
                 <th class="text-right" data-bs-toggle="tooltip"
                     title="Overall gain in percentage"
-                    style="min-width: 80px">Gain (%)*</th>
+                    style="min-width: 82px">Gain (%)*</th>
                 <th>Symbol</th>
             </tr>
         </thead>
@@ -40,15 +40,22 @@
             <tr>
                 <td data-bs-toggle="tooltip"
                     title="{!! $item['symbol_name'] !!}">
-                    <a href="https://finance.yahoo.com/quote/{{$item['symbol'] }}"
+                    @if (!\ovidiuro\myfinance2\App\Services\FinanceAPI::isUnlisted(
+                        $item['symbol']))
+                    <a href="https://finance.yahoo.com/quote/{{ $item['symbol'] }}"
                         target="_blank">
                         {{ $item['symbol'] }}
                     </a>
+                    @else
+                    <span class="unlisted small">{{ $item['symbol'] }}</span>
+                    @endif
                 </td>
                 <td>{!! $item['tradeCurrencyModel']->display_code !!}</td>
                 <td>
                     <div class="row m-0">
-                        {!! $item['marketUtils']->getMarketStatusFormatted() !!}
+                        {!! !empty($item['marketUtils'])
+                            ? $item['marketUtils']->getMarketStatusFormatted()
+                            : '' !!}
                     </div>
                 </td>
                 <td>
@@ -142,8 +149,15 @@
                 </td>
                 <td data-bs-toggle="tooltip"
                     title="{!! $item['symbol_name'] !!}">
+                    @if (!\ovidiuro\myfinance2\App\Services\FinanceAPI::isUnlisted(
+                        $item['symbol']))
                     <a href="https://finance.yahoo.com/quote/{{ $item['symbol'] }}"
-                        target="_blank">{{ $item['symbol'] }}</a>
+                        target="_blank">
+                        {{ $item['symbol'] }}
+                    </a>
+                    @else
+                    <span class="unlisted small">{{ $item['symbol'] }}</span>
+                    @endif
                 </td>
             </tr>
             @endforeach

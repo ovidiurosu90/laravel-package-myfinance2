@@ -2,7 +2,11 @@
 $(document).ready(function()
 {
     $('.funding-dashboard-items-table.data-table').DataTable({
-        'pageLength': 100,
+        lengthMenu: [
+            [50, 100, 200, -1],
+            [50, 100, 200, 'All']
+        ],
+        'pageLength': -1,
         'ordering': false,
         'aoColumnDefs': [{
             'bSortable': false,

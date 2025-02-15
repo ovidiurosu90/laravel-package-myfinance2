@@ -41,7 +41,7 @@
                     @endif
                 </td>
                 <td class="hidden-xs">
-                    {{ @number_format($item->exchange_rate, 4) }}
+                    {{ $item->getCleanExchangeRate() }}
                 </td>
                 <td class="text-right pr-2 hidden-xs">
                     {!! $item->getFormattedFee() !!}
