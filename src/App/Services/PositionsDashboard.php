@@ -147,7 +147,8 @@ class PositionsDashboard
 
         $currenciesMapping = config('general.currencies_mapping');
 
-        // LOG::debug("positions 141: " . print_r($positions, true));
+        // LOG::debug("positions 150: " . print_r($positions, true));
+        // LOG::debug("quotes 151: " . print_r($quotes, true));
 
         // Add market data
         $items = [];
@@ -168,6 +169,11 @@ class PositionsDashboard
 
             foreach ($accountPositions as $symbol => $position) {
                 $isUnlisted = FinanceAPI::isUnlisted($symbol);
+
+                // if (empty($quotes[$symbol])) {
+                //     LOG::error("Missing quote data for symbol $symbol");
+                //     continue;
+                // }
 
                 $tradeCurrency = !$isUnlisted ? $quotes[$symbol]['currency']
                     : $position['tradeCurrencyModel']->iso_code;

@@ -14,8 +14,14 @@ use Scheb\YahooFinanceApi\Results\HistoricalData;
 
 class FinanceAPI
 {
+    private const USER_AGENT_CHROME_116 = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36';
+
     public function __construct()
     {
+        // Deal with '429 Too Many Requests' errors, use curl_impersonate
+        UserAgent::setUserAgents([self::USER_AGENT_CHROME_116]);
+        return;
+
         if (empty($_SERVER['HTTP_USER_AGENT'])) {
             UserAgent::setUserAgents([UserAgent::getRandomUserAgent()]);
             return;
