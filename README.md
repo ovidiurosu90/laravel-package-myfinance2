@@ -92,7 +92,7 @@ tar -xf libcurl-impersonate-v0.6.1.x86_64-linux-gnu.tar.gz
 
 sudo su
 cd /usr/local/lib/
-ln -s /home/[USER_HOME]/curl-impersonate/libcurl-impersonate-chrome.so .
+ln -s [USER_HOME]/curl-impersonate/libcurl-impersonate-chrome.so .
 ls -la /usr/local/lib/libcurl-impersonate-chrome.so
 ```
 
@@ -111,8 +111,8 @@ crontab -e
 
 #############
 # We need two jobs to run every 30 seconds
-* * * * * su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; export LD_PRELOAD=/usr/local/lib/libcurl-impersonate-chrome.so; export CURL_IMPERSONATE=chrome116; cd /home/ovidiuro/Repositories/laravel-admin/ && php artisan app:finance-api-cron >> /home/ovidiuro/Repositories/laravel-admin/storage/logs/finance-api-cron.log 2>&1"
-* * * * * ( sleep 30; su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; export LD_PRELOAD=/usr/local/lib/libcurl-impersonate-chrome.so; export CURL_IMPERSONATE=chrome116; cd /home/ovidiuro/Repositories/laravel-admin/ && php artisan app:finance-api-cron >> /home/ovidiuro/Repositories/laravel-admin/storage/logs/finance-api-cron.log 2>&1" )
+* * * * * su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; export LD_PRELOAD=/usr/local/lib/libcurl-impersonate-chrome.so; export CURL_IMPERSONATE=chrome116; cd [USER_HOME]/Repositories/laravel-admin/ && php artisan app:finance-api-cron >> [USER_HOME]/Repositories/laravel-admin/storage/logs/finance-api-cron.log 2>&1"
+* * * * * ( sleep 30; su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; export LD_PRELOAD=/usr/local/lib/libcurl-impersonate-chrome.so; export CURL_IMPERSONATE=chrome116; cd [USER_HOME]/Repositories/laravel-admin/ && php artisan app:finance-api-cron >> [USER_HOME]/Repositories/laravel-admin/storage/logs/finance-api-cron.log 2>&1" )
 #############
 ```
 
