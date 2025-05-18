@@ -256,22 +256,27 @@ class FinanceAPI
         return $historicalData;
     }
 
-    public function cacheQuotes(array $quotes): int
+    public function cacheQuotes(array $quotes, bool $persistStats = true): int
     {
         $numCached = 0;
         foreach ($quotes as $quote) {
-            if ($this->cacheQuote($quote)) {
+            if ($this->cacheQuote($quote, $persistStats)) {
                 $numCached++;
             }
         }
         return $numCached;
     }
 
-    public function cacheQuote(Quote $quote): bool
+    public function cacheQuote(Quote $quote, bool $persistStats = true): bool
     {
         $symbol = $quote->getSymbol();
         $key = 'QUOTE_' . $symbol;
         $value = serialize($quote);
+
+        if ($persistStats) {
+            Stats::persistQuote($quote);
+        }
+
         return Cache::add($key, $value, 60*2); // cached for 2 minutes
     }
 
