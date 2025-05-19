@@ -116,3 +116,21 @@ crontab -e
 #############
 ```
 
+### Setup stats-cron
+
+```bash
+cd ~/Repositories/laravel-admin/
+>storage/logs/stats-cron.log
+chown :www-data storage/logs/stats-cron.log
+ls -la storage/logs/stats-cron.log
+tail -f storage/logs/stats-cron.log
+
+sudo su
+crontab -e
+
+#############
+# Run the job every hour at minute 24
+24 * * * * su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Repositories/laravel-admin/ && php artisan app:stats-cron >> [USER_HOME]/Repositories/laravel-admin/storage/logs/stats-cron.log 2>&1"
+#############
+```
+

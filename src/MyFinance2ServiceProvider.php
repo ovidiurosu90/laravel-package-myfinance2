@@ -69,6 +69,7 @@ class MyFinance2ServiceProvider extends ServiceProvider
 
         $this->commands([
             \ovidiuro\myfinance2\App\Console\Commands\FinanceApiCron::class,
+            \ovidiuro\myfinance2\App\Console\Commands\StatsCron::class,
         ]);
     }
 
