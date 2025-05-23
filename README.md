@@ -116,6 +116,7 @@ crontab -e
 #############
 ```
 
+
 ### Setup stats-cron
 
 ```bash
@@ -132,5 +133,12 @@ crontab -e
 # Run the job every hour at minute 24
 24 * * * * su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Repositories/laravel-admin/ && php artisan app:stats-cron >> [USER_HOME]/Repositories/laravel-admin/storage/logs/stats-cron.log 2>&1"
 #############
+```
+
+
+### Get historical data
+
+```bash
+sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Repositories/laravel-admin/ && php artisan app:finance-api-cron --historical --start=2025-01-01 --end=2025-05-15"
 ```
 

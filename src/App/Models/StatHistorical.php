@@ -35,14 +35,12 @@ class StatHistorical extends MyFinance2Model
      * @var array
      */
     protected $dates = [
-        'date',
         'created_at',
         'updated_at',
         'deleted_at',
     ];
 
     protected $casts = [
-        'date'       => 'date',
         'unit_price' => 'decimal:4',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',

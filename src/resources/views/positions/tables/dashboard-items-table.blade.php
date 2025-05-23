@@ -4,7 +4,8 @@
         <thead class="thead">
             <tr role="row">
                 <th>Symbol</th>
-                <th data-bs-toggle="tooltip" title="Trade Currency">Currency</th>
+                <th data-bs-toggle="tooltip" title="Quote Price in Trade Currency">
+                    Quote Price</th>
                 <th style="min-width: 168px">Market</th>
                 <th>Quantity</th>
                 <th class="text-right" data-bs-toggle="tooltip"
@@ -35,7 +36,7 @@
             </tr>
         </thead>
         <tbody class="table-body">
-        @if( count($items) > 0)
+        @if(count($items) > 0)
             @foreach($items as $item)
             <tr>
                 <td data-bs-toggle="tooltip"
@@ -50,7 +51,8 @@
                     <span class="unlisted small">{{ $item['symbol'] }}</span>
                     @endif
                 </td>
-                <td>{!! $item['tradeCurrencyModel']->display_code !!}</td>
+                <td id="chart-{{ $accountId }}-{{ $item['symbol'] }}"
+                    style="position: relative"></td>
                 <td>
                     <div class="row m-0">
                         {!! !empty($item['marketUtils'])
@@ -205,6 +207,13 @@
             </tr>
         </tfoot>
     </table>
+
+    @if(count($items) > 0)
+        @foreach($items as $item)
+            @include('myfinance2::positions.scripts.quote-price-graph')
+        @endforeach
+    @endif
+
     <div class="clearfix mb-3"></div>
 </div>
 

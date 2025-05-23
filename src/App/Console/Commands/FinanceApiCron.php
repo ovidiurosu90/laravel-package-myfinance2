@@ -11,6 +11,7 @@ use ovidiuro\myfinance2\App\Models\Trade;
 use ovidiuro\myfinance2\App\Models\WatchlistSymbol;
 use ovidiuro\myfinance2\App\Models\Scopes\AssignedToUserScope;
 use ovidiuro\myfinance2\App\Services\FinanceAPI;
+use ovidiuro\myfinance2\App\Services\Stats;
 
 class FinanceApiCron extends Command
 {
@@ -19,7 +20,7 @@ class FinanceApiCron extends Command
      *
      * @var string
      */
-    protected $signature = 'app:finance-api-cron';
+    protected $signature = 'app:finance-api-cron {--historical} {--start=} {--end=}';
 
     /**
      * The console command description.
@@ -33,13 +34,28 @@ class FinanceApiCron extends Command
      */
     public function handle()
     {
+        $historical = $this->option('historical');
+
+        if ($historical) {
+            $start = $this->option('start');
+            $end = $this->option('end');
+            if (!$start) {
+                Log::error('Missing option --start');
+            }
+            if (!$end) {
+                $end = date('Y-m-d');
+            }
+            $this->fetchHistorical($start, $end);
+            return;
+        }
+
+        // Not historical
         $this->refreshQuotes();
         $this->refreshExchangeRates();
     }
 
-    public function refreshQuotes()
+    public function getAllUsedSymbols(): array
     {
-        Log::info('START app:finance-api-cron refreshQuotes()');
         $dividends = Dividend::withoutGlobalScope(AssignedToUserScope::class)
             ->select('symbol')->distinct()->pluck('symbol')->toArray();
         $trades = Trade::withoutGlobalScope(AssignedToUserScope::class)
@@ -52,6 +68,13 @@ class FinanceApiCron extends Command
             $dividends, $trades, $watchlistSymbols));
         sort($symbols);
 
+        return $symbols;
+    }
+
+    public function refreshQuotes()
+    {
+        Log::info('START app:finance-api-cron refreshQuotes()');
+        $symbols = $this->getAllUsedSymbols();
         $financeAPI = new FinanceAPI();
         $quotes = $financeAPI->getQuotes($symbols, false); // don't check cache
 
@@ -156,6 +179,44 @@ class FinanceApiCron extends Command
                 . implode(', ', array_diff($symbols, $fetchedSymbols));
         }
         Log::info($message);
+    }
+
+    public function fetchHistorical(string $start, string $end)
+    {
+        Log::info('START app:finance-api-cron '
+            . "fetchHistorical($start, $end)");
+
+        $symbols = $this->getAllUsedSymbols();
+        $financeAPI = new FinanceAPI();
+        $numHistoricalDataEntries = 0;
+        foreach ($symbols as $symbol) {
+            $quote = $financeAPI->getQuote($symbol);
+            if (empty($quote)) {
+                continue;
+            }
+
+            $historicalDataArray = $financeAPI->getHistoricalPeriodQuoteData(
+                $quote, new \DateTime($start), new \DateTime($end));
+
+            if (empty($historicalDataArray)) {
+                continue;
+            }
+
+            foreach ($historicalDataArray as $historicalData) {
+                if (Stats::persistHistoricalData($quote, $historicalData)) {
+                    $numHistoricalDataEntries++;
+                }
+            }
+
+            // LOG::debug('historicalData');
+            // LOG::debug(var_export($historicalData, true));
+            $price = $historicalData->getClose();
+            $quoteTimestamp = $historicalData->getDate();
+
+        }
+
+        Log::info('END app:finance-api-cron '
+            . "fetchHistorical() => $numHistoricalDataEntries data entries");
     }
 }
 

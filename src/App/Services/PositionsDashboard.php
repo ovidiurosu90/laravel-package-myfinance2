@@ -261,6 +261,8 @@ class PositionsDashboard
                         $position['tradeCurrencyModel'],
                     'symbol'                               => $symbol,
                     'symbol_name'                          => $symbolName,
+                    'stats'                                =>
+                        Stats::getQuoteStats($symbol),
                     'quantity'                             => $position['quantity'],
                     'cost_in_account_currency'             =>
                         MoneyFormat::get_formatted_balance(

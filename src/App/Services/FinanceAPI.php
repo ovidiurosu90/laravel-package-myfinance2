@@ -14,7 +14,9 @@ use Scheb\YahooFinanceApi\Results\HistoricalData;
 
 class FinanceAPI
 {
-    private const USER_AGENT_CHROME_116 = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36';
+    private const USER_AGENT_CHROME_116
+        = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+        . '(KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36';
 
     public function __construct()
     {
@@ -22,6 +24,7 @@ class FinanceAPI
         UserAgent::setUserAgents([self::USER_AGENT_CHROME_116]);
         return;
 
+        // Obsolete: keep these around for a little while to ensure the above works
         if (empty($_SERVER['HTTP_USER_AGENT'])) {
             UserAgent::setUserAgents([UserAgent::getRandomUserAgent()]);
             return;
@@ -236,8 +239,7 @@ class FinanceAPI
                 }
                 $historicalData = $historicalDataResponse[0];
 
-                $this->cacheHistoricalData($symbol,
-                    $historicalData, $timestamp->format('Y-m-d'));
+                $this->cacheHistoricalData($quote, $historicalData);
             } catch (\Exception $e) {
                 LOG::warning("Couldn't get historical data for symbol $symbol,"
                     . " for date " . $timestamp->format('Y-m-d') . "!"
@@ -254,6 +256,45 @@ class FinanceAPI
         }
 
         return $historicalData;
+    }
+
+    public function getHistoricalPeriodQuoteData(Quote $quote,
+        \DateTime $startDate, \DateTime $endDate): ?array
+    {
+        $symbol = $quote->getSymbol();
+        $quoteTimezone = $quote->getExchangeTimezoneName();
+        $offset = FinanceUtils::get_timezone_offset($quoteTimezone);
+
+        //NOTE Adding 1 day when origin timezone is ahead of remote timezone
+        if ($offset > 0) { // For stocks like GOOGL, AMZN, MSFT
+            $startDate->add(new \DateInterval('P1D'));
+            $endDate->add(new \DateInterval('P1D'));
+        }
+
+        $interval = ApiClient::INTERVAL_1_DAY;
+
+        LOG::info("FinanceAPI->getHistoricalPeriodQuoteData($symbol, start: "
+                  . $startDate->format('Y-m-d') . ", end: "
+                  . $endDate->format('Y-m-d') . ") from FinanceAPI");
+
+        $client = $this->getClient();
+
+        try {
+            $historicalDataResponse = $client->getHistoricalQuoteData($symbol,
+                $interval, $startDate, $endDate);
+
+            if (empty($historicalDataResponse)
+                || !is_array($historicalDataResponse)
+                || !($historicalDataResponse[0] instanceof HistoricalData)
+            ) {
+                return null;
+            }
+            return $historicalDataResponse;
+        } catch (\Exception $e) {
+            LOG::warning("Couldn't get historical data for symbol $symbol!"
+                . " Exception message: " . $e->getMessage());
+            return null;
+        }
     }
 
     public function cacheQuotes(array $quotes, bool $persistStats = true): int
@@ -295,11 +336,19 @@ class FinanceAPI
         return null;
     }
 
-    public function cacheHistoricalData(
-        string $symbol, HistoricalData $historicalData, string $date): bool
+    public function cacheHistoricalData(Quote $quote,
+        HistoricalData $historicalData, bool $persistStats = true): bool
     {
+        $symbol = $quote->getSymbol();
+        $date = $historicalData->getDate()->format('Y-m-d');
+
         $key = 'HISTORICAL_DATA_' . $symbol . '_' . $date;
         $value = serialize($historicalData);
+
+        if ($persistStats) {
+            Stats::persistHistoricalData($quote, $historicalData);
+        }
+
         return Cache::add($key, $value, 60*10); // cached for 10 minutes
     }
 
