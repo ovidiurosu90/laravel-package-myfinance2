@@ -131,6 +131,22 @@
                                     When EURUSD is big, you want to BUY USD
                                     (e.g. EURUSD 1.1495)
                                 </div>
+                                <div class="alert alert-warning" role="alert">
+                                    <b>LEARNING!</b> When EURUSD is small
+                                    (e.g. EURUSD 1.0452), <b>don't buy</b> stocks
+                                    in USD from the account in EUR.<br />
+                                    This will make an exchange from EUR to USD at
+                                    a very bad rate.<br />
+                                    <hr />
+                                    <b>LEARNING!</b> When EURUSD is big
+                                    (e.g. EURUSD 1.1657), <b>don't sell</b> stocks
+                                    in USD from the account in EUR with auto
+                                    currency exchange.<br />
+                                    This will make an exchange from USD to EUR at
+                                    a very bad rate.<br />
+                                    <b>NOTE!</b> Degiro allows to save the cash
+                                    in USD (manual currency exchange).
+                                </div>
                             </td>
                             <td></td>
                             <td></td>

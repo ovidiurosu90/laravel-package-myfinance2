@@ -67,22 +67,19 @@ class FinanceUtils
         ];
     }
 
-
     /**
-     * @param $exchangeRateData array(array(account_currency  => 'EUR',
-     *                                      trade_currency    => 'USD'))
+     * @param $exchangeRateData array(EURUSD => array(account_currency  => 'EUR',
+     *                                                trade_currency    => 'USD'))
      *
-     * @return $exchangeRateData array(array(account_currency => 'EUR',
-     *                                       trade_currency   => 'USD',
-     *                                       exchange_rate    => 1.1))
+     * @return $currencyPairs array(array('EUR', 'USD'))
      */
-    public function getExchangeRates(array $exchangeRateData): ?array
+    public static function exchangeRateDataToCurrencyPairs(array $exchangeRateData)
+        : array
     {
         if (empty($exchangeRateData)) {
-            return $exchangeRateData;
+            return [];
         }
 
-        $currenciesMapping = config('general.currencies_mapping');
         $currenciesReverseMapping = config('general.currencies_reverse_mapping');
 
         $currencyPairs = [];
@@ -105,18 +102,171 @@ class FinanceUtils
             }
             $currencyPairs[] = $currencyPair;
         }
+        // LOG::debug('exchangeRateData: ' . print_r($exchangeRateData, true));
         // LOG::debug('currencyPairs: ' . print_r($currencyPairs, true));
 
+        return $currencyPairs;
+    }
+
+    /**
+     * @param $currencyPairs array(array('EUR', 'USD'))
+     * @param $date \DateTimeInterface
+     *
+     * @return $results array(HistoricalData)
+     */
+    public function getLastAvailableExchangeRates(array $currencyPairs,
+        \DateTimeInterface $date): ?array
+    {
+        if (empty($currencyPairs)) {
+            return [];
+        }
+
+        //NOTE there is no historical data when market is closed
+        //      so we look for the day before or the day before that
+        $maxDaysBefore = 7;
+        $currentDaysBefore = 1;
         $financeAPI = new FinanceAPI();
-        $quotes = $financeAPI->getExchangeRates($currencyPairs);
-        if (empty($quotes)) {
+
+        do {
+            $currentDate = clone $date;
+            $currentDate = $currentDate
+                ->modify('-' . $currentDaysBefore . ' days');
+
+            $results = $financeAPI->getHistoricalExchangeRates(
+                $currencyPairs,
+                $currentDate
+            );
+
+            if (!empty($results)) {
+                LOG::info('We were not able to get the exchange rates for the '
+                          . 'given date: '
+                          . $date->format('Y-m-d')
+                          . ', but were able to get the '
+                          . 'exchange rates for date: '
+                          . $currentDate->format('Y-m-d'));
+                break;
+            } else {
+                LOG::info('Could NOT get the historical exchange rates for '
+                          . 'date: '
+                          . $currentDate->format('Y-m-d'));
+            }
+            $currentDaysBefore++;
+        } while (empty($results)
+                 && $currentDaysBefore <= $maxDaysBefore);
+
+        if (empty($results)) {
+            LOG::error('Could NOT get the historical exchange rates for'
+                       . ' date: ' . $date->format('Y-m-d')
+                       . '! This should never happen! '
+                       . 'We still failed after all these tries!');
             return null;
         }
-        // LOG::debug('exchange rate quotes 133: ' . print_r($quotes, true));
 
+        // LOG::debug('exchange rate results 165: ' . print_r($results, true));
+        return $results;
+    }
+
+
+    public function getLastAvailableQuote(Quote $quote, \DateTimeInterface $date)
+        : ?HistoricalData
+    {
+        //NOTE there is no historical data when market is closed
+        //      so we look for the day before or the day before that
+        $maxDaysBefore = 7;
+        $currentDaysBefore = 0;
+        $financeAPI = new FinanceAPI();
+
+        do {
+            $currentDate = clone $date;
+            $currentDate = $currentDate
+                ->modify('-'.$currentDaysBefore . ' days');
+
+            $historicalQuoteData = $financeAPI->getHistoricalQuoteData(
+                $quote,
+                $currentDate
+            );
+
+            if (!empty($historicalQuoteData)) {
+                /*
+                LOG::debug('HistoricalQuoteData for symbol: '
+                           . $quote->getSymbol() . ', date: '
+                           . $currentDate->format('Y-m-d')
+                           . ' => price: '
+                           . $historicalQuoteData->getClose()
+                           . ', quote_timestamp: '
+                           . $historicalQuoteData->getDate()
+                                                 ->format('Y-m-d'));
+                */
+            } else {
+                LOG::info('Could NOT get the historical quote for symbol: '
+                          . $quote->getSymbol() . ', date: '
+                          . $currentDate->format('Y-m-d'));
+            }
+            $currentDaysBefore++;
+        } while (empty($historicalQuoteData)
+                 && $currentDaysBefore <= $maxDaysBefore);
+
+        if (empty($historicalQuoteData)
+            || !($historicalQuoteData instanceof HistoricalData)
+        ) {
+            LOG::error('Could NOT get the historical quote for symbol: '
+                       . $quote->getSymbol() . ', date: ' . $date->format('Y-m-d')
+                       . '! This should never happen! '
+                       . 'We still failed after all these tries!');
+            return null;
+        }
+
+        return $historicalQuoteData;
+    }
+
+    /**
+     * @param $exchangeRateData array(EURUSD => array(account_currency  => 'EUR',
+     *                                                trade_currency    => 'USD'))
+     * @param $date \DateTimeInterface
+     *
+     * @return $exchangeRateData array(EURUSD => array(account_currency => 'EUR',
+     *                                                 trade_currency   => 'USD',
+     *                                                 exchange_rate    => 1.1))
+     */
+    public function getExchangeRates(array $exchangeRateData,
+        \DateTimeInterface $date = null): ?array
+    {
+        if (empty($exchangeRateData)) {
+            return [];
+        }
+
+        $currencyPairs = self::exchangeRateDataToCurrencyPairs($exchangeRateData);
+        $financeAPI = new FinanceAPI();
+
+        $results = [];
+        if (!empty($date) && date('Y-m-d') != $date->format('Y-m-d')) {
+            $results =
+                $financeAPI->getHistoricalExchangeRates($currencyPairs, $date);
+        } else {
+            $results = $financeAPI->getExchangeRates($currencyPairs);
+        }
+
+        if (empty($date)) {
+            $date = new \DateTime();
+        }
+
+        if (empty($results)) {
+            $results = $this->getLastAvailableExchangeRates($currencyPairs, $date);
+        }
+
+        $currenciesMapping = config('general.currencies_mapping');
         $i = 0;
-        foreach ($quotes as $quote) {
-            $exchangeRate = $quote->getRegularMarketPrice();
+        foreach ($results as $result) {
+            //NOTE If date is provided, we look at historical data
+            if ($result instanceof Quote) {
+                $exchangeRate = $result->getRegularMarketPrice();
+            } else if ($result instanceof HistoricalData) {
+                $exchangeRate = $result->getClose();
+            } else {
+                LOG::error('Unexpected result in FinanceUtils->getExchangeRates()! '
+                           . print_r($result, true));
+                return null;
+            }
             if ($currencyPairs[$i][1] == 'GBp') { // The exchange rate is for GBP
                 $exchangeRate *= 100;
             }
@@ -131,17 +281,19 @@ class FinanceUtils
             $i++;
         }
 
+        // LOG::debug('exchangeRateData 232: ' . print_r($exchangeRateData, true));
         return $exchangeRateData;
     }
 
 
     /**
      * @param array $symbols
+     * @param $date \DateTimeInterface
      *
      * @return array(symbol => (price, currency, name, quote_timestamp, day_change))
      *         or null if failure
      */
-    public function getQuotes($symbols)
+    public function getQuotes($symbols, \DateTimeInterface $date = null)
     {
         $quotesArray = [];
         if (empty($symbols)) {
@@ -180,6 +332,21 @@ class FinanceUtils
 
                 'marketUtils' => new MarketUtils($quote),
             ];
+
+            //NOTE If we provide a date, we overwrite the price and quote timestamp
+            if (!empty($date) && date('Y-m-d') != $date->format('Y-m-d')) {
+                $historicalQuoteData = $this->getLastAvailableQuote($quote, $date);
+
+                if (!empty($historicalQuoteData)) {
+                    $quotesArray[$quote->getSymbol()]['price'] =
+                        $historicalQuoteData->getClose();
+                    $quotesArray[$quote->getSymbol()]['quote_timestamp'] =
+                        $historicalQuoteData->getDate();
+                } else {
+                    $quotesArray[$quote->getSymbol()]['price'] = null;
+                    $quotesArray[$quote->getSymbol()]['quote_timestamp'] = null;
+                }
+            }
         }
 
         return $quotesArray;

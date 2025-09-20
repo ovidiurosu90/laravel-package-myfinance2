@@ -6,23 +6,25 @@
 <div class="card-text">
     Quantity: {{ $openPosition['quantity'] }}
     <br />
-    Total Cost: {!! $openPosition['cost_in_account_currency'] !!}
+    Total Cost: {!! $openPosition['cost_in_account_currency_formatted'] !!}
     <br />
-    Value: {!! $openPosition['market_value_in_account_currency'] !!}
+    Value: {!! $openPosition['market_value_in_account_currency_formatted'] !!}
     <br />
-    Change value: {!! $openPosition['overall_change_in_account_currency'] !!}
+    Change value: {!! $openPosition['overall_change_in_account_currency_formatted']
+                   !!}
     <br />
-    Change %: {!! $openPosition['overall_change_in_percentage'] !!}
+    Change %: {!! $openPosition['overall_change_in_percentage_formatted'] !!}
     <br />
-    Average Cost: {!! $openPosition['average_unit_cost_in_trade_currency'] !!}
-    @if($openPosition['average_unit_cost2_in_trade_currency'])
+    Average Cost: {!! $openPosition['average_unit_cost_in_trade_currency_formatted']
+                   !!}
+    @if($openPosition['average_unit_cost2_in_trade_currency_formatted'])
     <br />
     Average Cost 2:
     <span data-bs-toggle="tooltip"
         title="Value without factoring any gains from
             selling actions!"
         style="font-style:italic">
-        {!! $openPosition['average_unit_cost2_in_trade_currency'] !!}
+        {!! $openPosition['average_unit_cost2_in_trade_currency_formatted'] !!}
     </span>
     @endif
     <hr />

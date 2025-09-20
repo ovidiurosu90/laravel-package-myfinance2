@@ -144,6 +144,9 @@ class AjaxController extends MyFinance2Controller
 
         return response()->json([
             'cash_balances' => $cashBalances,
+            'last_operation_timestamp' => $service->getLastOperationTimestamp()
+                ->add(new \DateInterval('PT1S')) // adding 1 second
+                ->format(trans('myfinance2::general.datetime-format')),
         ]);
     }
 }

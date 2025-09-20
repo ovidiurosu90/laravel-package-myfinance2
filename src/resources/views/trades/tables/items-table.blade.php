@@ -11,7 +11,7 @@
                 <th scope="col">Quantity</th>
                 <th scope="col" class="text-right"
                     style="min-width: 106px">Unit Price</th>
-                <th scope="col" class="text-right" style="min-width: 106px"
+                <th scope="col" class="text-right" style="min-width: 124px"
                     data-bs-toggle="tooltip"
                     title="Quantity * Unit Price">Principle Amount</th>
                 <th scope="col" class="hidden-xs">Exchange Rate</th>

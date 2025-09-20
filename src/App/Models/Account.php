@@ -3,6 +3,7 @@
 namespace ovidiuro\myfinance2\App\Models;
 
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use ovidiuro\myfinance2\App\Models\Scopes\AssignedToUserScope;
 
 class Account extends MyFinance2Model
 {
@@ -59,6 +60,14 @@ class Account extends MyFinance2Model
     public function currency(): HasOne
     {
         return $this->hasOne(Currency::class, 'id', 'currency_id');
+    }
+    public function currencyNoUser(): HasOne
+    {
+        if (php_sapi_name() !== 'cli') { // in browser we have 'apache2handler'
+            abort(403, 'Access denied in Account Model');
+        }
+        return $this->hasOne(Currency::class, 'id', 'currency_id')
+            ->withoutGlobalScope(AssignedToUserScope::class);
     }
 }
 

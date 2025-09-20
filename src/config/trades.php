@@ -13,10 +13,19 @@ return [
     'unlisted' => 'UNLISTED',
     'unlisted_fmv' => [
         'UNLISTED_MIRO' => [
-            // 'price'     => 7.36,
-            // 'timestamp' => '2024-11-01 00:00:01',
-            'price'     => 7.28,
-            'timestamp' => '2025-02-09 00:00:01',
+            'symbol_name' => 'Miro',
+            'quotes' => [
+                [
+                    'price'     => 7.36,
+                    'timestamp' => '2024-11-01 00:00:01',
+                ], [
+                    'price'     => 7.28,
+                    'timestamp' => '2025-02-09 00:00:01',
+                ], [
+                    'price'     => 6.94,
+                    'timestamp' => '2025-09-01 00:00:01',
+                ],
+            ],
         ],
     ],
 

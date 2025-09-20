@@ -22,24 +22,6 @@ class FinanceAPI
     {
         // Deal with '429 Too Many Requests' errors, use curl_impersonate
         UserAgent::setUserAgents([self::USER_AGENT_CHROME_116]);
-        return;
-
-        // Obsolete: keep these around for a little while to ensure the above works
-        if (empty($_SERVER['HTTP_USER_AGENT'])) {
-            UserAgent::setUserAgents([UserAgent::getRandomUserAgent()]);
-            return;
-        }
-
-        //NOTE Sometimes we get an GuzzleHttp\Exception\ClientException
-        /*
-        Client error: `GET https://query2.finance.yahoo.com/v1/test/getcrumb`
-            resulted in a `401 Unauthorized`
-        response: {"finance":{"result":null,"error":{"code":"Unauthorized",
-            "description":"Invalid Cookie"}}}
-        */
-        UserAgent::setUserAgents([
-            $_SERVER['HTTP_USER_AGENT']
-        ]);
     }
 
     public function getClient(): ApiClient
@@ -137,25 +119,24 @@ class FinanceAPI
         return $quotes;
     }
 
-    public function getExchangeRates(
-        array $currencyPairs, bool $checkCache = true): ?array
+    public function getExchangeRates(array $currencyPairs, bool $checkCache = true)
+        : ?array
     {
+        if (empty($currencyPairs)) {
+            return [];
+        }
+        $symbols = self::currencyPairsToSymbols($currencyPairs);
+
         $missingCachedSymbols = [];
         $quotes = [];
-        $symbols = [];
         $obsoleteSymbols = config('general.obsolete_symbols');
 
-        foreach ($currencyPairs as $currencyPair) {
-            $symbol = strtoupper($currencyPair[0])
-                . strtoupper($currencyPair[1]) . '=X';
-            $symbols[] = $symbol;
+        foreach ($symbols as $symbol) {
             $quote = $checkCache ? $this->getCachedQuote($symbol) : null;
             if (!empty($quote)) {
                 $quotes[] = $quote;
-            } else {
-                if (!in_array($symbol, $obsoleteSymbols)) {
-                    $missingCachedSymbols[] = $symbol;
-                }
+            } else if (!in_array($symbol, $obsoleteSymbols)) {
+                $missingCachedSymbols[] = $symbol;
             }
         }
 
@@ -181,11 +162,79 @@ class FinanceAPI
 
         if (empty($quotes) || !is_array($quotes) ||
             !($quotes[0] instanceof Quote)
+            || count($symbols) != count($quotes)
         ) {
+            LOG::info("FinanceAPI->getExchangeRates("
+                      . implode(', ', $symbols) . ") failed!");
             return null;
         }
 
         return $quotes;
+    }
+
+
+    /**
+     * @param $currencyPairs array(array('EUR', 'USD'))
+     *
+     * @return $symbols array('EURUSD=X')
+     */
+    public static function currencyPairsToSymbols(array $currencyPairs): array
+    {
+        if (empty($currencyPairs)) {
+            return [];
+        }
+
+        $symbols = [];
+        foreach ($currencyPairs as $currencyPair) {
+            $symbol = strtoupper($currencyPair[0])
+                . strtoupper($currencyPair[1]) . '=X';
+            $symbols[] = $symbol;
+        }
+        return $symbols;
+    }
+
+    /**
+     * @param $currencyPairs array(array('EUR', 'USD'))
+     * @param $date \DateTimeInterface
+     *
+     * @return $results array(HistoricalData)
+     */
+    public function getHistoricalExchangeRates(array $currencyPairs,
+        \DateTimeInterface $date): ?array
+    {
+        if (empty($currencyPairs)) {
+            return [];
+        }
+        $symbols = self::currencyPairsToSymbols($currencyPairs);
+
+        LOG::info("FinanceAPI->getHistoricalExchangeRates("
+                  . implode(', ', $symbols) . ") from FinanceAPI");
+
+        $historicalDataItems = [];
+        $client = $this->getClient();
+
+        foreach ($symbols as $symbol) {
+            try {
+                $quote = $this->getQuote($symbol); //LATER Get rid of this!
+                $historicalData = $this->getHistoricalQuoteData($quote, $date);
+                $historicalDataItems[] = $historicalData;
+            } catch (\Exception $e) {
+                LOG::warning("Couldn't get the exchange rate for symbol '"
+                    . $symbol . "'. Exception message: " . $e->getMessage());
+                return null;
+            }
+        }
+
+        if (empty($historicalDataItems) || !is_array($historicalDataItems)
+            || !($historicalDataItems[0] instanceof HistoricalData)
+            || count($symbols) != count($historicalDataItems)
+        ) {
+            LOG::info("FinanceAPI->getHistoricalExchangeRates("
+                      . implode(', ', $symbols) . ") failed!");
+            return null;
+        }
+
+        return $historicalDataItems;
     }
 
     public function getHistoricalQuoteData(Quote $quote,
@@ -220,10 +269,12 @@ class FinanceAPI
 
         if (!empty($historicalData)) {
             LOG::info("FinanceAPI->getHistoricalQuoteData($symbol, "
-                      . $timestamp->format('Y-m-d') . ") from cache");
+                      . $timestamp->format('Y-m-d') . ") => close: "
+                      . $historicalData->getClose()
+                      . " from cache");
         } else {
-            LOG::info("FinanceAPI->getHistoricalQuoteData($symbol, "
-                      . $timestamp->format('Y-m-d') . ") from FinanceAPI");
+            // LOG::info("FinanceAPI->getHistoricalQuoteData($symbol, "
+            //           . $timestamp->format('Y-m-d') . ") from FinanceAPI");
 
             $client = $this->getClient();
 
@@ -238,6 +289,10 @@ class FinanceAPI
                     return null;
                 }
                 $historicalData = $historicalDataResponse[0];
+                LOG::info("FinanceAPI->getHistoricalQuoteData($symbol, "
+                          . $timestamp->format('Y-m-d') . ") => close: "
+                          . $historicalData->getClose()
+                          . " from FinanceAPI");
 
                 $this->cacheHistoricalData($quote, $historicalData);
             } catch (\Exception $e) {

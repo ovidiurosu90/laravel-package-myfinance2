@@ -78,7 +78,9 @@ $(document).ready(function()
             success: function(data, textStatus, jqXHR)
             {
                 // console.log(data);
-                if (data && 'cash_balances' in data && Array.isArray(data['cash_balances'])) {
+                if (data && 'cash_balances' in data
+                    && Array.isArray(data['cash_balances'])
+                ) {
                     for (let i = 0; i < data['cash_balances'].length; i++) {
                         description += data['cash_balances'][i];
                         if (i != data['cash_balances'].length - 1) {
@@ -88,6 +90,14 @@ $(document).ready(function()
                     $descriptionTextarea.val(description);
                     $descriptionTextarea.trigger('input');
                 }
+
+                if (data && 'last_operation_timestamp' in data
+                    && !isNaN(Date.parse(data['last_operation_timestamp']))
+                ) {
+                    window.timestampPicker1.dates.setFromInput(
+                         data['last_operation_timestamp']);
+                }
+
                 $infoHeader.html("");
             },
             error: function(jqXHR, textStatus, errorThrown)

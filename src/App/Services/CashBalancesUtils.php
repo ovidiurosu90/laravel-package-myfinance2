@@ -9,9 +9,15 @@ use ovidiuro\myfinance2\App\Models\CashBalance;
 use ovidiuro\myfinance2\App\Models\LedgerTransaction;
 use ovidiuro\myfinance2\App\Models\Trade;
 use ovidiuro\myfinance2\App\Models\Dividend;
+use ovidiuro\myfinance2\App\Models\Scopes\AssignedToUserScope;
 
 class CashBalancesUtils
 {
+    /**
+     * @var bool
+     */
+    private $_withUser = true;
+
     /**
      * @var CashBalance
      */
@@ -22,24 +28,90 @@ class CashBalancesUtils
      */
     private $_account;
 
-    public function __construct($accountId)
+    /**
+     * @var \DateTime
+     */
+    private $_lastOperationTimestamp;
+
+    public function __construct(int $accountId,
+        bool $withUser = true, \DateTimeInterface $date = null)
     {
-        $this->_cashBalance = CashBalance::with('accountModel')
+        $this->setWithUser($withUser);
+
+        $this->_populateCashBlance($accountId, $date);
+        $this->_populateAccount($accountId);
+    }
+
+    public function setWithUser(bool $withUser = true)
+    {
+        if (!$withUser
+            && php_sapi_name() !== 'cli' // in browser we have 'apache2handler'
+        ) {
+            abort(403, 'Access denied in Account Model');
+        }
+
+        $this->_withUser = $withUser;
+    }
+
+    public function _populateCashBlance(int $accountId,
+        \DateTimeInterface $date = null)
+    {
+        $queryBuilder = CashBalance::with('accountModel');
+        if (!$this->_withUser) {
+            $queryBuilder = CashBalance::with('accountModelNoUser')
+                ->withoutGlobalScope(AssignedToUserScope::class);
+        }
+
+        $this->_cashBalance = $queryBuilder
             ->where('account_id', $accountId)
+            ->where('timestamp', '<', !empty($date) ? $date : \DB::raw('NOW()'))
             ->orderBy('timestamp', 'DESC')
             ->first();
 
+        if (!$this->_withUser
+            && !empty($this->_cashBalance)
+            // && empty($this->_cashBalance->accountModel)
+            && !empty($this->_cashBalance->accountModelNoUser)
+        ) {
+            $this->_cashBalance->accountModel = $this->_cashBalance
+                ->accountModelNoUser;
+        }
         // Log::debug($this->_cashBalance);
+    }
+
+    public function _populateAccount(int $accountId)
+    {
         if (!empty($this->_cashBalance)) {
             $this->_account = $this->_cashBalance->accountModel;
-        } else {
-            $this->_account = Account::with('currency')->findOrFail($accountId);
+            return;
         }
+
+        $queryBuilder = Account::with('currency');
+        if (!$this->_withUser) {
+            $queryBuilder = Account::with('currencyNoUser')
+                ->withoutGlobalScope(AssignedToUserScope::class);
+        }
+
+        $this->_account = $queryBuilder->findOrFail($accountId);
+
+        if (!$this->_withUser
+            && !empty($this->_account)
+            // && empty($this->_account->currency)
+            && !empty($this->_account->currencyNoUser)
+        ) {
+            $this->_account->currency = $this->_account->currencyNoUser;
+        }
+        // Log::debug($this->_account);
     }
 
     public function getLastCashBalance()
     {
         return $this->_cashBalance;
+    }
+
+    public function getLastOperationTimestamp()
+    {
+        return $this->_lastOperationTimestamp;
     }
 
     public function getFormattedAmount()
@@ -67,10 +139,9 @@ class CashBalancesUtils
     }
 
     /**
-     * @param string [$timestamp] Timestamp
      * @return array<string>
      */
-    public function getCashBalances($timestamp)
+    public function getCashBalances(string $timestamp): array
     {
         $cashBalances = [];
 
@@ -78,6 +149,7 @@ class CashBalancesUtils
         // Log::debug($this->_cashBalance);
         if (!empty($this->_cashBalance) && !empty($this->_cashBalance->amount)) {
             $cashBalances[] = 'start ' . round($this->_cashBalance->amount, 2);
+            $this->_lastOperationTimestamp = $this->_cashBalance->timestamp;
         }
 
 
@@ -110,6 +182,12 @@ class CashBalancesUtils
                     ->display_code
                 . ')'
             ;
+
+            if ($ledgerTransactionDebit->timestamp >
+                $this->_lastOperationTimestamp
+            ) {
+                $this->_lastOperationTimestamp = $ledgerTransactionDebit->timestamp;
+            }
         }
 
 
@@ -142,6 +220,13 @@ class CashBalancesUtils
                     ->display_code
                 . ')'
             ;
+
+            if ($ledgerTransactionCredit->timestamp >
+                $this->_lastOperationTimestamp
+            ) {
+                $this->_lastOperationTimestamp =
+                    $ledgerTransactionCredit->timestamp;
+            }
         }
 
 
@@ -186,6 +271,10 @@ class CashBalancesUtils
                     ' -' . round($trade->fee, 2) : '') .
                 ' ' . strtolower($trade->action) . ' ' . $trade->symbol
             ;
+
+            if ($trade->timestamp > $this->_lastOperationTimestamp) {
+                $this->_lastOperationTimestamp = $trade->timestamp;
+            }
         }
 
 
@@ -218,6 +307,10 @@ class CashBalancesUtils
                     ' -' . round($dividend->fee, 2) : '') .
                 ' dividend ' . $dividend->symbol
             ;
+
+            if ($dividend->timestamp > $this->_lastOperationTimestamp) {
+                $this->_lastOperationTimestamp = $dividend->timestamp;
+            }
         }
 
 

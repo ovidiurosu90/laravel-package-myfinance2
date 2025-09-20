@@ -71,6 +71,14 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                             $quoteData['price']
                         ) !!}
                     </div>
+                    <div class="chart-symbol mt-2"
+                        data-symbol="{{ $symbol }}"
+                        data-symbol_name="{{ $quoteData['name'] }}"
+                        data-base_value="{{ $quoteData['base_value'] }}"
+                        data-trade_currency_formatted="{!!
+                            $quoteData['tradeCurrencyModel']->display_code
+                        !!}"
+                        style="position: relative; float: right;"></div>
                 </td>
                 <td class="text-right" data-order="{{ $quoteData['day_change'] }}">
                     {!! ovidiuro\myfinance2\App\Services\MoneyFormat

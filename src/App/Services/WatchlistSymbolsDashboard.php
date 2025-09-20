@@ -4,7 +4,7 @@ namespace ovidiuro\myfinance2\App\Services;
 
 use ovidiuro\myfinance2\App\Models\WatchlistSymbol;
 use ovidiuro\myfinance2\App\Models\Trade;
-use ovidiuro\myfinance2\App\Services\PositionsDashboard;
+use ovidiuro\myfinance2\App\Services\Positions;
 
 use Illuminate\Support\Facades\Log;
 
@@ -24,10 +24,9 @@ class WatchlistSymbolsDashboard
             $watchlistSymbolsDictionary[$watchlistSymbol->symbol] = $watchlistSymbol;
         }
 
-        $positionsService = new PositionsDashboard();
-        $positionsData = $positionsService->handle(
-            array_keys($watchlistSymbolsDictionary)
-        );
+        $positionsService = new Positions();
+        $positionsService->setExtraSymbols(array_keys($watchlistSymbolsDictionary));
+        $positionsData = $positionsService->handle();
         if (empty($positionsData['quotes'])) {
             return [];
         }
@@ -46,12 +45,13 @@ class WatchlistSymbolsDashboard
                 $currencyUtilsService->getCurrencyByIsoCode($quoteData['currency']);
             $items[$symbol]['item'] = $watchlistSymbolsDictionary[$symbol];
             $items[$symbol]['open_positions'] = [];
-
+            $items[$symbol]['base_value'] = null;
         }
         if (empty($positionsData['groupedItems'])) {
             return $items;
         }
 
+        $averageUnitCosts = [];
         foreach ($positionsData['groupedItems'] as $account => $openPositions) {
             foreach ($openPositions as $openPosition) {
                 $isUnlisted = FinanceAPI::isUnlisted($openPosition['symbol']);
@@ -59,7 +59,12 @@ class WatchlistSymbolsDashboard
                     continue;
                 }
                 $items[$openPosition['symbol']]['open_positions'][] = $openPosition;
+                $averageUnitCosts[$openPosition['symbol']][] =
+                    $openPosition['average_unit_cost_in_trade_currency'];
             }
+        }
+        foreach ($averageUnitCosts as $symbol => $costs) {
+            $items[$symbol]['base_value'] = array_sum($costs) / count($costs);
         }
 
         // LOG::debug('WatchlistSymbols handle items: '); LOG::debug($items);

@@ -4,7 +4,7 @@ namespace ovidiuro\myfinance2\App\Http\Controllers;
 
 use Illuminate\Support\Facades\Log;
 
-use ovidiuro\myfinance2\App\Services\PositionsDashboard;
+use ovidiuro\myfinance2\App\Services\Positions;
 
 class PositionsController extends MyFinance2Controller
 {
@@ -20,7 +20,7 @@ class PositionsController extends MyFinance2Controller
      */
     public function index()
     {
-        $service = new PositionsDashboard();
+        $service = new Positions();
 
         // array with items grouped by account and account data
         $data = $service->handle();

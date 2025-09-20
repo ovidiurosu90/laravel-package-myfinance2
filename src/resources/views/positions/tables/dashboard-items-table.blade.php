@@ -16,19 +16,19 @@
                     style="min-width: 136px">Mkt value*</th>
                 <th class="no-search no-sort text-right" data-bs-toggle="tooltip"
                     title="Average purchased unit cost in trade currency"
-                    style="min-width: 86px">Avg cost</th>
+                    style="min-width: 90px">Avg cost</th>
                 <th class="no-search no-sort text-right" data-bs-toggle="tooltip"
                     title="Current unit price in trade currency"
-                    style="min-width: 92px">Price*</th>
+                    style="min-width: 96px">Price*</th>
                 <th class="text-right" data-bs-toggle="tooltip"
                     title="Day gain in account currency"
-                    style="min-width: 88px">Day gain*</th>
+                    style="min-width: 90px">Day gain*</th>
                 <th class="text-right" data-bs-toggle="tooltip"
                     title="Day gain in percentage"
                     style="min-width: 110px">Day gain (%)*</th>
                 <th class="text-right" data-bs-toggle="tooltip"
                     title="Overall gain in account currency"
-                    style="min-width: 90px">Gain*</th>
+                    style="min-width: 102px">Gain*</th>
                 <th class="text-right" data-bs-toggle="tooltip"
                     title="Overall gain in percentage"
                     style="min-width: 82px">Gain (%)*</th>
@@ -51,7 +51,16 @@
                     <span class="unlisted small">{{ $item['symbol'] }}</span>
                     @endif
                 </td>
-                <td id="chart-{{ $accountId }}-{{ $item['symbol'] }}"
+                <td class="chart-symbol"
+                    data-account_id="{{ $accountId }}"
+                    data-symbol="{{ $item['symbol'] }}"
+                    data-symbol_name="{{ $item['symbol_name'] }}"
+                    data-base_value="{{
+                        $item['average_unit_cost_in_trade_currency']
+                    }}"
+                    data-trade_currency_formatted="{!!
+                        $item['tradeCurrencyModel']->display_code
+                    !!}"
                     style="position: relative"></td>
                 <td>
                     <div class="row m-0">
@@ -78,74 +87,78 @@
                     </div>
                 </td>
                 <td class="text-right">
-                    {!! $item['cost_in_account_currency'] !!}
-                    @if($item['cost2_in_account_currency'])
+                    {!! $item['cost_in_account_currency_formatted'] !!}
+                    @if($item['cost2_in_account_currency_formatted'])
                     <br />
                     <span data-bs-toggle="tooltip"
                         title="Value without factoring any gains from
                                 selling actions!"
                         style="font-style:italic">
-                        {!! $item['cost2_in_account_currency'] !!}
+                        {!! $item['cost2_in_account_currency_formatted'] !!}
                     </span>
                     @endif
                 </td>
                 <td class="text-right" data-bs-toggle="tooltip"
                     data-bs-custom-class="big-tooltips"
-                    title="Quote timestamp: {{ $item['quote_timestamp'] }}">
-                    {!! $item['market_value_in_account_currency'] !!}
+                    title="Quote timestamp: {{ $item['quote_timestamp_formatted']
+                                            }}">
+                    {!! $item['market_value_in_account_currency_formatted'] !!}
                 </td>
                 <td class="text-right pr-2">
-                    {!! $item['average_unit_cost_in_trade_currency'] !!}
-                    @if($item['average_unit_cost2_in_trade_currency'])
+                    {!! $item['average_unit_cost_in_trade_currency_formatted'] !!}
+                    @if($item['average_unit_cost2_in_trade_currency_formatted'])
                     <br />
                     <span data-bs-toggle="tooltip"
                         title="Value without factoring any gains from
                             selling actions!"
                         style="font-style:italic">
-                        {!! $item['average_unit_cost2_in_trade_currency'] !!}
+                        {!! $item['average_unit_cost2_in_trade_currency_formatted']
+                         !!}
                     </span>
                     @endif
                 </td>
                 <td class="text-right pr-2" data-bs-toggle="tooltip"
                     data-bs-custom-class="big-tooltips"
-                    title="Quote timestamp: {{ $item['quote_timestamp'] }}">
-                    {!! $item['current_unit_price_in_trade_currency'] !!}
+                    title="Quote timestamp: {{ $item['quote_timestamp_formatted']
+                                            }}">
+                    {!! $item['current_unit_price_in_trade_currency_formatted'] !!}
                 </td>
                 <td class="text-right pr-2"
                     data-order="{{
-                        $item['day_change_in_account_currency_unformatted'] }}">
-                    {!! $item['day_change_in_account_currency'] !!}
+                        $item['day_change_in_account_currency'] }}">
+                    {!! $item['day_change_in_account_currency_formatted'] !!}
                 </td>
                 <td class="text-right pr-2"
                     data-order="{{
-                        $item['day_change_in_percentage_unformatted'] }}">
-                    {!! $item['day_change_in_percentage'] !!}
+                        $item['day_change_percentage'] }}">
+                    {!! $item['day_change_in_percentage_formatted'] !!}
                 </td>
                 <td class="text-right pr-2"
                     data-order="{{
-                        $item['overall_change_in_account_currency_unformatted'] }}">
-                    {!! $item['overall_change_in_account_currency'] !!}
-                    @if($item['overall_change2_in_account_currency'])
+                        $item['overall_change_in_account_currency'] }}">
+                    {!! $item['overall_change_in_account_currency_formatted'] !!}
+                    @if($item['overall_change2_in_account_currency_formatted'])
                     <br />
                     <span data-bs-toggle="tooltip"
                         title="Value without factoring any gains from
                                 selling actions!"
                         style="font-style:italic">
-                        {!! $item['overall_change2_in_account_currency'] !!}
+                        {!! $item['overall_change2_in_account_currency_formatted']
+                         !!}
                     </span>
                     @endif
                 </td>
                 <td class="text-right pr-2"
                     data-order="{{
-                        $item['overall_change_in_percentage_unformatted'] }}">
-                    {!! $item['overall_change_in_percentage'] !!}
-                    @if($item['overall_change2_in_percentage'])
+                        $item['overall_change_in_percentage'] }}">
+                    {!! $item['overall_change_in_percentage_formatted'] !!}
+                    @if($item['overall_change2_in_percentage_formatted'])
                     <br />
                     <span data-bs-toggle="tooltip"
                         title="Value without factoring any gains from
                                 selling actions!"
                         style="font-style:italic">
-                        {!! $item['overall_change2_in_percentage'] !!}
+                        {!! $item['overall_change2_in_percentage_formatted'] !!}
                     </span>
                     @endif
                 </td>
@@ -199,20 +212,25 @@
                         title="Total Cash & Cash Alternatives in Account Currency">
                         Cash:
                     </span>
-                    {!! $accountData[$accountId]['cash']->getFormattedAmount() !!}
+                    {!! $accountData[$accountId]['cashBalanceUtils']
+                            ->getFormattedAmount() !!}
                 </td>
                 <td colspan="7" class="text-left">
-                    {!! $accountData[$accountId]['cash']->getFormattedDetails() !!}
+                    {!! $accountData[$accountId]['cashBalanceUtils']
+                            ->getFormattedDetails() !!}
+                </td>
+            </tr>
+            <tr>
+                <td colspan="13" class="position-relative">
+                    <div class="chart-accountOverview"
+                        data-account_id="{{ $accountId }}"
+                        data-account_currency_iso_code="{{
+                            $accountData[$accountId]['accountModel']
+                                ->currency->iso_code }}"></div>
                 </td>
             </tr>
         </tfoot>
     </table>
-
-    @if(count($items) > 0)
-        @foreach($items as $item)
-            @include('myfinance2::positions.scripts.quote-price-graph')
-        @endforeach
-    @endif
 
     <div class="clearfix mb-3"></div>
 </div>

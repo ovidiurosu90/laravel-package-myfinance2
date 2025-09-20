@@ -221,5 +221,12 @@ table.data-table {
     padding-bottom: 0.1rem;
 }
 
+.card-header .fa {
+  transition: .3s transform ease-in-out;
+}
+.card-header .collapsed .fa {
+  transform: rotate(90deg);
+}
+
 </style>
 
