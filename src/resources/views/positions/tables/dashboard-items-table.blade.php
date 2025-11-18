@@ -122,16 +122,40 @@
                     title="Quote timestamp: {{ $item['quote_timestamp_formatted']
                                             }}">
                     {!! $item['current_unit_price_in_trade_currency_formatted'] !!}
+                    @if(!empty($item['pre_market_price']))
+                    <br />
+                    <span class="badge rounded-pill bg-info">pre-market</span>
+                    @endif
+                    @if(!empty($item['post_market_price']))
+                    <br />
+                    <span class="badge rounded-pill bg-info">post-market</span>
+                    @endif
                 </td>
                 <td class="text-right pr-2"
                     data-order="{{
                         $item['day_change_in_account_currency'] }}">
                     {!! $item['day_change_in_account_currency_formatted'] !!}
+                    @if(!empty($item['pre_market_day_change']))
+                    <br />
+                    <span class="badge rounded-pill bg-info">pre-market</span>
+                    @endif
+                    @if(!empty($item['post_market_day_change']))
+                    <br />
+                    <span class="badge rounded-pill bg-info">post-market</span>
+                    @endif
                 </td>
                 <td class="text-right pr-2"
                     data-order="{{
                         $item['day_change_percentage'] }}">
                     {!! $item['day_change_in_percentage_formatted'] !!}
+                    @if(!empty($item['pre_market_day_change_percentage']))
+                    <br />
+                    <span class="badge rounded-pill bg-info">pre-market</span>
+                    @endif
+                    @if(!empty($item['post_market_day_change_percentage']))
+                    <br />
+                    <span class="badge rounded-pill bg-info">post-market</span>
+                    @endif
                 </td>
                 <td class="text-right pr-2"
                     data-order="{{
@@ -147,6 +171,14 @@
                          !!}
                     </span>
                     @endif
+                    @if(!empty($item['pre_market_price']))
+                    <br />
+                    <span class="badge rounded-pill bg-info">pre-market</span>
+                    @endif
+                    @if(!empty($item['post_market_price']))
+                    <br />
+                    <span class="badge rounded-pill bg-info">post-market</span>
+                    @endif
                 </td>
                 <td class="text-right pr-2"
                     data-order="{{
@@ -160,6 +192,14 @@
                         style="font-style:italic">
                         {!! $item['overall_change2_in_percentage_formatted'] !!}
                     </span>
+                    @endif
+                    @if(!empty($item['pre_market_price']))
+                    <br />
+                    <span class="badge rounded-pill bg-info">pre-market</span>
+                    @endif
+                    @if(!empty($item['post_market_price']))
+                    <br />
+                    <span class="badge rounded-pill bg-info">post-market</span>
                     @endif
                 </td>
                 <td data-bs-toggle="tooltip"

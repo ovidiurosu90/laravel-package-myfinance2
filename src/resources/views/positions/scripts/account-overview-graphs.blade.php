@@ -8,7 +8,7 @@ const metricData = {
     @foreach($ChartsBuilder::getAccountMetrics() as $metric => $properties)
         '{{ $metric }}': {!!
             $ChartsBuilder::getChartAccountAsJsonString($accountData[$accountId],
-                                                        'account_' . $metric)
+                                                        $metric)
         !!},
     @endforeach
     },

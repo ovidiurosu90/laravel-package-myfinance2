@@ -24,9 +24,8 @@
     </div>
 </div>
 
-@endif
+@else
 
-@if(!empty($groupedItems))
 <div class="card">
     <div class="card-header">
         <div style="display: flex; justify-content: space-between;

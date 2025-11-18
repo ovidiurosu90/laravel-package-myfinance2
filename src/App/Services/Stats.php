@@ -68,10 +68,13 @@ class Stats
 
         $quoteTimestamp = $quote->getRegularMarketTime();
         if (!empty($quoteTimestamp)) {
+            /*
             $offset = FinanceUtils::get_timezone_offset(
                 $quoteTimestamp->getTimezone()->getName());
             $quoteTimestamp->add(
                 \DateInterval::createFromDateString((string)$offset . 'seconds'));
+            */
+            FinanceUtils::fixTimezone($quote, $quoteTimestamp);
         } else {
             LOG::error("Quote for symbol $symbol doesn't have a timestamp!");
             return false;

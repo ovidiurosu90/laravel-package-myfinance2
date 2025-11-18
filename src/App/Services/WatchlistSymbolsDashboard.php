@@ -31,8 +31,6 @@ class WatchlistSymbolsDashboard
             return [];
         }
 
-        // LOG::debug('watchlistSymbolsDictionary: ');
-        // LOG::debug($watchlistSymbolsDictionary);
         $items = $positionsData['quotes'];
         foreach ($items as $symbol => $quoteData) {
             if (empty($watchlistSymbolsDictionary[$symbol])) {

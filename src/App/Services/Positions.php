@@ -368,14 +368,35 @@ class Positions
                     self::getUnlistedFMV($unlistedFMV[$symbol], $date);
             }
         } else {
-            $position['price'] =
-                (!empty($quote) && !empty($quote['price']))
-                ? $quote['price']
-                : $position['unit_price'];
-            $position['price_timestamp'] =
-                (!empty($quote) && !empty($quote['quote_timestamp']))
-                ? $quote['quote_timestamp']
-                : (new \DateTime());
+            if (!empty($quote) && !empty($quote['price'])) {
+                $position['price'] = $quote['price'];
+                $position['price_timestamp'] = $quote['quote_timestamp'];
+
+                $position['post_market_price'] =
+                    !empty($quote['post_market_price'])
+                    ? $quote['post_market_price'] : false;
+                $position['post_market_day_change'] =
+                    !empty($quote['post_market_day_change'])
+                    ? $quote['post_market_day_change'] : false;
+                $position['post_market_day_change_percentage'] =
+                    !empty($quote['post_market_day_change_percentage'])
+                    ? $quote['post_market_day_change_percentage'] : false;
+
+                $position['pre_market_price'] = !empty($quote['pre_market_price']) ?
+                     $quote['pre_market_price'] : false;
+                $position['pre_market_day_change'] =
+                    !empty($quote['pre_market_day_change'])
+                    ? $quote['pre_market_day_change'] : false;
+                $position['pre_market_day_change_percentage'] =
+                    !empty($quote['pre_market_day_change_percentage'])
+                    ? $quote['pre_market_day_change_percentage'] : false;
+            } else {
+                $position['price'] = $position['unit_price'];
+                $position['price_timestamp'] = new \DateTime();
+                LOG::warning("No quote price for symbol $symbol! "
+                             ."Defaulting to unit position price...");
+            }
+            // LOG::debug("quote: " . print_r($quote, true));
         }
 
         $position['current_unit_price_in_trade_currency_formatted'] =
@@ -397,14 +418,26 @@ class Positions
             $position['day_change'] = 0;
             $position['day_change_percentage'] = 0;
         } else {
-            $position['day_change'] =
-                (!empty($quote) && !empty($quote['day_change']))
-                ? $quote['day_change']
-                : 0;
-            $position['day_change_percentage'] =
-                (!empty($quote) && !empty($quote['day_change_percentage']))
-                ? $quote['day_change_percentage']
-                : 0;
+            if (!empty($quote) && !empty($quote['day_change'])) {
+                $position['day_change'] = $quote['day_change'];
+                $position['pre_market_day_change'] =
+                    !empty($quote['pre_market_day_change'])
+                    ? $quote['pre_market_day_change'] : false;
+            } else {
+                $position['day_change'] = 0;
+                LOG::warning("No quote day change for symbol $symbol! "
+                             ."Defaulting to 0...");
+            }
+            if (!empty($quote) && !empty($quote['day_change_percentage'])) {
+                $position['day_change_percentage'] =$quote['day_change_percentage'];
+                $position['pre_market_day_change_percentage'] =
+                    !empty($quote['pre_market_day_change_percentage'])
+                    ? $quote['pre_market_day_change_percentage'] : false;
+            } else {
+                $position['day_change_percentage'] = 0;
+                LOG::warning("No quote day change percentage for symbol $symbol! "
+                             ."Defaulting to 0...");
+            }
         }
 
         $position['day_change_in_account_currency'] =
@@ -571,6 +604,52 @@ class Positions
         $positionAccountData['cashBalanceUtils'] = $cashBalancesUtils;
     }
 
+    public function getTradeAccountsWithoutOpenPositions(
+        array &$accountData, \DateTimeInterface $date = null): array
+    {
+        $queryBuilder = Account::with('currency');
+        if (!$this->_withUser) {
+            $queryBuilder = Account::with('currencyNoUser')
+                ->withoutGlobalScope(AssignedToUserScope::class);
+        }
+
+        $accounts = $queryBuilder
+            ->where('is_trade_account', '1')
+            ->where('created_at', '<=', !empty($date) ? $date : \DB::raw('NOW()'))
+            ->whereNotIn('id', array_keys($accountData))
+            ->orderBy('name')
+            ->get();
+
+        if (!$this->_withUser) {
+            foreach ($accounts as $account) {
+                if (!empty($account->currencyNoUser)) {
+                    $account->currency = $account->currencyNoUser;
+                }
+            }
+        }
+
+        $groupedAccounts = [];
+        foreach ($accounts as $account) {
+            $accountId = $account->id;
+            $groupedAccounts[$accountId] = $account;
+            $accountData[$accountId] = [
+                'accountModel'                 => $account,
+                'total_change'                 => 0,
+                'total_change_formatted'       => '',
+                'total_cost'                   => 0,
+                'total_cost_formatted'         => '',
+                'total_market_value'           => 0,
+                'total_market_value_formatted' => '',
+                'trade_account_without_open_positions' => true,
+            ];
+            $cashBalancesUtils = new CashBalancesUtils($accountId,
+                $this->_withUser, $date);
+            self::addCashBalancesUtils($accountData[$accountId],$cashBalancesUtils);
+        }
+
+        return $groupedAccounts;
+    }
+
     /**
      * Execute the job.
      *
@@ -630,11 +709,27 @@ class Positions
             self::addCashBalancesUtils($accountData[$accountId],$cashBalancesUtils);
         }
 
+        $tradeAccountsWithoutOpenPositions =
+            $this->getTradeAccountsWithoutOpenPositions($accountData, $date);
+        foreach ($tradeAccountsWithoutOpenPositions as $accountId => $data) {
+            $cash = $accountData[$accountId]['cashBalanceUtils']->getAmount();
+            if (!empty($cash) && $cash > 0) {
+                $positions[$accountId] = [];
+            }
+        }
+
+        // LOG::debug('groupedItems: ' . print_r($positions, true));
+        // LOG::debug('accountData: ' . print_r($accountData, true));
+        // LOG::debug('tradeAccountsWithoutOpenPositions: '
+        //            . print_r($tradeAccountsWithoutOpenPositions, true));
+
         return [
             'groupedItems' => $positions,
             'accountData'  => $accountData,
             'quotes'       => $quotes,
             'symbols'      => $quoteSymbols,
+            'tradeAccountsWithoutOpenPositions' =>
+                $tradeAccountsWithoutOpenPositions,
         ];
     }
 

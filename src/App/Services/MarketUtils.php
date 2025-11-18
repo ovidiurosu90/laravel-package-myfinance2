@@ -33,6 +33,11 @@ class MarketUtils
         );
     }
 
+    public function getQuote()
+    {
+        return $this->_quote;
+    }
+
     public function getName()
     {
         # us_market, fr_market, nl_market, gb_market
@@ -54,6 +59,11 @@ class MarketUtils
     {
         # America/New_York, Europe/Paris, Europe/Amsterdam, Europe/London
         return $this->_quote->getExchangeTimezoneName();
+    }
+    public function timezoneInEurope()
+    {
+        return str_contains($this->_quote->getExchangeTimezoneName(),
+            'Europe');
     }
 
     public function getMarketName()

@@ -46,11 +46,14 @@ class FinanceUtils
             $quoteTimestamp = $historicalData->getDate();
         }
 
+        /*
         $offset = self::get_timezone_offset(
             $quoteTimestamp->getTimezone()->getName());
         $quoteTimestamp->add(
             \DateInterval::createFromDateString((string)$offset . 'seconds'));
         // LOG::debug('offset'); LOG::debug(var_export($offset, true));
+        */
+        self::fixTimezone($quote, $quoteTimestamp);
 
         return [
             'price'           => $price,
@@ -305,15 +308,22 @@ class FinanceUtils
         if (empty($quotes)) {
             return null;
         }
-        // LOG::debug('quotes 190: ' . print_r($quotes, true));
+        // LOG::debug('quotes 311: ' . print_r($quotes, true));
 
         foreach ($quotes as $quote) {
             $currency = $quote->getCurrency();
             $quoteTimestamp = $quote->getRegularMarketTime();
+            if (empty($quoteTimestamp)) {
+                LOG::info('No quote timestamp! quote: ' . print_r($quote, true));
+                continue;
+            }
+            /*
             $offset = self::get_timezone_offset(
                 $quoteTimestamp->getTimezone()->getName());
             $quoteTimestamp->add(
                 \DateInterval::createFromDateString((string)$offset . 'seconds'));
+            */
+            self::fixTimezone($quote, $quoteTimestamp);
 
             $quotesArray[$quote->getSymbol()] = [
                 'price'                 => $quote->getRegularMarketPrice(),
@@ -332,6 +342,49 @@ class FinanceUtils
 
                 'marketUtils' => new MarketUtils($quote),
             ];
+
+            if (!empty($quote->getPostMarketPrice())) {
+                $quotesArray[$quote->getSymbol()]['price'] =
+                    $quote->getPostMarketPrice();
+                $quotesArray[$quote->getSymbol()]['quote_timestamp'] =
+                    $quote->getPostMarketTime();
+                $quotesArray[$quote->getSymbol()]['post_market_price'] = true;
+                self::fixTimezone($quote,
+                    $quotesArray[$quote->getSymbol()]['quote_timestamp']);
+            }
+            if (!empty($quote->getPreMarketPrice())) {
+                $quotesArray[$quote->getSymbol()]['price'] =
+                    $quote->getPreMarketPrice();
+                $quotesArray[$quote->getSymbol()]['quote_timestamp'] =
+                    $quote->getPreMarketTime();
+                $quotesArray[$quote->getSymbol()]['pre_market_price'] = true;
+                self::fixTimezone($quote,
+                    $quotesArray[$quote->getSymbol()]['quote_timestamp']);
+            }
+
+            if (!empty($quote->getPostMarketChange())) {
+                $quotesArray[$quote->getSymbol()]['day_change'] =
+                    $quote->getPostMarketChange();
+                $quotesArray[$quote->getSymbol()]['post_market_day_change'] = true;
+            }
+            if (!empty($quote->getPreMarketChange())) {
+                $quotesArray[$quote->getSymbol()]['day_change'] =
+                    $quote->getPreMarketChange();
+                $quotesArray[$quote->getSymbol()]['pre_market_day_change'] = true;
+            }
+
+            if (!empty($quote->getPostMarketChangePercent())) {
+                $quotesArray[$quote->getSymbol()]['day_change_percentage'] =
+                    $quote->getPostMarketChangePercent();
+                $quotesArray[$quote->getSymbol()][
+                    'post_market_day_change_percentage'] = true;
+            }
+            if (!empty($quote->getPreMarketChangePercent())) {
+                $quotesArray[$quote->getSymbol()]['day_change_percentage'] =
+                    $quote->getPreMarketChangePercent();
+                $quotesArray[$quote->getSymbol()][
+                    'pre_market_day_change_percentage'] = true;
+            }
 
             //NOTE If we provide a date, we overwrite the price and quote timestamp
             if (!empty($date) && date('Y-m-d') != $date->format('Y-m-d')) {
@@ -430,6 +483,20 @@ class FinanceUtils
         $offset = $origin_dtz->getOffset($origin_dt)
             - $remote_dtz->getOffset($remote_dt);
         return $offset;
+    }
+
+    public static function fixTimezone(Quote $quote, \DateTime $timestamp)
+    {
+        $timestamp->setTimezone(new \DateTimeZone('Europe/Amsterdam'));
+
+        /* NOTE We don't need the condition! We always convert the timezone
+        if (!str_contains($quote->getExchangeTimezoneName(), 'Europe/Amsterdam')) {
+            // LOG::debug("Fixing timezone for symbol " . $quote->getSymbol() . ", quote: "
+            //     . print_r($quote, true));
+            $timestamp->setTimezone(new \DateTimeZone('Europe/Amsterdam'));
+            // LOG::debug("timestamp: " . $timestamp->format("Y-m-d H:i:s"));
+        }
+        */
     }
 }
 

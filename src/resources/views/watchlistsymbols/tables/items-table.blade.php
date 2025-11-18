@@ -20,13 +20,6 @@
                     style="min-width: 98px">52-Wk high</th>
                 <th scope="col" class="text-right"
                     style="min-width: 80px">% Below high</th>
-                <!--
-                <th scope="col" class="text-right hidden-xs">Id</th>
-                <th scope="col" class="hidden-xs">Timestamp</th>
-                <th scope="col" class="hidden-xs">Description</th>
-                <th scope="col" class="hidden-xs hidden-sm">Created</th>
-                <th scope="col" class="hidden-xs hidden-sm">Updated</th>
-                 -->
                 <th class="no-search no-sort"
                     style="min-width: 294px">Open Positions</th>
                 <th class="no-search no-sort">Actions</th>
@@ -34,12 +27,15 @@
             </tr>
         </thead>
         <tbody class="table-body">
-        @if( count($items) > 0)
+        @if(count($items) > 0)
             @foreach($items as $symbol => $quoteData)
             <tr {!! count($quoteData['open_positions']) > 0
                         ? 'class="table-info"' : '' !!}>
                 <td>
-                    {{ $symbol }}
+                    <a href="https://finance.yahoo.com/quote/{{ $symbol }}"
+                        target="_blank">
+                        {{ $symbol }}
+                    </a>
                     @if( count($quoteData['open_positions']) > 0 )
                         <i class="fa fa-briefcase" aria-hidden="true"
                             data-bs-toggle="tooltip" title="Has Open Positions"></i>
@@ -70,6 +66,14 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                             $quoteData['tradeCurrencyModel']->display_code,
                             $quoteData['price']
                         ) !!}
+                        @if(!empty($quoteData['pre_market_price']))
+                        <br />
+                        <span class="badge rounded-pill bg-info">pre-market</span>
+                        @endif
+                        @if(!empty($quoteData['post_market_price']))
+                        <br />
+                        <span class="badge rounded-pill bg-info">post-market</span>
+                        @endif
                     </div>
                     <div class="chart-symbol mt-2"
                         data-symbol="{{ $symbol }}"
@@ -86,6 +90,14 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                         $quoteData['tradeCurrencyModel']->display_code,
                         $quoteData['day_change']
                     ) !!}
+                    @if(!empty($quoteData['pre_market_day_change']))
+                    <br />
+                    <span class="badge rounded-pill bg-info">pre-market</span>
+                    @endif
+                    @if(!empty($quoteData['post_market_day_change']))
+                    <br />
+                    <span class="badge rounded-pill bg-info">post-market</span>
+                    @endif
                 </td>
                 <td class="text-right"
                     data-order="{{ $quoteData['day_change_percentage'] }}">
@@ -93,6 +105,14 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                     ::get_formatted_balance_percentage(
                         $quoteData['day_change_percentage']
                     ) !!}
+                    @if(!empty($quoteData['pre_market_day_change_percentage']))
+                    <br />
+                    <span class="badge rounded-pill bg-info">pre-market</span>
+                    @endif
+                    @if(!empty($quoteData['post_market_day_change_percentage']))
+                    <br />
+                    <span class="badge rounded-pill bg-info">post-market</span>
+                    @endif
                 </td>
                 <td class="text-right">
                     {!! ovidiuro\myfinance2\App\Services\MoneyFormat
@@ -124,25 +144,6 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                         count($quoteData['open_positions']) > 0
                     ) !!}
                 </td>
-                {{--
-                <td class="text-right">{{ $quoteData['item']->id }}</td>
-                <td>{{ $quoteData['item']->timestamp }}</td>
-                <td>{{ $quoteData['item']->description }}</td>
-                <td>{{ $quoteData['item']->created_at }}</td>
-                <td>{{ $quoteData['item']->updated_at }}</td>
-                --}}
-                {{--
-                <td>
-                    <a class="btn btn-sm btn-outline-info btn-block"
-                        href="{{ route('myfinance2::watchlist-symbols.show',
-                                       $quoteData['item']->id) }}"
-                        data-bs-toggle="tooltip"
-                        title="{{ trans('myfinance2::general.tooltips.show-item',
-                                        ['type' => 'Watchlist Symbol']) }}">
-                        {!! trans('myfinance2::general.buttons.show') !!}
-                    </a>
-                </td>
-                --}}
                 <td>
                 @if(!empty($quoteData['open_positions']))
                     @foreach($quoteData['open_positions'] as $key => $openPosition)

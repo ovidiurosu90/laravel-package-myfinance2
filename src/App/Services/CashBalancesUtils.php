@@ -114,6 +114,14 @@ class CashBalancesUtils
         return $this->_lastOperationTimestamp;
     }
 
+    public function getAmount()
+    {
+        if (empty($this->_cashBalance)) {
+            return null;
+        }
+        return $this->_cashBalance->amount;
+    }
+
     public function getFormattedAmount()
     {
         if (empty($this->_cashBalance)) {
