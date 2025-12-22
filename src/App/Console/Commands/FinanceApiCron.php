@@ -4,6 +4,7 @@ namespace ovidiuro\myfinance2\App\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
 use ovidiuro\myfinance2\App\Models\Dividend;
 use ovidiuro\myfinance2\App\Models\Trade;
@@ -36,6 +37,13 @@ class FinanceApiCron extends Command
      */
     public function handle()
     {
+        $lock = Cache::lock('finance-api-cron', 55); // seconds
+
+        if (! $lock->get()) {
+            Log::info('Alreading running, skipping...');
+            return Command::SUCCESS;
+        }
+
         $start = $this->option('start');
         $end = $this->option('end');
         $historical = $this->option('historical');
@@ -49,24 +57,30 @@ class FinanceApiCron extends Command
             $end = date(trans('myfinance2::general.date-format'));
         }
 
-        if ($historical) {
-            $this->fetchHistorical($start, $end);
-            return;
-        }
-
-        if ($historicalAccountOverview) {
-            while ($start <= $end) {
-                $this->refreshAccountOverview(new \DateTime($start));
-                $start = (new \DateTime($start))->modify('+1 day')
-                    ->format(trans('myfinance2::general.date-format'));
+        try {
+            if ($historical) {
+                $this->fetchHistorical($start, $end);
+                return;
             }
-            return;
+
+            if ($historicalAccountOverview) {
+                while ($start <= $end) {
+                    $this->refreshAccountOverview(new \DateTime($start));
+                    $start = (new \DateTime($start))->modify('+1 day')
+                        ->format(trans('myfinance2::general.date-format'));
+                }
+                return;
+            }
+
+            // Not historical
+            $this->refreshQuotes();
+            $this->refreshExchangeRates();
+            $this->refreshAccountOverview();
+        } finally {
+            $lock->release();
         }
 
-        // Not historical
-        $this->refreshQuotes();
-        $this->refreshExchangeRates();
-        $this->refreshAccountOverview();
+        return Command::SUCCESS;
     }
 
     public function getAllUsedSymbols(): array
