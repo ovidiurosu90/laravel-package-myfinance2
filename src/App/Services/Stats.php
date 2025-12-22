@@ -263,9 +263,13 @@ class Stats
             ->first();
     }
 
-    public static function convertStatsToCurrency(array $stats, string $currency)
-        :array
+    public static function convertStatsToCurrency(?array $stats, string $currency)
+        :?array
     {
+        if (empty($stats)) {
+            return $stats;
+        }
+
         if (!empty($stats['historical'])) {
             foreach ($stats['historical'] as $key => $stat) {
                 $stats['historical'][$key] = self::convertStatToCurrency($stat,

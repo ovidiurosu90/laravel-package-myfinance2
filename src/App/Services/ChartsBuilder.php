@@ -104,7 +104,7 @@ class ChartsBuilder
         Storage::disk('local')->put($path, $contents);
     }
 
-    public static function buildChartSymbol(string $symbol, array $stats)
+    public static function buildChartSymbol(string $symbol, ?array $stats)
     {
         $path = self::getSymbolPath($symbol);
         $contents = self::getStatsAsJsonString($stats);
@@ -171,7 +171,7 @@ class ChartsBuilder
     }
 
     public static function convertPositionStatsToCurrency(array $position,
-        array $stats): array
+        ?array $stats): array
     {
         $symbolCurrency = $position['tradeCurrencyModel']->iso_code;
         $symbol = $position['symbol'];
@@ -197,8 +197,12 @@ class ChartsBuilder
         return array($convertedSymbol, $convertedStats);
     }
 
-    public static function getStatsAsJsonString(array $stats)
+    public static function getStatsAsJsonString(?array $stats)
     {
+        if (empty($stats)) {
+            return '[]';
+        }
+
         $return = '';
         if (!empty($stats['historical']) && is_array($stats['historical'])) {
             foreach ($stats['historical'] as $stat) {
