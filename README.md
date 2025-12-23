@@ -40,8 +40,8 @@ mysql -uroot -p
     GRANT ALL PRIVILEGES ON [MYFINANCE2_DB_DATABASE].* TO '[MYFINANCE2_DB_USERNAME]'@'localhost';
 
     -- For foreign key constraints
-    GRANT SELECT ON [DB_DATABASE].users TO '[DB_USERNAME]'@'localhost';
-    GRANT REFERENCES ON [DB_DATABASE].users TO '[DB_USERNAME]'@'localhost';
+    GRANT SELECT ON [DB_DATABASE].users TO '[MYFINANCE2_DB_USERNAME]'@'localhost';
+    GRANT REFERENCES ON [DB_DATABASE].users TO '[MYFINANCE2_DB_USERNAME]'@'localhost';
     FLUSH PRIVILEGES;
 
     exit
@@ -53,26 +53,6 @@ mysql -u[MYFINANCE2_DB_USERNAME] -p [MYFINANCE2_DB_DATABASE] # use [MYFINANCE2_D
 php artisan migrate --pretend
 php artisan migrate
 # php artisan migrate:rollback # If needed
-
-#NOTE If there were database entries that didn't have user_id before, execute the following
-
-mysql -u[MYFINANCE2_DB_USERNAME] -p [MYFINANCE2_DB_DATABASE] # use [MYFINANCE2_DB_PASSWORD] set above
-    select * from `[DB_DATABASE]`.`users`;
-
-    update `cash_balances` set user_id = [USER_ID] where user_id is null;
-    update `dividends` set user_id = [USER_ID] where user_id is null;
-    update `ledger_transactions` set user_id = [USER_ID] where user_id is null;
-    update `trades` set user_id = [USER_ID] where user_id is null;
-    update `watchlist_symbols` set user_id = [USER_ID] where user_id is null;
-
-    -- Optional (add currency exchanges to avoid warnings)
-    insert into stats_historical (date, symbol, unit_price, currency_iso_code) values ('2025-01-01', 'EURGBP=X', '0.8268', 'GBP');
-    insert into stats_historical (date, symbol, unit_price, currency_iso_code) values ('2025-01-01', 'EURUSD=X', '1.0352', 'USD');
-    insert into stats_historical (date, symbol, unit_price, currency_iso_code) values ('2024-12-31', 'EURGBP=X', '0.8268', 'GBP');
-    insert into stats_historical (date, symbol, unit_price, currency_iso_code) values ('2024-12-31', 'EURUSD=X', '1.0352', 'USD');
-    insert into stats_historical (date, symbol, unit_price, currency_iso_code) values ('2024-12-30', 'EURGBP=X', '0.8268', 'GBP');
-    insert into stats_historical (date, symbol, unit_price, currency_iso_code) values ('2024-12-30', 'EURUSD=X', '1.0352', 'USD');
-    select * from stats_historical where date = '2025-01-01' and symbol like '%=X';
 ```
 
 ### Get market status (used by /positions)
@@ -104,6 +84,23 @@ ln -s [USER_HOME]/curl-impersonate/libcurl-impersonate-chrome.so .
 ls -la /usr/local/lib/libcurl-impersonate-chrome.so
 ```
 
+### Prepare account overview and symbol charts
+
+```bash
+cd ~/Repositories/laravel-admin/storage/
+sudo chown -R :www-data app
+# sudo chmod -R 775 app/*
+sudo chmod -R 775 app
+```
+
+### Get historical data
+
+```bash
+sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Repositories/laravel-admin/ && php artisan app:finance-api-cron --historical --start=2025-01-01 --end=2025-05-15"
+
+sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Repositories/laravel-admin/ && php artisan app:finance-api-cron --historical-account-overview --start=$(date +%Y-%m-%d --date '-8 day') --end=$(date +%Y-%m-%d --date '-1 day')"
+```
+
 
 ### Enable finance-api-cron for better performance
 
@@ -125,11 +122,16 @@ crontab -e
 * * * * * ( sleep 30; su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; export LD_PRELOAD=/usr/local/lib/libcurl-impersonate-chrome.so; export CURL_IMPERSONATE=chrome116; cd [USER_HOME]/Repositories/laravel-admin/ && cpulimit -l 50 -- php artisan app:finance-api-cron >> [USER_HOME]/Repositories/laravel-admin/storage/logs/finance-api-cron.log 2>&1" )
 #############
 
+#############
 # Run the job every day at 06:01 => get the past week
 HISTORICAL_START=$(date +%Y-%m-%d --date '-8 day')
 HISTORICAL_END=$(date +%Y-%m-%d --date '-1 day')
 
 01 06 * * * su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; export LD_PRELOAD=/usr/local/lib/libcurl-impersonate-chrome.so; export CURL_IMPERSONATE=chrome116; cd [USER_HOME]/Repositories/laravel-admin/ && cpulimit -l 50 -- php artisan app:finance-api-cron --historical-account-overview --start=${HISTORICAL_START} --end=${HISTORICAL_END} >> [USER_HOME]/Repositories/laravel-admin/storage/logs/finance-api-cron.log 2>&1"
+
+# Run the job 150s after reboot
+@reboot sleep 150 && su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; export LD_PRELOAD=/usr/local/lib/libcurl-impersonate-chrome.so; export CURL_IMPERSONATE=chrome116; cd [USER_HOME]/Repositories/laravel-admin/ && cpulimit -l 50 -- php artisan app:finance-api-cron --historical-account-overview --start=${HISTORICAL_START} --end=${HISTORICAL_END} >> [USER_HOME]/Repositories/laravel-admin/storage/logs/finance-api-cron.log 2>&1"
+#############
 ```
 
 
@@ -148,24 +150,33 @@ crontab -e
 #############
 # Run the job every hour at minute 24
 24 * * * * su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Repositories/laravel-admin/ && cpulimit -l 50 -- php artisan app:stats-cron >> [USER_HOME]/Repositories/laravel-admin/storage/logs/stats-cron.log 2>&1"
+
+# Run the job 530s after reboot
+@reboot sleep 530 && su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Repositories/laravel-admin/ && cpulimit -l 50 -- php artisan app:stats-cron >> [USER_HOME]/Repositories/laravel-admin/storage/logs/stats-cron.log 2>&1"
 #############
 ```
 
-
-### Get historical data
-
-```bash
-sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Repositories/laravel-admin/ && php artisan app:finance-api-cron --historical --start=2025-01-01 --end=2025-05-15"
-
-sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Repositories/laravel-admin/ && php artisan app:finance-api-cron --historical-account-overview --start=$(date +%Y-%m-%d --date '-8 day') --end=$(date +%Y-%m-%d --date '-1 day')"
-```
-
-### Prepare account overview and symbol charts
+### Others
 
 ```bash
-cd ~/Repositories/laravel-admin/storage/
-sudo chown -R ovidiuro:www-data app
-sudo chmod -R 775 app/*
-sudo chmod -R 775 app
+#NOTE If there were database entries that didn't have user_id before, execute the following
+
+mysql -u[MYFINANCE2_DB_USERNAME] -p [MYFINANCE2_DB_DATABASE] # use [MYFINANCE2_DB_PASSWORD] set above
+    select * from `[DB_DATABASE]`.`users`;
+
+    update `cash_balances` set user_id = [USER_ID] where user_id is null;
+    update `dividends` set user_id = [USER_ID] where user_id is null;
+    update `ledger_transactions` set user_id = [USER_ID] where user_id is null;
+    update `trades` set user_id = [USER_ID] where user_id is null;
+    update `watchlist_symbols` set user_id = [USER_ID] where user_id is null;
+
+    -- Optional (add currency exchanges to avoid warnings)
+    insert into stats_historical (date, symbol, unit_price, currency_iso_code) values ('2025-01-01', 'EURGBP=X', '0.8268', 'GBP');
+    insert into stats_historical (date, symbol, unit_price, currency_iso_code) values ('2025-01-01', 'EURUSD=X', '1.0352', 'USD');
+    insert into stats_historical (date, symbol, unit_price, currency_iso_code) values ('2024-12-31', 'EURGBP=X', '0.8268', 'GBP');
+    insert into stats_historical (date, symbol, unit_price, currency_iso_code) values ('2024-12-31', 'EURUSD=X', '1.0352', 'USD');
+    insert into stats_historical (date, symbol, unit_price, currency_iso_code) values ('2024-12-30', 'EURGBP=X', '0.8268', 'GBP');
+    insert into stats_historical (date, symbol, unit_price, currency_iso_code) values ('2024-12-30', 'EURUSD=X', '1.0352', 'USD');
+    select * from stats_historical where date = '2025-01-01' and symbol like '%=X';
 ```
 

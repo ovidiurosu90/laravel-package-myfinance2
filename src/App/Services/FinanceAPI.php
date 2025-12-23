@@ -286,11 +286,13 @@ class FinanceAPI
                     || !is_array($historicalDataResponse)
                     || !($historicalDataResponse[0] instanceof HistoricalData)
                 ) {
-                    LOG::warning('Invalid historicalDataResponse('
-                        . print_r($historicalDataResponse, true)
-                        . ') for symbol ' . $symbol . ', interval: ' . $interval
-                        . ', startDate ' . $startDate->format('Y-m-d')
-                        . ', endDate: ' . $endDate->format('Y-m-d'));
+                    if (!empty($historicalDataResponse)) {
+                        LOG::warning('Invalid historicalDataResponse('
+                            . print_r($historicalDataResponse, true)
+                            . ') for symbol ' . $symbol . ', interval: ' . $interval
+                            . ', startDate ' . $startDate->format('Y-m-d')
+                            . ', endDate: ' . $endDate->format('Y-m-d'));
+                    }
                     return null;
                 }
                 $historicalData = $historicalDataResponse[0];
