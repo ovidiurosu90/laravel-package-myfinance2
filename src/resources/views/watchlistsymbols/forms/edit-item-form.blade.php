@@ -8,7 +8,7 @@
         <div class="row ">
             <div class="col-md-6">
                 <span data-bs-toggle="tooltip" title="{!! trans('myfinance2::general.tooltips.save-item', ['type' => 'Watchlist Symbol']) !!}">
-                    <button type="submit" class="btn btn-success btn-lg btn-block" value="save" name="form_action">
+                    <button type="submit" class="btn btn-success btn-lg w-100" value="save" name="form_action">
                         <i class="fa fa-save fa-fw">
                             <span class="sr-only">
                                  {!! trans('myfinance2::watchlistsymbols.forms.item-form.buttons.update-item.sr-icon') !!}

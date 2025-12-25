@@ -1,4 +1,4 @@
-<div class="form-group required has-feedback row {{ $errors->has('currency_id') ?
+<div class="mb-3 required has-feedback row {{ $errors->has('currency_id') ?
                                                     'has-error' : '' }}">
 
     <label for="currency-select" class="col-12 control-label">

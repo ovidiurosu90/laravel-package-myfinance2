@@ -1,4 +1,4 @@
-<div class="form-group required has-feedback row {{ $errors->has('exchange_rate')
+<div class="mb-3 required has-feedback row {{ $errors->has('exchange_rate')
                                                     ? 'has-error' : '' }}">
     <label for="exchange_rate" class="col-12 control-label">
         {{ trans('myfinance2::dividends.forms.item-form.exchange_rate.label') }}

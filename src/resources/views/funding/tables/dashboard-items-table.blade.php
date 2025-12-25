@@ -45,7 +45,7 @@
             <tr>
                 <td class="pl-2">
                 @if($item['debit_transaction'])
-                    <a class="btn btn-sm btn-outline-secondary btn-block"
+                    <a class="btn btn-sm btn-outline-secondary w-100"
                         href="{{ route('myfinance2::ledger-transactions.edit',
                                        $item['debit_transaction']->id) }}"
                         data-bs-toggle="tooltip"
@@ -58,7 +58,7 @@
                 @endif
                 @if($item['debit_transaction']
                     && $item['debit_transaction']->parent_id)
-                    <a class="btn btn-sm btn-outline-warning btn-block"
+                    <a class="btn btn-sm btn-outline-warning w-100"
                         href="{{ route('myfinance2::ledger-transactions.edit',
                                        $item['debit_transaction']->parent_id) }}"
                         data-bs-toggle="tooltip"
@@ -101,7 +101,7 @@
                         : '' !!}</td>
                 <td class="pl-2">
                 @if($item['credit_transaction'])
-                    <a class="btn btn-sm btn-outline-secondary btn-block"
+                    <a class="btn btn-sm btn-outline-secondary w-100"
                         href="{{ route('myfinance2::ledger-transactions.edit',
                                        $item['credit_transaction']->id) }}"
                         data-bs-toggle="tooltip"

@@ -1,9 +1,9 @@
-<div class="form-group required has-feedback row {{ $errors->has('symbol') ?
+<div class="mb-3 required has-feedback row {{ $errors->has('symbol') ?
                                                     'has-error' : '' }}">
-    <label for="symbol" class="col-4 control-label">
+    <label for="symbol" class="col-5 control-label">
         {{ trans('myfinance2::dividends.forms.item-form.symbol.label') }}
     </label>
-    <div class="col-8 p-0 m-0 pt-1 pr-3 text-muted text-right small"
+    <div class="col-7 p-0 m-0 pt-1 pr-3 text-muted text-right small"
         id="fetched-symbol-name" style="display: none">
         <span></span>
     </div>

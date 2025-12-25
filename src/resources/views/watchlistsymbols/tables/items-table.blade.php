@@ -164,7 +164,7 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                 @endif
                 </td>
                 <td>
-                    <a class="btn btn-sm btn-outline-secondary btn-block"
+                    <a class="btn btn-sm btn-outline-secondary w-100"
                         href="{{ route('myfinance2::watchlist-symbols.edit',
                                        $quoteData['item']->id) }}"
                         data-bs-toggle="tooltip"

@@ -4,7 +4,7 @@
                     ['type' => 'Ledger Transaction']) }}">
     {{ csrf_field() }}
     {{ method_field('DELETE') }}
-    <button class="btn btn-block btn-outline-danger btn-sm" type="button"
+    <button class="btn w-100 btn-outline-danger btn-sm" type="button"
         style="width: 100%;" data-bs-toggle="modal"
         data-bs-target="#confirm-delete-modal"
         data-title="{!! trans('myfinance2::general.modals.delete_modal_title',

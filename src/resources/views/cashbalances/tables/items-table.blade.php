@@ -32,7 +32,7 @@
                 <td class="hidden-xs hidden-sm">{{ $item->created_at }}</td>
                 <td class="hidden-xs hidden-sm">{{ $item->updated_at }}</td>
                 <td>
-                    <a class="btn btn-sm btn-outline-secondary btn-block"
+                    <a class="btn btn-sm btn-outline-secondary w-100"
                         href="{{ route('myfinance2::cash-balances.edit',
                                        $item->id) }}"
                         data-bs-toggle="tooltip"

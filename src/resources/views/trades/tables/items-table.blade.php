@@ -68,7 +68,7 @@
                 @endif
                 </td>
                 <td>
-                    <a class="btn btn-sm btn-outline-secondary btn-block"
+                    <a class="btn btn-sm btn-outline-secondary w-100"
                         href="{{ route('myfinance2::trades.edit', $item->id) }}"
                         data-bs-toggle="tooltip"
                         title="{{ trans('myfinance2::general.tooltips.edit-item',

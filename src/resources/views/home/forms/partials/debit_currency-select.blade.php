@@ -1,4 +1,4 @@
-<div class="form-group required has-feedback row">
+<div class="mb-3 required has-feedback row">
     <label for="debit_currency" class="col-12 control-label">
         {{ trans('myfinance2::ledger.forms.transaction-form.debit_currency.label') }}
     </label>

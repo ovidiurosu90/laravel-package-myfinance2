@@ -1,4 +1,4 @@
-<div class="form-group has-feedback row {{ $errors->has('description') ? ' has-error ' : '' }}">
+<div class="mb-3 has-feedback row {{ $errors->has('description') ? ' has-error ' : '' }}">
     <label for="description" class="col-12 control-label">
         {{ trans('myfinance2::watchlistsymbols.forms.item-form.description.label') }}
     </label>

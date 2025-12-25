@@ -54,7 +54,7 @@
                 <td class="hidden-xs hidden-sm">{{ $item->created_at }}</td>
                 <td class="hidden-xs hidden-sm">{{ $item->updated_at }}</td>
                 <td>
-                    <a class="btn btn-sm btn-outline-success btn-block"
+                    <a class="btn btn-sm btn-outline-success w-100"
                         href="{{ route('myfinance2::ledger-transactions.create',
                                        ['parent_id' => $item->id]) }}"
                         data-bs-toggle="tooltip"
@@ -65,7 +65,7 @@
                     </a>
                 </td>
                 <td>
-                    <a class="btn btn-sm btn-outline-secondary btn-block"
+                    <a class="btn btn-sm btn-outline-secondary w-100"
                         href="{{ route('myfinance2::ledger-transactions.edit',
                                        $item->id) }}"
                         data-bs-toggle="tooltip"

@@ -41,7 +41,7 @@
                 <td>{{ $item->created_at }}</td>
                 <td>{{ $item->updated_at }}</td>
                 <td>
-                    <a class="btn btn-sm btn-outline-secondary btn-block"
+                    <a class="btn btn-sm btn-outline-secondary w-100"
                        href="{{ route('myfinance2::currencies.edit',
                                       $item->id) }}"
                        data-bs-toggle="tooltip"

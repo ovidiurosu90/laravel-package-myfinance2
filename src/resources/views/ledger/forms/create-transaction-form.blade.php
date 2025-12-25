@@ -11,7 +11,7 @@
                 <span data-bs-toggle="tooltip"
                     title="{!! trans('myfinance2::general.tooltips.save-item',
                                      ['type' => 'Leger Transaction']) !!}">
-                    <button type="submit" class="btn btn-success btn-lg btn-block"
+                    <button type="submit" class="btn btn-success btn-lg w-100"
                         value="save" name="action">
                         <i class="fa fa-save fa-fw">
                             <span class="sr-only">

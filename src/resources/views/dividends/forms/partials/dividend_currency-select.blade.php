@@ -1,9 +1,9 @@
-<div class="form-group required has-feedback row
+<div class="mb-3 required has-feedback row
     {{ $errors->has('dividend_currency_id') ? 'has-error' : '' }}">
-    <label for="dividend_currency-select" class="col-8 control-label">
+    <label for="dividend_currency-select" class="col-7 control-label">
         {{ trans('myfinance2::dividends.forms.item-form.dividend_currency.label') }}
     </label>
-    <div class="col-4 p-0 m-0 pt-1 pr-3 text-muted text-right small"
+    <div class="col-5 p-0 m-0 pt-1 pr-3 text-muted text-right small"
         id="fetched-dividend-currency" style="display: none">
         <span></span>
     </div>

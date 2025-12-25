@@ -1,4 +1,4 @@
-<div class="form-group required has-feedback row {{ $errors->has('timestamp') ?
+<div class="mb-3 required has-feedback row {{ $errors->has('timestamp') ?
                                                     'has-error' : '' }}">
     <label for="timestamp" class="col-12 control-label">
         {{ trans('myfinance2::dividends.forms.item-form.timestamp.label') }}

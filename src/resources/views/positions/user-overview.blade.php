@@ -2,7 +2,7 @@
     ? app('request')->input('currency_iso_code') : 'EUR' @endphp
 
 <div class="position-relative">
-    <div class="form-group row">
+    <div class="mb-3 row">
         <div class="col">
             <input id="toggle-currency-select" type="checkbox"
                 {{ $currency == 'EUR' ? 'checked' : '' }}

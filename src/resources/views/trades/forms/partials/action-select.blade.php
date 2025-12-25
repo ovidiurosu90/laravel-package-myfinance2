@@ -1,4 +1,4 @@
-<div class="form-group required has-feedback row {{ $errors->has('action') ? ' has-error ' : '' }}">
+<div class="mb-3 required has-feedback row {{ $errors->has('action') ? ' has-error ' : '' }}">
     <label for="action" class="col-12 control-label">
         {{ trans('myfinance2::trades.forms.item-form.action.label') }}
     </label>

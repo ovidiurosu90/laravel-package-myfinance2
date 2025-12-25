@@ -167,7 +167,7 @@ table.data-table {
     padding-left: 10px;
     padding-right: 10px;
 }
-.form-group.required .control-label:after {
+.mb-3.required .control-label:after {
     content:"*";
     color:red;
 }

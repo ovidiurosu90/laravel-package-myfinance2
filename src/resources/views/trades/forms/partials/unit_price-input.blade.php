@@ -1,4 +1,4 @@
-<div class="form-group required has-feedback row {{ $errors->has('unit_price') ?
+<div class="mb-3 required has-feedback row {{ $errors->has('unit_price') ?
                                                     'has-error' : '' }}">
     <label for="unit_price" class="col-7 control-label">
         {{ trans('myfinance2::trades.forms.item-form.unit_price.label') }}

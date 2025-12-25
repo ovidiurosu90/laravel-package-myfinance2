@@ -8,7 +8,7 @@
     {{ method_field('PATCH') }}
     <input type="hidden" name="account_id" value="{{ $accountModel->id }}" />
     <input type="hidden" name="symbol" value="{{ $symbol }}" />
-    <button class="btn btn-block btn-outline-success btn-sm" type="button"
+    <button class="btn w-100 btn-outline-success btn-sm" type="button"
         data-bs-toggle="modal" data-bs-target="#confirm-delete-modal"
         data-title="{!! trans('myfinance2::trades.modals.close-symbol_modal_title',
                               [

@@ -53,7 +53,7 @@
                         <tr>
                             <th scope="row">
                                 <a class="btn btn-sm btn-outline-secondary
-                                          btn-block"
+                                          w-100"
                                    href="{{ route('myfinance2::ledger-transactions.'
                                                   . 'edit', $id) }}"
                                    data-bs-toggle="tooltip"

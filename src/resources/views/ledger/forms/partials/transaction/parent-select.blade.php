@@ -1,4 +1,4 @@
-<div class="form-group has-feedback row {{ $errors->has('parent_id') ? '
+<div class="mb-3 has-feedback row {{ $errors->has('parent_id') ? '
                                            has-error' : '' }}">
     <label for="parent_id" class="col-12 control-label">
         {{ trans('myfinance2::ledger.forms.transaction-form.parent.label') }}
