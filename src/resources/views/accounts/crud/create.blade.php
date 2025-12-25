@@ -19,7 +19,7 @@
                         <div class="pull-right">
                             <a href="{{ url('accounts') }}"
                                class="btn btn-outline-secondary btn-sm float-right"
-                               data-bs-toggle="tooltip" data-placement="left"
+                               data-bs-toggle="tooltip" data-bs-placement="left"
                                title="Back to {{ trans('myfinance2::accounts.'
                                                  . 'titles.dashboard') }} Dashboard">
                                 <i class="fa fa-fw fa-reply-all" aria-hidden="true">

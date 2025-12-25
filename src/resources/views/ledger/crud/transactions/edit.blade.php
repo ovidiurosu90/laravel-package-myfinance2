@@ -18,7 +18,7 @@
                     <div class="pull-right">
                         <a href="{{ url('ledger-transactions') }}"
                             class="btn btn-outline-secondary btn-sm float-right"
-                            data-bs-toggle="tooltip" data-placement="left"
+                            data-bs-toggle="tooltip" data-bs-placement="left"
                             title="Back to Ledger Transactions Dashboard">
                             <i class="fa fa-fw fa-reply-all" aria-hidden="true"></i>
                             Back to Index

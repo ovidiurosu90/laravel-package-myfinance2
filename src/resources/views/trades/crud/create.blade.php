@@ -15,7 +15,7 @@
                     <div class="card-header">
                         {!! trans('myfinance2::general.titles.create-item', ['type' => 'Trade']) !!}
                         <div class="pull-right">
-                            <a href="{{ url('trades') }}" class="btn btn-outline-secondary btn-sm float-right" data-bs-toggle="tooltip" data-placement="left" title="Back to Trades Dashboard">
+                            <a href="{{ url('trades') }}" class="btn btn-outline-secondary btn-sm float-right" data-bs-toggle="tooltip" data-bs-placement="left" title="Back to Trades Dashboard">
                                 <i class="fa fa-fw fa-reply-all" aria-hidden="true"></i>
                                 Back to Index
                             </a>

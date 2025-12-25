@@ -14,7 +14,7 @@
                     <div class="card-header">
                         {!! trans('myfinance2::general.titles.edit-item', ['type' => 'Watchlist Symbol']) !!}
                         <div class="pull-right">
-                            <a href="{{ url('watchlist-symbols') }}" class="btn btn-outline-secondary btn-sm float-right" data-bs-toggle="tooltip" data-placement="left" title="Back to Watchlist Symbols Dashboard">
+                            <a href="{{ url('watchlist-symbols') }}" class="btn btn-outline-secondary btn-sm float-right" data-bs-toggle="tooltip" data-bs-placement="left" title="Back to Watchlist Symbols Dashboard">
                                 <i class="fa fa-fw fa-reply-all" aria-hidden="true"></i>
                                 Back to Index
                             </a>

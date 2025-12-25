@@ -16,7 +16,7 @@
                         {!! trans('myfinance2::general.titles.create-item', ['type' => 'Cash Balance']) !!}
                         <span id="info-header"></span>
                         <div class="pull-right">
-                            <a href="{{ url('cash-balances') }}" class="btn btn-outline-secondary btn-sm float-right" data-bs-toggle="tooltip" data-placement="left" title="Back to Cash Balances Dashboard">
+                            <a href="{{ url('cash-balances') }}" class="btn btn-outline-secondary btn-sm float-right" data-bs-toggle="tooltip" data-bs-placement="left" title="Back to Cash Balances Dashboard">
                                 <i class="fa fa-fw fa-reply-all" aria-hidden="true"></i>
                                 Back to Index
                             </a>
