@@ -18,7 +18,7 @@
         "php": "^8.1 || ^8.2",
         "scheb/yahoo-finance-api": "^4.11.1",
         "guzzlehttp/guzzle": "^7.2",
-        "symfony/process": "^6.4.15",
+        "symfony/process": "^7.0",
         "jeremykenedy/laravel-blocker": "^5.0",
         "jeremykenedy/laravel-logger": "^10.0",
         "jeremykenedy/laravel-roles": "^11.5",
