@@ -4,6 +4,8 @@ namespace ovidiuro\myfinance2\App\Services;
 
 abstract class MyFormFields
 {
+    protected ?int $id = null;
+
     abstract protected function model();
 
     /**
