@@ -14,7 +14,6 @@
     "datatables.net-bs5": "^2.1.8",
     "globals": "^16.4.0",
     "jquery": "^3.6.3",
-    "lightweight-charts": "^5.0.7",
-    "requirejs": "^2.3.6"
+    "lightweight-charts": "^5.0.7"
   }
 }
