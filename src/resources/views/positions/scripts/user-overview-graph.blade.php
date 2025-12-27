@@ -48,6 +48,12 @@ $(document).ready(function()
     {
         const currency = $element.data('currency_iso_code');
 
+        // Preparing absolute values to be used for calculating percentages
+        const pMValue = userOverviewData['mvalue_' + currency];
+        const pCost = userOverviewData['cost_' + currency];
+        const pChange = userOverviewData['change_' + currency];
+        const pCash = userOverviewData['cash_' + currency];
+
         @foreach($ChartsBuilder::getAccountMetrics() as $metric => $properties)
         const {{ $metric }}Stats = userOverviewData['{{ $metric }}_' + currency];
         const {{ $metric }}Last = {{ $metric }}Stats[{{ $metric }}Stats.length -1];
@@ -60,6 +66,34 @@ $(document).ready(function()
         const ${{ $metric }}Element = $('#{{ $metric }}-status');
         ${{ $metric }}Element.css('color', '{{ $properties["line_color"] }}');
         ${{ $metric }}Element.html({{ $metric }}Value + " " + '{{ $metric }}');
+
+        // Populating percentages
+        const ${{ $metric }}ElementPercentage = $('#{{ $metric }}-status-percentage');
+        @switch($metric)
+            @case('cost')
+                ${{ $metric }}ElementPercentage.html('-100%');
+                @break
+            @case('mvalue')
+                ${{ $metric }}ElementPercentage.html('+' +
+                    Math.round(100 * pMValue[pMValue.length - 1].value
+                               / pCost[pCost.length - 1].value * 100) / 100
+                    + '%');
+                @break
+            @case('change')
+                ${{ $metric }}ElementPercentage.html('&nbsp;&nbsp;&nbsp;' +
+                    Math.round(100 * pChange[pChange.length - 1].value
+                               / pCost[pCost.length - 1].value * 100) / 100
+                    + '%');
+                @break
+            @case('cash')
+                ${{ $metric }}ElementPercentage.html(
+                    Math.round(100 * pCash[pCash.length - 1].value
+                               / pCost[pCost.length - 1].value * 100) / 100
+                    + '%');
+                @break
+        @endswitch
+            ${{ $metric }}ElementPercentage.css('color',
+                '{{ $properties["line_color"] }}');
         @endforeach
     }
 
@@ -71,6 +105,7 @@ $(document).ready(function()
     var $currencyExchangeElement = $('#currency_exchange-status');
     $currencyExchangeElement.html("EURUSD " + currencyExchangeLast.value);
     $currencyExchangeElement.attr('title', currencyExchangeLast.time);
+    $('#currency_exchange-status-time').html(currencyExchangeLast.time);
 
     @foreach($ChartsBuilder::getAccountMetrics() as $metric => $properties)
     const series_{{ $metric }} = userOverviewChart.addSeries(
