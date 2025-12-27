@@ -1,4 +1,4 @@
-<div class="col">
+<div class="col ps-1">
     <div class="card">
         <div class="card-header">
             <div style="display: flex; justify-content: space-between;

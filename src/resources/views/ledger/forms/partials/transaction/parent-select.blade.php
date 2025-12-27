@@ -1,3 +1,16 @@
+<style>
+    #transaction-parent-select ~ .selectize-control .selectize-input {
+        display: flex;
+        align-items: center;
+    }
+
+    #transaction-parent-select ~ .selectize-control .selectize-input .item {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 92%;
+    }
+</style>
 <div class="mb-3 has-feedback row {{ $errors->has('parent_id') ? '
                                            has-error' : '' }}">
     <label for="parent_id" class="col-12 control-label">

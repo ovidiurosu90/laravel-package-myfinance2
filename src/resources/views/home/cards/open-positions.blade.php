@@ -1,4 +1,4 @@
-<div class="col-5">
+<div class="col-5 ps-1 pe-1">
     <div class="card">
         <div class="card-header">
             <div style="display: flex; justify-content: space-between;
@@ -28,16 +28,16 @@
                         <tr>
                             <th scope="col">Account</th>
                             <th scope="col" class="text-right"
-                                style="min-width: 106px" data-bs-toggle="tooltip"
+                                data-bs-toggle="tooltip"
                                 title="Total Cost in account currency">
                                 Total cost
                             </th>
-                            <th scope="col" class="text-right"
-                                style="min-width: 106px" data-bs-toggle="tooltip"
+                            <th scope="col" class="text-right text-nowrap"
+                                data-bs-toggle="tooltip"
                                 title="Total Current Market Value
-                                        in account currency">Total market value</th>
+                                        in account currency">Total MValue</th>
                             <th scope="col" class="text-right"
-                                style="min-width: 106px" data-bs-toggle="tooltip"
+                                data-bs-toggle="tooltip"
                                 title="Total Overall Gain in account currency">
                                 Total gain
                             </th>
@@ -51,13 +51,13 @@
                                 ({!! $totals['accountModel']->currency->display_code
                                 !!})
                             </th>
-                            <td class="text-right">
+                            <td class="text-right text-nowrap">
                                 {!! $totals['total_cost_formatted'] !!}
                             </td>
-                            <td class="text-right">
+                            <td class="text-right text-nowrap">
                                 {!! $totals['total_market_value_formatted'] !!}
                             </td>
-                            <td class="text-right">
+                            <td class="text-right text-nowrap">
                                 {!! $totals['total_change_formatted'] !!}
                             </td>
                         </tr>

@@ -24,7 +24,7 @@ $(document).ready(function()
         const accountOverviewChart = LightweightCharts.createChart(
             chartElement,
             {
-                width: chartElement.clientWidth - 14,
+                width: chartElement.clientWidth - 30,
                 height: 250,
                 layout: {
                     attributionLogo: false,

@@ -1,27 +1,28 @@
+<style>
+    @media (max-width: 1199.98px) {
+        .transaction-items-table th:nth-child(10),
+        .transaction-items-table td:nth-child(10) {
+            width: 30%;
+            min-width: 0;
+        }
+    }
+</style>
 <div class="table-responsive">
     <table class="table table-sm table-striped data-table transaction-items-table">
-        {{-- NOTE! Pagination already has this information
-        <caption class="p-1 pb-0">
-            {!! trans_choice('myfinance2::ledger.transactions-table.caption',
-                             $items->count(), ['count' => $items->count()]) !!}
-        </caption>
-        --}}
         <thead class="thead">
-            <tr>
-                <th scope="col">Id</th>
-                <th scope="col">Parent Id</th>
-                <th scope="col">Timestamp</th>
-                <th scope="col">Type</th>
-                <th scope="col" style="min-width: 108px">Debit Account</th>
-                <th scope="col" style="min-width: 108px">Credit Account</th>
-                <th scope="col" class="text-right"
-                    style="min-width: 96px">Amount</th>
-                <th scope="col" class="hidden-xs">Exchange Rate</th>
-                <th scope="col" class="text-right hidden-xs"
-                    style="min-width: 74px">Fee</th>
-                <th scope="col" class="hidden-xs">Description</th>
-                <th scope="col" class="hidden-xs hidden-sm">Created</th>
-                <th scope="col" class="hidden-xs hidden-sm">Updated</th>
+            <tr role="row">
+                <th>Id</th>
+                <th class="text-nowrap" title="Parent Id">P Id</th>
+                <th>Timestamp</th>
+                <th>Type</th>
+                <th class="text-nowrap">Debit Acc</th>
+                <th class="text-nowrap">Credit Acc</th>
+                <th class="text-right">Amount</th>
+                <th class="text-nowrap text-right">FX Rate</th>
+                <th class="text-right">Fee</th>
+                <th>Description</th>
+                <th class="d-none d-xl-table-cell">Created</th>
+                <th class="d-none d-xl-table-cell">Updated</th>
                 <th class="no-search no-sort">Actions</th>
                 <th class="no-search no-sort"></th>
                 <th class="no-search no-sort"></th>
@@ -43,16 +44,16 @@
                     {{ $item->creditAccountModel->name }}
                     ({!! $item->creditAccountModel->currency->display_code !!})
                 </td>
-                <td class="text-right">{!! $item->getFormattedAmount() !!}</td>
-                <td class="hidden-xs">
+                <td class="text-nowrap text-right">{!! $item->getFormattedAmount() !!}</td>
+                <td class="text-nowrap text-right">
                     {{ $item->getCleanExchangeRate() }}
                 </td>
-                <td class="text-right hidden-xs">
+                <td class="text-nowrap text-right">
                     {!! $item->getFormattedFee() !!}
                 </td>
-                <td class="hidden-xs">{{ $item->description }}</td>
-                <td class="hidden-xs hidden-sm">{{ $item->created_at }}</td>
-                <td class="hidden-xs hidden-sm">{{ $item->updated_at }}</td>
+                <td>{{ $item->description }}</td>
+                <td class="d-none d-xl-table-cell">{{ $item->created_at }}</td>
+                <td class="d-none d-xl-table-cell">{{ $item->updated_at }}</td>
                 <td>
                     <a class="btn btn-sm btn-outline-success w-100"
                         href="{{ route('myfinance2::ledger-transactions.create',

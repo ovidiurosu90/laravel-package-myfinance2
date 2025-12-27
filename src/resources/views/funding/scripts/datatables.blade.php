@@ -8,12 +8,10 @@ $(document).ready(function()
         ],
         'pageLength': -1,
         'ordering': false,
-        'aoColumnDefs': [{
-            'bSortable': false,
-            'searchable': false,
-            'aTargets': ['no-search'],
-            'bTargets': ['no-sort']
-        }]
+        'columnDefs': [
+            { targets: 'no-sort', sortable: false},
+            { targets: 'no-search', searchable: false}
+        ]
     });
 });
 </script>

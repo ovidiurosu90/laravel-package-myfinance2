@@ -3,13 +3,11 @@ $(document).ready(function()
 {
     $('.watchlist-symbol-items-table.data-table').DataTable({
         'pageLength': 100,
-        "order": [[ 8, "desc" ]],
-        'aoColumnDefs': [{
-            'bSortable': false,
-            'searchable': false,
-            'aTargets': ['no-search'],
-            'bTargets': ['no-sort']
-        }],
+        'order': [[ 5, 'desc' ]],
+        'columnDefs': [
+            { targets: 'no-sort', sortable: false},
+            { targets: 'no-search', searchable: false}
+        ]
     });
 });
 </script>

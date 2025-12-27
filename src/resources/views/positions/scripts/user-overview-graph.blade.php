@@ -24,7 +24,7 @@ $(document).ready(function()
     const userOverviewChart = LightweightCharts.createChart(
         chartElement,
         {
-            width: chartElement.clientWidth - 14,
+            width: chartElement.clientWidth, // - 14,
             height: 250,
             layout: {
                 attributionLogo: false,

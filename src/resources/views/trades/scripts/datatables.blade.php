@@ -3,14 +3,13 @@ $(document).ready(function()
 {
     $('.trade-items-table.data-table').DataTable({
         'pageLength': 100,
-        "order": [[ 1, "desc" ]],
-        'aoColumnDefs': [{
-            'bSortable': false,
-            'searchable': false,
-            'aTargets': ['no-search'],
-            'bTargets': ['no-sort']
-        }],
-        initComplete: function () {
+        'order': [[ 1, 'desc' ]],
+        'columnDefs': [
+            { targets: 'no-sort', sortable: false},
+            { targets: 'no-search', searchable: false}
+        ],
+        initComplete: function ()
+        {
             this.api()
                 .columns()
                 .every(function () {

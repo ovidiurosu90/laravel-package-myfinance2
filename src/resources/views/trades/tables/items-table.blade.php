@@ -1,26 +1,31 @@
+<style>
+    @media (max-width: 1199.98px) {
+        .trade-items-table th:nth-child(2),
+        .trade-items-table td:nth-child(2) {
+            width: 20%;
+            min-width: 0;
+        }
+    }
+</style>
 <div class="table-responsive">
     <table class="table table-sm table-striped data-table trade-items-table">
         <thead class="thead">
-            <tr>
-                <th scope="col">Id</th>
-                <th scope="col">Timestamp</th>
-                <th scope="col" style="min-width: 122px">Account</th>
-                <th scope="col">Status</th>
-                <th scope="col">Action</th>
-                <th scope="col">Symbol</th>
-                <th scope="col">Quantity</th>
-                <th scope="col" class="text-right"
-                    style="min-width: 106px">Unit Price</th>
-                <th scope="col" class="text-right" style="min-width: 124px"
+            <tr role="row">
+                <th>Id</th>
+                <th>Timestamp</th>
+                <th>Account</th>
+                <th>Status</th>
+                <th>Action</th>
+                <th>Symbol</th>
+                <th>Quantity</th>
+                <th class="text-right text-nowrap">Unit Price</th>
+                <th class="text-right text-nowrap"
                     data-bs-toggle="tooltip"
-                    title="Quantity * Unit Price">Principle Amount</th>
-                <th scope="col" class="hidden-xs">Exchange Rate</th>
-                <th scope="col" class="text-right hidden-xs"
-                    style="min-width: 88px">Fee</th>
-                <th scope="col" class="hidden-xs"
-                    style="min-width: 180px">Description</th>
-                <th scope="col" class="hidden-xs hidden-sm">Created</th>
-                <th scope="col" class="hidden-xs hidden-sm">Updated</th>
+                    title="Principle Amount = Quantity * Unit Price">P Amount</th>
+                <th class="text-right text-nowrap">Fee</th>
+                <th class="d-none d-xl-table-cell">Description</th>
+                <th class="d-none d-xl-table-cell">Created</th>
+                <th class="d-none d-xl-table-cell">Updated</th>
                 <th class="no-search no-sort">Actions</th>
                 <th class="no-search no-sort"></th>
                 <th class="no-search no-sort"></th>
@@ -32,14 +37,17 @@
             <tr>
                 <td>{{ $item->id }}</td>
                 <td>{{ $item->timestamp }}</td>
-                <td>{{ $item->accountModel->name }}
+                <td class="text-nowrap">{{ $item->accountModel->name }}
                     ({!! $item->accountModel->currency->display_code !!})</td>
                 <td>{{ $item->status }}</td>
                 <td>{{ $item->action }}</td>
                 <td>{!! $item->getFormattedSymbol() !!}</td>
                 <td>{{ $item->getCleanQuantity() }}</td>
-                <td class="text-right">{!! $item->getFormattedUnitPrice() !!}</td>
                 <td class="text-right">
+                    <div class="text-nowrap">{!! $item->getFormattedUnitPrice() !!}</div>
+                    <div class="text-nowrap">FX {{ $item->getCleanExchangeRate() }}</div>
+                </td>
+                <td class="text-right text-nowrap">
                     <div data-bs-toggle="tooltip" title="Amount in trade currency">
                         {!! $item->getFormattedPrincipleAmount() !!}
                     </div>
@@ -52,15 +60,12 @@
                     </div>
                     @endif
                 </td>
-                <td class="hidden-xs">
-                    {{ $item->getCleanExchangeRate() }}
-                </td>
-                <td class="text-right hidden-xs">
+                <td class="text-right text-nowrap">
                     {!! $item->getFormattedFee() !!}
                 </td>
-                <td class="hidden-xs">{{ $item->description }}</td>
-                <td class="hidden-xs hidden-sm">{{ $item->created_at }}</td>
-                <td class="hidden-xs hidden-sm">{{ $item->updated_at }}</td>
+                <td class="d-none d-xl-table-cell">{{ $item->description }}</td>
+                <td class="d-none d-xl-table-cell">{{ $item->created_at }}</td>
+                <td class="d-none d-xl-table-cell">{{ $item->updated_at }}</td>
                 <td>
                 @if($item->status != 'CLOSED')
                     @include('myfinance2::trades.forms.close-sm',
@@ -85,23 +90,23 @@
         @endif
         </tbody>
         <tfoot class="tfoot">
-            <tr>
-                <th scope="col">Id</th>
-                <th scope="col">Timestamp</th>
-                <th scope="col">Account</th>
-                <th scope="col">Status</th>
-                <th scope="col">Action</th>
-                <th scope="col">Symbol</th>
-                <th scope="col">Quantity</th>
-                <th scope="col">Unit Price</th>
-                <th scope="col" data-bs-toggle="tooltip"
-                    title="Quantity * Unit Price">Principle Amount</th>
-                <th scope="col" class="hidden-xs">Exchange Rate</th>
-                <th scope="col" class="hidden-xs">Fee</th>
-                <th scope="col" class="hidden-xs">Description</th>
-                <th scope="col" class="hidden-xs hidden-sm">Created</th>
-                <th scope="col" class="hidden-xs hidden-sm">Updated</th>
-                <th class="no-search no-sort"></th>
+            <tr role="row">
+                <th>Id</th>
+                <th>Timestamp</th>
+                <th>Account</th>
+                <th>Status</th>
+                <th>Action</th>
+                <th>Symbol</th>
+                <th>Quantity</th>
+                <th class="text-right text-nowrap">Unit Price</th>
+                <th class="text-right text-nowrap"
+                    data-bs-toggle="tooltip"
+                    title="Principle Amount = Quantity * Unit Price">P Amount</th>
+                <th class="text-right text-nowrap">Fee</th>
+                <th class="d-none d-xl-table-cell">Description</th>
+                <th class="d-none d-xl-table-cell">Created</th>
+                <th class="d-none d-xl-table-cell">Updated</th>
+                <th class="no-search no-sort">Actions</th>
                 <th class="no-search no-sort"></th>
                 <th class="no-search no-sort"></th>
             </tr>

@@ -223,7 +223,7 @@ class MarketUtils
                 . '"></span>';
         }
 
-        $output = $warning . '<div class="col-md-auto" style="min-width: 82px">'
+        $output = $warning . '<div class="col-md-auto p-0">'
             . '<span class="market_status text-left badge rounded-pill ' . $class
             . '" data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips2" '
             . 'data-bs-html="true" title="<p class=\'text-left\'>'

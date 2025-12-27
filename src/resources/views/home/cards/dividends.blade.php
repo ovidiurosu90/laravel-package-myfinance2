@@ -1,4 +1,4 @@
-<div class="col-sm-4 mb-3 d-flex">
+<div class="col-sm-4 mb-3 d-flex ps-1">
     <div class="card">
         <div class="card-header">
             <div style="display: flex; justify-content: space-between;
@@ -29,7 +29,7 @@
                             <th scope="col">Account</th>
                             <th scope="col">Symbol</th>
                             <th scope="col" class="text-right"
-                                style="min-width: 105px" data-bs-toggle="tooltip"
+                                data-bs-toggle="tooltip"
                                 title="Total Gain (after deducting fees)
                                         in account currency">Total gain</th>
                         </tr>

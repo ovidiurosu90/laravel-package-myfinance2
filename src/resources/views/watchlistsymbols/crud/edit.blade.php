@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
-@section('template_title'){{ trans('myfinance2::general.titles.edit-item', ['type' => 'Watchlist Symbol']) }}@endsection
+@section('template_title'){{ trans('myfinance2::general.titles.edit-item',
+                                   ['type' => 'Watchlist Symbol']) }}@endsection
 
 @section('template_linked_css')
     @include('myfinance2::general.partials.styles')
@@ -12,9 +13,13 @@
             <div class="col-12">
                 <div class="card card-post" id="post_card">
                     <div class="card-header">
-                        {!! trans('myfinance2::general.titles.edit-item', ['type' => 'Watchlist Symbol']) !!}
+                        {!! trans('myfinance2::general.titles.edit-item',
+                                  ['type' => 'Watchlist Symbol']) !!}
                         <div class="pull-right">
-                            <a href="{{ url('watchlist-symbols') }}" class="btn btn-outline-secondary btn-sm float-right" data-bs-toggle="tooltip" data-bs-placement="left" title="Back to Watchlist Symbols Dashboard">
+                            <a href="{{ url('watchlist-symbols') }}"
+                                class="btn btn-outline-secondary btn-sm float-right"
+                                data-bs-toggle="tooltip" data-bs-placement="left"
+                                title="Back to Watchlist Symbols Dashboard">
                                 <i class="fa fa-fw fa-reply-all" aria-hidden="true"></i>
                                 Back to Index
                             </a>

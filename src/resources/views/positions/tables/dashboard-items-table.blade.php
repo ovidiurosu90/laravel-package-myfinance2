@@ -3,43 +3,35 @@
                   positions-dashboard-items-table">
         <thead class="thead">
             <tr role="row">
-                <th>Symbol</th>
-                <th data-bs-toggle="tooltip" title="Quote Price in Trade Currency">
-                    Quote Price</th>
-                <th style="min-width: 168px">Market</th>
-                <th>Quantity</th>
-                <th class="text-right" data-bs-toggle="tooltip"
-                    title="Cost in account currency"
-                    style="min-width: 95px">Cost</th>
-                <th class="text-right" data-bs-toggle="tooltip"
-                    title="Current market value in account currency"
-                    style="min-width: 136px">Mkt value*</th>
-                <th class="no-search no-sort text-right" data-bs-toggle="tooltip"
-                    title="Average purchased unit cost in trade currency"
-                    style="min-width: 90px">Avg cost</th>
-                <th class="no-search no-sort text-right" data-bs-toggle="tooltip"
-                    title="Current unit price in trade currency"
-                    style="min-width: 96px">Price*</th>
-                <th class="text-right" data-bs-toggle="tooltip"
-                    title="Day gain in account currency"
-                    style="min-width: 90px">Day gain*</th>
-                <th class="text-right" data-bs-toggle="tooltip"
-                    title="Day gain in percentage"
-                    style="min-width: 110px">Day gain (%)*</th>
-                <th class="text-right" data-bs-toggle="tooltip"
-                    title="Overall gain in account currency"
-                    style="min-width: 102px">Gain*</th>
-                <th class="text-right" data-bs-toggle="tooltip"
-                    title="Overall gain in percentage"
-                    style="min-width: 82px">Gain (%)*</th>
-                <th>Symbol</th>
+                <th class="text-nowrap">Symbol</th>
+                <th class="text-nowrap no-search no-sort" data-bs-toggle="tooltip"
+                    title="Quote Price in Trade Currency">Quote Price</th>
+                <th class="text-nowrap no-sort">Market</th>
+                <th class="text-right text-nowrap" data-bs-toggle="tooltip"
+                    title="Cost in account currency">Cost</th>
+                <th class="text-right text-nowrap" data-bs-toggle="tooltip"
+                    title="Current market value in account currency">MValue*</th>
+                <th class="no-sort text-right text-nowrap"
+                    data-bs-toggle="tooltip"
+                    title="Average purchased unit cost in trade currency">Avg cost</th>
+                <th class="no-sort text-right text-nowrap"
+                    data-bs-toggle="tooltip"
+                    title="Current unit price in trade currency">Price*</th>
+                <th class="text-right text-nowrap" data-bs-toggle="tooltip"
+                    title="Day gain in account currency">Day gain*</th>
+                <th class="text-right text-nowrap" data-bs-toggle="tooltip"
+                    title="Day gain in percentage">Day gain (%)*</th>
+                <th class="text-right text-nowrap" data-bs-toggle="tooltip"
+                    title="Overall gain in account currency">Gain*</th>
+                <th class="text-right text-nowrap" data-bs-toggle="tooltip"
+                    title="Overall gain in percentage">Gain (%)*</th>
             </tr>
         </thead>
         <tbody class="table-body">
         @if(count($items) > 0)
             @foreach($items as $item)
             <tr>
-                <td data-bs-toggle="tooltip"
+                <td class="text-nowrap" data-bs-toggle="tooltip"
                     title="{!! $item['symbol_name'] !!}">
                     @if (!\ovidiuro\myfinance2\App\Services\FinanceAPI::isUnlisted(
                         $item['symbol']))
@@ -50,8 +42,20 @@
                     @else
                     <span class="unlisted small">{{ $item['symbol'] }}</span>
                     @endif
+                    <div>
+                        x {{ $item['quantity'] }}
+                    </div>
+                    @if($item['quantity'] == 0)
+                    <div>
+                        @include('myfinance2::trades.forms.close-symbol-sm', [
+                            'accountModel' =>
+                                $accountData[$accountId]['accountModel'],
+                            'symbol'       => $item['symbol'],
+                        ])
+                    </div>
+                    @endif
                 </td>
-                <td class="chart-symbol"
+                <td class="chart-symbol text-nowrap"
                     data-account_id="{{ $accountId }}"
                     data-symbol="{{ $item['symbol'] }}"
                     data-symbol_name="{{ $item['symbol_name'] }}"
@@ -62,31 +66,14 @@
                         $item['tradeCurrencyModel']->display_code
                     !!}"
                     style="position: relative"></td>
-                <td>
+                <td class="text-nowrap">
                     <div class="row m-0">
                         {!! !empty($item['marketUtils'])
                             ? $item['marketUtils']->getMarketStatusFormatted()
                             : '' !!}
                     </div>
                 </td>
-                <td>
-                    <div class="row m-0">
-                        <div class="col pr-2 pl-2 ml-2 mr-2"
-                            style="line-height:1.5rem">
-                            {{ $item['quantity'] }}
-                        </div>
-                        @if($item['quantity'] == 0)
-                        <div class="col pr-2 pl-2">
-                            @include('myfinance2::trades.forms.close-symbol-sm', [
-                                'accountModel' =>
-                                    $accountData[$accountId]['accountModel'],
-                                'symbol'       => $item['symbol'],
-                            ])
-                        </div>
-                        @endif
-                    </div>
-                </td>
-                <td class="text-right">
+                <td class="text-right text-nowrap">
                     {!! $item['cost_in_account_currency_formatted'] !!}
                     @if($item['cost2_in_account_currency_formatted'])
                     <br />
@@ -98,13 +85,13 @@
                     </span>
                     @endif
                 </td>
-                <td class="text-right" data-bs-toggle="tooltip"
+                <td class="text-right text-nowrap" data-bs-toggle="tooltip"
                     data-bs-custom-class="big-tooltips"
                     title="Quote timestamp: {{ $item['quote_timestamp_formatted']
                                             }}">
                     {!! $item['market_value_in_account_currency_formatted'] !!}
                 </td>
-                <td class="text-right pr-2">
+                <td class="text-right text-nowrap">
                     {!! $item['average_unit_cost_in_trade_currency_formatted'] !!}
                     @if($item['average_unit_cost2_in_trade_currency_formatted'])
                     <br />
@@ -117,7 +104,7 @@
                     </span>
                     @endif
                 </td>
-                <td class="text-right pr-2" data-bs-toggle="tooltip"
+                <td class="text-right text-nowrap" data-bs-toggle="tooltip"
                     data-bs-custom-class="big-tooltips"
                     title="Quote timestamp: {{ $item['quote_timestamp_formatted']
                                             }}">
@@ -131,7 +118,7 @@
                     <span class="badge rounded-pill bg-info">post-market</span>
                     @endif
                 </td>
-                <td class="text-right pr-2"
+                <td class="text-right text-nowrap"
                     data-order="{{
                         $item['day_change_in_account_currency'] }}">
                     {!! $item['day_change_in_account_currency_formatted'] !!}
@@ -144,7 +131,7 @@
                     <span class="badge rounded-pill bg-info">post-market</span>
                     @endif
                 </td>
-                <td class="text-right pr-2"
+                <td class="text-right text-nowrap"
                     data-order="{{
                         $item['day_change_percentage'] }}">
                     {!! $item['day_change_in_percentage_formatted'] !!}
@@ -157,7 +144,7 @@
                     <span class="badge rounded-pill bg-info">post-market</span>
                     @endif
                 </td>
-                <td class="text-right pr-2"
+                <td class="text-right text-nowrap"
                     data-order="{{
                         $item['overall_change_in_account_currency'] }}">
                     {!! $item['overall_change_in_account_currency_formatted'] !!}
@@ -180,7 +167,7 @@
                     <span class="badge rounded-pill bg-info">post-market</span>
                     @endif
                 </td>
-                <td class="text-right pr-2"
+                <td class="text-right text-nowrap"
                     data-order="{{
                         $item['overall_change_in_percentage'] }}">
                     {!! $item['overall_change_in_percentage_formatted'] !!}
@@ -202,18 +189,6 @@
                     <span class="badge rounded-pill bg-info">post-market</span>
                     @endif
                 </td>
-                <td data-bs-toggle="tooltip"
-                    title="{!! $item['symbol_name'] !!}">
-                    @if (!\ovidiuro\myfinance2\App\Services\FinanceAPI::isUnlisted(
-                        $item['symbol']))
-                    <a href="https://finance.yahoo.com/quote/{{ $item['symbol'] }}"
-                        target="_blank">
-                        {{ $item['symbol'] }}
-                    </a>
-                    @else
-                    <span class="unlisted small">{{ $item['symbol'] }}</span>
-                    @endif
-                </td>
             </tr>
             @endforeach
         @endif
@@ -221,47 +196,47 @@
         <tfoot class="tfoot">
             <tr>
                 <td colspan="3"></td>
-                <td colspan="2" class="text-right">
-                    <span class="font-weight-bold" data-bs-toggle="tooltip"
+                <td class="text-right">
+                    <div class="font-weight-bold" data-bs-toggle="tooltip"
                         title="Total Cost in account currency">
-                        Total:
-                    </span>
+                        Total Cost:
+                    </div>
                     {!! $accountData[$accountId]['total_cost_formatted'] !!}
                 </td>
                 <td class="text-right">
-                    <span class="font-weight-bold" data-bs-toggle="tooltip"
+                    <div class="font-weight-bold text-nowrap" data-bs-toggle="tooltip"
                         title="Total Current Market Value in account currency">
-                        Total:
-                    </span>
+                        Total MValue:
+                    </div>
                     {!! $accountData[$accountId]['total_market_value_formatted'] !!}
                 </td>
-                <td colspan="3"></td>
-                <td colspan="2" class="text-right pr-2">
-                    <span class="font-weight-bold" data-bs-toggle="tooltip"
+                <td colspan="4"></td>
+                <td class="text-right">
+                    <div class="font-weight-bold" data-bs-toggle="tooltip"
                         title="Total Overall Gain in account currency">
-                        Total:
-                    </span>
+                        Total Gain:
+                    </div>
                     {!! $accountData[$accountId]['total_change_formatted'] !!}
                 </td>
-                <td colspan="2"></td>
+                <td colspan="1"></td>
             </tr>
             <tr>
-                <td colspan="5"></td>
+                <td colspan="4"></td>
                 <td class="text-right">
-                    <span class="font-weight-bold" data-bs-toggle="tooltip"
+                    <div class="font-weight-bold" data-bs-toggle="tooltip"
                         title="Total Cash & Cash Alternatives in Account Currency">
-                        Cash:
-                    </span>
+                        Total Cash:
+                    </div>
                     {!! $accountData[$accountId]['cashBalanceUtils']
                             ->getFormattedAmount() !!}
                 </td>
-                <td colspan="7" class="text-left">
+                <td colspan="6" class="text-left align-text-top">
                     {!! $accountData[$accountId]['cashBalanceUtils']
                             ->getFormattedDetails() !!}
                 </td>
             </tr>
             <tr>
-                <td colspan="13" class="position-relative">
+                <td colspan="11" class="position-relative">
                     <div class="chart-accountOverview"
                         data-account_id="{{ $accountId }}"
                         data-account_currency_iso_code="{{

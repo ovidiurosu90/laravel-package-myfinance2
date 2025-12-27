@@ -1,4 +1,4 @@
-<div class="col-3">
+<div class="col-3 pe-1">
     <div class="card">
         <div class="card-header">
             <div style="display: flex; justify-content: space-between;
@@ -27,7 +27,7 @@
                     <thead>
                         <tr>
                             <th scope="col">Account</th>
-                            <th scope="col" class="text-right">Current Balance</th>
+                            <th scope="col" class="text-right">Balance</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -38,7 +38,7 @@
                                 ({!! $accounts[$accountId]->currency
                                                           ->display_code !!})
                             </td>
-                            <td class="text-right">
+                            <td class="text-right text-nowrap">
                                 {!! ovidiuro\myfinance2\App\Services\MoneyFormat
                                 ::get_formatted_gain(
                                     $accounts[$accountId]->currency->display_code,

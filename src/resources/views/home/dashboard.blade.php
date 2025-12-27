@@ -17,14 +17,14 @@
             @include('myfinance2::home.cards.gains-per-year')
         </div>
 
-        <div class="clearfix mb-4"></div>
+        <div class="clearfix mb-2"></div>
 
         <div class="row">
             @include('myfinance2::home.cards.currency-exchanges')
             @include('myfinance2::home.cards.dividends')
         </div>
 
-        <div class="clearfix mb-4"></div>
+        <div class="clearfix mb-2"></div>
 
         @include('myfinance2::general.modals.confirm-modal',[
             'formTrigger' => 'confirm-delete-modal',

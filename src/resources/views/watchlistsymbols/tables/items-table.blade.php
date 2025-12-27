@@ -2,26 +2,14 @@
     <table class="table table-sm data-table watchlist-symbol-items-table
                   table-hover">
         <thead class="thead">
-            <tr>
-                <th scope="col" style="min-width: 98px">Symbol</th>
-                <th scope="col">Name</th>
-                <th scope="col" class="text-right no-search no-sort"
-                    style="min-width: 98px">Price</th>
-                <th scope="col" class="text-right no-search no-sort">
-                    Day change
-                </th>
-                <th scope="col" class="text-right"
-                    style="min-width: 88px">Day change %</th>
-                <th scope="col" class="text-right no-search no-sort"
-                    style="min-width: 98px">52-Wk low</th>
-                <th scope="col" class="text-right"
-                    style="min-width: 80px">% Above low</th>
-                <th scope="col" class="text-right no-search no-sort"
-                    style="min-width: 98px">52-Wk high</th>
-                <th scope="col" class="text-right"
-                    style="min-width: 80px">% Below high</th>
-                <th class="no-search no-sort"
-                    style="min-width: 294px">Open Positions</th>
+            <tr role="row">
+                <th class="text-nowrap">Symbol</th>
+                <th class="text-right no-sort text-nowrap">Price</th>
+                <th class="text-right text-nowrap">Day change</th>
+                <th class="text-right no-sort text-nowrap">52-Wk range</th>
+                <th class="text-right text-nowrap">% Above low</th>
+                <th class="text-right text-nowrap">% Below high</th>
+                <th class="no-sort text-nowrap">Open Positions</th>
                 <th class="no-search no-sort">Actions</th>
                 <th class="no-search no-sort"></th>
             </tr>
@@ -32,28 +20,24 @@
             <tr {!! count($quoteData['open_positions']) > 0
                         ? 'class="table-info"' : '' !!}>
                 <td>
-                    <a href="https://finance.yahoo.com/quote/{{ $symbol }}"
-                        target="_blank">
-                        {{ $symbol }}
-                    </a>
-                    @if( count($quoteData['open_positions']) > 0 )
-                        <i class="fa fa-briefcase" aria-hidden="true"
-                            data-bs-toggle="tooltip" title="Has Open Positions"></i>
-                    @endif
-                </td>
-                <td>
-                    <div data-bs-toggle="tooltip"
+                    <div data-bs-toggle="tooltip" data-bs-placement="top"
                         data-bs-custom-class="big-tooltips" data-bs-html="true"
-                        title="<p class='text-left'>
+                        data-bs-title="<p class='text-left'>
 Id: {{ $quoteData['item']->id }}<br />
+Name: {!! !empty($quoteData['name']) ? $quoteData['name'] : $symbol !!}
 Timestamp: {{ $quoteData['item']->timestamp }}<br />
 Description: {{ $quoteData['item']->description }}<br />
 Created: {{ $quoteData['item']->created_at }}<br />
 Updated: {{ $quoteData['item']->updated_at }}</p>">
-                        {!! !empty($quoteData['name'])
-                            ? $quoteData['name']
-                            : $symbol !!}
+                        <a href="https://finance.yahoo.com/quote/{{ $symbol }}"
+                            target="_blank">
+                            {{ $symbol }}
+                        </a>
                     </div>
+                    @if (count($quoteData['open_positions']) > 0)
+                        <i class="fa fa-briefcase" aria-hidden="true"
+                            data-bs-toggle="tooltip" title="Has Open Positions"></i>
+                    @endif
                 </td>
                 <td class="text-right">
                     <div data-bs-toggle="tooltip"
@@ -66,16 +50,8 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                             $quoteData['tradeCurrencyModel']->display_code,
                             $quoteData['price']
                         ) !!}
-                        @if(!empty($quoteData['pre_market_price']))
-                        <br />
-                        <span class="badge rounded-pill bg-info">pre-market</span>
-                        @endif
-                        @if(!empty($quoteData['post_market_price']))
-                        <br />
-                        <span class="badge rounded-pill bg-info">post-market</span>
-                        @endif
                     </div>
-                    <div class="chart-symbol mt-2"
+                    <div class="chart-symbol"
                         data-symbol="{{ $symbol }}"
                         data-symbol_name="{{ $quoteData['name'] }}"
                         data-base_value="{{ $quoteData['base_value'] }}"
@@ -83,43 +59,54 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                             $quoteData['tradeCurrencyModel']->display_code
                         !!}"
                         style="position: relative; float: right;"></div>
-                </td>
-                <td class="text-right" data-order="{{ $quoteData['day_change'] }}">
-                    {!! ovidiuro\myfinance2\App\Services\MoneyFormat
-                    ::get_formatted_balance(
-                        $quoteData['tradeCurrencyModel']->display_code,
-                        $quoteData['day_change']
-                    ) !!}
-                    @if(!empty($quoteData['pre_market_day_change']))
-                    <br />
-                    <span class="badge rounded-pill bg-info">pre-market</span>
-                    @endif
-                    @if(!empty($quoteData['post_market_day_change']))
-                    <br />
-                    <span class="badge rounded-pill bg-info">post-market</span>
-                    @endif
+                    <div>
+                        @if(!empty($quoteData['pre_market_price']))
+                        <span class="badge rounded-pill bg-info">pre-market</span>
+                        @endif
+                        @if(!empty($quoteData['post_market_price']))
+                        <span class="badge rounded-pill bg-info">post-market</span>
+                        @endif
+                    </div>
                 </td>
                 <td class="text-right"
                     data-order="{{ $quoteData['day_change_percentage'] }}">
-                    {!! ovidiuro\myfinance2\App\Services\MoneyFormat
-                    ::get_formatted_balance_percentage(
-                        $quoteData['day_change_percentage']
-                    ) !!}
-                    @if(!empty($quoteData['pre_market_day_change_percentage']))
-                    <br />
-                    <span class="badge rounded-pill bg-info">pre-market</span>
-                    @endif
-                    @if(!empty($quoteData['post_market_day_change_percentage']))
-                    <br />
-                    <span class="badge rounded-pill bg-info">post-market</span>
-                    @endif
+                    <div>
+                        {!! ovidiuro\myfinance2\App\Services\MoneyFormat
+                        ::get_formatted_balance_percentage(
+                            $quoteData['day_change_percentage']
+                        ) !!}
+                    </div>
+                    <div style="line-height: 24px">
+                        {!! ovidiuro\myfinance2\App\Services\MoneyFormat
+                        ::get_formatted_balance(
+                            $quoteData['tradeCurrencyModel']->display_code,
+                            $quoteData['day_change']
+                        ) !!}
+                    </div>
+                    <div>
+                        @if(!empty($quoteData['pre_market_day_change_percentage']))
+                        <span class="badge rounded-pill bg-info">pre-market</span>
+                        @endif
+                        @if(!empty($quoteData['post_market_day_change_percentage']))
+                        <span class="badge rounded-pill bg-info">post-market</span>
+                        @endif
+                    </div>
                 </td>
                 <td class="text-right">
-                    {!! ovidiuro\myfinance2\App\Services\MoneyFormat
-                    ::get_formatted_balance(
-                        $quoteData['tradeCurrencyModel']->display_code,
-                        $quoteData['fiftyTwoWeekLow']
-                    ) !!}
+                    <div class="text-nowrap">
+                        {!! ovidiuro\myfinance2\App\Services\MoneyFormat
+                        ::get_formatted_balance(
+                            $quoteData['tradeCurrencyModel']->display_code,
+                            $quoteData['fiftyTwoWeekLow']
+                        ) !!}
+                    </div>
+                    <div class="text-nowrap">
+                        {!! ovidiuro\myfinance2\App\Services\MoneyFormat
+                        ::get_formatted_balance(
+                            $quoteData['tradeCurrencyModel']->display_code,
+                            $quoteData['fiftyTwoWeekHigh']
+                        ) !!}
+                    </div>
                 </td>
                 <td class="text-right"
                     data-order="{{ $quoteData['fiftyTwoWeekLowChangePercent']
@@ -129,12 +116,6 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                         $quoteData['fiftyTwoWeekLowChangePercent'] * 100
                     ) !!}
                 </td>
-                <td class="text-right">
-                    {!! ovidiuro\myfinance2\App\Services\MoneyFormat
-                    ::get_formatted_balance(
-                        $quoteData['tradeCurrencyModel']->display_code,
-                        $quoteData['fiftyTwoWeekHigh']
-                    ) !!}</td>
                 <td class="text-right"
                     data-order="{{ - $quoteData['fiftyTwoWeekHighChangePercent']
                                     * 100 }}">
