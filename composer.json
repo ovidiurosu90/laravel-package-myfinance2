@@ -25,6 +25,9 @@
         "symfony/process": "^7.0",
         "thiagoprz/eloquent-composite-key": "^1.0"
     },
+    "require-dev": {
+        "phpunit/phpunit": "^11.0"
+    },
     "autoload": {
         "psr-4": {
             "ovidiuro\\myfinance2\\": "src/"

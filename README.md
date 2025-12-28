@@ -156,6 +156,20 @@ crontab -e
 #############
 ```
 
+
+### Running tests
+
+NOTE That there are 2 types of tests, in 2 locations:
+- Unit tests (in this package project)
+- Feature tests (in the root project, because these need the context of the full laravel application)
+
+```bash
+# Running unit tests (in this package project)
+# php vendor/bin/phpunit --filter ChartsBuilderMetrics --testdox --debug
+php vendor/bin/phpunit --testdox
+```
+
+
 ### Others
 
 ```bash

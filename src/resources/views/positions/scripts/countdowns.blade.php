@@ -1,7 +1,8 @@
 <script type="module">
 $(document).ready(function()
 {
-    $('.market_status_countdown_to_open, .market_status_countdown_to_close').each(function() {
+    $('.market_status_countdown_to_open, .market_status_countdown_to_close').each(function()
+    {
         var countdownDate = new Date($(this).data('timestamp') * 1000).getTime();
         var $element = $(this);
 

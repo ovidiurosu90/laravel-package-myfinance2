@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/11.0/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         executionOrder="depends,defects">
+    <testsuites>
+        <testsuite name="MyFinance2 Unit Tests">
+            <directory suffix="Test.php">tests/Unit</directory>
+        </testsuite>
+        <!--
+            Feature tests and tests requiring Laravel context should be run from parent laravel-admin project:
+            cd ../../
+            php artisan test tests/Packages/MyFinance2/Feature/ChangePercentageChartIntegrationTest.php
+        -->
+    </testsuites>
+
+    <php>
+        <ini name="display_errors" value="1"/>
+        <ini name="error_reporting" value="-1"/>
+        <ini name="date.timezone" value="UTC"/>
+    </php>
+</phpunit>

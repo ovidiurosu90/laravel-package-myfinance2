@@ -275,11 +275,15 @@ class FinanceApiCron extends Command
         $chartsToBuildSymbols = [];
 
         foreach ($data['groupedItems'] as $accountId => $symbols) {
+            $cost = $accountData[$accountId]['total_cost'];
+            $change = $accountData[$accountId]['total_change'];
+            $currency = $accountData[$accountId]['accountModel']->currency->iso_code;
+
             // Total Cost in account currency
             Stats::persistStat(
                 'A_' . $accountId . '_cost', // symbol
-                $accountData[$accountId]['total_cost'],
-                $accountData[$accountId]['accountModel']->currency->iso_code,
+                $cost,
+                $currency,
                 !empty($date) ? $date : new \DateTime()
             );
 
@@ -287,15 +291,15 @@ class FinanceApiCron extends Command
             Stats::persistStat(
                 'A_' . $accountId . '_mvalue', // symbol
                 $accountData[$accountId]['total_market_value'],
-                $accountData[$accountId]['accountModel']->currency->iso_code,
+                $currency,
                 !empty($date) ? $date : new \DateTime()
             );
 
             // Total Overall Gain in account currency
             Stats::persistStat(
                 'A_' . $accountId . '_change', // symbol
-                $accountData[$accountId]['total_change'],
-                $accountData[$accountId]['accountModel']->currency->iso_code,
+                $change,
+                $currency,
                 !empty($date) ? $date : new \DateTime()
             );
 
@@ -305,7 +309,7 @@ class FinanceApiCron extends Command
             Stats::persistStat(
                 'A_' . $accountId . '_cash', // symbol
                 empty($cashBalance) ? 0 : $cashBalance->amount,
-                $accountData[$accountId]['accountModel']->currency->iso_code,
+                $currency,
                 !empty($date) ? $date : new \DateTime()
             );
 
@@ -401,6 +405,7 @@ class FinanceApiCron extends Command
         }
     }
 
+
     public static function buildChartsAccount(array $chartsToBuildAccounts)
     {
         $chartsUser = [];
@@ -412,19 +417,40 @@ class FinanceApiCron extends Command
 
             foreach ($accounts as $accountId => $value) {
                 $metrics = ChartsBuilder::getAccountMetrics();
+                $costStats = null;
+                $changeStats = null;
+
+                // Accumulate metrics for batch write (improved I/O performance)
+                $accountMetricsToWrite = [];
+
                 foreach ($metrics as $metric => $properties) {
+                    // Skip changePercentage as it's calculated from aggregated data
+                    if ($metric === 'changePercentage') {
+                        continue;
+                    }
+
                     $stats = Stats::getQuoteStats(
                         'A_' . $accountId . '_' . $metric);
 
-                    ChartsBuilder::buildChartAccount($value['accountData'],
-                        $metric, $stats);
+                    // Store cost and change stats for changePercentage calculation.
+                    // We need both metrics to calculate the percentage:
+                    //      (change / cost) * 100.
+                    // This approach avoids fetching the stats twice and ensures we use
+                    // the exact same data points for both metrics.
+                    if ($metric === 'cost') {
+                        $costStats = $stats;
+                    } elseif ($metric === 'change') {
+                        $changeStats = $stats;
+                    }
+
+                    // Accumulate both base and converted metrics for batch write
+                    $accountMetricsToWrite[$metric] = $stats;
 
                     //NOTE Dual currency
                     list($convertedMetric, $convertedStats) =
                         ChartsBuilder::convertAccountStatsToCurrency(
                             $value['accountData'], $metric, $stats);
-                    ChartsBuilder::buildChartAccount($value['accountData'],
-                        $convertedMetric, $convertedStats);
+                    $accountMetricsToWrite[$convertedMetric] = $convertedStats;
 
                     $currency = $value['accountData']['accountModel']
                         ->currency->iso_code;
@@ -433,15 +459,171 @@ class FinanceApiCron extends Command
                     self::addAccountStatsToUserStats($chartsUser, $userId,
                         $convertedMetric, $convertedStats);
                 }
+
+                // Build changePercentage chart for this account.
+                // changePercentage is a derived metric calculated from cost and change.
+                if (!empty($costStats) && !empty($changeStats)) {
+                    $changePercentageStats = self::calculatePercentageStats(
+                        $changeStats, $costStats);
+
+                    // Accumulate changePercentage for batch write
+                    $accountMetricsToWrite['changePercentage'] = $changePercentageStats;
+
+                    // Convert changePercentage to the alternate currency (EUR <-> USD)
+                    // NOTE: The currency conversion affects the unit_price values
+                    // since they're in the account's base currency.
+                    // The percentage itself doesn't change,
+                    // but we maintain dual currency files for consistency.
+                    list($convertedMetric, $convertedStats) =
+                        ChartsBuilder::convertAccountStatsToCurrency(
+                            $value['accountData'], 'changePercentage',
+                            $changePercentageStats);
+                    $accountMetricsToWrite[$convertedMetric] = $convertedStats;
+                }
+
+                // Write all accumulated metrics for this account
+                //      in a single batch operation
+                // This reduces I/O by combining all metric writes into one operation
+                ChartsBuilder::buildChartAccountBatch(
+                    $value['accountData'], $accountMetricsToWrite);
             }
+
         }
 
         // Log::debug('chartsUser: ' . print_r($chartsUser, true));
+        // Build all user overview charts in batch operations for improved I/O performance
         foreach ($chartsUser as $userId => $metrics) {
+            // Accumulate all metrics for batch write operation
+            $userMetricsToWrite = [];
+
+            // Add all aggregated metrics to batch
             foreach ($metrics as $metric => $stats) {
-                ChartsBuilder::buildChartOverviewUser($userId, $metric, $stats);
+                $userMetricsToWrite[$metric] = $stats;
+            }
+
+            // Calculate and add changePercentage metrics
+            //      from aggregated change and cost data
+            foreach (['EUR', 'USD'] as $currency) {
+                $changeMetric = 'change_' . $currency;
+                $costMetric = 'cost_' . $currency;
+
+                if (!empty($metrics[$changeMetric]) && !empty($metrics[$costMetric])) {
+                    $changePercentageStats = self::calculatePercentageStats(
+                        $metrics[$changeMetric], $metrics[$costMetric], isFlat: true);
+
+                    $userMetricsToWrite['changePercentage_' . $currency] =
+                        $changePercentageStats;
+                }
+            }
+
+            // Write all accumulated metrics for this user in a single batch operation
+            // This reduces I/O by combining all metric writes into one operation
+            ChartsBuilder::buildChartOverviewUserBatch($userId, $userMetricsToWrite);
+        }
+    }
+
+    /**
+     * Calculate percentage statistics from cost and change data.
+     *
+     * Handles both structured stats (with 'historical' and 'today_last' keys) and
+     * flat date-indexed arrays. Calculates percentage change as (change / cost * 100),
+     * defaulting to 0 when cost is 0 to avoid division by zero.
+     *
+     * @param array $changeStats Change data (structured or flat)
+     * @param array $costStats Cost data (structured or flat)
+     * @param bool $isFlat True if data is flat date-indexed, false if structured
+     * @return array Percentage stats in same format as input
+     */
+    private static function calculatePercentageStats(
+        array $changeStats, array $costStats, bool $isFlat = false): array
+    {
+        if ($isFlat) {
+            return self::calculateFlatPercentageStats($changeStats, $costStats);
+        }
+        return self::calculateStructuredPercentageStats($changeStats, $costStats);
+    }
+
+    /**
+     * Calculate percentages from flat date-indexed cost and change data.
+     * @param array $changeStats Date-indexed flat stats: ['2025-12-01' => [...], ...]
+     * @param array $costStats Date-indexed flat stats: ['2025-12-01' => [...], ...]
+     * @return array percentageStats in same flat format
+     */
+    private static function calculateFlatPercentageStats(
+        array $changeStats, array $costStats): array
+    {
+        $percentageStats = [];
+
+        foreach ($changeStats as $date => $changeStat) {
+            if (!isset($costStats[$date])) {
+                continue;
+            }
+
+            $cost = $costStats[$date]['unit_price'];
+            $change = $changeStat['unit_price'];
+            $percentage = ($cost != 0) ? ($change / $cost) * 100 : 0;
+
+            $percentageStats[$date] = [
+                'unit_price' => $percentage,
+                'currency_iso_code' => $changeStat['currency_iso_code'],
+                'num_accounts' => 1,
+            ];
+        }
+
+        return $percentageStats;
+    }
+
+    /**
+     * Calculate percentages from structured stats with 'historical' and 'today_last' keys.
+     * @param array $changeStats Stats with 'historical' and 'today_last' keys
+     * @param array $costStats Stats with 'historical' and 'today_last' keys
+     * @return array percentageStats with same structure as input
+     */
+    private static function calculateStructuredPercentageStats(
+        array $changeStats, array $costStats): array
+    {
+        $percentageStats = ['historical' => []];
+
+        // Process historical data with O(1) lookup using date-keyed map
+        if (!empty($costStats['historical']) && !empty($changeStats['historical'])) {
+            $changeByDate = array_column($changeStats['historical'], null, 'date');
+
+            foreach ($costStats['historical'] as $costStat) {
+                if (empty($costStat['date'])) {
+                    continue;
+                }
+
+                $date = $costStat['date'];
+                $changeStat = $changeByDate[$date] ?? null;
+
+                if ($changeStat !== null) {
+                    $cost = $costStat['unit_price'];
+                    $change = $changeStat['unit_price'];
+                    $percentage = ($cost != 0) ? ($change / $cost) * 100 : 0;
+
+                    $percentageStats['historical'][] = [
+                        'date' => $date,
+                        'unit_price' => $percentage,
+                        'currency_iso_code' => $costStat['currency_iso_code'],
+                    ];
+                }
             }
         }
+
+        // Process today_last: the most recent data point
+        if (!empty($costStats['today_last']) && !empty($changeStats['today_last'])) {
+            $cost = $costStats['today_last']['unit_price'];
+            $change = $changeStats['today_last']['unit_price'];
+            $percentage = ($cost != 0) ? ($change / $cost) * 100 : 0;
+
+            $percentageStats['today_last'] = [
+                'date' => date(trans('myfinance2::general.date-format')),
+                'unit_price' => $percentage,
+                'currency_iso_code' => $costStats['today_last']['currency_iso_code'],
+            ];
+        }
+
+        return $percentageStats;
     }
 
     public static function buildChartsSymbols(array $chartsToBuildSymbols)

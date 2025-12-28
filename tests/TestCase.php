@@ -14,9 +14,9 @@ class TestCase extends OrchestraTestCase
      *
      * @param \Illuminate\Foundation\Application $app
      *
-     * @return ovidiuro\myfinance2\MyFinance2ServiceProvider
+     * @return array
      */
-    protected function getPackageProviders($app): void
+    protected function getPackageProviders($app)
     {
         return [MyFinance2ServiceProvider::class];
     }
@@ -28,7 +28,7 @@ class TestCase extends OrchestraTestCase
      *
      * @return array
      */
-    protected function getPackageAliases($app): void
+    protected function getPackageAliases($app)
     {
         return [
             'myfinance2' => MyFinance2Facade::class,
