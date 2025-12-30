@@ -197,38 +197,46 @@
             <tr>
                 <td colspan="3"></td>
                 <td class="text-right">
-                    <div class="font-weight-bold" data-bs-toggle="tooltip"
+                    <div class="font-weight-bold text-nowrap" data-bs-toggle="tooltip"
                         title="Total Cost in account currency">
                         Total Cost:
                     </div>
-                    {!! $accountData[$accountId]['total_cost_formatted'] !!}
+                    <div class="text-nowrap">
+                        {!! $accountData[$accountId]['total_cost_formatted'] !!}
+                    </div>
                 </td>
                 <td class="text-right">
                     <div class="font-weight-bold text-nowrap" data-bs-toggle="tooltip"
                         title="Total Current Market Value in account currency">
                         Total MValue:
                     </div>
-                    {!! $accountData[$accountId]['total_market_value_formatted'] !!}
+                    <div class="text-nowrap">
+                        {!! $accountData[$accountId]['total_market_value_formatted'] !!}
+                    </div>
                 </td>
                 <td colspan="4"></td>
                 <td class="text-right">
-                    <div class="font-weight-bold" data-bs-toggle="tooltip"
+                    <div class="font-weight-bold text-nowrap" data-bs-toggle="tooltip"
                         title="Total Overall Gain in account currency">
                         Total Gain:
                     </div>
-                    {!! $accountData[$accountId]['total_change_formatted'] !!}
+                    <div class="text-nowrap">
+                        {!! $accountData[$accountId]['total_change_formatted'] !!}
+                    </div>
                 </td>
                 <td colspan="1"></td>
             </tr>
             <tr>
                 <td colspan="4"></td>
                 <td class="text-right">
-                    <div class="font-weight-bold" data-bs-toggle="tooltip"
+                    <div class="font-weight-bold text-nowrap" data-bs-toggle="tooltip"
                         title="Total Cash & Cash Alternatives in Account Currency">
                         Total Cash:
                     </div>
-                    {!! $accountData[$accountId]['cashBalanceUtils']
-                            ->getFormattedAmount() !!}
+                    <div class="text-nowrap">
+                        {!! $accountData[$accountId]['cashBalanceUtils']
+                                ->getFormattedAmount() !!}
+                    </div>
                 </td>
                 <td colspan="6" class="text-left align-text-top">
                     {!! $accountData[$accountId]['cashBalanceUtils']

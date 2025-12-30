@@ -4,6 +4,13 @@ namespace ovidiuro\myfinance2\App\Services;
 
 abstract class MyFormFields
 {
+    /**
+     * MODIFIED: Declared $id property to prevent dynamic property deprecation warning
+     * In PHP 8.2+, creating undeclared dynamic properties is deprecated
+     * @var int|null
+     */
+    protected $id = null;
+
     abstract protected function model();
 
     /**
