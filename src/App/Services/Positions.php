@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace ovidiuro\myfinance2\App\Services;
 
 use Illuminate\Support\Facades\Log;
@@ -21,7 +23,7 @@ class Positions
      */
     private array $_extraSymbols = [];
 
-    public function setWithUser(bool $withUser = true)
+    public function setWithUser(bool $withUser = true): void
     {
         if (!$withUser
             && php_sapi_name() !== 'cli' // in browser we have 'apache2handler'
@@ -32,7 +34,7 @@ class Positions
         $this->_withUser = $withUser;
     }
 
-    public function setExtraSymbols(array $extraSymbols = array())
+    public function setExtraSymbols(array $extraSymbols = array()): void
     {
         $this->_extraSymbols = $extraSymbols;
     }
@@ -49,8 +51,13 @@ class Positions
                 ->withoutGlobalScope(AssignedToUserScope::class);
         }
 
+        // For historical queries, get ALL trades (BUY and SELL) to calculate net positions
+        // For current positions, only get trades with status='OPEN'
+        if (empty($date)) {
+            $queryBuilder = $queryBuilder->where('status', 'OPEN');
+        }
+
         $trades = $queryBuilder
-            ->where('status', 'OPEN')
             ->where('timestamp', '<', !empty($date) ? $date : \DB::raw('NOW()'))
             ->orderBy('timestamp')
             ->get();
@@ -120,7 +127,7 @@ class Positions
                 $trade->exchange_rate * $trade->quantity * $trade->unit_price;
             $principleAmountInTradeCurrency = $trade->quantity * $trade->unit_price;
 
-            switch($trade->action) {
+            switch ($trade->action) {
                 case 'BUY':
                     $positions[$accountId][$symbol]['quantity'] +=
                         $trade->quantity;
@@ -237,7 +244,8 @@ class Positions
 
         $isUnlisted = FinanceAPI::isUnlisted($symbol);
 
-        $tradeCurrency = !$isUnlisted
+        // Use quote currency if available, otherwise use position's trade currency
+        $tradeCurrency = (!$isUnlisted && !empty($quote))
             ? $quote['currency']
             : $position['tradeCurrencyModel']->iso_code;
 
@@ -246,8 +254,8 @@ class Positions
         }
 
         if ($tradeCurrency != $position['tradeCurrencyModel']->iso_code) {
-            LOG::error("Inconsistent quote trade currency for accountId: "
-                . "$accountId, symbol $symbol, tradeCurrency: "
+            LOG::error("Inconsistent quote trade currency for symbol: "
+                . "$symbol, tradeCurrency: "
                 . $tradeCurrency . ", positionTradeCurrency: "
                 . $position['tradeCurrencyModel']->iso_code
                 . '! Ignoring position...');
@@ -289,9 +297,9 @@ class Positions
 
     /**
      * @param array &$position
-     * @param number $exchangeRate
+     * @param float $exchangeRate
      */
-    public static function addExchangeRate(array &$position, $exchangeRate)
+    public static function addExchangeRate(array &$position, float $exchangeRate): void
     {
         $position['exchange_rate'] = $exchangeRate;
     }
@@ -429,7 +437,7 @@ class Positions
                              ."Defaulting to 0...");
             }
             if (!empty($quote) && !empty($quote['day_change_percentage'])) {
-                $position['day_change_percentage'] =$quote['day_change_percentage'];
+                $position['day_change_percentage'] = $quote['day_change_percentage'];
                 $position['pre_market_day_change_percentage'] =
                     !empty($quote['pre_market_day_change_percentage'])
                     ? $quote['pre_market_day_change_percentage'] : false;
@@ -644,7 +652,7 @@ class Positions
             ];
             $cashBalancesUtils = new CashBalancesUtils($accountId,
                 $this->_withUser, $date);
-            self::addCashBalancesUtils($accountData[$accountId],$cashBalancesUtils);
+            self::addCashBalancesUtils($accountData[$accountId], $cashBalancesUtils);
         }
 
         return $groupedAccounts;
@@ -680,7 +688,10 @@ class Positions
         foreach ($positions as $accountId => &$symbols) {
             foreach ($symbols as $symbol => &$position) {
                 $isUnlisted = FinanceAPI::isUnlisted($symbol);
-                $quote = !$isUnlisted ? $quotes[$symbol] : null;
+                // Check if quote exists (handles delisted, unlisted, or missing quotes)
+                $quote = (!$isUnlisted && isset($quotes[$symbol]))
+                    ? $quotes[$symbol]
+                    : null;
 
                 $tradeCurrency = self::getTradeCurrency($symbol, $position, $quote);
                 if (empty($tradeCurrency)) {
@@ -706,7 +717,7 @@ class Positions
 
             $cashBalancesUtils = new CashBalancesUtils($accountId,
                 $this->_withUser, $date);
-            self::addCashBalancesUtils($accountData[$accountId],$cashBalancesUtils);
+            self::addCashBalancesUtils($accountData[$accountId], $cashBalancesUtils);
         }
 
         $tradeAccountsWithoutOpenPositions =

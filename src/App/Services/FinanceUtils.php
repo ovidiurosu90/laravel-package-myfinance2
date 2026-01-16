@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace ovidiuro\myfinance2\App\Services;
 
 use Illuminate\Support\Facades\Log;
@@ -12,11 +14,11 @@ class FinanceUtils
 {
     /**
      * @param string $symbol
-     * @param string $timestamp
+     * @param int|null $timestamp
      *
      * @return array(price, currency, name, quote_timestamp) or null if failure
      */
-    public function getFinanceDataBySymbol($symbol, $timestamp = null)
+    public function getFinanceDataBySymbol(string $symbol, ?int $timestamp = null): ?array
     {
         $financeAPI = new FinanceAPI();
         $quote = $financeAPI->getQuote($symbol);
@@ -160,7 +162,7 @@ class FinanceUtils
         if (empty($results)) {
             LOG::error('Could NOT get the historical exchange rates for'
                        . ' date: ' . $date->format('Y-m-d')
-                       . '! This should never happen! '
+                       . '! This should never happen (FinanceUtils 163)! '
                        . 'We still failed after all these tries!');
             return null;
         }
@@ -182,7 +184,7 @@ class FinanceUtils
         do {
             $currentDate = clone $date;
             $currentDate = $currentDate
-                ->modify('-'.$currentDaysBefore . ' days');
+                ->modify('-' . $currentDaysBefore . ' days');
 
             $historicalQuoteData = $financeAPI->getHistoricalQuoteData(
                 $quote,
@@ -214,7 +216,7 @@ class FinanceUtils
         ) {
             LOG::error('Could NOT get the historical quote for symbol: '
                        . $quote->getSymbol() . ', date: ' . $date->format('Y-m-d')
-                       . '! This should never happen! '
+                       . '! This should never happen (FinanceUtils 217)! '
                        . 'We still failed after all these tries!');
             return null;
         }
@@ -291,12 +293,12 @@ class FinanceUtils
 
     /**
      * @param array $symbols
-     * @param $date \DateTimeInterface
+     * @param \DateTimeInterface|null $date
      *
      * @return array(symbol => (price, currency, name, quote_timestamp, day_change))
      *         or null if failure
      */
-    public function getQuotes($symbols, \DateTimeInterface $date = null)
+    public function getQuotes(array $symbols, ?\DateTimeInterface $date = null): ?array
     {
         $quotesArray = [];
         if (empty($symbols)) {
@@ -411,11 +413,14 @@ class FinanceUtils
      * @param string  $timestamp
      * @param integer $tradeId
      *
-     * @return integer $availableQuantity or null if failure
+     * @return float|null $availableQuantity or null if failure
      */
-    public function getAvailableQuantity($symbol, $account_id,
-        $timestamp = null, $tradeId = null
-    ) {
+    public function getAvailableQuantity(
+        string $symbol,
+        int $account_id,
+        ?string $timestamp = null,
+        ?int $tradeId = null
+    ): ?float {
         if (empty($account_id) || !is_numeric($account_id)) {
             LOG::error('Invalid account_id: ' . $account_id);
             return null;
@@ -437,7 +442,7 @@ class FinanceUtils
 
         $trades = $tradesQuery->get();
         $trades->each(function ($trade) use (&$availableQuantity) {
-            switch($trade->action) {
+            switch ($trade->action) {
                 case 'BUY':
                     $availableQuantity += $trade->quantity;
                     break;
@@ -469,8 +474,10 @@ class FinanceUtils
      *              e.g. for MSFT (America/New_York) to Europe/Amsterdam,
      *                  offset is 21600s (6h)
      */
-    public static function get_timezone_offset($remote_tz, $origin_tz = null)
-    {
+    public static function get_timezone_offset(
+        string $remote_tz,
+        ?string $origin_tz = null
+    ): int|false {
         if ($origin_tz === null) {
             if(!is_string($origin_tz = date_default_timezone_get())) {
                 return false; // A UTC timestamp was returned -- bail out!
@@ -485,7 +492,7 @@ class FinanceUtils
         return $offset;
     }
 
-    public static function fixTimezone(Quote $quote, \DateTime $timestamp)
+    public static function fixTimezone(Quote $quote, \DateTime $timestamp): void
     {
         $timestamp->setTimezone(new \DateTimeZone('Europe/Amsterdam'));
 

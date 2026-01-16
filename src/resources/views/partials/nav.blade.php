@@ -34,6 +34,12 @@
         </a>
         <div class="dropdown-divider"></div>
 
+        <a class="dropdown-item {{ Request::is('returns') ? 'active' : null }}"
+           href="{{ url('/returns') }}">
+            {!! trans('myfinance2::returns.titles.dashboard') !!}
+        </a>
+        <div class="dropdown-divider"></div>
+
         <a class="dropdown-item {{ Request::is('cash-balances') ? 'active' : null }}" href="{{ url('/cash-balances') }}">
             {!! trans('myfinance2::cashbalances.titles.dashboard') !!}
         </a>

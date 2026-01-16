@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace ovidiuro\myfinance2\App\Services;
 
 use Cache;
@@ -36,35 +38,45 @@ class FinanceAPI
         return str_starts_with($symbol, config('trades.unlisted'));
     }
 
-    public function getQuote(string $symbol, bool $checkCache = true): ?Quote
+    /**
+     * Get quote with caching control
+     *
+     * checkCache: Whether to check FinanceAPI cache first (2 min TTL)
+     * persistStats: Whether to write to stat_today table
+     *   - true: Write to database (default, for crons/normal operations)
+     *   - false: Cache only, no database writes (Returns endpoint usage)
+     */
+    public function getQuote(string $symbol, bool $checkCache = true, bool $persistStats = true): ?Quote
     {
         if (self::isUnlisted($symbol)) {
-            LOG::info("Unlisted quote, returning null");
+            Log::info("Unlisted quote, returning null");
             return null;
         }
 
         $quote = $checkCache ? $this->getCachedQuote($symbol) : null;
 
         if (!empty($quote)) {
-            LOG::info("FinanceAPI->getQuote($symbol) from cache");
+            // LOG::info("FinanceAPI->getQuote($symbol) from cache");
         } else {
-            LOG::info("FinanceAPI->getQuote($symbol) from FinanceAPI");
+            // LOG::info("FinanceAPI->getQuote($symbol) from FinanceAPI");
 
             $client = $this->getClient();
 
             try {
                 $quote = $client->getQuote($symbol);
                 if (!empty($quote)) {
-                    $this->cacheQuote($quote);
+                    $this->cacheQuote($quote, $persistStats);
                 }
             } catch (\Exception $e) {
-                LOG::warning("Couldn't get quote for symbol $symbol. "
-                             . "Exception message: " . $e->getMessage());
+                Log::warning(
+                    "Couldn't get quote for symbol $symbol. "
+                    . "Exception message: " . $e->getMessage()
+                );
             }
         }
 
         if (empty($quote) || !($quote instanceof Quote)) {
-            LOG::warning("Invalid quote for symbol $symbol");
+            Log::warning("Invalid quote for symbol $symbol");
             return null;
         }
 
@@ -91,12 +103,16 @@ class FinanceAPI
         }
 
         if (empty($missingCachedSymbols)) {
-            LOG::info("FinanceAPI->getQuotes(" . implode(', ', $symbols)
-                      . ") from cache");
+            Log::info(
+                "FinanceAPI->getQuotes(" . implode(', ', $symbols)
+                . ") from cache"
+            );
         } else {
-            LOG::info("FinanceAPI->getQuotes(" . implode(', ', $symbols)
-                      . ") from FinanceAPI, missingCachedSymbols: "
-                      . implode(', ', $missingCachedSymbols));
+            Log::info(
+                "FinanceAPI->getQuotes(" . implode(', ', $symbols)
+                . ") from FinanceAPI, missingCachedSymbols: "
+                . implode(', ', $missingCachedSymbols)
+            );
 
             $client = $this->getClient();
 
@@ -104,9 +120,11 @@ class FinanceAPI
                 $quotes = $client->getQuotes($symbols);
                 $this->cacheQuotes($quotes);
             } catch (\Exception $e) {
-                LOG::warning("Couldn't get quotes for symbols "
-                             . join(', ', $symbols)
-                             . ". Exception message: " . $e->getMessage());
+                Log::warning(
+                    "Couldn't get quotes for symbols "
+                    . join(', ', $symbols)
+                    . ". Exception message: " . $e->getMessage()
+                );
             }
         }
 
@@ -141,12 +159,16 @@ class FinanceAPI
         }
 
         if (empty($missingCachedSymbols)) {
-            LOG::info("FinanceAPI->getExchangeRates(" . implode(', ', $symbols)
-                      . ") from cache");
+            Log::info(
+                "FinanceAPI->getExchangeRates(" . implode(', ', $symbols)
+                . ") from cache"
+            );
         } else {
-            LOG::info("FinanceAPI->getExchangeRates(" . implode(', ', $symbols)
-                      . ") from FinanceAPI, missingCachedSymbols: "
-                      . implode(', ', $missingCachedSymbols));
+            Log::info(
+                "FinanceAPI->getExchangeRates(" . implode(', ', $symbols)
+                . ") from FinanceAPI, missingCachedSymbols: "
+                . implode(', ', $missingCachedSymbols)
+            );
 
             $client = $this->getClient();
 
@@ -154,9 +176,11 @@ class FinanceAPI
                 $quotes = $client->getExchangeRates($currencyPairs);
                 $this->cacheQuotes($quotes);
             } catch (\Exception $e) {
-                LOG::warning("Couldn't get exchange rates for currencyPairs" .
+                Log::warning(
+                    "Couldn't get exchange rates for currencyPairs" .
                     print_r($currencyPairs, true) .
-                    ". Exception message: " . $e->getMessage());
+                    ". Exception message: " . $e->getMessage()
+                );
             }
         }
 
@@ -164,8 +188,10 @@ class FinanceAPI
             !($quotes[0] instanceof Quote)
             || count($symbols) != count($quotes)
         ) {
-            LOG::info("FinanceAPI->getExchangeRates("
-                      . implode(', ', $symbols) . ") failed!");
+            Log::info(
+                "FinanceAPI->getExchangeRates("
+                . implode(', ', $symbols) . ") failed!"
+            );
             return null;
         }
 
@@ -207,8 +233,10 @@ class FinanceAPI
         }
         $symbols = self::currencyPairsToSymbols($currencyPairs);
 
-        LOG::info("FinanceAPI->getHistoricalExchangeRates("
-                  . implode(', ', $symbols) . ") from FinanceAPI");
+        Log::info(
+            "FinanceAPI->getHistoricalExchangeRates("
+            . implode(', ', $symbols) . ") from FinanceAPI"
+        );
 
         $historicalDataItems = [];
         $client = $this->getClient();
@@ -219,8 +247,10 @@ class FinanceAPI
                 $historicalData = $this->getHistoricalQuoteData($quote, $date);
                 $historicalDataItems[] = $historicalData;
             } catch (\Exception $e) {
-                LOG::warning("Couldn't get the exchange rate for symbol '"
-                    . $symbol . "'. Exception message: " . $e->getMessage());
+                Log::warning(
+                    "Couldn't get the exchange rate for symbol '"
+                    . $symbol . "'. Exception message: " . $e->getMessage()
+                );
                 return null;
             }
         }
@@ -238,7 +268,7 @@ class FinanceAPI
     }
 
     public function getHistoricalQuoteData(Quote $quote,
-        \DateTime $timestamp, bool $checkCache = true): ?HistoricalData
+        \DateTime $timestamp, bool $checkCache = true, bool $persistStats = true): ?HistoricalData
     {
         $startDate = clone $timestamp;
         $startDate->setTime(0, 0, 0, 0);
@@ -263,15 +293,18 @@ class FinanceAPI
 
         $interval = ApiClient::INTERVAL_1_DAY;
 
+        // FinanceAPI caching layer (2-10 min TTL)
+        // Helps avoid duplicate API calls within short time windows
+        // Note: persistStats controls whether data is also written to stats_historical table
         $historicalData = $checkCache
             ? $this->getCachedHistoricalData($symbol, $timestamp->format('Y-m-d'))
             : null;
 
         if (!empty($historicalData)) {
-            LOG::info("FinanceAPI->getHistoricalQuoteData($symbol, "
-                      . $timestamp->format('Y-m-d') . ") => close: "
-                      . $historicalData->getClose()
-                      . " from cache");
+            // LOG::info("FinanceAPI->getHistoricalQuoteData($symbol, "
+            //           . $timestamp->format('Y-m-d') . ") => close: "
+            //           . $historicalData->getClose()
+            //           . " from cache");
         } else {
             // LOG::info("FinanceAPI->getHistoricalQuoteData($symbol, "
             //           . $timestamp->format('Y-m-d') . ") from FinanceAPI");
@@ -296,12 +329,12 @@ class FinanceAPI
                     return null;
                 }
                 $historicalData = $historicalDataResponse[0];
-                LOG::info("FinanceAPI->getHistoricalQuoteData($symbol, "
-                          . $timestamp->format('Y-m-d') . ") => close: "
-                          . $historicalData->getClose()
-                          . " from FinanceAPI");
+                // LOG::info("FinanceAPI->getHistoricalQuoteData($symbol, "
+                //           . $timestamp->format('Y-m-d') . ") => close: "
+                //           . $historicalData->getClose()
+                //           . " from FinanceAPI");
 
-                $this->cacheHistoricalData($quote, $historicalData);
+                $this->cacheHistoricalData($quote, $historicalData, $persistStats);
             } catch (\Exception $e) {
                 LOG::warning("Couldn't get historical data for symbol $symbol,"
                     . " for date " . $timestamp->format('Y-m-d') . "!"
@@ -335,15 +368,21 @@ class FinanceAPI
 
         $interval = ApiClient::INTERVAL_1_DAY;
 
-        LOG::info("FinanceAPI->getHistoricalPeriodQuoteData($symbol, start: "
-                  . $startDate->format('Y-m-d') . ", end: "
-                  . $endDate->format('Y-m-d') . ") from FinanceAPI");
+        Log::info(
+            "FinanceAPI->getHistoricalPeriodQuoteData($symbol, start: "
+            . $startDate->format('Y-m-d') . ", end: "
+            . $endDate->format('Y-m-d') . ") from FinanceAPI"
+        );
 
         $client = $this->getClient();
 
         try {
-            $historicalDataResponse = $client->getHistoricalQuoteData($symbol,
-                $interval, $startDate, $endDate);
+            $historicalDataResponse = $client->getHistoricalQuoteData(
+                $symbol,
+                $interval,
+                $startDate,
+                $endDate
+            );
 
             if (empty($historicalDataResponse)
                 || !is_array($historicalDataResponse)
@@ -353,8 +392,10 @@ class FinanceAPI
             }
             return $historicalDataResponse;
         } catch (\Exception $e) {
-            LOG::warning("Couldn't get historical data for symbol $symbol!"
-                . " Exception message: " . $e->getMessage());
+            Log::warning(
+                "Couldn't get historical data for symbol $symbol!"
+                . " Exception message: " . $e->getMessage()
+            );
             return null;
         }
     }
@@ -370,16 +411,25 @@ class FinanceAPI
         return $numCached;
     }
 
+    /**
+     * Cache quote in FinanceAPI cache (2 minute TTL)
+     *
+     * persistStats controls whether to write to database (stat_today table)
+     * Set to false when you want to cache in FinanceAPI but NOT persist to DB
+     * Use case: Returns endpoint always uses persistStats=false to avoid DB pollution
+     */
     public function cacheQuote(Quote $quote, bool $persistStats = true): bool
     {
         $symbol = $quote->getSymbol();
         $key = 'QUOTE_' . $symbol;
         $value = serialize($quote);
 
+        // persistStats controls whether to write to database (stat_today table)
         if ($persistStats) {
             Stats::persistQuote($quote);
         }
 
+        // FinanceAPI cache: 2 minutes TTL
         return Cache::add($key, $value, 60*2); // cached for 2 minutes
     }
 
@@ -407,10 +457,15 @@ class FinanceAPI
         $key = 'HISTORICAL_DATA_' . $symbol . '_' . $date;
         $value = serialize($historicalData);
 
+        // persistStats controls whether to write to database (stats_historical table)
+        // Set to false when you want to cache in FinanceAPI but NOT persist to DB
+        // Use case: Returns endpoint always uses persistStats=false to avoid DB pollution
         if ($persistStats) {
             Stats::persistHistoricalData($quote, $historicalData);
         }
 
+        // FinanceAPI cache: 10 minutes TTL
+        // Short-lived but helps avoid duplicate API calls within same time window
         return Cache::add($key, $value, 60*10); // cached for 10 minutes
     }
 

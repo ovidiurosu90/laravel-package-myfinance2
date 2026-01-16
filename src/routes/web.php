@@ -22,6 +22,8 @@ Route::group([
 
     Route::get('finance-home', 'HomeController@index')->name('home');
     Route::get('positions', 'PositionsController@index');
+    Route::get('returns', 'ReturnsController@index')->name('returns.index');
+    Route::post('returns/clear-cache', 'ReturnsController@clearCache')->name('returns.clear-cache');
     Route::get('funding', 'FundingController@index');
     Route::get('timeline', 'TimelineController@index')->name('timeline');
 });

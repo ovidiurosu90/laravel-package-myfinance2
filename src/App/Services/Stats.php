@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace ovidiuro\myfinance2\App\Services;
 
 use Illuminate\Support\Facades\Log;
@@ -240,13 +242,12 @@ class Stats
                 */
             }
             $currentDaysBefore++;
-        } while (empty($results)
-                 && $currentDaysBefore <= $maxDaysBefore);
+        } while ($currentDaysBefore <= $maxDaysBefore);
 
         LOG::error('We were unable to get the stats for ' . $symbol
                   . ' for the requested date ('
                   . $date->format(trans('myfinance2::general.date-format'))
-                  . ') or before! This should never happen! '
+                  . ') or before! This should never happen (Stats 249)! '
                   . 'We still failed after all these tries!');
         return null;
     }
@@ -264,7 +265,7 @@ class Stats
     }
 
     public static function convertStatsToCurrency(?array $stats, string $currency)
-        :?array
+        : ?array
     {
         if (empty($stats)) {
             return $stats;
@@ -290,7 +291,7 @@ class Stats
     }
 
     public static function convertStatToCurrency(array $stat, string $currency)
-        :?array
+        : ?array
     {
         if (empty($stat) || empty($stat['currency_iso_code'])
             || $stat['currency_iso_code'] == $currency

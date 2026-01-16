@@ -163,5 +163,110 @@ class MoneyFormat
         return '<span class="' . $class . '">+ '
                    . number_format($value, 2) . ' %</span>';
     }
+
+    /**
+     * Format a plain number without HTML or currency wrapper
+     * Used for tooltip content, comparisons, and internal values
+     *
+     * @param double $value
+     * @param integer $numDecimals
+     *
+     * @return string (formatted number without HTML)
+     */
+    public static function get_formatted_number_plain($value, $numDecimals = 2)
+    {
+        return number_format($value, $numDecimals);
+    }
+
+    /**
+     * Format a price with intelligent decimal handling (plain, no HTML)
+     * Uses 2 decimals for round numbers, 4 decimals for detailed prices
+     * Used for tooltips and internal comparisons
+     *
+     * @param double $value
+     *
+     * @return string (formatted price without HTML or currency)
+     */
+    public static function get_formatted_price_plain($value)
+    {
+        $floatValue = (float)$value;
+        $numDecimals = self::get_price_decimals($floatValue);
+        return number_format($floatValue, $numDecimals);
+    }
+
+    /**
+     * Format an exchange rate with intelligent decimal handling (plain, no HTML)
+     * Uses 0 decimals for whole numbers, 4 decimals for detailed rates
+     * Safely casts string values from database
+     * Used for tooltips and internal comparisons
+     *
+     * @param mixed $value (string or float from database)
+     *
+     * @return string (formatted rate without HTML or currency)
+     */
+    public static function get_formatted_rate_plain($value)
+    {
+        $floatValue = (float)$value;
+        $numDecimals = self::get_rate_decimals($floatValue);
+        return number_format($floatValue, $numDecimals);
+    }
+
+    /**
+     * Get optimal decimal places for a price
+     * Returns 2 decimals if the price rounds to 2 decimals, otherwise 4
+     *
+     * @param mixed $value (string or float from database)
+     *
+     * @return integer (number of decimals to use)
+     */
+    public static function get_price_decimals($value)
+    {
+        $floatValue = (float)$value;
+        return round($floatValue, 2) == round($floatValue, 4) ? 2 : 4;
+    }
+
+    /**
+     * Get optimal decimal places for a quantity
+     * Returns 0 decimals if whole number, otherwise 6
+     *
+     * @param mixed $value (string or float from database)
+     *
+     * @return integer (number of decimals to use)
+     */
+    public static function get_quantity_decimals($value)
+    {
+        $floatValue = (float)$value;
+        return round($floatValue) == $floatValue ? 0 : 6;
+    }
+
+    /**
+     * Get optimal decimal places for an exchange rate
+     * Returns 0 decimals if whole number, otherwise 4
+     *
+     * @param mixed $value (string or float from database)
+     *
+     * @return integer (number of decimals to use)
+     */
+    public static function get_rate_decimals($value)
+    {
+        $floatValue = (float)$value;
+        return round($floatValue) == $floatValue ? 0 : 4;
+    }
+
+    /**
+     * Format a quantity with intelligent decimal handling (plain, no HTML)
+     * Uses 0 decimals for whole numbers, 6 decimals for fractional quantities
+     * Safely casts string values from database
+     *
+     * @param mixed $value (string or float from database)
+     *
+     * @return string (formatted quantity without HTML)
+     */
+    public static function get_formatted_quantity_plain($value)
+    {
+        $floatValue = (float)$value;
+        $numDecimals = self::get_quantity_decimals($floatValue);
+        return number_format($floatValue, $numDecimals);
+    }
 }
 
