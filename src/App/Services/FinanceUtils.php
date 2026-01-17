@@ -14,11 +14,11 @@ class FinanceUtils
 {
     /**
      * @param string $symbol
-     * @param int|null $timestamp
+     * @param string|null $timestamp
      *
      * @return array(price, currency, name, quote_timestamp) or null if failure
      */
-    public function getFinanceDataBySymbol(string $symbol, ?int $timestamp = null): ?array
+    public function getFinanceDataBySymbol(string $symbol, ?string $timestamp = null): ?array
     {
         $financeAPI = new FinanceAPI();
         $quote = $financeAPI->getQuote($symbol);
