@@ -50,6 +50,8 @@ class ReturnsValuation
         // Get positions and apply overrides
         $positionsService = new Positions();
         $positionsService->setWithUser($this->withUser);
+        // For Returns calculation, we need ALL trades (including CLOSED) to calculate realized gains
+        $positionsService->setIncludeClosedTrades(true);
         $trades = $positionsService->getTrades($date);
         $positions = Positions::tradesToPositions($trades);
         $accountPositions = $positions[$accountId] ?? [];

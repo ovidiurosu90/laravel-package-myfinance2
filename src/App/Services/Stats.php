@@ -16,6 +16,15 @@ class Stats
 {
     private static $_stats = null;
 
+    /**
+     * Clear the internal stats cache.
+     * Useful when running batch operations that modify stats between iterations.
+     */
+    public static function clearCache(): void
+    {
+        self::$_stats = null;
+    }
+
     private static function _fetchAndPrepareStats()
     {
         if (self::$_stats !== null) {

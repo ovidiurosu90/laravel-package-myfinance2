@@ -18,7 +18,7 @@ Attention! Avoid running disruptive actions that are hard to revert (git checkou
 
 **Fix storage framework permissions** (run in main laravel-admin project):
 ```bash
-sudo chown ovidiuro:www-data -R storage/framework/
+sudo chown $USER:www-data -R storage/framework/
 sudo chmod g+w -R storage/framework/
 ```
 

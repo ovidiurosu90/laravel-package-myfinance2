@@ -23,6 +23,14 @@ class Positions
      */
     private array $_extraSymbols = [];
 
+    /**
+     * @var bool
+     * Controls whether to include CLOSED trades in historical queries
+     * - true: Include closed trades (for Returns page - realized gains calculation)
+     * - false: Only OPEN trades (for Positions page - current holdings snapshot)
+     */
+    private bool $_includeClosedTrades = false;
+
     public function setWithUser(bool $withUser = true): void
     {
         if (!$withUser
@@ -39,6 +47,11 @@ class Positions
         $this->_extraSymbols = $extraSymbols;
     }
 
+    public function setIncludeClosedTrades(bool $includeClosedTrades = true): void
+    {
+        $this->_includeClosedTrades = $includeClosedTrades;
+    }
+
     /**
      * @return Collection<Trade>
      */
@@ -51,16 +64,34 @@ class Positions
                 ->withoutGlobalScope(AssignedToUserScope::class);
         }
 
-        // For historical queries, get ALL trades (BUY and SELL) to calculate net positions
-        // For current positions, only get trades with status='OPEN'
+        // Filter by status based on context:
+        // - Current positions: always OPEN only
+        // - Historical + $_includeClosedTrades=true: all trades (for Returns page)
+        // - Historical + $_includeClosedTrades=false: OPEN only (for Positions/Charts)
         if (empty($date)) {
+            // Current positions: always filter by OPEN
             $queryBuilder = $queryBuilder->where('status', 'OPEN');
+        } else {
+            // Historical positions: depends on $_includeClosedTrades flag
+            if (!$this->_includeClosedTrades) {
+                $queryBuilder = $queryBuilder->where('status', 'OPEN');
+            }
+            // else: include both OPEN and CLOSED for Returns calculation
         }
 
-        $trades = $queryBuilder
-            ->where('timestamp', '<', !empty($date) ? $date : \DB::raw('NOW()'))
-            ->orderBy('timestamp')
-            ->get();
+        // For historical queries, include all trades UP TO and INCLUDING the given date
+        // Use DATE() comparison to include all trades during that day
+        if (!empty($date)) {
+            $trades = $queryBuilder
+                ->whereRaw('DATE(timestamp) <= ?', [$date->format('Y-m-d')])
+                ->orderBy('timestamp')
+                ->get();
+        } else {
+            $trades = $queryBuilder
+                ->where('timestamp', '<=', \DB::raw('NOW()'))
+                ->orderBy('timestamp')
+                ->get();
+        }
 
         if (!$this->_withUser) {
             foreach ($trades as $trade) {
@@ -401,8 +432,16 @@ class Positions
             } else {
                 $position['price'] = $position['unit_price'];
                 $position['price_timestamp'] = new \DateTime();
-                LOG::warning("No quote price for symbol $symbol! "
-                             ."Defaulting to unit position price...");
+
+                // Only warn if symbol is not obsolete or delisted
+                $obsoleteSymbols = config('general.obsolete_symbols', []);
+                $delistedSymbols = config('trades.delisted_symbols', []);
+                if (!in_array($symbol, $obsoleteSymbols)
+                    && !in_array($symbol, $delistedSymbols, true)
+                ) {
+                    LOG::warning("No quote price for symbol $symbol! "
+                                 ."Defaulting to unit position price...");
+                }
             }
             // LOG::debug("quote: " . print_r($quote, true));
         }
@@ -433,8 +472,16 @@ class Positions
                     ? $quote['pre_market_day_change'] : false;
             } else {
                 $position['day_change'] = 0;
-                LOG::warning("No quote day change for symbol $symbol! "
-                             ."Defaulting to 0...");
+
+                // Only warn if symbol is not obsolete or delisted
+                $obsoleteSymbols = config('general.obsolete_symbols', []);
+                $delistedSymbols = config('trades.delisted_symbols', []);
+                if (!in_array($symbol, $obsoleteSymbols)
+                    && !in_array($symbol, $delistedSymbols, true)
+                ) {
+                    LOG::warning("No quote day change for symbol $symbol! "
+                                 ."Defaulting to 0...");
+                }
             }
             if (!empty($quote) && !empty($quote['day_change_percentage'])) {
                 $position['day_change_percentage'] = $quote['day_change_percentage'];
@@ -443,8 +490,16 @@ class Positions
                     ? $quote['pre_market_day_change_percentage'] : false;
             } else {
                 $position['day_change_percentage'] = 0;
-                LOG::warning("No quote day change percentage for symbol $symbol! "
-                             ."Defaulting to 0...");
+
+                // Only warn if symbol is not obsolete or delisted
+                $obsoleteSymbols = config('general.obsolete_symbols', []);
+                $delistedSymbols = config('trades.delisted_symbols', []);
+                if (!in_array($symbol, $obsoleteSymbols)
+                    && !in_array($symbol, $delistedSymbols, true)
+                ) {
+                    LOG::warning("No quote day change percentage for symbol $symbol! "
+                                 ."Defaulting to 0...");
+                }
             }
         }
 

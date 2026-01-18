@@ -66,6 +66,8 @@ class FinanceApiCron extends Command
             if ($historicalAccountOverview) {
                 while ($start <= $end) {
                     $this->refreshAccountOverview(new \DateTime($start));
+                    // Clear Stats cache so next iteration fetches fresh data from DB
+                    Stats::clearCache();
                     $start = (new \DateTime($start))->modify('+1 day')
                         ->format(trans('myfinance2::general.date-format'));
                 }
@@ -216,8 +218,19 @@ class FinanceApiCron extends Command
 
         $symbols = $this->getAllUsedSymbols();
         $financeAPI = new FinanceAPI();
+        $delistedSymbols = config('trades.delisted_symbols', []);
         $numHistoricalDataEntries = 0;
         foreach ($symbols as $symbol) {
+            // Skip delisted symbols - they won't have valid quotes from the API
+            if (in_array($symbol, $delistedSymbols, true)) {
+                continue;
+            }
+
+            // Skip unlisted symbols - they use FMV data from config, not API
+            if (FinanceAPI::isUnlisted($symbol)) {
+                continue;
+            }
+
             $quote = $financeAPI->getQuote($symbol);
             if (empty($quote)) {
                 continue;
@@ -240,8 +253,77 @@ class FinanceApiCron extends Command
             // LOG::debug(var_export($historicalData, true));
         }
 
-        Log::info('END app:finance-api-cron '
-            . "fetchHistorical() => $numHistoricalDataEntries data entries");
+        // Fetch historical exchange rates for the date range
+        $connection = config('myfinance2.db_connection');
+        $result = \DB::connection($connection)->select("
+            SELECT ac.iso_code AS account_currency_iso_code,
+                tc.iso_code AS trade_currency_iso_code
+            FROM trades t
+            LEFT OUTER JOIN accounts a ON t.account_id = a.id
+            LEFT OUTER JOIN currencies ac ON a.currency_id = ac.id
+            LEFT OUTER JOIN currencies tc ON t.trade_currency_id = tc.id
+            WHERE ac.iso_code <> tc.iso_code
+            GROUP BY 1, 2
+            ;
+        ");
+
+        if (!empty($result) && isset($result[0]->account_currency_iso_code)
+            && isset($result[0]->trade_currency_iso_code)
+        ) {
+            $currenciesReverseMapping = config('general.currencies_reverse_mapping');
+            $currencyPairs = [];
+            $symbols = [];
+            foreach ($result as $resultItem) {
+                $currencyPair = [
+                    $resultItem->account_currency_iso_code,
+                    $resultItem->trade_currency_iso_code,
+                ];
+
+                if (!empty($currenciesReverseMapping[$currencyPair[0]])) {
+                    $currencyPair[0] = $currenciesReverseMapping[$currencyPair[0]];
+                }
+                if (!empty($currenciesReverseMapping[$currencyPair[1]])) {
+                    $currencyPair[1] = $currenciesReverseMapping[$currencyPair[1]];
+                }
+                $currencyPairs[] = $currencyPair;
+                $symbols[] = $currencyPair[0] . $currencyPair[1] . '=X';
+            }
+
+            // Fetch exchange rates for each date in the range
+            $currentDate = new \DateTime($start);
+            $endDate = new \DateTime($end);
+            $numExchangeRateEntries = 0;
+
+            while ($currentDate <= $endDate) {
+                $historicalExchangeRates = $financeAPI
+                    ->getHistoricalExchangeRates($currencyPairs, $currentDate);
+
+                if (!empty($historicalExchangeRates)) {
+                    // Match historical data with symbols by index
+                    foreach ($historicalExchangeRates as $index => $historicalData) {
+                        if (!empty($historicalData) && isset($symbols[$index])) {
+                            $symbol = $symbols[$index];
+                            // Get quote for this exchange rate symbol
+                            $quote = $financeAPI->getQuote($symbol);
+                            if (!empty($quote)
+                                && Stats::persistHistoricalData($quote, $historicalData)
+                            ) {
+                                $numExchangeRateEntries++;
+                            }
+                        }
+                    }
+                }
+
+                $currentDate->modify('+1 day');
+            }
+
+            Log::info('END app:finance-api-cron fetchHistorical() => '
+                . "$numHistoricalDataEntries data entries, "
+                . "$numExchangeRateEntries exchange rate entries");
+        } else {
+            Log::info('END app:finance-api-cron '
+                . "fetchHistorical() => $numHistoricalDataEntries data entries");
+        }
     }
 
     public function refreshAccountOverview(\DateTimeInterface $date = null)

@@ -88,6 +88,7 @@ class FinanceAPI
         $missingCachedSymbols = [];
         $quotes = [];
         $obsoleteSymbols = config('general.obsolete_symbols');
+        $delistedSymbols = config('trades.delisted_symbols', []);
 
         foreach ($symbols as $symbol) {
             $quote = $checkCache ? $this->getCachedQuote($symbol) : null;
@@ -95,6 +96,7 @@ class FinanceAPI
                 $quotes[] = $quote;
             } else {
                 if (!in_array($symbol, $obsoleteSymbols)
+                    && !in_array($symbol, $delistedSymbols, true)
                     && !self::isUnlisted($symbol)
                 ) {
                     $missingCachedSymbols[] = $symbol;
@@ -235,7 +237,8 @@ class FinanceAPI
 
         Log::info(
             "FinanceAPI->getHistoricalExchangeRates("
-            . implode(', ', $symbols) . ") from FinanceAPI"
+            . implode(', ', $symbols) . ", date: " . $date->format('Y-m-d')
+            . ") from FinanceAPI"
         );
 
         $historicalDataItems = [];
@@ -247,9 +250,14 @@ class FinanceAPI
                 $historicalData = $this->getHistoricalQuoteData($quote, $date);
                 $historicalDataItems[] = $historicalData;
             } catch (\Exception $e) {
-                Log::warning(
-                    "Couldn't get the exchange rate for symbol '"
-                    . $symbol . "'. Exception message: " . $e->getMessage()
+                // Check if it's a weekend (expected failure)
+                $dayOfWeek = $date->format('N'); // 1 (Mon) to 7 (Sun)
+                $isWeekend = ($dayOfWeek >= 6);
+                $reason = $isWeekend ? ' (weekend, no trading)' : ' (likely holiday or data not yet available)';
+
+                Log::info(
+                    "No exchange rate data for symbol '"
+                    . $symbol . "', date: " . $date->format('Y-m-d') . $reason
                 );
                 return null;
             }
@@ -259,8 +267,14 @@ class FinanceAPI
             || !($historicalDataItems[0] instanceof HistoricalData)
             || count($symbols) != count($historicalDataItems)
         ) {
+            // Check if it's a weekend (expected failure)
+            $dayOfWeek = $date->format('N'); // 1 (Mon) to 7 (Sun)
+            $isWeekend = ($dayOfWeek >= 6);
+            $reason = $isWeekend ? ' (weekend, no trading)' : ' (likely holiday or data not yet available)';
+
             LOG::info("FinanceAPI->getHistoricalExchangeRates("
-                      . implode(', ', $symbols) . ") failed!");
+                      . implode(', ', $symbols) . ", date: " . $date->format('Y-m-d')
+                      . ") failed" . $reason);
             return null;
         }
 
@@ -329,24 +343,35 @@ class FinanceAPI
                     return null;
                 }
                 $historicalData = $historicalDataResponse[0];
+
+                // Validate price before caching - reject 0 or negative prices
+                $price = $historicalData->getClose();
+                if (empty($price) || $price <= 0) {
+                    LOG::info("Rejecting invalid price ($price) for $symbol on "
+                        . $timestamp->format('Y-m-d'));
+                    return null;
+                }
+
                 // LOG::info("FinanceAPI->getHistoricalQuoteData($symbol, "
                 //           . $timestamp->format('Y-m-d') . ") => close: "
-                //           . $historicalData->getClose()
-                //           . " from FinanceAPI");
+                //           . $price . " from FinanceAPI");
 
                 $this->cacheHistoricalData($quote, $historicalData, $persistStats);
             } catch (\Exception $e) {
-                LOG::warning("Couldn't get historical data for symbol $symbol,"
-                    . " for date " . $timestamp->format('Y-m-d') . "!"
-                    . " Exception message: " . $e->getMessage());
+                // Don't log here - will be logged once in the validation check below
             }
         }
 
         if (empty($historicalData)
             || !($historicalData instanceof HistoricalData)
         ) {
-            LOG::warning("Invalid historical data for symbol $symbol,"
-                    . " for date " . $timestamp->format('Y-m-d'));
+            // Check if it's a weekend (expected failure)
+            $dayOfWeek = $timestamp->format('N'); // 1 (Mon) to 7 (Sun)
+            $isWeekend = ($dayOfWeek >= 6);
+            $reason = $isWeekend ? ' (weekend, no trading)' : ' (likely holiday or data not yet available)';
+
+            LOG::info("No historical data for symbol $symbol,"
+                    . " date " . $timestamp->format('Y-m-d') . $reason);
             return null;
         }
 
@@ -390,7 +415,20 @@ class FinanceAPI
             ) {
                 return null;
             }
-            return $historicalDataResponse;
+
+            // Filter out entries with invalid prices (0 or negative)
+            $validData = [];
+            foreach ($historicalDataResponse as $historicalData) {
+                $price = $historicalData->getClose();
+                if (!empty($price) && $price > 0) {
+                    $validData[] = $historicalData;
+                } else {
+                    LOG::info("Rejecting invalid price ($price) for $symbol on "
+                        . $historicalData->getDate()->format('Y-m-d'));
+                }
+            }
+
+            return empty($validData) ? null : $validData;
         } catch (\Exception $e) {
             Log::warning(
                 "Couldn't get historical data for symbol $symbol!"

@@ -96,13 +96,35 @@ sudo chmod -R 775 app
 ### Get historical data
 
 ```bash
-sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Repositories/laravel-admin/ && php artisan app:finance-api-cron --historical --start=2025-01-01 --end=2025-05-15"
+# Clear cache
+sudo rm -rf storage/app/charts/*
+sudo chown $USER:www-data -R storage/framework/
+sudo chmod g+w -R storage/framework/
+php artisan cache:clear && php artisan config:cache
 
+# Purpose: Backfills raw historical stock prices, useful for charting or after adding new symbols
+# For each symbol (stock ticker) in your portfolio:
+# - Fetches historical price data (open, high, low, close) from Yahoo Finance
+# - (Added) Fetches exchange rates
+# - Persists raw daily price points to database via Stats::persistHistoricalData()
+# Key difference:
+# - --historical                  → fetches stock prices per symbol
+# - --historical-account-overview → calculates account statistics per account/date
+# (NOT in crontab)
+sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Repositories/laravel-admin/ && php artisan app:finance-api-cron --historical --start=2026-01-08 --end=2026-01-18"
+
+# Purpose: Maintains a complete week of historical account performance data for trend analysis and recovery after downtime
+# For each historical date:
+# - Recalculates account statistics as they were on that specific date
+# - Persists: cost, market value, change, cash balance per account
+# - Rebuilds historical chart data points
+# NOTE This command expects data to be already in, so run the command from above
+# NOTE If we use the same start & end dates for both commands, it may fail if there is no failover. To go around that, extend the first command to the left with a few days
 sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Repositories/laravel-admin/ && php artisan app:finance-api-cron --historical-account-overview --start=$(date +%Y-%m-%d --date '-8 day') --end=$(date +%Y-%m-%d --date '-1 day')"
 ```
 
 
-### Enable finance-api-cron for better performance
+### Enable finance-api-cron for better performance & maintaining a complete week of historical account data
 
 ```bash
 cd ~/Repositories/laravel-admin/
@@ -117,12 +139,24 @@ sudo su
 crontab -e
 
 #############
-# We need two jobs to run every 30 seconds
+# Purpose: Keeps your portfolio data fresh with live market prices
+# - refreshQuotes(): Fetches current market prices for all symbols (stocks) in your trades, dividends, and watchlist
+# - refreshExchangeRates(): Fetches current exchange rates for all currency pairs used in multi-currency trades
+# - refreshAccountOverview(): Calculates and persists current account statistics (total cost, market value, change, cash balance) and builds real-time charts
+
 * * * * * su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; export LD_PRELOAD=/usr/local/lib/libcurl-impersonate-chrome.so; export CURL_IMPERSONATE=chrome116; cd [USER_HOME]/Repositories/laravel-admin/ && cpulimit -l 50 -- php artisan app:finance-api-cron >> [USER_HOME]/Repositories/laravel-admin/storage/logs/finance-api-cron.log 2>&1"
-* * * * * ( sleep 30; su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; export LD_PRELOAD=/usr/local/lib/libcurl-impersonate-chrome.so; export CURL_IMPERSONATE=chrome116; cd [USER_HOME]/Repositories/laravel-admin/ && cpulimit -l 50 -- php artisan app:finance-api-cron >> [USER_HOME]/Repositories/laravel-admin/storage/logs/finance-api-cron.log 2>&1" )
+
+# Uncomment the next line if you want to have twice-per-minute updates
+#* * * * * ( sleep 30; su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; export LD_PRELOAD=/usr/local/lib/libcurl-impersonate-chrome.so; export CURL_IMPERSONATE=chrome116; cd [USER_HOME]/Repositories/laravel-admin/ && cpulimit -l 50 -- php artisan app:finance-api-cron >> [USER_HOME]/Repositories/laravel-admin/storage/logs/finance-api-cron.log 2>&1" )
 #############
 
 #############
+# Purpose: Maintains a complete week of historical account performance data for trend analysis and recovery after downtime
+# For each historical date:
+# - Recalculates account statistics as they were on that specific date
+# - Persists: cost, market value, change, cash balance per account
+# - Rebuilds historical chart data points
+
 # Run the job every day at 06:01 => get the past week
 HISTORICAL_START=$(date +%Y-%m-%d --date '-8 day')
 HISTORICAL_END=$(date +%Y-%m-%d --date '-1 day')
@@ -135,7 +169,7 @@ HISTORICAL_END=$(date +%Y-%m-%d --date '-1 day')
 ```
 
 
-### Setup stats-cron
+### Setup stats-cron for cleanup
 
 ```bash
 cd ~/Repositories/laravel-admin/
@@ -148,11 +182,14 @@ sudo su
 crontab -e
 
 #############
+# Prevents accumulation of stale real-time statistics, maintains clean database
+# - cleanupStatsToday(): Deletes old rows from stats_today table (rows in stats_today with data from yesterday or before)
+
 # Run the job every hour at minute 24
 24 * * * * su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Repositories/laravel-admin/ && cpulimit -l 50 -- php artisan app:stats-cron >> [USER_HOME]/Repositories/laravel-admin/storage/logs/stats-cron.log 2>&1"
 
-# Run the job 530s after reboot
-@reboot sleep 530 && su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Repositories/laravel-admin/ && cpulimit -l 50 -- php artisan app:stats-cron >> [USER_HOME]/Repositories/laravel-admin/storage/logs/stats-cron.log 2>&1"
+# Run the job 200s after reboot
+@reboot sleep 200 && su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Repositories/laravel-admin/ && cpulimit -l 50 -- php artisan app:stats-cron >> [USER_HOME]/Repositories/laravel-admin/storage/logs/stats-cron.log 2>&1"
 #############
 ```
 
