@@ -91,8 +91,8 @@ class ReturnsQuoteProvider
     ): ?array {
         $currentDate = clone $date;
 
-        // Try current date and up to 7 days prior
-        for ($attempt = 0; $attempt < 7; $attempt++) {
+        // Try current date and up to MAX_FALLBACK_DAYS prior
+        for ($attempt = 0; $attempt < ReturnsConstants::MAX_FALLBACK_DAYS; $attempt++) {
             $price = $this->getOverride($symbol, $accountId, $currentDate, 'price');
             if ($price !== null) {
                 $dateStr = $currentDate->format('Y-m-d');
@@ -128,7 +128,7 @@ class ReturnsQuoteProvider
 
         $startDate = clone $dateTime;
 
-        for ($apiAttempts = 0; $apiAttempts < 7; $apiAttempts++) {
+        for ($apiAttempts = 0; $apiAttempts < ReturnsConstants::MAX_FALLBACK_DAYS; $apiAttempts++) {
             try {
                 $financeAPI = $this->getFinanceAPI();
                 // Create minimal quote object without API call
@@ -188,7 +188,7 @@ class ReturnsQuoteProvider
 
         // Layer 3: Persistent cache (1 hour TTL across all years)
         $cacheKey = 'returns_stat_' . $symbol . '_' . $date->format('Y-m-d');
-        Cache::put($cacheKey, $stat, 3600); // 1 hour
+        Cache::put($cacheKey, $stat, ReturnsConstants::QUOTE_CACHE_TTL);
     }
 
     /**
@@ -302,7 +302,7 @@ class ReturnsQuoteProvider
 
         Log::warning(
             "Could not get historical data for $symbol on or before "
-            . $date->format('Y-m-d') . " after 7 attempts"
+            . $date->format('Y-m-d') . " after " . ReturnsConstants::MAX_FALLBACK_DAYS . " attempts"
         );
         return null;
     }
@@ -351,8 +351,8 @@ class ReturnsQuoteProvider
 
         $currentDate = clone $date;
 
-        // Try current date and up to 7 days prior
-        for ($attempt = 0; $attempt < 7; $attempt++) {
+        // Try current date and up to MAX_FALLBACK_DAYS prior
+        for ($attempt = 0; $attempt < ReturnsConstants::MAX_FALLBACK_DAYS; $attempt++) {
             $rate = $this->getOverride($symbol, $accountId, $currentDate, 'exchange_rate');
             if ($rate !== null) {
                 $overrideDateStr = $currentDate->format('Y-m-d');
@@ -387,7 +387,7 @@ class ReturnsQuoteProvider
     ): ?float {
         $startDate = clone $dateTime;
 
-        for ($apiAttempts = 0; $apiAttempts < 7; $apiAttempts++) {
+        for ($apiAttempts = 0; $apiAttempts < ReturnsConstants::MAX_FALLBACK_DAYS; $apiAttempts++) {
             try {
                 $financeAPI = $this->getFinanceAPI();
                 $quote = $this->createMinimalQuoteForExchangeRate($symbol);
@@ -443,11 +443,11 @@ class ReturnsQuoteProvider
         $inMemoryKey = $symbol . '_' . $date->format('Y-m-d');
         $this->exchangeRateStatsCache[$inMemoryKey] = $stat;
 
-        // Layer 3: Persistent cache (1 hour TTL across all years)
+        // Layer 3: Persistent cache (TTL across all years)
         $cacheKey = 'returns_exchange_rate_' . $symbol . '_' . $date->format(
             'Y-m-d'
         );
-        Cache::put($cacheKey, $stat, 3600); // 1 hour
+        Cache::put($cacheKey, $stat, ReturnsConstants::QUOTE_CACHE_TTL);
     }
 
     /**

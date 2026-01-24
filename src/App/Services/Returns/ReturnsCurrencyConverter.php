@@ -16,11 +16,16 @@ use ovidiuro\myfinance2\App\Services\MoneyFormat;
  */
 class ReturnsCurrencyConverter
 {
-    private ReturnsQuoteProvider $quoteProvider;
+    private ReturnsQuoteProvider $_quoteProvider;
+    private ReturnsCurrencyFormatter $_formatter;
 
-    public function __construct(ReturnsQuoteProvider $quoteProvider = null)
+    public function __construct(
+        ReturnsQuoteProvider $quoteProvider = null,
+        ReturnsCurrencyFormatter $formatter = null
+    )
     {
-        $this->quoteProvider = $quoteProvider ?? new ReturnsQuoteProvider();
+        $this->_quoteProvider = $quoteProvider ?? new ReturnsQuoteProvider();
+        $this->_formatter = $formatter ?? new ReturnsCurrencyFormatter();
     }
 
     /**
@@ -42,22 +47,22 @@ class ReturnsCurrencyConverter
 
 
         // Load fee exclusions from config
-        $feesExclusions = $this->getFeeExclusions($accountId, $year);
+        $feesExclusions = $this->_getFeeExclusions($accountId, $year);
 
         // Pre-fetch all exchange rates and currency models
-        $exchangeRates = $this->prefetchExchangeRates(
+        $exchangeRates = $this->_prefetchExchangeRates(
             $accountId,
             $baseCurrency,
             $targetCurrencies,
             $jan1,
             $dec31
         );
-        $eurusdRates = $this->getEurusdRates($accountId, $jan1, $dec31);
-        $currencyModels = $this->getCurrencyModels($targetCurrencies);
+        $eurusdRates = $this->_getEurusdRates($accountId, $jan1, $dec31);
+        $currencyModels = $this->_getCurrencyModels($targetCurrencies);
 
         $result = [];
         foreach ($targetCurrencies as $targetCurrency) {
-            $result[$targetCurrency] = $this->convertToSingleCurrency(
+            $result[$targetCurrency] = $this->_convertToSingleCurrency(
                 $accountId,
                 $returnsData,
                 $targetCurrency,
@@ -75,7 +80,7 @@ class ReturnsCurrencyConverter
     /**
      * Get fee exclusions from config for a specific account and year
      */
-    private function getFeeExclusions(int $accountId, ?int $year): array
+    private function _getFeeExclusions(int $accountId, ?int $year): array
     {
         if ($year === null) {
             return [];
@@ -100,22 +105,23 @@ class ReturnsCurrencyConverter
     /**
      * Prefetch exchange rates for all target currencies
      */
-    private function prefetchExchangeRates(
+    private function _prefetchExchangeRates(
         int $accountId,
         string $baseCurrency,
         array $targetCurrencies,
         \DateTimeInterface $jan1,
         \DateTimeInterface $dec31
-    ): array {
+    ): array
+    {
         $exchangeRates = [];
         foreach ($targetCurrencies as $targetCurrency) {
-            $jan1Rate = $this->quoteProvider->getExchangeRate(
+            $jan1Rate = $this->_quoteProvider->getExchangeRate(
                 $accountId,
                 $baseCurrency,
                 $targetCurrency,
                 $jan1
             );
-            $dec31Rate = $this->quoteProvider->getExchangeRate(
+            $dec31Rate = $this->_quoteProvider->getExchangeRate(
                 $accountId,
                 $baseCurrency,
                 $targetCurrency,
@@ -134,25 +140,26 @@ class ReturnsCurrencyConverter
     /**
      * Get EURUSD rates for both dates
      */
-    private function getEurusdRates(
+    private function _getEurusdRates(
         int $accountId,
         \DateTimeInterface $jan1,
         \DateTimeInterface $dec31
-    ): array {
-        $jan1Rate = $this->quoteProvider->getExchangeRate($accountId, 'EUR', 'USD', $jan1);
-        $dec31Rate = $this->quoteProvider->getExchangeRate($accountId, 'EUR', 'USD', $dec31);
+    ): array
+    {
+        $jan1Rate = $this->_quoteProvider->getExchangeRate($accountId, 'EUR', 'USD', $jan1);
+        $dec31Rate = $this->_quoteProvider->getExchangeRate($accountId, 'EUR', 'USD', $dec31);
 
 
         return [
-            'jan1' => $this->quoteProvider->formatCleanExchangeRate($jan1Rate),
-            'dec31' => $this->quoteProvider->formatCleanExchangeRate($dec31Rate),
+            'jan1' => $this->_quoteProvider->formatCleanExchangeRate($jan1Rate),
+            'dec31' => $this->_quoteProvider->formatCleanExchangeRate($dec31Rate),
         ];
     }
 
     /**
      * Get currency models for all target currencies in a single query
      */
-    private function getCurrencyModels(array $targetCurrencies): array
+    private function _getCurrencyModels(array $targetCurrencies): array
     {
         // Batch load all currencies in a single query instead of individual lookups
         $currencies = Currency::whereIn(
@@ -179,7 +186,7 @@ class ReturnsCurrencyConverter
     /**
      * Convert returns data to a single target currency
      */
-    private function convertToSingleCurrency(
+    private function _convertToSingleCurrency(
         int $accountId,
         array $returnsData,
         string $targetCurrency,
@@ -188,7 +195,8 @@ class ReturnsCurrencyConverter
         array $eurusdRates,
         array $currencyModels,
         array $feesExclusions = []
-    ): array {
+    ): array
+    {
         $jan1ExchangeRate = $exchangeRates[$targetCurrency]['jan1'];
         $dec31ExchangeRate = $exchangeRates[$targetCurrency]['dec31'];
         $currencyModel = $currencyModels[$targetCurrency];
@@ -211,7 +219,7 @@ class ReturnsCurrencyConverter
         ];
 
         // Convert positions and deposits/withdrawals
-        $converted['jan1PositionDetails'] = $this->convertPositionDetails(
+        $converted['jan1PositionDetails'] = $this->_convertPositionDetails(
             $returnsData['jan1PositionDetails'] ?? [],
             $jan1ExchangeRate,
             $eurusdRates['jan1'],
@@ -219,7 +227,7 @@ class ReturnsCurrencyConverter
             $displayCode
         );
 
-        $converted['dec31PositionDetails'] = $this->convertPositionDetails(
+        $converted['dec31PositionDetails'] = $this->_convertPositionDetails(
             $returnsData['dec31PositionDetails'] ?? [],
             $dec31ExchangeRate,
             $eurusdRates['dec31'],
@@ -227,7 +235,7 @@ class ReturnsCurrencyConverter
             $displayCode
         );
 
-        $depositResult = $this->convertDepositsOrWithdrawals(
+        $depositResult = $this->_convertDepositsOrWithdrawals(
             $accountId,
             'deposit',
             $returnsData['deposits'] ?? [],
@@ -239,7 +247,7 @@ class ReturnsCurrencyConverter
         $converted['deposits'] = $depositResult['items'];
         $converted['totalDeposits'] = $depositResult['total'];
 
-        $withdrawalResult = $this->convertDepositsOrWithdrawals(
+        $withdrawalResult = $this->_convertDepositsOrWithdrawals(
             $accountId,
             'withdrawal',
             $returnsData['withdrawals'] ?? [],
@@ -249,9 +257,24 @@ class ReturnsCurrencyConverter
             $displayCode
         );
         $converted['withdrawals'] = $withdrawalResult['items'];
-        $converted['totalWithdrawals'] = $withdrawalResult['total'];
+        $converted['totalWithdrawalsCalculated'] = $withdrawalResult['total'];
 
-        $dividendResult = $this->convertDepositsOrWithdrawals(
+        // Check for currency-specific withdrawals override
+        $withdrawalsOverride = null;
+        if (is_array($returnsData['totalWithdrawalsOverride'] ?? null)) {
+            $withdrawalsOverride = $returnsData['totalWithdrawalsOverride'][$targetCurrency] ?? null;
+        }
+
+        if ($withdrawalsOverride !== null) {
+            // Use the currency-specific override value
+            $converted['totalWithdrawals'] = $withdrawalsOverride;
+            $converted['totalWithdrawalsOverride'] = $returnsData['totalWithdrawalsOverride'];
+        } else {
+            // Use calculated total
+            $converted['totalWithdrawals'] = $withdrawalResult['total'];
+        }
+
+        $dividendResult = $this->_convertDepositsOrWithdrawals(
             $accountId,
             'dividend',
             $returnsData['dividends'] ?? [],
@@ -281,7 +304,7 @@ class ReturnsCurrencyConverter
         }
 
         // Convert stock purchases
-        $purchaseResult = $this->convertDepositsOrWithdrawals(
+        $purchaseResult = $this->_convertDepositsOrWithdrawals(
             $accountId,
             'purchase',
             $returnsData['purchases'] ?? [],
@@ -295,7 +318,7 @@ class ReturnsCurrencyConverter
         $converted['totalPurchasesFees'] = $purchaseResult['totalFees'] ?? 0;
 
         // Convert stock sales
-        $saleResult = $this->convertDepositsOrWithdrawals(
+        $saleResult = $this->_convertDepositsOrWithdrawals(
             $accountId,
             'sale',
             $returnsData['sales'] ?? [],
@@ -343,7 +366,7 @@ class ReturnsCurrencyConverter
         $converted['totalSalesExcludedFees'] = $salesExcludedFees;
 
         // Convert excluded trades for informational display
-        $excludedResult = $this->convertDepositsOrWithdrawals(
+        $excludedResult = $this->_convertDepositsOrWithdrawals(
             $accountId,
             'excluded',
             $returnsData['excludedTrades'] ?? [],
@@ -355,7 +378,8 @@ class ReturnsCurrencyConverter
         $converted['excludedTrades'] = $excludedResult['items'];
 
         // Calculate return using the final gross dividends value (which includes override if available)
-        // Return = Dividends + End value – Start value – Deposits + Withdrawals – Purchases (including fees) + Sales (including fees)
+        // Return = Dividends + End value – Start value – Deposits + Withdrawals
+        //          – Purchases (including fees) + Sales (including fees)
         $actualReturn = $converted['totalGrossDividends'] + $converted['dec31Value']
             - $converted['jan1Value'] - $converted['totalDeposits'] + $converted['totalWithdrawals']
             - ($converted['totalPurchasesNet'] ?? $converted['totalPurchases'])
@@ -376,7 +400,7 @@ class ReturnsCurrencyConverter
             MoneyFormat::get_formatted_gain($displayCode, $actualReturn);
 
         // Add formatted totals and return
-        $this->formatConvertedValues($converted, $displayCode);
+        $this->_formatter->formatConvertedValues($converted, $displayCode);
 
         return $converted;
     }
@@ -384,13 +408,14 @@ class ReturnsCurrencyConverter
     /**
      * Convert position details to target currency
      */
-    private function convertPositionDetails(
+    private function _convertPositionDetails(
         array $positions,
         float $exchangeRate,
         string $eurusdRate,
         string $conversionPair,
         string $displayCode
-    ): array {
+    ): array
+    {
         $converted = [];
         foreach ($positions as $position) {
             $convertedPosition = $position;
@@ -403,7 +428,7 @@ class ReturnsCurrencyConverter
                 );
             $convertedPosition['conversionExchangeRate'] = $exchangeRate;
             $convertedPosition['conversionExchangeRateClean'] =
-                $this->quoteProvider->formatCleanExchangeRate($exchangeRate);
+                $this->_quoteProvider->formatCleanExchangeRate($exchangeRate);
             $convertedPosition['conversionPair'] = $conversionPair;
             $convertedPosition['eurusdRate'] = $eurusdRate;
             $converted[] = $convertedPosition;
@@ -414,7 +439,7 @@ class ReturnsCurrencyConverter
     /**
      * Convert deposits or withdrawals to target currency
      */
-    private function convertDepositsOrWithdrawals(
+    private function _convertDepositsOrWithdrawals(
         int $accountId,
         string $type,
         array $items,
@@ -422,7 +447,8 @@ class ReturnsCurrencyConverter
         string $targetCurrency,
         string $conversionPair,
         string $displayCode
-    ): array {
+    ): array
+    {
         $converted = [];
         $total = 0;
         $totalWithFees = 0;
@@ -437,13 +463,13 @@ class ReturnsCurrencyConverter
         $exchangeRateCache = [];
         foreach (array_keys($uniqueDates) as $dateKey) {
             $itemDate = new \DateTime($dateKey);
-            $mainRate = $this->quoteProvider->getExchangeRate(
+            $mainRate = $this->_quoteProvider->getExchangeRate(
                 $accountId,
                 $baseCurrency,
                 $targetCurrency,
                 $itemDate
             );
-            $eurusdRate = $this->quoteProvider->getExchangeRate(
+            $eurusdRate = $this->_quoteProvider->getExchangeRate(
                 $accountId,
                 'EUR',
                 'USD',
@@ -487,14 +513,14 @@ class ReturnsCurrencyConverter
                     // Use stored exchange rate to convert to target currency
                     // Divide by exchange rate (inverse, as stored in records)
                     $exchangeRate = 1.0 / $storedRate;
-                    $eurusdRate = $this->quoteProvider->formatCleanExchangeRate($storedRate);
+                    $eurusdRate = $this->_quoteProvider->formatCleanExchangeRate($storedRate);
                     $usedStoredRate = true;
                     $showMissingRateWarning = false;
 
                 } else {
                     // No stored rate or rate is 1.0 - fetch from API
                     $exchangeRate = $exchangeRateCache[$dateKey]['main'];
-                    $eurusdRate = $this->quoteProvider->formatCleanExchangeRate(
+                    $eurusdRate = $this->_quoteProvider->formatCleanExchangeRate(
                         $exchangeRateCache[$dateKey]['eurusd']
                     );
                     $usedStoredRate = false;
@@ -505,7 +531,7 @@ class ReturnsCurrencyConverter
             } else {
                 // For deposits/withdrawals, use fetched exchange rates
                 $exchangeRate = $exchangeRateCache[$dateKey]['main'];
-                $eurusdRate = $this->quoteProvider->formatCleanExchangeRate(
+                $eurusdRate = $this->_quoteProvider->formatCleanExchangeRate(
                     $exchangeRateCache[$dateKey]['eurusd']
                 );
 
@@ -544,7 +570,7 @@ class ReturnsCurrencyConverter
             $convertedItem['eurusdRate'] = $eurusdRate;
             $convertedItem['conversionPair'] = $itemConversionPair;
             $convertedItem['conversionExchangeRateClean'] =
-                $this->quoteProvider->formatCleanExchangeRate($exchangeRate);
+                $this->_quoteProvider->formatCleanExchangeRate($exchangeRate);
             $convertedItem['usedStoredRate'] = $usedStoredRate;
             $convertedItem['showMissingRateWarning'] = $showMissingRateWarning;
 
@@ -568,176 +594,5 @@ class ReturnsCurrencyConverter
         ];
     }
 
-    /**
-     * Format all values in converted returns data
-     */
-    private function formatConvertedValues(array &$converted, string $displayCode): void
-    {
-        $converted['jan1ValueFormatted'] = MoneyFormat::get_formatted_balance(
-            $displayCode,
-            $converted['jan1Value']
-        );
-        $converted['dec31ValueFormatted'] = MoneyFormat::get_formatted_balance(
-            $displayCode,
-            $converted['dec31Value']
-        );
-        $converted['jan1PositionsValueFormatted'] =
-            MoneyFormat::get_formatted_balance(
-                $displayCode,
-                $converted['jan1PositionsValue']
-            );
-        $converted['dec31PositionsValueFormatted'] =
-            MoneyFormat::get_formatted_balance(
-                $displayCode,
-                $converted['dec31PositionsValue']
-            );
-        $converted['jan1CashValueFormatted'] =
-            MoneyFormat::get_formatted_balance(
-                $displayCode,
-                $converted['jan1CashValue']
-            );
-        $converted['dec31CashValueFormatted'] =
-            MoneyFormat::get_formatted_balance(
-                $displayCode,
-                $converted['dec31CashValue']
-            );
-        $converted['totalDepositsFormatted'] =
-            MoneyFormat::get_formatted_balance(
-                $displayCode,
-                $converted['totalDeposits']
-            );
-        $converted['totalWithdrawalsFormatted'] =
-            MoneyFormat::get_formatted_balance(
-                $displayCode,
-                $converted['totalWithdrawals']
-            );
-        $converted['totalGrossDividendsFormatted'] =
-            MoneyFormat::get_formatted_balance(
-                $displayCode,
-                $converted['totalGrossDividends']
-            );
-
-        // Format calculated value if it exists and is different from the main value
-        if (isset($converted['totalGrossDividendsCalculated'])) {
-            $converted['totalGrossDividendsCalculatedFormatted'] =
-                MoneyFormat::get_formatted_balance(
-                    $displayCode,
-                    $converted['totalGrossDividendsCalculated']
-                );
-        }
-
-        // Format override value if it exists
-        if (isset($converted['totalGrossDividendsOverride'])) {
-            $converted['totalGrossDividendsOverrideFormatted'] =
-                MoneyFormat::get_formatted_balance(
-                    $displayCode,
-                    $converted['totalGrossDividendsOverride']
-                );
-        } else {
-            $converted['totalGrossDividendsOverrideFormatted'] = null;
-        }
-
-        // Format individual purchases and sales for proper currency switching
-        if (!empty($converted['purchases'])) {
-            foreach ($converted['purchases'] as &$purchase) {
-                $amountToFormat = $purchase['principal_amount'] ?? 0;
-                $purchase['principalAmountFormatted'] = MoneyFormat::get_formatted_balance(
-                    $displayCode,
-                    $amountToFormat
-                );
-                // Format converted fee
-                if (!empty($purchase['fee'])) {
-                    $purchase['feeFormatted'] = MoneyFormat::get_formatted_balance(
-                        $displayCode,
-                        $purchase['fee']
-                    );
-                }
-            }
-            unset($purchase);
-        }
-
-        if (!empty($converted['sales'])) {
-            foreach ($converted['sales'] as &$sale) {
-                $amountToFormat = $sale['principal_amount'] ?? 0;
-                $sale['principalAmountFormatted'] = MoneyFormat::get_formatted_balance(
-                    $displayCode,
-                    $amountToFormat
-                );
-                // Format converted fee
-                if (!empty($sale['fee'])) {
-                    $sale['feeFormatted'] = MoneyFormat::get_formatted_balance(
-                        $displayCode,
-                        $sale['fee']
-                    );
-                }
-            }
-            unset($sale);
-        }
-
-        // Format purchase and sale totals (use net totals from base returns, already calculated)
-        if (isset($converted['totalPurchases'])) {
-            $converted['totalPurchasesFormatted'] =
-                MoneyFormat::get_formatted_balance(
-                    $displayCode,
-                    $converted['totalPurchases']
-                );
-        }
-
-        if (isset($converted['totalPurchasesFees'])) {
-            $converted['totalPurchasesFeesFormatted'] =
-                MoneyFormat::get_formatted_balance(
-                    $displayCode,
-                    $converted['totalPurchasesFees']
-                );
-        }
-
-        if (isset($converted['totalPurchasesExcludedFees'])) {
-            $converted['totalPurchasesExcludedFeesFormatted'] =
-                MoneyFormat::get_formatted_balance(
-                    $displayCode,
-                    $converted['totalPurchasesExcludedFees']
-                );
-        }
-
-        if (isset($converted['totalPurchasesNet'])) {
-            $converted['totalPurchasesNetFormatted'] =
-                MoneyFormat::get_formatted_balance(
-                    $displayCode,
-                    $converted['totalPurchasesNet']
-                );
-        }
-
-        if (isset($converted['totalSales'])) {
-            $converted['totalSalesFormatted'] =
-                MoneyFormat::get_formatted_balance(
-                    $displayCode,
-                    $converted['totalSales']
-                );
-        }
-
-        if (isset($converted['totalSalesFees'])) {
-            $converted['totalSalesFeesFormatted'] =
-                MoneyFormat::get_formatted_balance(
-                    $displayCode,
-                    $converted['totalSalesFees']
-                );
-        }
-
-        if (isset($converted['totalSalesExcludedFees'])) {
-            $converted['totalSalesExcludedFeesFormatted'] =
-                MoneyFormat::get_formatted_balance(
-                    $displayCode,
-                    $converted['totalSalesExcludedFees']
-                );
-        }
-
-        if (isset($converted['totalSalesNet'])) {
-            $converted['totalSalesNetFormatted'] =
-                MoneyFormat::get_formatted_balance(
-                    $displayCode,
-                    $converted['totalSalesNet']
-                );
-        }
-    }
 }
 

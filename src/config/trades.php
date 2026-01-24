@@ -124,6 +124,17 @@ return [
         ],
     ],
 
+    // Account withdrawals overrides for specific years
+    // Used to adjust total withdrawals for accounts with special situations (e.g., in-kind transfers)
+    // Hierarchical structure: by_account overrides apply only to specific accounts and take precedence
+    // Format: 'by_account' => [account_id => [year => ['EUR' => amount, 'USD' => amount, 'reason' => 'message'], ...], ...]
+    // Example: For account X in 2022, override withdrawals to neutralize in-kind transfer value
+    'withdrawals_overrides' => [
+        'by_account' => [
+            // Account-specific withdrawal overrides loaded from private package
+        ],
+    ],
+
     // Used for both create and update
     'guiCreateMiddlewareType' => env(
         'TRADES_GUI_CREATE_MIDDLEWARE_TYPE',

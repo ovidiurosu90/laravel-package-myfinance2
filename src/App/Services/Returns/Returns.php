@@ -24,13 +24,13 @@ use ovidiuro\myfinance2\App\Services\MoneyFormat;
  */
 class Returns
 {
-    private bool $withUser = true;
-    private ReturnsValuation $valuation;
-    private ReturnsDeposits $deposits;
-    private ReturnsWithdrawals $withdrawals;
-    private ReturnsDividends $dividends;
-    private ReturnsTrades $trades;
-    private ReturnsCurrencyConverter $currencyConverter;
+    private bool $_withUser = true;
+    private ReturnsValuation $_valuation;
+    private ReturnsDeposits $_deposits;
+    private ReturnsWithdrawals $_withdrawals;
+    private ReturnsDividends $_dividends;
+    private ReturnsTrades $_trades;
+    private ReturnsCurrencyConverter $_currencyConverter;
 
     public function __construct(
         ReturnsValuation $valuation = null,
@@ -39,19 +39,20 @@ class Returns
         ReturnsDividends $dividends = null,
         ReturnsTrades $trades = null,
         ReturnsCurrencyConverter $currencyConverter = null
-    ) {
-        $this->valuation = $valuation ?? new ReturnsValuation();
-        $this->deposits = $deposits ?? new ReturnsDeposits();
-        $this->withdrawals = $withdrawals ?? new ReturnsWithdrawals();
-        $this->dividends = $dividends ?? new ReturnsDividends();
-        $this->trades = $trades ?? new ReturnsTrades();
-        $this->currencyConverter = $currencyConverter ?? new ReturnsCurrencyConverter();
+    )
+    {
+        $this->_valuation = $valuation ?? new ReturnsValuation();
+        $this->_deposits = $deposits ?? new ReturnsDeposits();
+        $this->_withdrawals = $withdrawals ?? new ReturnsWithdrawals();
+        $this->_dividends = $dividends ?? new ReturnsDividends();
+        $this->_trades = $trades ?? new ReturnsTrades();
+        $this->_currencyConverter = $currencyConverter ?? new ReturnsCurrencyConverter();
     }
 
     public function setWithUser(bool $withUser = true): void
     {
-        $this->withUser = $withUser;
-        $this->valuation->setWithUser($withUser);
+        $this->_withUser = $withUser;
+        $this->_valuation->setWithUser($withUser);
     }
 
     /**
@@ -74,7 +75,7 @@ class Returns
         $totalReturnUSD = 0;
 
         foreach ($accounts as $account) {
-            $baseReturns = $this->calculateAccountReturns($account, $year);
+            $baseReturns = $this->_calculateAccountReturns($account, $year);
 
             $accountId = $account->id;
 
@@ -82,7 +83,7 @@ class Returns
             $baseReturns['actualReturnCalculated'] = $baseReturns['actualReturn'];
 
             // Apply returns override if configured
-            $override = $this->getReturnsOverride($accountId, $year);
+            $override = $this->_getReturnsOverride($accountId, $year);
             if ($override !== null) {
                 // Store the fact that an override was applied
                 $baseReturns['actualReturnOverride'] = $override;
@@ -91,7 +92,7 @@ class Returns
                 // by passing both calculated and override values
             }
 
-            $converted = $this->currencyConverter->convertReturnsToCurrencies(
+            $converted = $this->_currencyConverter->convertReturnsToCurrencies(
                 $accountId,
                 $baseReturns,
                 ['EUR', 'USD'],
@@ -99,7 +100,7 @@ class Returns
             );
 
             // Filter out accounts with no activity for the selected year
-            if (!$this->hasAccountActivity($baseReturns, $converted)) {
+            if (!$this->_hasAccountActivity($baseReturns, $converted)) {
                 continue;
             }
 
@@ -133,205 +134,135 @@ class Returns
     /**
      * Calculate returns for a single account
      */
-    private function calculateAccountReturns(Account $account, int $year): array
+    private function _calculateAccountReturns(Account $account, int $year): array
     {
         $accountId = $account->id;
         $baseCurrency = $account->currency->iso_code;
 
-        // Create date objects for Jan 1 and Dec 31
+        // Create date range (Jan 1 - Dec 31 or today if current year)
         try {
-            $jan1 = new \DateTime("$year-01-01 00:00:00");
-            $dec31 = new \DateTime("$year-12-31 23:59:59");
-
-            // If we're in the current year, use today's date instead of Dec 31
-            $currentYear = (int) date('Y');
-            $today = new \DateTime();
-            if ($year === $currentYear && $today < $dec31) {
-                $dec31 = clone $today;
-                $dec31->setTime(23, 59, 59);
-            }
+            [$jan1, $dec31] = $this->_createDateRange($year);
         } catch (\Exception $e) {
             Log::error('Invalid date for year: ' . $year . '. Error: ' . $e->getMessage());
-            // Return empty/zero returns for invalid year
-            return [
-                'account' => $account,
-                'baseCurrency' => $baseCurrency,
-                'jan1Value' => 0,
-                'dec31Value' => 0,
-                'deposits' => [],
-                'withdrawals' => [],
-                'totalDeposits' => 0,
-                'totalWithdrawals' => 0,
-                'totalPurchases' => 0,
-                'totalSales' => 0,
-                'totalPurchasesNet' => 0,
-                'totalSalesNet' => 0,
-                'actualReturn' => 0,
-                'jan1ValueFormatted' => '0.00',
-                'dec31ValueFormatted' => '0.00',
-                'totalDepositsFormatted' => '0.00',
-                'totalWithdrawalsFormatted' => '0.00',
-                'totalPurchasesFormatted' => '0.00',
-                'totalSalesFormatted' => '0.00',
-                'totalPurchasesNetFormatted' => '0.00',
-                'totalSalesNetFormatted' => '0.00',
-                'actualReturnFormatted' => '0.00',
-            ];
+            return $this->_buildEmptyReturnsArray($account, $baseCurrency);
         }
 
-        // 1. Calculate portfolio value at Jan 1
-        $jan1PortfolioData = $this->valuation->getPortfolioValue($accountId, $jan1);
-        $jan1Value = $jan1PortfolioData['total'];
-        $jan1PositionsValue = $jan1PortfolioData['positions'];
-        $jan1CashValue = $jan1PortfolioData['cash'];
-        $jan1PositionDetails = $jan1PortfolioData['positionDetails'];
+        // Fetch portfolio values at start and end of period
+        $portfolioValues = $this->_fetchPortfolioValues($accountId, $jan1, $dec31);
 
-        // 2. Calculate portfolio value at end date (Dec 31 or today if current year)
-        $dec31PortfolioData = $this->valuation->getPortfolioValue($accountId, $dec31);
-        $dec31Value = $dec31PortfolioData['total'];
-        $dec31PositionsValue = $dec31PortfolioData['positions'];
-        $dec31CashValue = $dec31PortfolioData['cash'];
-        $dec31PositionDetails = $dec31PortfolioData['positionDetails'];
+        // Fetch all transactions for the year
+        $transactions = $this->_fetchAllTransactions($accountId, $year);
 
-        // 3. Get deposits (credits to trading account)
-        $deposits = $this->deposits->getDeposits($accountId, $year);
-
-        // 4. Get withdrawals (debits from trading account)
-        $withdrawals = $this->withdrawals->getWithdrawals($accountId, $year);
-
-        // 5. Get dividends (gross amounts, excluding fees)
-        $dividendsList = $this->dividends->getDividends($accountId, $year);
-
-        // 6. Get stock purchases and sales (in single query to reduce DB round-trips)
-        $tradesData = $this->trades->getPurchasesAndSales($accountId, $year);
-        $purchases = $tradesData['purchases'];
-        $sales = $tradesData['sales'];
-
-        // 7. Get excluded trades for informational display
-        $excludedTrades = $this->trades->getExcludedTrades($accountId, $year);
-
-        // 9. Calculate totals
-        $totalDeposits = array_sum(array_column($deposits, 'amount'));
-        $totalWithdrawals = array_sum(array_column($withdrawals, 'amount'));
-
-        // Convert purchases to account currency before summing
-        $totalPurchases = 0;
-        foreach ($purchases as $purchase) {
-            $purchaseInAccountCurrency = $purchase['principal_amount'] / $purchase['exchangeRate'];
-            $totalPurchases += $purchaseInAccountCurrency;
-        }
-
-        // Convert sales to account currency before summing
-        $totalSales = 0;
-        foreach ($sales as $sale) {
-            $saleInAccountCurrency = $sale['principal_amount'] / $sale['exchangeRate'];
-            $totalSales += $saleInAccountCurrency;
-        }
-
-        // Calculate net totals (including fees)
-        $totalPurchasesNet = $totalPurchases;
-        $totalSalesNet = $totalSales;
-        foreach ($purchases as $purchase) {
-            if (!empty($purchase['fee'])) {
-                $feeInAccountCurrency = $purchase['fee'] / $purchase['exchangeRate'];
-                $totalPurchasesNet += $feeInAccountCurrency;
-            }
-        }
-        foreach ($sales as $sale) {
-            if (!empty($sale['fee'])) {
-                $feeInAccountCurrency = $sale['fee'] / $sale['exchangeRate'];
-                $totalSalesNet += $feeInAccountCurrency;
-            }
-        }
-
-        // Convert dividends to account currency before summing
-        $totalGrossDividends = 0;
-        foreach ($dividendsList as $dividend) {
-            $dividendInAccountCurrency = $dividend['amount'] / $dividend['exchangeRate'];
-            $totalGrossDividends += $dividendInAccountCurrency;
-        }
-
-        // Check for override value early so we can use it in the calculation
-        $totalGrossDividendsOverrideRaw = $this->dividends->getTotalGrossDividendsOverride(
+        // Calculate all totals with override handling
+        $totals = $this->_calculateTotals(
+            $transactions,
             $accountId,
-            $year
+            $year,
+            $baseCurrency
         );
 
-        // Extract base currency override value for return calculation
-        $totalGrossDividendsOverride = null;
-        if ($totalGrossDividendsOverrideRaw !== null) {
-            if (is_array($totalGrossDividendsOverrideRaw)) {
-                // New format: extract base currency value
-                $totalGrossDividendsOverride = $totalGrossDividendsOverrideRaw[$baseCurrency] ?? null;
-            } else {
-                // Old format: use the value directly
-                $totalGrossDividendsOverride = $totalGrossDividendsOverrideRaw;
-            }
-        }
+        // Calculate actual return using the formula
+        $actualReturn = $this->_computeActualReturn(
+            $totals,
+            $portfolioValues['jan1']['total'],
+            $portfolioValues['dec31']['total']
+        );
 
-        $dividendsForReturn = $totalGrossDividendsOverride ?? $totalGrossDividends;
-
-        // 10. Calculate actual return
-        // Formula: Gross Dividends + End value – Start value – Deposits + Withdrawals – Purchases (net) + Sales (net)
-        $actualReturn = $dividendsForReturn + $dec31Value - $jan1Value - $totalDeposits
-            + $totalWithdrawals - $totalPurchasesNet + $totalSalesNet;
-
-        // 11. Create dividends summary
-        $dividendsSummary = $this->dividends->createDividendsSummaryByTransactionCurrency(
-            $dividendsList,
+        // Create dividends summary
+        $dividendsSummary = $this->_dividends->createDividendsSummaryByTransactionCurrency(
+            $transactions['dividendsList'],
             $baseCurrency,
             $accountId
         );
 
-        // 12. Build result array with formatting
+        // Build result array with all data and formatting
         return [
             'account' => $account,
             'baseCurrency' => $baseCurrency,
-            'jan1Value' => $jan1Value,
-            'jan1PositionsValue' => $jan1PositionsValue,
-            'jan1CashValue' => $jan1CashValue,
-            'jan1PositionDetails' => $jan1PositionDetails,
-            'jan1Date' => $jan1,
-            'dec31Value' => $dec31Value,
-            'dec31PositionsValue' => $dec31PositionsValue,
-            'dec31CashValue' => $dec31CashValue,
-            'dec31PositionDetails' => $dec31PositionDetails,
-            'dec31Date' => $dec31,
-            'deposits' => $deposits,
-            'withdrawals' => $withdrawals,
-            'dividends' => $dividendsList,
+            'jan1Value' => $portfolioValues['jan1']['total'],
+            'jan1PositionsValue' => $portfolioValues['jan1']['positions'],
+            'jan1CashValue' => $portfolioValues['jan1']['cash'],
+            'jan1PositionDetails' => $portfolioValues['jan1']['positionDetails'],
+            'jan1Date' => $portfolioValues['jan1']['date'],
+            'dec31Value' => $portfolioValues['dec31']['total'],
+            'dec31PositionsValue' => $portfolioValues['dec31']['positions'],
+            'dec31CashValue' => $portfolioValues['dec31']['cash'],
+            'dec31PositionDetails' => $portfolioValues['dec31']['positionDetails'],
+            'dec31Date' => $portfolioValues['dec31']['date'],
+            'deposits' => $transactions['deposits'],
+            'withdrawals' => $transactions['withdrawals'],
+            'dividends' => $transactions['dividendsList'],
             'dividendsSummary' => $dividendsSummary,
-            'purchases' => $purchases,
-            'sales' => $sales,
-            'excludedTrades' => $excludedTrades,
-            'totalDeposits' => $totalDeposits,
-            'totalWithdrawals' => $totalWithdrawals,
-            'totalGrossDividends' => $dividendsForReturn,
-            'totalGrossDividendsCalculated' => $totalGrossDividends,
-            'totalGrossDividendsOverride' => $totalGrossDividendsOverrideRaw,
-            'totalPurchases' => $totalPurchases,
-            'totalSales' => $totalSales,
-            'totalPurchasesNet' => $totalPurchasesNet,
-            'totalSalesNet' => $totalSalesNet,
+            'purchases' => $transactions['purchases'],
+            'sales' => $transactions['sales'],
+            'excludedTrades' => $transactions['excludedTrades'],
+            'totalDeposits' => $totals['totalDeposits'],
+            'totalWithdrawals' => $totals['totalWithdrawals'],
+            'totalWithdrawalsCalculated' => $totals['totalWithdrawalsCalculated'],
+            'totalWithdrawalsOverride' => $totals['totalWithdrawalsOverride'],
+            'totalGrossDividends' => $totals['totalGrossDividends'],
+            'totalGrossDividendsCalculated' => $totals['totalGrossDividendsCalculated'],
+            'totalGrossDividendsOverride' => $totals['totalGrossDividendsOverride'],
+            'totalPurchases' => $totals['totalPurchases'],
+            'totalSales' => $totals['totalSales'],
+            'totalPurchasesNet' => $totals['totalPurchasesNet'],
+            'totalSalesNet' => $totals['totalSalesNet'],
             'actualReturn' => $actualReturn,
-            'jan1ValueFormatted' => MoneyFormat::get_formatted_balance($baseCurrency, $jan1Value),
-            'dec31ValueFormatted' => MoneyFormat::get_formatted_balance($baseCurrency, $dec31Value),
-            'totalDepositsFormatted' => MoneyFormat::get_formatted_balance($baseCurrency, $totalDeposits),
-            'totalWithdrawalsFormatted' => MoneyFormat::get_formatted_balance($baseCurrency, $totalWithdrawals),
-            'totalPurchasesFormatted' => MoneyFormat::get_formatted_balance($baseCurrency, $totalPurchases),
-            'totalSalesFormatted' => MoneyFormat::get_formatted_balance($baseCurrency, $totalSales),
-            'totalPurchasesNetFormatted' => MoneyFormat::get_formatted_balance($baseCurrency, $totalPurchasesNet),
-            'totalSalesNetFormatted' => MoneyFormat::get_formatted_balance($baseCurrency, $totalSalesNet),
-            'totalGrossDividendsFormatted' => MoneyFormat::get_formatted_balance($baseCurrency, $dividendsForReturn),
-            'totalGrossDividendsCalculatedFormatted' => MoneyFormat::get_formatted_balance($baseCurrency, $totalGrossDividends),
-            'actualReturnFormatted' => MoneyFormat::get_formatted_gain($baseCurrency, $actualReturn),
+            'jan1ValueFormatted' => MoneyFormat::get_formatted_balance(
+                $baseCurrency,
+                $portfolioValues['jan1']['total']
+            ),
+            'dec31ValueFormatted' => MoneyFormat::get_formatted_balance(
+                $baseCurrency,
+                $portfolioValues['dec31']['total']
+            ),
+            'totalDepositsFormatted' => MoneyFormat::get_formatted_balance(
+                $baseCurrency,
+                $totals['totalDeposits']
+            ),
+            'totalWithdrawalsFormatted' => MoneyFormat::get_formatted_balance(
+                $baseCurrency,
+                $totals['totalWithdrawals']
+            ),
+            'totalWithdrawalsCalculatedFormatted' => MoneyFormat::get_formatted_balance(
+                $baseCurrency,
+                $totals['totalWithdrawalsCalculated']
+            ),
+            'totalPurchasesFormatted' => MoneyFormat::get_formatted_balance(
+                $baseCurrency,
+                $totals['totalPurchases']
+            ),
+            'totalSalesFormatted' => MoneyFormat::get_formatted_balance(
+                $baseCurrency,
+                $totals['totalSales']
+            ),
+            'totalPurchasesNetFormatted' => MoneyFormat::get_formatted_balance(
+                $baseCurrency,
+                $totals['totalPurchasesNet']
+            ),
+            'totalSalesNetFormatted' => MoneyFormat::get_formatted_balance(
+                $baseCurrency,
+                $totals['totalSalesNet']
+            ),
+            'totalGrossDividendsFormatted' => MoneyFormat::get_formatted_balance(
+                $baseCurrency,
+                $totals['totalGrossDividends']
+            ),
+            'totalGrossDividendsCalculatedFormatted' => MoneyFormat::get_formatted_balance(
+                $baseCurrency,
+                $totals['totalGrossDividendsCalculated']
+            ),
+            'actualReturnFormatted' => MoneyFormat::get_formatted_gain(
+                $baseCurrency,
+                $actualReturn
+            ),
         ];
     }
 
     /**
      * Check if an account has any meaningful activity in the year
      */
-    private function hasAccountActivity(array $baseReturns, array $converted): bool
+    private function _hasAccountActivity(array $baseReturns, array $converted): bool
     {
         // Has activity if there are any transactions
         if (!empty($baseReturns['deposits'])
@@ -345,10 +276,10 @@ class Returns
         }
 
         // Has activity if there are meaningful position or cash values
-        if ($this->hasSignificantValue((float)$baseReturns['jan1PositionsValue'])
-            || $this->hasSignificantValue((float)$baseReturns['dec31PositionsValue'])
-            || $this->hasSignificantValue((float)$baseReturns['jan1CashValue'])
-            || $this->hasSignificantValue((float)$baseReturns['dec31CashValue'])
+        if ($this->_hasSignificantValue((float)$baseReturns['jan1PositionsValue'])
+            || $this->_hasSignificantValue((float)$baseReturns['dec31PositionsValue'])
+            || $this->_hasSignificantValue((float)$baseReturns['jan1CashValue'])
+            || $this->_hasSignificantValue((float)$baseReturns['dec31CashValue'])
         ) {
             return true;
         }
@@ -359,9 +290,9 @@ class Returns
     /**
      * Check if a value is significantly different from zero
      */
-    private function hasSignificantValue(float $value): bool
+    private function _hasSignificantValue(float $value): bool
     {
-        return abs($value) > 0.01;
+        return abs($value) > ReturnsConstants::SIGNIFICANT_VALUE_THRESHOLD;
     }
 
     /**
@@ -371,7 +302,7 @@ class Returns
      * @param int $year The year
      * @return array|null Array with EUR and USD overrides, or null if no override exists
      */
-    private function getReturnsOverride(int $accountId, int $year): ?array
+    private function _getReturnsOverride(int $accountId, int $year): ?array
     {
         $config = config('trades.returns_overrides', []);
         $byAccount = $config['by_account'] ?? [];
@@ -382,6 +313,285 @@ class Returns
         }
 
         return null;
+    }
+
+    /**
+     * Get withdrawals override for an account and year
+     *
+     * @param int $accountId The account ID
+     * @param int $year The year
+     * @return array|null Array with EUR and USD overrides, or null if no override exists
+     */
+    private function _getWithdrawalsOverride(int $accountId, int $year): ?array
+    {
+        $config = config('trades.withdrawals_overrides', []);
+        $byAccount = $config['by_account'] ?? [];
+
+        // Check if there's an override for this account and year
+        if (isset($byAccount[$accountId][$year])) {
+            return $byAccount[$accountId][$year];
+        }
+
+        return null;
+    }
+
+    /**
+     * Create date range for the year
+     *
+     * @param int $year The year
+     * @return array Array with [jan1, dec31] DateTime objects
+     * @throws \Exception If date creation fails
+     */
+    private function _createDateRange(int $year): array
+    {
+        $jan1 = new \DateTime("$year-01-01 00:00:00");
+        $dec31 = new \DateTime("$year-12-31 23:59:59");
+
+        // If current year, use today instead of Dec 31 if we haven't reached it yet
+        $currentYear = (int) date('Y');
+        $today = new \DateTime();
+        if ($year === $currentYear && $today < $dec31) {
+            $dec31 = clone $today;
+            $dec31->setTime(23, 59, 59);
+        }
+
+        return [$jan1, $dec31];
+    }
+
+    /**
+     * Build empty returns array for error cases
+     *
+     * @param Account $account The account
+     * @param string $baseCurrency The base currency code
+     * @return array Empty returns array with zero values
+     */
+    private function _buildEmptyReturnsArray(Account $account, string $baseCurrency): array
+    {
+        return [
+            'account' => $account,
+            'baseCurrency' => $baseCurrency,
+            'jan1Value' => 0,
+            'jan1PositionsValue' => 0,
+            'jan1CashValue' => 0,
+            'jan1PositionDetails' => [],
+            'jan1Date' => null,
+            'dec31Value' => 0,
+            'dec31PositionsValue' => 0,
+            'dec31CashValue' => 0,
+            'dec31PositionDetails' => [],
+            'dec31Date' => null,
+            'deposits' => [],
+            'withdrawals' => [],
+            'dividends' => [],
+            'dividendsSummary' => null,
+            'purchases' => [],
+            'sales' => [],
+            'excludedTrades' => [],
+            'totalDeposits' => 0,
+            'totalWithdrawals' => 0,
+            'totalWithdrawalsCalculated' => 0,
+            'totalWithdrawalsOverride' => null,
+            'totalGrossDividends' => 0,
+            'totalGrossDividendsCalculated' => 0,
+            'totalGrossDividendsOverride' => null,
+            'totalPurchases' => 0,
+            'totalSales' => 0,
+            'totalPurchasesNet' => 0,
+            'totalSalesNet' => 0,
+            'actualReturn' => 0,
+            'jan1ValueFormatted' => MoneyFormat::get_formatted_balance($baseCurrency, 0),
+            'dec31ValueFormatted' => MoneyFormat::get_formatted_balance($baseCurrency, 0),
+            'totalDepositsFormatted' => MoneyFormat::get_formatted_balance($baseCurrency, 0),
+            'totalWithdrawalsFormatted' => MoneyFormat::get_formatted_balance($baseCurrency, 0),
+            'totalWithdrawalsCalculatedFormatted' => MoneyFormat::get_formatted_balance($baseCurrency, 0),
+            'totalPurchasesFormatted' => MoneyFormat::get_formatted_balance($baseCurrency, 0),
+            'totalSalesFormatted' => MoneyFormat::get_formatted_balance($baseCurrency, 0),
+            'totalPurchasesNetFormatted' => MoneyFormat::get_formatted_balance($baseCurrency, 0),
+            'totalSalesNetFormatted' => MoneyFormat::get_formatted_balance($baseCurrency, 0),
+            'totalGrossDividendsFormatted' => MoneyFormat::get_formatted_balance($baseCurrency, 0),
+            'totalGrossDividendsCalculatedFormatted' => MoneyFormat::get_formatted_balance($baseCurrency, 0),
+            'actualReturnFormatted' => MoneyFormat::get_formatted_gain($baseCurrency, 0),
+        ];
+    }
+
+    /**
+     * Fetch portfolio values at start and end of period
+     *
+     * @param int $accountId The account ID
+     * @param \DateTime $jan1 Start date
+     * @param \DateTime $dec31 End date
+     * @return array Portfolio values with jan1 and dec31 data
+     */
+    private function _fetchPortfolioValues(int $accountId, \DateTime $jan1, \DateTime $dec31): array
+    {
+        $jan1Data = $this->_valuation->getPortfolioValue($accountId, $jan1);
+        $dec31Data = $this->_valuation->getPortfolioValue($accountId, $dec31);
+
+        return [
+            'jan1' => [
+                'total' => $jan1Data['total'],
+                'positions' => $jan1Data['positions'],
+                'cash' => $jan1Data['cash'],
+                'positionDetails' => $jan1Data['positionDetails'],
+                'date' => $jan1,
+            ],
+            'dec31' => [
+                'total' => $dec31Data['total'],
+                'positions' => $dec31Data['positions'],
+                'cash' => $dec31Data['cash'],
+                'positionDetails' => $dec31Data['positionDetails'],
+                'date' => $dec31,
+            ],
+        ];
+    }
+
+    /**
+     * Fetch all transactions for the year
+     *
+     * @param int $accountId The account ID
+     * @param int $year The year
+     * @return array All transaction data
+     */
+    private function _fetchAllTransactions(int $accountId, int $year): array
+    {
+        $tradesData = $this->_trades->getPurchasesAndSales($accountId, $year);
+
+        return [
+            'deposits' => $this->_deposits->getDeposits($accountId, $year),
+            'withdrawals' => $this->_withdrawals->getWithdrawals($accountId, $year),
+            'dividendsList' => $this->_dividends->getDividends($accountId, $year),
+            'purchases' => $tradesData['purchases'],
+            'sales' => $tradesData['sales'],
+            'excludedTrades' => $this->_trades->getExcludedTrades($accountId, $year),
+        ];
+    }
+
+    /**
+     * Calculate all totals with override handling
+     *
+     * @param array $transactions Transaction data
+     * @param int $accountId The account ID
+     * @param int $year The year
+     * @param string $baseCurrency The base currency
+     * @return array Calculated totals
+     */
+    private function _calculateTotals(
+        array $transactions,
+        int $accountId,
+        int $year,
+        string $baseCurrency
+    ): array
+    {
+        // Calculate deposit total
+        $totalDeposits = 0;
+        foreach ($transactions['deposits'] as $deposit) {
+            $totalDeposits += $deposit['amount'];
+        }
+
+        // Calculate withdrawal total with override handling
+        $totalWithdrawalsCalculated = 0;
+        foreach ($transactions['withdrawals'] as $withdrawal) {
+            $totalWithdrawalsCalculated += $withdrawal['amount'];
+        }
+
+        $withdrawalsOverride = $this->_getWithdrawalsOverride($accountId, $year);
+        $withdrawalsOverrideRaw = $withdrawalsOverride;
+        $totalWithdrawals = $totalWithdrawalsCalculated;
+
+        if ($withdrawalsOverride !== null) {
+            $overrideValue = $withdrawalsOverride[$baseCurrency] ?? null;
+            if ($overrideValue !== null) {
+                $totalWithdrawals = $overrideValue;
+            }
+        }
+
+        // Calculate dividends total (convert to account currency)
+        $totalGrossDividends = 0;
+        foreach ($transactions['dividendsList'] as $dividend) {
+            $dividendInAccountCurrency = $dividend['amount'] / $dividend['exchangeRate'];
+            $totalGrossDividends += $dividendInAccountCurrency;
+        }
+
+        // Apply dividends override if configured
+        $totalGrossDividendsOverrideRaw = $this->_dividends->getTotalGrossDividendsOverride(
+            $accountId,
+            $year
+        );
+        $dividendsForReturn = $totalGrossDividends;
+
+        if ($totalGrossDividendsOverrideRaw !== null) {
+            $overrideValue = is_array($totalGrossDividendsOverrideRaw)
+                ? ($totalGrossDividendsOverrideRaw[$baseCurrency] ?? null)
+                : $totalGrossDividendsOverrideRaw;
+            if ($overrideValue !== null) {
+                $dividendsForReturn = $overrideValue;
+            }
+        }
+
+        // Calculate purchases total (convert to account currency)
+        $totalPurchases = 0;
+        foreach ($transactions['purchases'] as $purchase) {
+            $purchaseInAccountCurrency = $purchase['principal_amount'] / $purchase['exchangeRate'];
+            $totalPurchases += $purchaseInAccountCurrency;
+        }
+
+        // Calculate sales total (convert to account currency)
+        $totalSales = 0;
+        foreach ($transactions['sales'] as $sale) {
+            $saleInAccountCurrency = $sale['principal_amount'] / $sale['exchangeRate'];
+            $totalSales += $saleInAccountCurrency;
+        }
+
+        // Calculate net totals (including fees)
+        $totalPurchasesNet = $totalPurchases;
+        $totalSalesNet = $totalSales;
+        foreach ($transactions['purchases'] as $purchase) {
+            if (!empty($purchase['fee'])) {
+                $feeInAccountCurrency = $purchase['fee'] / $purchase['exchangeRate'];
+                $totalPurchasesNet += $feeInAccountCurrency;
+            }
+        }
+        foreach ($transactions['sales'] as $sale) {
+            if (!empty($sale['fee'])) {
+                $feeInAccountCurrency = $sale['fee'] / $sale['exchangeRate'];
+                $totalSalesNet += $feeInAccountCurrency;
+            }
+        }
+
+        return [
+            'totalDeposits' => $totalDeposits,
+            'totalWithdrawals' => $totalWithdrawals,
+            'totalWithdrawalsCalculated' => $totalWithdrawalsCalculated,
+            'totalWithdrawalsOverride' => $withdrawalsOverrideRaw,
+            'totalGrossDividends' => $dividendsForReturn,
+            'totalGrossDividendsCalculated' => $totalGrossDividends,
+            'totalGrossDividendsOverride' => $totalGrossDividendsOverrideRaw,
+            'totalPurchases' => $totalPurchases,
+            'totalSales' => $totalSales,
+            'totalPurchasesNet' => $totalPurchasesNet,
+            'totalSalesNet' => $totalSalesNet,
+        ];
+    }
+
+    /**
+     * Compute actual return using the formula
+     *
+     * Formula: Gross Dividends + End value – Start value – Deposits + Withdrawals – Purchases (net) + Sales (net)
+     *
+     * @param array $totals Calculated totals
+     * @param float $jan1Value Start value
+     * @param float $dec31Value End value
+     * @return float Actual return
+     */
+    private function _computeActualReturn(array $totals, float $jan1Value, float $dec31Value): float
+    {
+        return $totals['totalGrossDividends']
+            + $dec31Value
+            - $jan1Value
+            - $totals['totalDeposits']
+            + $totals['totalWithdrawals']
+            - $totals['totalPurchasesNet']
+            + $totals['totalSalesNet'];
     }
 }
 

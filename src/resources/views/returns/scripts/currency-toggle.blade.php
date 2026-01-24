@@ -62,14 +62,32 @@ function updateReturnValueCell($td, cellData)
         reinitializeTooltip($tooltipSpan);
     } else {
         // Standard return value without tooltip
-        // NOTE: This business logic must stay in the frontend because:
-        // - We store plain formatted values (e.g., "217,867.47 €") in data attributes
-        // - HTML stored in attributes gets escaped by the browser (< > become &lt; &gt;)
-        // - Pre-calculated colored HTML would be lost when retrieved from data attributes
-        // - The backend provides numeric values, frontend applies the color decision
-        // This is a calculated presentation layer concern based on the numeric value,
-        // not core business logic, so this exception is acceptable.
-        $td.html(coloredValue);
+        // Check if there's a regular tooltip span (e.g., for returns row)
+        var $regularTooltipSpan = $td.find('span[data-bs-toggle="tooltip"]');
+
+        if ($regularTooltipSpan.length > 0) {
+            // Check if this cell has override data
+            if (cellData.override || cellData.calculated) {
+                // Has override - use override display logic
+                updateOverrideDisplay($td, $regularTooltipSpan, cellData);
+            } else {
+                // No override - just update with colored value
+                $regularTooltipSpan.html(coloredValue);
+                if (cellData.tooltip) {
+                    $regularTooltipSpan.attr('data-bs-title', cellData.tooltip);
+                    reinitializeTooltip($regularTooltipSpan);
+                }
+            }
+        } else {
+            // NOTE: This business logic must stay in the frontend because:
+            // - We store plain formatted values (e.g., "217,867.47 €") in data attributes
+            // - HTML stored in attributes gets escaped by the browser (< > become &lt; &gt;)
+            // - Pre-calculated colored HTML would be lost when retrieved from data attributes
+            // - The backend provides numeric values, frontend applies the color decision
+            // This is a calculated presentation layer concern based on the numeric value,
+            // not core business logic, so this exception is acceptable.
+            $td.html(coloredValue);
+        }
     }
 }
 
@@ -95,31 +113,39 @@ function updateFeesTextCell($td, cellData)
  */
 function updateOverrideDisplay($td, $span, cellData)
 {
-    var $overrideIcon = $td.find('.dividends-override-icon');
-    var $smallOverride = $td.find('small.dividends-calculated-value');
+    // Support multiple override types: dividends, withdrawals, returns
+    var $overrideIcon = $td.find(
+        '.dividends-override-icon, .withdrawals-override-icon, .return-override-icon'
+    );
+    var $smallOverride = $td.find(
+        'small.dividends-calculated-value, small.withdrawals-calculated-value, small.return-calculated-value'
+    );
 
     if (cellData.override) {
-        // Show override as primary value with calculated in parentheses
+        // Update span with override value
+        $span.html(cellData.override);
+
+        // Show and update the calculated value if element exists
         if ($smallOverride.length > 0) {
             $smallOverride.html('(Calculated: ' + cellData.calculated + ')');
-        } else {
-            // Restructure: override as main, calculated in small
-            $span.html(cellData.override);
-            $span.after('<i class="fa-solid fa-circle-info ms-1 dividends-override-icon" ' +
-                'style="font-size: 0.75rem; color: black;" data-bs-toggle="tooltip" data-bs-placement="top" ' +
-                'data-bs-title="This value has been overridden to match the annual statement."></i>');
-            $span.after('<small style="color: #6c757d; margin-left: 0.5rem;" class="dividends-calculated-value">' +
-                '(Calculated: ' + cellData.calculated + ')</small>');
+            $smallOverride.show();
         }
-        // Reinitialize icon tooltip
+
+        // Show the icon if element exists
         if ($overrideIcon.length > 0) {
-            reinitializeTooltip($overrideIcon);
+            $overrideIcon.show();
         }
     } else {
-        // No override, remove override elements
-        $smallOverride.remove();
-        $overrideIcon.remove();
+        // Update span with regular value
         $span.html(cellData.value);
+
+        // Hide override elements if they exist
+        if ($smallOverride.length > 0) {
+            $smallOverride.hide();
+        }
+        if ($overrideIcon.length > 0) {
+            $overrideIcon.hide();
+        }
     }
 }
 
@@ -139,14 +165,23 @@ function updateRegularCell($td, cellData)
         updateOverrideDisplay($td, $span, cellData);
     } else {
         // Fallback for cells without tooltip span
-        var html = cellData.override
-            ? cellData.override + '<i class="fa-solid fa-circle-info ms-1 dividends-override-icon" ' +
-              'style="font-size: 0.75rem; color: black;" data-bs-toggle="tooltip" data-bs-placement="top" ' +
-              'data-bs-title="This value has been overridden to match the annual statement."></i>' +
-              '<small style="color: #6c757d; margin-left: 0.5rem;" class="dividends-calculated-value">' +
-              '(Calculated: ' + cellData.calculated + ')</small>'
-            : cellData.value;
-        $td.html(html);
+        // Try to find a regular span (e.g., for withdrawals)
+        var $regularSpan = $td.find('span').first();
+
+        if ($regularSpan.length > 0) {
+            // Handle override display for regular spans
+            updateOverrideDisplay($td, $regularSpan, cellData);
+        } else {
+            // No span at all - create full HTML
+            var html = cellData.override
+                ? cellData.override + '<i class="fa-solid fa-circle-info ms-1 dividends-override-icon" ' +
+                  'style="font-size: 0.75rem; color: black;" data-bs-toggle="tooltip" data-bs-placement="top" ' +
+                  'data-bs-title="This value has been overridden to match the annual statement."></i>' +
+                  '<small style="color: #6c757d; margin-left: 0.5rem;" class="dividends-calculated-value">' +
+                  '(Calculated: ' + cellData.calculated + ')</small>'
+                : cellData.value;
+            $td.html(html);
+        }
     }
 }
 
@@ -204,11 +239,13 @@ function updateTableHeaders(currency)
 }
 
 /**
- * Apply initial coloring to principal amounts
+ * Apply initial coloring to all return values
  */
 function applyInitialColoring(selectedCurrency)
 {
     var isEUR = selectedCurrency === 'EUR';
+
+    // Color principal amounts (trades)
     $('.principal-amount-value').each(function()
     {
         var $span = $(this);
@@ -219,6 +256,38 @@ function applyInitialColoring(selectedCurrency)
             var newValue = isEUR ? $td.data('eur') : $td.data('usd');
             var coloredValue = applyColorFormatting(newValue, numericValue);
             $span.html(coloredValue);
+        }
+    });
+
+    // Color all other return values (dividends, returns, etc.)
+    $('.currency-value').each(function()
+    {
+        var $td = $(this);
+        var numericValue = isEUR ? parseFloat($td.data('eur-value')) : parseFloat($td.data('usd-value'));
+
+        // Skip if no numeric value or already has principal-amount-value (handled above)
+        if (isNaN(numericValue) || $td.find('.principal-amount-value').length > 0) {
+            return;
+        }
+
+        // Skip cells with fees text (totals row)
+        if ($td.find('.fees-text').length > 0) {
+            return;
+        }
+
+        var cellData = getCellData($td, isEUR);
+
+        // Find the innermost span (the one with the actual value)
+        var $spans = $td.find('span[data-bs-toggle="tooltip"]');
+        if ($spans.length > 0) {
+            var $tooltipSpan = $spans.first();
+            var $innerSpan = $tooltipSpan.find('span').first();
+
+            if ($innerSpan.length > 0) {
+                // Apply coloring to inner span
+                var coloredValue = applyColorFormatting(cellData.value, cellData.numericValue);
+                $innerSpan.replaceWith(coloredValue);
+            }
         }
     });
 }

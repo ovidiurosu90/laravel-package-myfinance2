@@ -59,6 +59,7 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                             $quoteData['tradeCurrencyModel']->display_code
                         !!}"
                         style="position: relative; float: right;"></div>
+                    <div class="clearfix"></div>
                     <div>
                         @if(!empty($quoteData['pre_market_price']))
                         <span class="badge rounded-pill bg-info">pre-market</span>

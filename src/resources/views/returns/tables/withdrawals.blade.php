@@ -11,14 +11,63 @@
         @endif
     </td>
     @php
-        $totalValue = $selectedCurrency === 'EUR'
-            ? $data['withdrawals']['totals']['EUR']['formatted']
+        // Check for override and use it if available, otherwise use regular totals
+        if ($selectedCurrency === 'EUR' && isset($data['totalWithdrawalsOverride']['EUR'])) {
+            $totalValue = $data['totalWithdrawalsOverride']['EUR']['overrideFormatted'];
+        } elseif ($selectedCurrency === 'USD' && isset($data['totalWithdrawalsOverride']['USD'])) {
+            $totalValue = $data['totalWithdrawalsOverride']['USD']['overrideFormatted'];
+        } else {
+            $totalValue = $selectedCurrency === 'EUR'
+                ? $data['withdrawals']['totals']['EUR']['formatted']
+                : $data['withdrawals']['totals']['USD']['formatted'];
+        }
+    @endphp
+    @php
+        $dataEur = isset($data['totalWithdrawalsOverride']['EUR'])
+            ? $data['totalWithdrawalsOverride']['EUR']['overrideFormatted']
+            : $data['withdrawals']['totals']['EUR']['formatted'];
+        $dataUsd = isset($data['totalWithdrawalsOverride']['USD'])
+            ? $data['totalWithdrawalsOverride']['USD']['overrideFormatted']
             : $data['withdrawals']['totals']['USD']['formatted'];
     @endphp
     <td class="currency-value"
-        data-eur="{{ $data['withdrawals']['totals']['EUR']['formatted'] }}"
-        data-usd="{{ $data['withdrawals']['totals']['USD']['formatted'] }}">
+        data-eur="{{ $dataEur }}"
+        data-usd="{{ $dataUsd }}"
+        @if(isset($data['totalWithdrawalsOverride']['EUR']))
+            data-eur-override="{{ $data['totalWithdrawalsOverride']['EUR']['overrideFormatted'] }}"
+            data-eur-calculated="{{ $data['totalWithdrawalsOverride']['EUR']['calculatedFormatted'] }}"
+        @endif
+        @if(isset($data['totalWithdrawalsOverride']['USD']))
+            data-usd-override="{{ $data['totalWithdrawalsOverride']['USD']['overrideFormatted'] }}"
+            data-usd-calculated="{{ $data['totalWithdrawalsOverride']['USD']['calculatedFormatted'] }}"
+        @endif
+        @if(isset($data['totalWithdrawalsOverride']['reason']))
+            data-override-reason="{{ $data['totalWithdrawalsOverride']['reason'] }}"
+        @endif>
         <span>{!! $totalValue !!}</span>
+        @if(isset($data['totalWithdrawalsOverride']['EUR']) || isset($data['totalWithdrawalsOverride']['USD']))
+            @php
+                $showOverride = ($selectedCurrency === 'EUR'
+                        && isset($data['totalWithdrawalsOverride']['EUR']))
+                    || ($selectedCurrency === 'USD'
+                        && isset($data['totalWithdrawalsOverride']['USD']));
+                $calculatedText = $selectedCurrency === 'EUR'
+                    ? ($data['totalWithdrawalsOverride']['EUR']['calculatedFormatted'] ?? '')
+                    : ($data['totalWithdrawalsOverride']['USD']['calculatedFormatted'] ?? '');
+            @endphp
+            <i class="fa-solid fa-circle-info ms-1 withdrawals-override-icon"
+                style="font-size: 0.75rem; color: black;
+                    {{ $showOverride ? '' : 'display: none;' }}"
+                data-bs-toggle="tooltip"
+                data-bs-title="This withdrawal total has been overridden.
+                    {{ $data['totalWithdrawalsOverride']['reason']
+                        ?? 'See configuration for details.' }}"></i>
+            <small style="color: #6c757d; margin-left: 0.5rem;
+                {{ $showOverride ? '' : 'display: none;' }}"
+                class="withdrawals-calculated-value">
+                (Calculated: {!! $calculatedText !!})
+            </small>
+        @endif
     </td>
 </tr>
 @if(count($data['withdrawals']['items']) > 0)

@@ -59,6 +59,7 @@ Frontend assets are built from the main **laravel-admin** project using `yarn in
 - Max line length: 120 characters (PHP, HTML, JavaScript, Laravel views - whenever possible)
 - All files must end with a newline (empty last line) for cleaner git diffs
 - Minimize business logic in the FE (move business logic in the BE whenever possible)
+- Avoid code smells like long methods, large classes, long parameter list, duplicated code, dead code, excessive coupling between classes, etc.)
 - Keep file sizes manageable (ideally under 500 lines of code)
 - Avoid hardcoding or introducing any user or account data in this repository (including comments). This repository is publicly available
 - **Opening braces for all functions/methods (not only constructors) for all languages on next line (Allman style)**, not same line

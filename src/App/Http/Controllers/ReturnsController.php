@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use ovidiuro\myfinance2\App\Services\MoneyFormat;
 use ovidiuro\myfinance2\App\Services\Returns\Returns;
+use ovidiuro\myfinance2\App\Services\Returns\ReturnsConstants;
 use ovidiuro\myfinance2\App\Services\Returns\ReturnsViewTransformer;
 
 class ReturnsController extends MyFinance2Controller
@@ -27,9 +28,9 @@ class ReturnsController extends MyFinance2Controller
         // Get year from query parameter, default to current year
         $year = (int) request()->input('year', date('Y'));
 
-        // Validate year range (2016 to current year)
+        // Validate year range (MIN_YEAR to current year)
         $currentYear = (int) date('Y');
-        if ($year < 2016 || $year > $currentYear) {
+        if ($year < ReturnsConstants::MIN_YEAR || $year > $currentYear) {
             $year = $currentYear;
         }
 
@@ -85,7 +86,7 @@ class ReturnsController extends MyFinance2Controller
             'totalReturnSelectedColored' => $totalReturnSelectedColored,
             'selectedYear' => $year,
             'selectedCurrency' => $currency,
-            'availableYears' => range($currentYear, 2016),
+            'availableYears' => range($currentYear, ReturnsConstants::MIN_YEAR),
         ];
 
         return view('myfinance2::returns.dashboard', $viewData);

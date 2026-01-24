@@ -29,23 +29,27 @@
         <span data-bs-toggle="tooltip" data-bs-placement="top">
             {!! $value !!}
         </span>
-        @if($selectedCurrency === 'EUR' && isset($data['dividends']['totals']['EUR']['calculatedFormatted']))
+        @if(isset($data['dividends']['totals']['EUR']['calculatedFormatted'])
+            || isset($data['dividends']['totals']['USD']['calculatedFormatted']))
+            @php
+                $showOverride = ($selectedCurrency === 'EUR'
+                        && isset($data['dividends']['totals']['EUR']['calculatedFormatted']))
+                    || ($selectedCurrency === 'USD'
+                        && isset($data['dividends']['totals']['USD']['calculatedFormatted']));
+                $calculatedText = $selectedCurrency === 'EUR'
+                    ? ($data['dividends']['totals']['EUR']['calculatedFormatted'] ?? '')
+                    : ($data['dividends']['totals']['USD']['calculatedFormatted'] ?? '');
+            @endphp
             <i class="fa-solid fa-circle-info ms-1 dividends-override-icon"
-                style="font-size: 0.75rem; color: black;"
+                style="font-size: 0.75rem; color: black;
+                    {{ $showOverride ? '' : 'display: none;' }}"
                 data-bs-toggle="tooltip"
                 data-bs-placement="top"
                 data-bs-title="This value has been overridden to match the annual statement."></i>
-            <small style="color: #6c757d; margin-left: 0.5rem;" class="dividends-calculated-value">
-                (Calculated: {!! $data['dividends']['totals']['EUR']['calculatedFormatted'] !!})
-            </small>
-        @elseif($selectedCurrency === 'USD' && isset($data['dividends']['totals']['USD']['calculatedFormatted']))
-            <i class="fa-solid fa-circle-info ms-1 dividends-override-icon"
-                style="font-size: 0.75rem; color: black;"
-                data-bs-toggle="tooltip"
-                data-bs-placement="top"
-                data-bs-title="This value has been overridden to match the annual statement."></i>
-            <small style="color: #6c757d; margin-left: 0.5rem;" class="dividends-calculated-value">
-                (Calculated: {!! $data['dividends']['totals']['USD']['calculatedFormatted'] !!})
+            <small style="color: #6c757d; margin-left: 0.5rem;
+                {{ $showOverride ? '' : 'display: none;' }}"
+                class="dividends-calculated-value">
+                (Calculated: {!! $calculatedText !!})
             </small>
         @endif
     </td>

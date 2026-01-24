@@ -128,31 +128,29 @@
                         <span data-bs-toggle="tooltip" data-bs-placement="top">
                             {!! $returnValue !!}
                         </span>
-                        @if($selectedCurrency === 'EUR' && isset($data['actualReturnOverride']['EUR']))
+                        @if(isset($data['actualReturnOverride']['EUR']) || isset($data['actualReturnOverride']['USD']))
                             @php
+                                $showOverride = ($selectedCurrency === 'EUR'
+                                        && isset($data['actualReturnOverride']['EUR']))
+                                    || ($selectedCurrency === 'USD'
+                                        && isset($data['actualReturnOverride']['USD']));
+                                $calculatedText = $selectedCurrency === 'EUR'
+                                    ? ($data['actualReturnOverride']['EUR']['calculatedFormatted'] ?? '')
+                                    : ($data['actualReturnOverride']['USD']['calculatedFormatted'] ?? '');
                                 $overrideMsg = 'This return has been overridden. '
-                                    . ($data['actualReturnOverride']['reason'] ?? 'See configuration for details.');
+                                    . ($data['actualReturnOverride']['reason']
+                                        ?? 'See configuration for details.');
                             @endphp
                             <i class="fa-solid fa-circle-info ms-1 return-override-icon"
-                                style="font-size: 0.75rem; color: black;"
+                                style="font-size: 0.75rem; color: black;
+                                    {{ $showOverride ? '' : 'display: none;' }}"
                                 data-bs-toggle="tooltip"
                                 data-bs-placement="top"
                                 data-bs-title="{{ $overrideMsg }}"></i>
-                            <small style="color: #6c757d; margin-left: 0.5rem;" class="return-calculated-value">
-                                (Calculated: {!! $data['actualReturnOverride']['EUR']['calculatedFormatted'] !!})
-                            </small>
-                        @elseif($selectedCurrency === 'USD' && isset($data['actualReturnOverride']['USD']))
-                            @php
-                                $overrideMsg = 'This return has been overridden. '
-                                    . ($data['actualReturnOverride']['reason'] ?? 'See configuration for details.');
-                            @endphp
-                            <i class="fa-solid fa-circle-info ms-1 return-override-icon"
-                                style="font-size: 0.75rem; color: black;"
-                                data-bs-toggle="tooltip"
-                                data-bs-placement="top"
-                                data-bs-title="{{ $overrideMsg }}"></i>
-                            <small style="color: #6c757d; margin-left: 0.5rem;" class="return-calculated-value">
-                                (Calculated: {!! $data['actualReturnOverride']['USD']['calculatedFormatted'] !!})
+                            <small style="color: #6c757d; margin-left: 0.5rem;
+                                {{ $showOverride ? '' : 'display: none;' }}"
+                                class="return-calculated-value">
+                                (Calculated: {!! $calculatedText !!})
                             </small>
                         @endif
                     </td>
