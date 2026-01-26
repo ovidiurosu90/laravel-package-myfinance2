@@ -9,15 +9,9 @@ use Illuminate\Database\Eloquent\Collection;
 
 use ovidiuro\myfinance2\App\Models\Trade;
 use ovidiuro\myfinance2\App\Models\Account;
-use ovidiuro\myfinance2\App\Models\Scopes\AssignedToUserScope;
 
 class Positions
 {
-    /**
-     * @var bool
-     */
-    private $_withUser = true;
-
     /**
      * @var array
      */
@@ -30,17 +24,6 @@ class Positions
      * - false: Only OPEN trades (for Positions page - current holdings snapshot)
      */
     private bool $_includeClosedTrades = false;
-
-    public function setWithUser(bool $withUser = true): void
-    {
-        if (!$withUser
-            && php_sapi_name() !== 'cli' // in browser we have 'apache2handler'
-        ) {
-            abort(403, 'Access denied in Account Model');
-        }
-
-        $this->_withUser = $withUser;
-    }
 
     public function setExtraSymbols(array $extraSymbols = array()): void
     {
@@ -55,14 +38,9 @@ class Positions
     /**
      * @return Collection<Trade>
      */
-    public function getTrades(\DateTimeInterface $date = null) : Collection
+    public function getTrades(\DateTimeInterface $date = null): Collection
     {
         $queryBuilder = Trade::with('accountModel', 'tradeCurrencyModel');
-        if (!$this->_withUser) {
-            $queryBuilder = Trade::with('accountModelNoUser',
-                'tradeCurrencyModelNoUser')
-                ->withoutGlobalScope(AssignedToUserScope::class);
-        }
 
         // Filter by status based on context:
         // - Current positions: always OPEN only
@@ -91,21 +69,6 @@ class Positions
                 ->where('timestamp', '<=', \DB::raw('NOW()'))
                 ->orderBy('timestamp')
                 ->get();
-        }
-
-        if (!$this->_withUser) {
-            foreach ($trades as $trade) {
-                if (!empty($trade->accountModelNoUser)) {
-                    $trade->accountModel = $trade->accountModelNoUser;
-                }
-                if (!empty($trade->accountModel->currencyNoUser)) {
-                    $trade->accountModel->currency =
-                        $trade->accountModel->currencyNoUser;
-                }
-                if (!empty($trade->tradeCurrencyModelNoUser)) {
-                    $trade->tradeCurrencyModel = $trade->tradeCurrencyModelNoUser;
-                }
-            }
         }
 
         return $trades;
@@ -668,28 +631,16 @@ class Positions
     }
 
     public function getTradeAccountsWithoutOpenPositions(
-        array &$accountData, \DateTimeInterface $date = null): array
+        array &$accountData,
+        \DateTimeInterface $date = null
+    ): array
     {
-        $queryBuilder = Account::with('currency');
-        if (!$this->_withUser) {
-            $queryBuilder = Account::with('currencyNoUser')
-                ->withoutGlobalScope(AssignedToUserScope::class);
-        }
-
-        $accounts = $queryBuilder
+        $accounts = Account::with('currency')
             ->where('is_trade_account', '1')
             ->where('created_at', '<=', !empty($date) ? $date : \DB::raw('NOW()'))
             ->whereNotIn('id', array_keys($accountData))
             ->orderBy('name')
             ->get();
-
-        if (!$this->_withUser) {
-            foreach ($accounts as $account) {
-                if (!empty($account->currencyNoUser)) {
-                    $account->currency = $account->currencyNoUser;
-                }
-            }
-        }
 
         $groupedAccounts = [];
         foreach ($accounts as $account) {
@@ -705,8 +656,8 @@ class Positions
                 'total_market_value_formatted' => '',
                 'trade_account_without_open_positions' => true,
             ];
-            $cashBalancesUtils = new CashBalancesUtils($accountId,
-                $this->_withUser, $date);
+            // Pass account to avoid redundant queries
+            $cashBalancesUtils = new CashBalancesUtils($accountId, $date, $account);
             self::addCashBalancesUtils($accountData[$accountId], $cashBalancesUtils);
         }
 
@@ -770,8 +721,9 @@ class Positions
                 self::updateAccountDataTotal($accountData[$accountId], $position);
             }
 
-            $cashBalancesUtils = new CashBalancesUtils($accountId,
-                $this->_withUser, $date);
+            // Pass account to avoid redundant queries
+            $account = $accountData[$accountId]['accountModel'] ?? null;
+            $cashBalancesUtils = new CashBalancesUtils($accountId, $date, $account);
             self::addCashBalancesUtils($accountData[$accountId], $cashBalancesUtils);
         }
 

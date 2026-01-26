@@ -186,9 +186,11 @@ class ReturnsQuoteProvider
         $inMemoryKey = $symbol . '_' . $date->format('Y-m-d');
         $this->quoteStatsCache[$inMemoryKey] = $stat;
 
-        // Layer 3: Persistent cache (1 hour TTL across all years)
+        // Layer 3: Persistent cache with dynamic TTL based on year
+        // Past years: 4 weeks, Current year: 1 hour
+        $cacheTTL = $this->getCacheTTLForDate($date);
         $cacheKey = 'returns_stat_' . $symbol . '_' . $date->format('Y-m-d');
-        Cache::put($cacheKey, $stat, ReturnsConstants::QUOTE_CACHE_TTL);
+        Cache::put($cacheKey, $stat, $cacheTTL);
     }
 
     /**
@@ -443,11 +445,13 @@ class ReturnsQuoteProvider
         $inMemoryKey = $symbol . '_' . $date->format('Y-m-d');
         $this->exchangeRateStatsCache[$inMemoryKey] = $stat;
 
-        // Layer 3: Persistent cache (TTL across all years)
+        // Layer 3: Persistent cache with dynamic TTL based on year
+        // Past years: 4 weeks, Current year: 1 hour
+        $cacheTTL = $this->getCacheTTLForDate($date);
         $cacheKey = 'returns_exchange_rate_' . $symbol . '_' . $date->format(
             'Y-m-d'
         );
-        Cache::put($cacheKey, $stat, ReturnsConstants::QUOTE_CACHE_TTL);
+        Cache::put($cacheKey, $stat, $cacheTTL);
     }
 
     /**
@@ -672,5 +676,26 @@ class ReturnsQuoteProvider
         string $type
     ): ?float {
         return $this->configHelper->getOverride($symbol, $accountId, $date, $type);
+    }
+
+    /**
+     * Get cache TTL based on the date's year
+     * Returns longer TTL for past years since historical data doesn't change
+     *
+     * @param \DateTimeInterface $date The date to check
+     * @return int Cache TTL in seconds
+     */
+    private function getCacheTTLForDate(\DateTimeInterface $date): int
+    {
+        $currentYear = (int) date('Y');
+        $dateYear = (int) $date->format('Y');
+
+        if ($dateYear < $currentYear) {
+            // Past years: Use 4 weeks cache (historical data doesn't change)
+            return ReturnsConstants::QUOTE_CACHE_TTL_PAST_YEARS;
+        }
+
+        // Current year: Use 1 hour cache (data may still change)
+        return ReturnsConstants::QUOTE_CACHE_TTL_CURRENT_YEAR;
     }
 }

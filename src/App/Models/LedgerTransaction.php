@@ -4,7 +4,7 @@ namespace ovidiuro\myfinance2\App\Models;
 
 use ovidiuro\myfinance2\App\Services\MoneyFormat;
 
-use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class LedgerTransaction extends MyFinance2Model
 {
@@ -58,18 +58,18 @@ class LedgerTransaction extends MyFinance2Model
     /**
      * Get the debit account associated with the ledger transaction.
      */
-    public function debitAccountModel(): HasOne
+    public function debitAccountModel(): BelongsTo
     {
-        return $this->hasOne(Account::class, 'id', 'debit_account_id')
+        return $this->belongsTo(Account::class, 'debit_account_id', 'id')
             ->with('currency');
     }
 
     /**
      * Get the credit account associated with the ledger transaction.
      */
-    public function creditAccountModel(): HasOne
+    public function creditAccountModel(): BelongsTo
     {
-        return $this->hasOne(Account::class, 'id', 'credit_account_id')
+        return $this->belongsTo(Account::class, 'credit_account_id', 'id')
             ->with('currency');
     }
 

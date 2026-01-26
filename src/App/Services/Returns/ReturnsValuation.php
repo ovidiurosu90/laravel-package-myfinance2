@@ -6,6 +6,7 @@ namespace ovidiuro\myfinance2\App\Services\Returns;
 
 use Illuminate\Support\Facades\Log;
 use ovidiuro\myfinance2\App\Models\Account;
+use ovidiuro\myfinance2\App\Models\Currency;
 use ovidiuro\myfinance2\App\Services\CashBalancesUtils;
 use ovidiuro\myfinance2\App\Services\FinanceAPI;
 use ovidiuro\myfinance2\App\Services\MoneyFormat;
@@ -20,42 +21,56 @@ use ovidiuro\myfinance2\App\Services\Positions;
  */
 class ReturnsValuation
 {
-    private bool $withUser = true;
     private ReturnsQuoteProvider $quoteProvider;
     private ReturnsConfigHelper $configHelper;
 
     public function __construct(
         ReturnsQuoteProvider $quoteProvider = null,
         ReturnsConfigHelper $configHelper = null
-    ) {
+    )
+    {
         $this->quoteProvider = $quoteProvider ?? new ReturnsQuoteProvider();
         $this->configHelper = $configHelper ?? new ReturnsConfigHelper();
-    }
-
-    public function setWithUser(bool $withUser = true): void
-    {
-        $this->withUser = $withUser;
     }
 
     /**
      * Get portfolio value at a specific date
      * Returns total value, positions value, cash value, and position details
+     *
+     * @param Account|int $accountOrId The account object (preferred) or account ID
+     * @param \DateTimeInterface $date The date to get portfolio value for
+     * @param array|null $preloadedPositions Pre-fetched positions for this account (optional)
      */
-    public function getPortfolioValue(int $accountId, \DateTimeInterface $date): array
-    {
+    public function getPortfolioValue(
+        Account|int $accountOrId,
+        \DateTimeInterface $date,
+        ?array $preloadedPositions = null
+    ): array {
         if (is_string($date)) {
             $date = new \DateTime($date);
         }
 
-        // Get positions and apply overrides
-        $positionsService = new Positions();
-        $positionsService->setWithUser($this->withUser);
-        // For Returns calculation, we need ALL trades (including CLOSED) to calculate realized gains
-        $positionsService->setIncludeClosedTrades(true);
-        $trades = $positionsService->getTrades($date);
-        $positions = Positions::tradesToPositions($trades);
-        $accountPositions = $positions[$accountId] ?? [];
-        $account = Account::find($accountId);
+        // Handle both Account object and accountId for backwards compatibility
+        if ($accountOrId instanceof Account) {
+            $account = $accountOrId;
+            $accountId = $account->id;
+        } else {
+            $accountId = $accountOrId;
+            $account = Account::with('currency')->find($accountId);
+        }
+
+        // Use pre-loaded positions if provided, otherwise fetch them
+        if ($preloadedPositions !== null) {
+            $accountPositions = $preloadedPositions;
+        } else {
+            // Get positions and apply overrides (fallback for backwards compatibility)
+            $positionsService = new Positions();
+            // For Returns calculation, we need ALL trades (including CLOSED) to calculate realized gains
+            $positionsService->setIncludeClosedTrades(true);
+            $trades = $positionsService->getTrades($date);
+            $positions = Positions::tradesToPositions($trades);
+            $accountPositions = $positions[$accountId] ?? [];
+        }
 
         $accountPositions = $this->applyPositionDateOverrides(
             $accountId,
@@ -81,8 +96,8 @@ class ReturnsValuation
             $positionDetails
         );
 
-        // Get cash balance
-        $cashBalancesUtils = new CashBalancesUtils($accountId, $this->withUser, $date);
+        // Get cash balance (pass account to avoid redundant query)
+        $cashBalancesUtils = new CashBalancesUtils($accountId, $date, $account);
         $cashValue = $cashBalancesUtils->getAmount() ?? 0;
 
         return [
@@ -123,18 +138,19 @@ class ReturnsValuation
                 if (isset($accountPositions[$manualSymbol])) {
                     $accountPositions[$manualSymbol]['quantity'] = $manualData['quantity'];
                 } else {
-                    $tradeCurrency = \ovidiuro\myfinance2\App\Models\Currency::where(
-                        'iso_code',
-                        'USD'
-                    )->first();
-                    $tradeCurrencyId = $tradeCurrency ? $tradeCurrency->id : 1;
+                    // Determine trade currency: use override config if provided, otherwise default to account currency
+                    $tradeCurrencyIsoCode = $manualData['currency'] ?? $account->currency->iso_code;
+
+                    // Load currency
+                    $tradeCurrency = Currency::where('iso_code', $tradeCurrencyIsoCode)->first();
+                    $tradeCurrencyId = $tradeCurrency ? $tradeCurrency->id : $account->currency->id;
 
                     $accountPositions[$manualSymbol] = [
                         'symbol' => $manualSymbol,
                         'quantity' => $manualData['quantity'],
                         'accountModel' => $account,
                         'trade_currency_id' => $tradeCurrencyId,
-                        'tradeCurrencyModel' => $tradeCurrency,
+                        'tradeCurrencyModel' => $tradeCurrency ?? $account->currency,
                     ];
                 }
             }

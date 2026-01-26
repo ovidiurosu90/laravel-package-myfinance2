@@ -43,16 +43,18 @@
                     @csrf
                     <input type="hidden" name="year" value="{{ $selectedYear }}">
                     @php
-                        $clearCacheMsg = 'Are you sure you want to clear the returns cache? '
+                        $clearCacheMsg = 'WARNING: This will clear ALL application cache (not just year ' . $selectedYear . '). '
+                            . 'This includes: returns data for ALL years (2016-' . date('Y') . '), '
+                            . 'quote cache, exchange rate cache, and all other cached data. '
                             . 'The page will recalculate data on next load, which may take a moment.';
                     @endphp
                     <button type="button" class="btn btn-outline-warning"
                         data-bs-toggle="modal"
                         data-bs-target="#confirm-clear-cache-modal"
-                        data-title="Clear Returns Cache"
+                        data-title="Clear ALL Cache (Nuclear Option)"
                         data-message="{{ $clearCacheMsg }}"
-                        title="Clear the returns cache to force recalculation">
-                        <i class="fa-solid fa-trash-can me-1"></i>Clear Cache
+                        title="WARNING: Clears ALL application cache (returns for ALL years 2016-{{ date('Y') }}, quotes, exchange rates, etc.) - Nuclear option!">
+                        <i class="fa-solid fa-radiation me-1"></i>Clear Cache
                     </button>
                 </form>
             </div>

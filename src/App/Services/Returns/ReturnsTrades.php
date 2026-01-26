@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace ovidiuro\myfinance2\App\Services\Returns;
 
+use ovidiuro\myfinance2\App\Models\Account;
 use ovidiuro\myfinance2\App\Models\Trade;
 use ovidiuro\myfinance2\App\Services\MoneyFormat;
 
@@ -18,19 +19,34 @@ class ReturnsTrades
     /**
      * Fetch both purchases and sales in a single query to reduce DB round-trips
      * Returns array with 'purchases' and 'sales' keys
+     *
+     * @param int $accountId The account ID
+     * @param int $year The year to get trades for
+     * @param Account|null $preloadedAccount Pre-loaded account object (optional, avoids redundant query)
      */
-    public function getPurchasesAndSales(int $accountId, int $year): array
+    public function getPurchasesAndSales(int $accountId, int $year, ?Account $preloadedAccount = null): array
     {
         $startDate = "$year-01-01 00:00:00";
         $endDate = "$year-12-31 23:59:59";
 
-        // Fetch all BUY and SELL trades in a single query with relationships eager-loaded once
-        $trades = Trade::with('accountModel.currency', 'tradeCurrencyModel')
+        // Only eager load accountModel.currency if we don't have a pre-loaded account
+        $eagerLoad = $preloadedAccount !== null
+            ? ['tradeCurrencyModel']
+            : ['accountModel.currency', 'tradeCurrencyModel'];
+
+        $trades = Trade::with($eagerLoad)
             ->where('account_id', $accountId)
             ->whereIn('action', ['BUY', 'SELL'])
             ->whereBetween('timestamp', [$startDate, $endDate])
             ->orderBy('timestamp', 'ASC')
             ->get();
+
+        // Set the pre-loaded account on all trades to avoid lazy loading
+        if ($preloadedAccount !== null) {
+            foreach ($trades as $trade) {
+                $trade->setRelation('accountModel', $preloadedAccount);
+            }
+        }
 
         // Get excluded trade IDs from config
         $excludedTradeIds = config('trades.exclude_trades_from_returns', []);
@@ -79,8 +95,12 @@ class ReturnsTrades
 
     /**
      * Get excluded trades (BUY and SELL) for a year - for informational display
+     *
+     * @param int $accountId The account ID
+     * @param int $year The year to get trades for
+     * @param Account|null $preloadedAccount Pre-loaded account object (optional, avoids redundant query)
      */
-    public function getExcludedTrades(int $accountId, int $year): array
+    public function getExcludedTrades(int $accountId, int $year, ?Account $preloadedAccount = null): array
     {
         $startDate = "$year-01-01 00:00:00";
         $endDate = "$year-12-31 23:59:59";
@@ -92,12 +112,24 @@ class ReturnsTrades
             return [];
         }
 
-        $trades = Trade::with('accountModel.currency', 'tradeCurrencyModel')
+        // Only eager load accountModel.currency if we don't have a pre-loaded account
+        $eagerLoad = $preloadedAccount !== null
+            ? ['tradeCurrencyModel']
+            : ['accountModel.currency', 'tradeCurrencyModel'];
+
+        $trades = Trade::with($eagerLoad)
             ->where('account_id', $accountId)
             ->whereIn('id', $excludedTradeIds)
             ->whereBetween('timestamp', [$startDate, $endDate])
             ->orderBy('timestamp', 'ASC')
             ->get();
+
+        // Set the pre-loaded account on all trades to avoid lazy loading
+        if ($preloadedAccount !== null) {
+            foreach ($trades as $trade) {
+                $trade->setRelation('accountModel', $preloadedAccount);
+            }
+        }
 
         $excluded = [];
         foreach ($trades as $trade) {

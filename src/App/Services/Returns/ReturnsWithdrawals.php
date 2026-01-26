@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace ovidiuro\myfinance2\App\Services\Returns;
 
-use Illuminate\Support\Facades\Auth;
+use ovidiuro\myfinance2\App\Models\Account;
 use ovidiuro\myfinance2\App\Models\LedgerTransaction;
 use ovidiuro\myfinance2\App\Services\MoneyFormat;
 
@@ -17,19 +17,35 @@ class ReturnsWithdrawals
 {
     /**
      * Get withdrawals (debits from trading account) for a year
+     *
+     * @param int $accountId The account ID
+     * @param int $year The year to get withdrawals for
+     * @param Account|null $preloadedAccount Pre-loaded account object (optional, avoids redundant query)
      */
-    public function getWithdrawals(int $accountId, int $year): array
+    public function getWithdrawals(int $accountId, int $year, ?Account $preloadedAccount = null): array
     {
         $startDate = "$year-01-01 00:00:00";
         $endDate = "$year-12-31 23:59:59";
 
-        $ledgerTransactions = LedgerTransaction::with('debitAccountModel', 'creditAccountModel')
+        // Only eager load debitAccountModel if we don't have a pre-loaded account
+        // Still need creditAccountModel to show destination account name
+        $eagerLoad = $preloadedAccount !== null
+            ? ['creditAccountModel']
+            : ['debitAccountModel', 'creditAccountModel'];
+
+        $ledgerTransactions = LedgerTransaction::with($eagerLoad)
             ->where('debit_account_id', $accountId)
             ->where('type', 'DEBIT')
             ->whereBetween('timestamp', [$startDate, $endDate])
-            ->where('user_id', Auth::id())
             ->orderBy('timestamp', 'ASC')
             ->get();
+
+        // Set the pre-loaded account on all transactions to avoid lazy loading
+        if ($preloadedAccount !== null) {
+            foreach ($ledgerTransactions as $transaction) {
+                $transaction->setRelation('debitAccountModel', $preloadedAccount);
+            }
+        }
 
         $withdrawals = [];
         foreach ($ledgerTransactions as $transaction) {

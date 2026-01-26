@@ -4,7 +4,7 @@ namespace ovidiuro\myfinance2\App\Models;
 
 use ovidiuro\myfinance2\App\Services\MoneyFormat;
 
-use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Dividend extends MyFinance2Model
 {
@@ -56,18 +56,18 @@ class Dividend extends MyFinance2Model
     /**
      * Get the account associated with the dividend.
      */
-    public function accountModel(): HasOne
+    public function accountModel(): BelongsTo
     {
-        return $this->hasOne(Account::class, 'id', 'account_id')
+        return $this->belongsTo(Account::class, 'account_id', 'id')
             ->with('currency');
     }
 
     /**
      * Get the currency associated with the dividend.
      */
-    public function dividendCurrencyModel(): HasOne
+    public function dividendCurrencyModel(): BelongsTo
     {
-        return $this->hasOne(Currency::class, 'id', 'dividend_currency_id');
+        return $this->belongsTo(Currency::class, 'dividend_currency_id', 'id');
     }
 
     public function getCleanExchangeRate()

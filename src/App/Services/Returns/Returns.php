@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace ovidiuro\myfinance2\App\Services\Returns;
 
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use ovidiuro\myfinance2\App\Models\Account;
+use ovidiuro\myfinance2\App\Models\Currency;
 use ovidiuro\myfinance2\App\Services\MoneyFormat;
+use ovidiuro\myfinance2\App\Services\Positions;
 
 /**
  * Returns Orchestrator Service
@@ -24,13 +25,25 @@ use ovidiuro\myfinance2\App\Services\MoneyFormat;
  */
 class Returns
 {
-    private bool $_withUser = true;
     private ReturnsValuation $_valuation;
     private ReturnsDeposits $_deposits;
     private ReturnsWithdrawals $_withdrawals;
     private ReturnsDividends $_dividends;
     private ReturnsTrades $_trades;
     private ReturnsCurrencyConverter $_currencyConverter;
+
+    /**
+     * Cached positions data keyed by date string (Y-m-d)
+     * Prevents redundant Positions::getTrades() calls for same date
+     * Format: ['2022-01-01' => ['trades' => Collection, 'positions' => array]]
+     */
+    private array $_positionsCache = [];
+
+    /**
+     * Cached currency models keyed by iso_code
+     * Prevents redundant Currency queries
+     */
+    private array $_currencyCache = [];
 
     public function __construct(
         ReturnsValuation $valuation = null,
@@ -49,12 +62,6 @@ class Returns
         $this->_currencyConverter = $currencyConverter ?? new ReturnsCurrencyConverter();
     }
 
-    public function setWithUser(bool $withUser = true): void
-    {
-        $this->_withUser = $withUser;
-        $this->_valuation->setWithUser($withUser);
-    }
-
     /**
      * Main entry point: Calculate returns for all trading accounts for a year
      *
@@ -66,9 +73,20 @@ class Returns
         // Get all trading accounts
         $accounts = Account::with('currency')
             ->where('is_trade_account', '1')
-            ->where('user_id', Auth::id())
             ->orderBy('name')
             ->get();
+
+        // Pre-fetch currencies used for conversion (EUR, USD)
+        $this->_prefetchCurrencies(['EUR', 'USD']);
+
+        // Pre-fetch positions for the year boundaries (jan1 and dec31)
+        // This prevents duplicate trades queries across accounts
+        try {
+            [$jan1, $dec31] = $this->_createDateRange($year);
+            $this->_prefetchPositionsForDates([$jan1, $dec31]);
+        } catch (\Exception $e) {
+            Log::error('Failed to prefetch positions for year: ' . $year . '. Error: ' . $e->getMessage());
+        }
 
         $returnsData = [];
         $totalReturnEUR = 0;
@@ -96,7 +114,8 @@ class Returns
                 $accountId,
                 $baseReturns,
                 ['EUR', 'USD'],
-                $year
+                $year,
+                $this->_currencyCache
             );
 
             // Filter out accounts with no activity for the selected year
@@ -148,10 +167,10 @@ class Returns
         }
 
         // Fetch portfolio values at start and end of period
-        $portfolioValues = $this->_fetchPortfolioValues($accountId, $jan1, $dec31);
+        $portfolioValues = $this->_fetchPortfolioValues($account, $jan1, $dec31);
 
-        // Fetch all transactions for the year
-        $transactions = $this->_fetchAllTransactions($accountId, $year);
+        // Fetch all transactions for the year (pass account to avoid redundant queries)
+        $transactions = $this->_fetchAllTransactions($account, $year);
 
         // Calculate all totals with override handling
         $totals = $this->_calculateTotals(
@@ -417,15 +436,21 @@ class Returns
     /**
      * Fetch portfolio values at start and end of period
      *
-     * @param int $accountId The account ID
+     * @param Account $account The account (already loaded with currency)
      * @param \DateTime $jan1 Start date
      * @param \DateTime $dec31 End date
      * @return array Portfolio values with jan1 and dec31 data
      */
-    private function _fetchPortfolioValues(int $accountId, \DateTime $jan1, \DateTime $dec31): array
+    private function _fetchPortfolioValues(Account $account, \DateTime $jan1, \DateTime $dec31): array
     {
-        $jan1Data = $this->_valuation->getPortfolioValue($accountId, $jan1);
-        $dec31Data = $this->_valuation->getPortfolioValue($accountId, $dec31);
+        $accountId = $account->id;
+
+        // Get cached positions for these dates
+        $jan1Positions = $this->_getCachedPositionsForAccount($jan1, $accountId);
+        $dec31Positions = $this->_getCachedPositionsForAccount($dec31, $accountId);
+
+        $jan1Data = $this->_valuation->getPortfolioValue($account, $jan1, $jan1Positions);
+        $dec31Data = $this->_valuation->getPortfolioValue($account, $dec31, $dec31Positions);
 
         return [
             'jan1' => [
@@ -446,23 +471,72 @@ class Returns
     }
 
     /**
+     * Pre-fetch currencies used for conversion
+     * Prevents duplicate Currency queries across accounts
+     */
+    private function _prefetchCurrencies(array $isoCodes): void
+    {
+        $currencies = Currency::whereIn('iso_code', $isoCodes)->get();
+        foreach ($currencies as $currency) {
+            $this->_currencyCache[$currency->iso_code] = $currency;
+        }
+    }
+
+    /**
+     * Pre-fetch positions for given dates
+     * Prevents duplicate Positions::getTrades() queries across accounts
+     */
+    private function _prefetchPositionsForDates(array $dates): void
+    {
+        $positionsService = new Positions();
+        $positionsService->setIncludeClosedTrades(true);
+
+        foreach ($dates as $date) {
+            $dateKey = $date->format('Y-m-d');
+            if (!isset($this->_positionsCache[$dateKey])) {
+                $trades = $positionsService->getTrades($date);
+                $positions = Positions::tradesToPositions($trades);
+                $this->_positionsCache[$dateKey] = [
+                    'trades' => $trades,
+                    'positions' => $positions,
+                ];
+            }
+        }
+    }
+
+    /**
+     * Get cached positions for a specific account and date
+     */
+    private function _getCachedPositionsForAccount(\DateTime $date, int $accountId): array
+    {
+        $dateKey = $date->format('Y-m-d');
+        if (isset($this->_positionsCache[$dateKey])) {
+            return $this->_positionsCache[$dateKey]['positions'][$accountId] ?? [];
+        }
+        return [];
+    }
+
+    /**
      * Fetch all transactions for the year
      *
-     * @param int $accountId The account ID
+     * @param Account $account The account (with currency pre-loaded)
      * @param int $year The year
      * @return array All transaction data
      */
-    private function _fetchAllTransactions(int $accountId, int $year): array
+    private function _fetchAllTransactions(Account $account, int $year): array
     {
-        $tradesData = $this->_trades->getPurchasesAndSales($accountId, $year);
+        $accountId = $account->id;
+
+        // Pass pre-loaded account to avoid redundant eager loading queries
+        $tradesData = $this->_trades->getPurchasesAndSales($accountId, $year, $account);
 
         return [
-            'deposits' => $this->_deposits->getDeposits($accountId, $year),
-            'withdrawals' => $this->_withdrawals->getWithdrawals($accountId, $year),
-            'dividendsList' => $this->_dividends->getDividends($accountId, $year),
+            'deposits' => $this->_deposits->getDeposits($accountId, $year, $account),
+            'withdrawals' => $this->_withdrawals->getWithdrawals($accountId, $year, $account),
+            'dividendsList' => $this->_dividends->getDividends($accountId, $year, $account),
             'purchases' => $tradesData['purchases'],
             'sales' => $tradesData['sales'],
-            'excludedTrades' => $this->_trades->getExcludedTrades($accountId, $year),
+            'excludedTrades' => $this->_trades->getExcludedTrades($accountId, $year, $account),
         ];
     }
 

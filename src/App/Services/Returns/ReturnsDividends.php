@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace ovidiuro\myfinance2\App\Services\Returns;
 
-use Illuminate\Support\Facades\Auth;
+use ovidiuro\myfinance2\App\Models\Account;
 use ovidiuro\myfinance2\App\Models\Dividend;
 use ovidiuro\myfinance2\App\Services\MoneyFormat;
 
@@ -17,18 +17,33 @@ class ReturnsDividends
 {
     /**
      * Get dividends (income from dividends) for a year
+     *
+     * @param int $accountId The account ID
+     * @param int $year The year to get dividends for
+     * @param Account|null $preloadedAccount Pre-loaded account object (optional, avoids redundant query)
      */
-    public function getDividends(int $accountId, int $year): array
+    public function getDividends(int $accountId, int $year, ?Account $preloadedAccount = null): array
     {
         $startDate = "$year-01-01 00:00:00";
         $endDate = "$year-12-31 23:59:59";
 
-        $dividends = Dividend::with('accountModel', 'dividendCurrencyModel')
+        // Only eager load accountModel if we don't have a pre-loaded account
+        $eagerLoad = $preloadedAccount !== null
+            ? ['dividendCurrencyModel']
+            : ['accountModel', 'dividendCurrencyModel'];
+
+        $dividends = Dividend::with($eagerLoad)
             ->where('account_id', $accountId)
             ->whereBetween('timestamp', [$startDate, $endDate])
-            ->where('user_id', Auth::id())
             ->orderBy('timestamp', 'ASC')
             ->get();
+
+        // Set the pre-loaded account on all dividends to avoid lazy loading
+        if ($preloadedAccount !== null) {
+            foreach ($dividends as $dividend) {
+                $dividend->setRelation('accountModel', $preloadedAccount);
+            }
+        }
 
         $dividendsList = [];
         foreach ($dividends as $dividend) {

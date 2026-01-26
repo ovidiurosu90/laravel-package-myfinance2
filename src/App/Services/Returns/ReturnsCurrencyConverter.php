@@ -30,12 +30,19 @@ class ReturnsCurrencyConverter
 
     /**
      * Convert returns data to multiple currencies in a single pass (optimized version)
+     *
+     * @param int $accountId The account ID
+     * @param array $returnsData The returns data to convert
+     * @param array $targetCurrencies Target currencies (e.g., ['EUR', 'USD'])
+     * @param int|null $year The year for fee exclusions
+     * @param array $preloadedCurrencies Pre-fetched currency models keyed by iso_code (optional)
      */
     public function convertReturnsToCurrencies(
         int $accountId,
         array $returnsData,
         array $targetCurrencies,
-        int $year = null
+        int $year = null,
+        array $preloadedCurrencies = []
     ): array {
         $baseCurrency = $returnsData['baseCurrency'];
         $jan1 = $returnsData['jan1Date'] ?? null;
@@ -58,7 +65,7 @@ class ReturnsCurrencyConverter
             $dec31
         );
         $eurusdRates = $this->_getEurusdRates($accountId, $jan1, $dec31);
-        $currencyModels = $this->_getCurrencyModels($targetCurrencies);
+        $currencyModels = $this->_getCurrencyModels($targetCurrencies, $preloadedCurrencies);
 
         $result = [];
         foreach ($targetCurrencies as $targetCurrency) {
@@ -157,20 +164,32 @@ class ReturnsCurrencyConverter
     }
 
     /**
-     * Get currency models for all target currencies in a single query
+     * Get currency models for all target currencies
+     * Uses pre-loaded currencies if available, otherwise queries database
+     *
+     * @param array $targetCurrencies Currency ISO codes to get models for
+     * @param array $preloadedCurrencies Pre-loaded currency models keyed by iso_code (optional)
      */
-    private function _getCurrencyModels(array $targetCurrencies): array
+    private function _getCurrencyModels(array $targetCurrencies, array $preloadedCurrencies = []): array
     {
-        // Batch load all currencies in a single query instead of individual lookups
-        $currencies = Currency::whereIn(
-            'iso_code',
-            $targetCurrencies
-        )->get();
-
-        // Map results by iso_code for quick lookup
         $currencyModels = [];
-        foreach ($currencies as $currency) {
-            $currencyModels[$currency->iso_code] = $currency;
+
+        // Check which currencies we still need to fetch
+        $currenciesToFetch = [];
+        foreach ($targetCurrencies as $targetCurrency) {
+            if (isset($preloadedCurrencies[$targetCurrency])) {
+                $currencyModels[$targetCurrency] = $preloadedCurrencies[$targetCurrency];
+            } else {
+                $currenciesToFetch[] = $targetCurrency;
+            }
+        }
+
+        // Fetch any missing currencies from database
+        if (!empty($currenciesToFetch)) {
+            $currencies = Currency::whereIn('iso_code', $currenciesToFetch)->get();
+            foreach ($currencies as $currency) {
+                $currencyModels[$currency->iso_code] = $currency;
+            }
         }
 
         // Ensure all requested currencies are in the result (even if not found)

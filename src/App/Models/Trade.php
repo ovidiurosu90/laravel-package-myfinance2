@@ -4,9 +4,8 @@ namespace ovidiuro\myfinance2\App\Models;
 
 use ovidiuro\myfinance2\App\Services\MoneyFormat;
 use ovidiuro\myfinance2\App\Services\FinanceAPI;
-use ovidiuro\myfinance2\App\Models\Scopes\AssignedToUserScope;
 
-use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Trade extends MyFinance2Model
 {
@@ -61,35 +60,18 @@ class Trade extends MyFinance2Model
     /**
      * Get the account associated with the trade.
      */
-    public function accountModel(): HasOne
+    public function accountModel(): BelongsTo
     {
-        return $this->hasOne(Account::class, 'id', 'account_id')
+        return $this->belongsTo(Account::class, 'account_id', 'id')
             ->with('currency');
-    }
-    public function accountModelNoUser(): HasOne
-    {
-        if (php_sapi_name() !== 'cli') { // in browser we have 'apache2handler'
-            abort(403, 'Access denied in Trade Model');
-        }
-        return $this->hasOne(Account::class, 'id', 'account_id')
-            ->with('currencyNoUser')
-            ->withoutGlobalScope(AssignedToUserScope::class);
     }
 
     /**
      * Get the currency associated with the trade.
      */
-    public function tradeCurrencyModel(): HasOne
+    public function tradeCurrencyModel(): BelongsTo
     {
-        return $this->hasOne(Currency::class, 'id', 'trade_currency_id');
-    }
-    public function tradeCurrencyModelNoUser(): HasOne
-    {
-        if (php_sapi_name() !== 'cli') { // in browser we have 'apache2handler'
-            abort(403, 'Access denied in Trade Model');
-        }
-        return $this->hasOne(Currency::class, 'id', 'trade_currency_id')
-            ->withoutGlobalScope(AssignedToUserScope::class);
+        return $this->belongsTo(Currency::class, 'trade_currency_id', 'id');
     }
 
     public function getCleanQuantity()

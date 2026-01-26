@@ -3,9 +3,8 @@
 namespace ovidiuro\myfinance2\App\Models;
 
 use ovidiuro\myfinance2\App\Services\MoneyFormat;
-use ovidiuro\myfinance2\App\Models\Scopes\AssignedToUserScope;
 
-use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CashBalance extends MyFinance2Model
 {
@@ -50,19 +49,10 @@ class CashBalance extends MyFinance2Model
     /**
      * Get the account associated with the cash balance.
      */
-    public function accountModel(): HasOne
+    public function accountModel(): BelongsTo
     {
-        return $this->hasOne(Account::class, 'id', 'account_id')
+        return $this->belongsTo(Account::class, 'account_id', 'id')
             ->with('currency');
-    }
-    public function accountModelNoUser(): HasOne
-    {
-        if (php_sapi_name() !== 'cli') { // in browser we have 'apache2handler'
-            abort(403, 'Access denied in CashBalance Model');
-        }
-        return $this->hasOne(Account::class, 'id', 'account_id')
-            ->with('currencyNoUser')
-            ->withoutGlobalScope(AssignedToUserScope::class);
     }
 
     public function getFormattedAmount()

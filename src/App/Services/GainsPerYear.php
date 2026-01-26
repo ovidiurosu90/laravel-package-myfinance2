@@ -3,11 +3,8 @@
 namespace ovidiuro\myfinance2\App\Services;
 
 use Illuminate\Support\Facades\Log;
-use Illuminate\Database\Eloquent\Collection;
 
 use ovidiuro\myfinance2\App\Models\Trade;
-use ovidiuro\myfinance2\App\Models\Account;
-use ovidiuro\myfinance2\App\Models\Scopes\AssignedToUserScope;
 
 class GainsPerYear
 {

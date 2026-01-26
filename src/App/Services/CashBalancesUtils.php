@@ -9,15 +9,9 @@ use ovidiuro\myfinance2\App\Models\CashBalance;
 use ovidiuro\myfinance2\App\Models\LedgerTransaction;
 use ovidiuro\myfinance2\App\Models\Trade;
 use ovidiuro\myfinance2\App\Models\Dividend;
-use ovidiuro\myfinance2\App\Models\Scopes\AssignedToUserScope;
 
 class CashBalancesUtils
 {
-    /**
-     * @var bool
-     */
-    private $_withUser = true;
-
     /**
      * @var CashBalance
      */
@@ -33,74 +27,63 @@ class CashBalancesUtils
      */
     private $_lastOperationTimestamp;
 
-    public function __construct(int $accountId,
-        bool $withUser = true, \DateTimeInterface $date = null)
+    /**
+     * @param int $accountId The account ID
+     * @param \DateTimeInterface|null $date The date to get cash balance for
+     * @param Account|null $account Pre-loaded account object (optional, avoids redundant query)
+     */
+    public function __construct(int $accountId, \DateTimeInterface $date = null, Account $account = null)
     {
-        $this->setWithUser($withUser);
+        // If account is pre-loaded, skip eager loading in cash balance query
+        $this->_populateCashBlance($accountId, $date, $account !== null);
+        $this->_populateAccount($accountId, $account);
 
-        $this->_populateCashBlance($accountId, $date);
-        $this->_populateAccount($accountId);
+        // Set the accountModel relationship on CashBalance to avoid lazy loading
+        // when CashBalance methods internally access $this->accountModel->currency
+        if ($this->_cashBalance !== null && $this->_account !== null) {
+            $this->_cashBalance->setRelation('accountModel', $this->_account);
+        }
     }
 
-    public function setWithUser(bool $withUser = true)
+    /**
+     * @param int $accountId The account ID
+     * @param \DateTimeInterface|null $date The date to get cash balance for
+     * @param bool $skipEagerLoading Skip eager loading accountModel (when account is pre-loaded)
+     */
+    public function _populateCashBlance(int $accountId, \DateTimeInterface $date = null, bool $skipEagerLoading = false)
     {
-        if (!$withUser
-            && php_sapi_name() !== 'cli' // in browser we have 'apache2handler'
-        ) {
-            abort(403, 'Access denied in Account Model');
-        }
-
-        $this->_withUser = $withUser;
-    }
-
-    public function _populateCashBlance(int $accountId,
-        \DateTimeInterface $date = null)
-    {
-        $queryBuilder = CashBalance::with('accountModel');
-        if (!$this->_withUser) {
-            $queryBuilder = CashBalance::with('accountModelNoUser')
-                ->withoutGlobalScope(AssignedToUserScope::class);
-        }
-
-        $this->_cashBalance = $queryBuilder
-            ->where('account_id', $accountId)
+        $query = CashBalance::where('account_id', $accountId)
             ->where('timestamp', '<', !empty($date) ? $date : \DB::raw('NOW()'))
-            ->orderBy('timestamp', 'DESC')
-            ->first();
+            ->orderBy('timestamp', 'DESC');
 
-        if (!$this->_withUser
-            && !empty($this->_cashBalance)
-            // && empty($this->_cashBalance->accountModel)
-            && !empty($this->_cashBalance->accountModelNoUser)
-        ) {
-            $this->_cashBalance->accountModel = $this->_cashBalance
-                ->accountModelNoUser;
+        // Only eager load accountModel if we don't have a pre-loaded account
+        if (!$skipEagerLoading) {
+            $query->with('accountModel');
         }
+
+        $this->_cashBalance = $query->first();
         // Log::debug($this->_cashBalance);
     }
 
-    public function _populateAccount(int $accountId)
+    /**
+     * @param int $accountId The account ID
+     * @param Account|null $preloadedAccount Pre-loaded account object (optional)
+     */
+    public function _populateAccount(int $accountId, Account $preloadedAccount = null)
     {
-        if (!empty($this->_cashBalance)) {
+        // Use pre-loaded account if provided (highest priority)
+        if ($preloadedAccount !== null) {
+            $this->_account = $preloadedAccount;
+            return;
+        }
+
+        // Use eager-loaded account from cash balance if available
+        if (!empty($this->_cashBalance) && $this->_cashBalance->relationLoaded('accountModel')) {
             $this->_account = $this->_cashBalance->accountModel;
             return;
         }
 
-        $queryBuilder = Account::with('currency');
-        if (!$this->_withUser) {
-            $queryBuilder = Account::with('currencyNoUser')
-                ->withoutGlobalScope(AssignedToUserScope::class);
-        }
-
-        $this->_account = $queryBuilder->findOrFail($accountId);
-
-        if (!$this->_withUser
-            && !empty($this->_account)
-            // && empty($this->_account->currency)
-            && !empty($this->_account->currencyNoUser)
-        ) {
-            $this->_account->currency = $this->_account->currencyNoUser;
-        }
+        $this->_account = Account::with('currency')->findOrFail($accountId);
         // Log::debug($this->_account);
     }
 

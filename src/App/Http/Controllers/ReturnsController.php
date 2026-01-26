@@ -95,6 +95,11 @@ class ReturnsController extends MyFinance2Controller
     /**
      * Clear the returns cache and redirect back
      *
+     * NOTE: This clears ALL application cache, not just returns cache.
+     * When called from PHPUnit tests, this clears the test's isolated 'array' cache,
+     * not the production cache (file/redis). This is expected behavior - tests should
+     * not affect production cache state.
+     *
      * @return \Illuminate\Http\RedirectResponse
      */
     public function clearCache(): \Illuminate\Http\RedirectResponse
@@ -115,7 +120,15 @@ class ReturnsController extends MyFinance2Controller
                 }
             }
 
-            Log::info("Clearing cache (driver: $cacheDriver, files before: $cacheFilesBefore)");
+            // Log with context about what's being cleared
+            if ($cacheDriver === 'array') {
+                Log::info(
+                    "Clearing cache (driver: array - in-memory only, typically PHPUnit test context). "
+                    . "This does not affect production cache."
+                );
+            } else {
+                Log::info("Clearing cache (driver: $cacheDriver, files before: $cacheFilesBefore)");
+            }
 
             // Clear all cache
             $flushResult = Cache::flush();
@@ -138,7 +151,15 @@ class ReturnsController extends MyFinance2Controller
                         . 'Please run: sudo chown -R $USER:www-data storage/framework/cache/ && sudo chmod -R 775 storage/framework/cache/');
             }
 
-            Log::info("Returns cache cleared successfully (driver: $cacheDriver, files after: $cacheFilesAfter)");
+            if ($cacheDriver === 'array') {
+                Log::info(
+                    "Cache clear completed (driver: array - in-memory only). "
+                    . "Production cache was not affected."
+                );
+            } else {
+                Log::info("Returns cache cleared successfully (driver: $cacheDriver, files after: $cacheFilesAfter)");
+            }
+
             return redirect()->route('myfinance2::returns.index', ['year' => $year])
                 ->with(
                     'success',

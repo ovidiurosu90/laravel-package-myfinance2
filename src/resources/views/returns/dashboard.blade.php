@@ -24,7 +24,7 @@
     @include('myfinance2::general.modals.confirm-modal', [
         'formTrigger'   => 'confirm-clear-cache-modal',
         'modalClass'    => 'warning',
-        'actionBtnIcon' => 'fa-trash-can',
+        'actionBtnIcon' => 'fa-radiation',
         'btnSubmitText' => trans('myfinance2::general.buttons.clear-cache'),
     ])
     @include('myfinance2::returns.scripts.clear-cache')

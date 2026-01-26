@@ -124,6 +124,28 @@ sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Re
 ```
 
 
+### Refresh returns data
+
+```bash
+# Purpose: Pre-caches returns data for all years (MIN_YEAR to current year)
+# For each year:
+# - Past years (2016-2025): Checks if cache exists (marker: 'returns_year_YYYY_complete')
+#   - If cache exists and is valid (4 weeks TTL): Skips processing, logs "cache is still valid"
+#   - If cache doesn't exist or expired: Executes full returns flow, auto-caches for 4 weeks
+# - Current year (2026): Always clears cache and refreshes (auto-caches for 1 hour)
+# Benefits:
+# - Faster page loads for /returns pages (data pre-cached)
+# - Reduced API calls to Yahoo Finance
+# - Maintains fresh data for current year
+# (NOT in crontab - runs ad-hoc when needed or scheduled separately)
+sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Repositories/laravel-admin/ && php artisan app:finance-api-cron --refresh-returns"
+
+# With --force flag: Clears all cache markers and refreshes ALL years (including those with valid cache)
+# Use this when you need to rebuild the entire cache (e.g., after config changes, price overrides, etc.)
+sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Repositories/laravel-admin/ && php artisan app:finance-api-cron --refresh-returns --force"
+```
+
+
 ### Enable finance-api-cron for better performance & maintaining a complete week of historical account data
 
 ```bash
@@ -165,6 +187,22 @@ HISTORICAL_END=$(date +%Y-%m-%d --date '-1 day')
 
 # Run the job 150s after reboot
 @reboot sleep 150 && su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; export LD_PRELOAD=/usr/local/lib/libcurl-impersonate-chrome.so; export CURL_IMPERSONATE=chrome116; cd [USER_HOME]/Repositories/laravel-admin/ && cpulimit -l 50 -- php artisan app:finance-api-cron --historical-account-overview --start=${HISTORICAL_START} --end=${HISTORICAL_END} >> [USER_HOME]/Repositories/laravel-admin/storage/logs/finance-api-cron.log 2>&1"
+#############
+
+#############
+# Purpose: Pre-caches returns data for all years to ensure fast page loads
+# - Past years (2016-2025): Only refreshes if cache expired (4 weeks TTL), otherwise skips
+# - Current year (2026): Always refreshes (1 hour TTL)
+# Benefits:
+# - Users get instant page loads when viewing /returns
+# - Minimizes Yahoo Finance API calls by leveraging long-term cache for historical data
+# - Ensures current year data stays fresh with hourly updates
+
+# Run the job every hour at minute 42
+42 * * * * su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; export LD_PRELOAD=/usr/local/lib/libcurl-impersonate-chrome.so; export CURL_IMPERSONATE=chrome116; cd [USER_HOME]/Repositories/laravel-admin/ && cpulimit -l 50 -- php artisan app:finance-api-cron --refresh-returns >> [USER_HOME]/Repositories/laravel-admin/storage/logs/finance-api-cron.log 2>&1"
+
+# Run the job 250s after reboot
+@reboot sleep 250 && su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; export LD_PRELOAD=/usr/local/lib/libcurl-impersonate-chrome.so; export CURL_IMPERSONATE=chrome116; cd [USER_HOME]/Repositories/laravel-admin/ && cpulimit -l 50 -- php artisan app:finance-api-cron --refresh-returns >> [USER_HOME]/Repositories/laravel-admin/storage/logs/finance-api-cron.log 2>&1"
 #############
 ```
 
