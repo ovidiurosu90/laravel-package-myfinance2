@@ -10,6 +10,12 @@
     <div class="container-fluid">
         <div class="row">
             <div class="col-sm-12">
+                {{-- Overview section with all-years chart (independent currency toggle) --}}
+                @if($showOverview ?? true)
+                    @include('myfinance2::returns.returns-overview')
+                @endif
+
+                {{-- Year-specific returns data (separate currency toggle) --}}
                 @include('myfinance2::returns.tables.dashboard-table')
             </div>
         </div>
@@ -21,6 +27,9 @@
     @include('myfinance2::general.scripts.tooltips')
     @include('myfinance2::returns.scripts.year-selector')
     @include('myfinance2::returns.scripts.currency-toggle')
+    @if($showOverview ?? true)
+        @include('myfinance2::returns.scripts.returns-overview-graph')
+    @endif
     @include('myfinance2::general.modals.confirm-modal', [
         'formTrigger'   => 'confirm-clear-cache-modal',
         'modalClass'    => 'warning',

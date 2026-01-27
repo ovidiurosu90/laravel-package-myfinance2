@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace ovidiuro\myfinance2\App\Http\Controllers;
 
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use ovidiuro\myfinance2\App\Services\MoneyFormat;
 use ovidiuro\myfinance2\App\Services\Returns\Returns;
 use ovidiuro\myfinance2\App\Services\Returns\ReturnsConstants;
+use ovidiuro\myfinance2\App\Services\Returns\ReturnsOverview;
 use ovidiuro\myfinance2\App\Services\Returns\ReturnsViewTransformer;
 
 class ReturnsController extends MyFinance2Controller
@@ -74,6 +76,15 @@ class ReturnsController extends MyFinance2Controller
         $transformer = new ReturnsViewTransformer();
         $transformedReturnsData = $transformer->transform($returnsData, $year);
 
+        // Fetch overview data for all years (for the overview chart)
+        // Skip if skip_overview=1 is passed (useful for tests to avoid expensive all-years calculation)
+        $overviewData = [];
+        $skipOverview = request()->boolean('skip_overview', false);
+        if (!$skipOverview) {
+            $overviewService = new ReturnsOverview();
+            $overviewData = $overviewService->handle(Auth::user()->id);
+        }
+
         // Prepare view data
         $viewData = [
             'returnsData' => $transformedReturnsData,
@@ -87,6 +98,8 @@ class ReturnsController extends MyFinance2Controller
             'selectedYear' => $year,
             'selectedCurrency' => $currency,
             'availableYears' => range($currentYear, ReturnsConstants::MIN_YEAR),
+            'overviewData' => $overviewData,
+            'showOverview' => !$skipOverview,
         ];
 
         return view('myfinance2::returns.dashboard', $viewData);
@@ -116,7 +129,7 @@ class ReturnsController extends MyFinance2Controller
             if ($cacheDriver === 'file') {
                 $cachePath = storage_path('framework/cache/data');
                 if (is_dir($cachePath)) {
-                    $cacheFilesBefore = $this->countCacheFiles($cachePath);
+                    $cacheFilesBefore = $this->_countCacheFiles($cachePath);
                 }
             }
 
@@ -135,7 +148,7 @@ class ReturnsController extends MyFinance2Controller
 
             // Count cache files after flush (for file driver only)
             if ($cacheDriver === 'file' && $cachePath && is_dir($cachePath)) {
-                $cacheFilesAfter = $this->countCacheFiles($cachePath);
+                $cacheFilesAfter = $this->_countCacheFiles($cachePath);
             }
 
             // If we're using file driver and have files, verify they were actually deleted
@@ -179,7 +192,7 @@ class ReturnsController extends MyFinance2Controller
     /**
      * Recursively count cache files in a directory
      */
-    private function countCacheFiles(string $path): int
+    private function _countCacheFiles(string $path): int
     {
         $count = 0;
         try {

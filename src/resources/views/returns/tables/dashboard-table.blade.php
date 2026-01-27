@@ -17,7 +17,7 @@
             </div>
             <div style="display: flex; align-items: center; gap: 2rem; flex: 1;">
                 <div style="text-align: center; flex: 1;">
-                    <div class="currency-value fw-bold" style="font-size: 1.5rem;"
+                    <div class="currency-value fw-bold" style="font-size: 1.1rem;"
                         data-eur="{{ $totalReturnEURFormatted }}"
                         data-usd="{{ $totalReturnUSDFormatted }}"
                         data-eur-value="{{ $totalReturnEUR }}"
@@ -53,7 +53,8 @@
                         data-bs-target="#confirm-clear-cache-modal"
                         data-title="Clear ALL Cache (Nuclear Option)"
                         data-message="{{ $clearCacheMsg }}"
-                        title="WARNING: Clears ALL application cache (returns for ALL years 2016-{{ date('Y') }}, quotes, exchange rates, etc.) - Nuclear option!">
+                        title="WARNING: Clears ALL application cache (returns for ALL years 2016-{{ date('Y') }}, quotes, exchange rates, etc.)"
+                    >
                         <i class="fa-solid fa-radiation me-1"></i>Clear Cache
                     </button>
                 </form>

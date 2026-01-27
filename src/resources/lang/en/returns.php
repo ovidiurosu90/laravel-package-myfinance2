@@ -2,8 +2,9 @@
 
 return [
     'titles' => [
-        'dashboard'      => 'Returns',
-        'year-selector'  => 'Select Year',
+        'dashboard'         => 'Returns',
+        'year-selector'     => 'Select Year',
+        'returns-overview'  => 'Returns Overview (All Years)',
     ],
     'labels' => [
         'dec31-value'          => 'End value (portfolio at Dec 31st)',
