@@ -43,7 +43,7 @@ class BarLabelsRenderer
             const data = this._data;
             if (!data || !data.bars || data.bars.length === 0) return;
 
-            ctx.font = 'bold 33px Arial';
+            ctx.font = `bold ${Math.round(14 * scope.verticalPixelRatio)}px Arial`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'bottom';
 
@@ -63,12 +63,19 @@ class BarLabelsRenderer
                 const currency = bar.currency || '€';
                 const text = sign + formatted + ' ' + currency;
 
-                // Set color based on value
-                ctx.fillStyle = value >= 0 ? 'green' : 'red';
-
                 // Draw text above the bar (or below if negative)
                 const yOffset = value >= 0 ? -5 : 22;
-                ctx.fillText(text, x, y + yOffset * scope.verticalPixelRatio);
+                const textY = y + yOffset * scope.verticalPixelRatio;
+
+                // White outline so text is readable over account lines
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 4;
+                ctx.lineJoin = 'round';
+                ctx.strokeText(text, x, textY);
+
+                // Colored text on top
+                ctx.fillStyle = value >= 0 ? 'green' : 'red';
+                ctx.fillText(text, x, textY);
             });
         });
     }
@@ -223,38 +230,11 @@ $(document).ready(function()
         return sign + formatted + ' ' + symbol;
     }
 
-    // Create the total returns series as histogram/bars (left axis)
-    const totalSeries = overviewChart.addSeries(
-        LightweightCharts.HistogramSeries,
-        {
-            color: totalColor,
-            priceScaleId: 'left',
-            lastValueVisible: false,
-            priceLineVisible: false,
-            priceFormat: {
-                type: 'custom',
-                minMove: 1,
-                formatter: (price) => formatCurrency(price, $element.data('overview_currency')),
-            },
-        }
-    );
-
-    // Create and attach labels primitive
-    const initialCurrencyForPrimitive = $element.data('overview_currency') || 'EUR';
-    const currencySymbol = initialCurrencyForPrimitive === 'EUR' ? '€' : '$';
-    const barLabelsPrimitive = new BarLabelsPrimitive(
-        overviewChart,
-        totalSeries,
-        overviewData.total[initialCurrencyForPrimitive] || [],
-        currencySymbol
-    );
-    totalSeries.attachPrimitive(barLabelsPrimitive);
-
     // Store account series for later updates
     const accountSeries = {};
     let colorIndex = 0;
 
-    // Create series for each account (right axis)
+    // Create series for each account first (right axis) so they render behind the total bars
     if (overviewData.accounts) {
         Object.keys(overviewData.accounts).forEach(function(accountId)
         {
@@ -283,6 +263,33 @@ $(document).ready(function()
             accountSeries[accountId]._name = accountData.name;
         });
     }
+
+    // Create the total returns series as histogram/bars (left axis) - added last so labels render on top
+    const totalSeries = overviewChart.addSeries(
+        LightweightCharts.HistogramSeries,
+        {
+            color: totalColor,
+            priceScaleId: 'left',
+            lastValueVisible: false,
+            priceLineVisible: false,
+            priceFormat: {
+                type: 'custom',
+                minMove: 1,
+                formatter: (price) => formatCurrency(price, $element.data('overview_currency')),
+            },
+        }
+    );
+
+    // Create and attach labels primitive
+    const initialCurrencyForPrimitive = $element.data('overview_currency') || 'EUR';
+    const currencySymbol = initialCurrencyForPrimitive === 'EUR' ? '€' : '$';
+    const barLabelsPrimitive = new BarLabelsPrimitive(
+        overviewChart,
+        totalSeries,
+        overviewData.total[initialCurrencyForPrimitive] || [],
+        currencySymbol
+    );
+    totalSeries.attachPrimitive(barLabelsPrimitive);
 
     // Function to format total data with colors for histogram
     function formatTotalDataForHistogram(currency)

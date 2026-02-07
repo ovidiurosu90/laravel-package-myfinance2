@@ -230,6 +230,9 @@ class ReturnsTrades
                 $trade->accountModel->currency->display_code,
                 $trade->fee
             ) : '',
+            'description' => $trade->description,
+            'account_id' => $trade->account_id,
+            'action' => $trade->action,
         ];
     }
 }

@@ -17,5 +17,9 @@ return [
         'actual-return'        => 'Return',
         'formula-explanation'  => 'Return = Dividends + End value – Start value<br>– Deposits + Withdrawals – Purchases + Sales',
     ],
+    'alerts' => [
+        'title' => 'Override Reminders',
+        'hint'  => 'These trades may require configuration overrides. Check the trades-private.php config file.',
+    ],
 ];
 

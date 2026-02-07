@@ -113,12 +113,13 @@ function updateFeesTextCell($td, cellData)
  */
 function updateOverrideDisplay($td, $span, cellData)
 {
-    // Support multiple override types: dividends, withdrawals, returns
+    // Support multiple override types: dividends, deposits, withdrawals, returns
     var $overrideIcon = $td.find(
-        '.dividends-override-icon, .withdrawals-override-icon, .return-override-icon'
+        '.dividends-override-icon, .deposits-override-icon, .withdrawals-override-icon, .return-override-icon'
     );
     var $smallOverride = $td.find(
-        'small.dividends-calculated-value, small.withdrawals-calculated-value, small.return-calculated-value'
+        'small.dividends-calculated-value, small.deposits-calculated-value, ' +
+        'small.withdrawals-calculated-value, small.return-calculated-value'
     );
 
     if (cellData.override) {
@@ -216,6 +217,17 @@ function updateCurrencyCell($td, isEUR)
     if ($feeDisplay.length > 0) {
         $feeDisplay.html(cellData.fees);
     }
+
+    // Update transaction fees text (deposits/withdrawals header suffix)
+    var $transactionFeesText = $td.find('.transaction-fees-text');
+    if ($transactionFeesText.length > 0) {
+        if (cellData.feesText) {
+            $transactionFeesText.html(cellData.feesText);
+            $transactionFeesText.show();
+        } else {
+            $transactionFeesText.hide();
+        }
+    }
 }
 
 /**
@@ -234,6 +246,8 @@ function updateTableHeaders(currency)
             $(this).text('Fee in ' + currency);
         } else if (text.startsWith('Gross Amount in')) {
             $(this).text('Gross Amount in ' + currency);
+        } else if (text.startsWith('Amount in')) {
+            $(this).text('Amount in ' + currency);
         }
     });
 }

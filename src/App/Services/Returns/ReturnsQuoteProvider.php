@@ -277,9 +277,23 @@ class ReturnsQuoteProvider
                 );
 
                 if (!empty($historicalData)) {
+                    // Check if the returned data is from after the requested date
+                    // This can happen due to timezone adjustments in FinanceAPI
+                    // (e.g., requesting Jan 1 for US stocks from Europe may return Jan 2 data)
+                    $returnedDate = $historicalData->getDate();
+                    $requestedDateEnd = (clone $currentDate)->setTime(23, 59, 59);
+
+                    if ($returnedDate > $requestedDateEnd) {
+                        // Data is from the future relative to our request - continue fallback
+                        $currentDate->modify('-1 day');
+                        continue;
+                    }
+
+                    // Use the actual date from the returned data
+                    $actualDateStr = $returnedDate->format('Y-m-d');
                     $stat = [
                         'symbol' => $symbol,
-                        'date' => $dateStr,
+                        'date' => $actualDateStr,
                         'unit_price' => $historicalData->getClose(),
                         'open' => $historicalData->getOpen(),
                         'high' => $historicalData->getHigh(),
@@ -464,7 +478,7 @@ class ReturnsQuoteProvider
     ): \Scheb\YahooFinanceApi\Results\Quote {
         $quoteData = [
             'symbol' => $symbol,
-            'exchangeTimezoneName' => $timezone ?? 'UTC',
+            'exchangeTimezoneName' => $timezone ?? $this->getExchangeTimezoneForSymbol($symbol),
         ];
 
         // Use provided currency, or try to extract from symbol (e.g., EURUSD=X)
@@ -474,6 +488,57 @@ class ReturnsQuoteProvider
         }
 
         return new \Scheb\YahooFinanceApi\Results\Quote($quoteData);
+    }
+
+    /**
+     * Get exchange timezone based on symbol suffix
+     *
+     * Yahoo Finance uses symbol suffixes to identify exchanges:
+     * - .AS = Amsterdam Stock Exchange (Euronext Amsterdam)
+     * - .PA = Paris Stock Exchange (Euronext Paris)
+     * - .L  = London Stock Exchange
+     * - .DE = Frankfurt Stock Exchange (Xetra)
+     * - .MI = Milan Stock Exchange
+     * - .SW = Swiss Exchange
+     * - .TO = Toronto Stock Exchange
+     * - No suffix = US exchanges (NYSE, NASDAQ)
+     *
+     * This is used for timezone-based date adjustments when fetching historical data.
+     * The FinanceAPI adds 1 day to requests when the server timezone (Europe/Amsterdam)
+     * is ahead of the exchange timezone. For European exchanges in the same timezone,
+     * no adjustment is needed.
+     */
+    private function getExchangeTimezoneForSymbol(string $symbol): string
+    {
+        // Extract suffix from symbol (e.g., "ASML.AS" -> ".AS")
+        $lastDotPos = strrpos($symbol, '.');
+        if ($lastDotPos === false) {
+            // No suffix - assume US exchange (NYSE/NASDAQ)
+            return 'America/New_York';
+        }
+
+        $suffix = strtoupper(substr($symbol, $lastDotPos));
+
+        return match ($suffix) {
+            '.AS' => 'Europe/Amsterdam',  // Euronext Amsterdam
+            '.PA' => 'Europe/Paris',      // Euronext Paris
+            '.BR' => 'Europe/Brussels',   // Euronext Brussels
+            '.LS' => 'Europe/Lisbon',     // Euronext Lisbon
+            '.L'  => 'Europe/London',     // London Stock Exchange
+            '.DE' => 'Europe/Berlin',     // Frankfurt/Xetra
+            '.F'  => 'Europe/Berlin',     // Frankfurt
+            '.MI' => 'Europe/Rome',       // Milan Stock Exchange
+            '.SW' => 'Europe/Zurich',     // Swiss Exchange
+            '.VI' => 'Europe/Vienna',     // Vienna Stock Exchange
+            '.TO' => 'America/Toronto',   // Toronto Stock Exchange
+            '.MX' => 'America/Mexico_City', // Mexican Stock Exchange
+            '.HK' => 'Asia/Hong_Kong',    // Hong Kong Stock Exchange
+            '.T'  => 'Asia/Tokyo',        // Tokyo Stock Exchange
+            '.SS' => 'Asia/Shanghai',     // Shanghai Stock Exchange
+            '.SZ' => 'Asia/Shanghai',     // Shenzhen Stock Exchange
+            '.AX' => 'Australia/Sydney',  // Australian Securities Exchange
+            default => 'America/New_York', // Default to US for unknown suffixes
+        };
     }
 
     /**

@@ -52,7 +52,6 @@ class ReturnsCurrencyConverter
             return array_fill_keys($targetCurrencies, $returnsData);
         }
 
-
         // Load fee exclusions from config
         $feesExclusions = $this->_getFeeExclusions($accountId, $year);
 
@@ -135,7 +134,6 @@ class ReturnsCurrencyConverter
                 $dec31
             );
 
-
             $exchangeRates[$targetCurrency] = [
                 'jan1' => $jan1Rate,
                 'dec31' => $dec31Rate,
@@ -155,7 +153,6 @@ class ReturnsCurrencyConverter
     {
         $jan1Rate = $this->_quoteProvider->getExchangeRate($accountId, 'EUR', 'USD', $jan1);
         $dec31Rate = $this->_quoteProvider->getExchangeRate($accountId, 'EUR', 'USD', $dec31);
-
 
         return [
             'jan1' => $this->_quoteProvider->formatCleanExchangeRate($jan1Rate),
@@ -264,7 +261,23 @@ class ReturnsCurrencyConverter
             $displayCode
         );
         $converted['deposits'] = $depositResult['items'];
-        $converted['totalDeposits'] = $depositResult['total'];
+        $converted['totalDepositsCalculated'] = $depositResult['total'];
+        $converted['totalDepositsFees'] = $depositResult['totalFees'] ?? 0;
+
+        // Check for currency-specific deposits override
+        $depositsOverride = null;
+        if (is_array($returnsData['totalDepositsOverride'] ?? null)) {
+            $depositsOverride = $returnsData['totalDepositsOverride'][$targetCurrency] ?? null;
+        }
+
+        if ($depositsOverride !== null) {
+            // Use the currency-specific override value
+            $converted['totalDeposits'] = $depositsOverride;
+            $converted['totalDepositsOverride'] = $returnsData['totalDepositsOverride'];
+        } else {
+            // Use calculated total
+            $converted['totalDeposits'] = $depositResult['total'];
+        }
 
         $withdrawalResult = $this->_convertDepositsOrWithdrawals(
             $accountId,
@@ -277,6 +290,7 @@ class ReturnsCurrencyConverter
         );
         $converted['withdrawals'] = $withdrawalResult['items'];
         $converted['totalWithdrawalsCalculated'] = $withdrawalResult['total'];
+        $converted['totalWithdrawalsFees'] = $withdrawalResult['totalFees'] ?? 0;
 
         // Check for currency-specific withdrawals override
         $withdrawalsOverride = null;
@@ -308,7 +322,7 @@ class ReturnsCurrencyConverter
         // Check for currency-specific override (new format: array with currency keys)
         // Fall back to the overall override if no currency-specific override exists
         $currencyOverride = null;
-        if (is_array($returnsData['totalGrossDividendsOverride'])) {
+        if (is_array($returnsData['totalGrossDividendsOverride'] ?? null)) {
             // New format: override is already per-currency
             $currencyOverride = $returnsData['totalGrossDividendsOverride'][$targetCurrency] ?? null;
         }
@@ -397,10 +411,15 @@ class ReturnsCurrencyConverter
         $converted['excludedTrades'] = $excludedResult['items'];
 
         // Calculate return using the final gross dividends value (which includes override if available)
-        // Return = Dividends + End value – Start value – Deposits + Withdrawals
-        //          – Purchases (including fees) + Sales (including fees)
+        // Return = Dividends + End value - Start value
+        //          - (Deposits - Deposit Fees) + (Withdrawals + Withdrawal Fees)
+        //          - Purchases (net, including fees) + Sales (net, including fees)
+        $depositsWithFees = $converted['totalDeposits']
+            - ($converted['totalDepositsFees'] ?? 0);
+        $withdrawalsWithFees = $converted['totalWithdrawals']
+            + ($converted['totalWithdrawalsFees'] ?? 0);
         $actualReturn = $converted['totalGrossDividends'] + $converted['dec31Value']
-            - $converted['jan1Value'] - $converted['totalDeposits'] + $converted['totalWithdrawals']
+            - $converted['jan1Value'] - $depositsWithFees + $withdrawalsWithFees
             - ($converted['totalPurchasesNet'] ?? $converted['totalPurchases'])
             + ($converted['totalSalesNet'] ?? $converted['totalSales']);
 
@@ -495,7 +514,6 @@ class ReturnsCurrencyConverter
                 $itemDate
             );
 
-
             $exchangeRateCache[$dateKey] = [
                 'main' => $mainRate,
                 'eurusd' => $eurusdRate,
@@ -524,7 +542,6 @@ class ReturnsCurrencyConverter
                     $eurusdRate = '1';
                     $usedStoredRate = false;
                     $showMissingRateWarning = false;
-
                 } elseif (
                     $storedRate > 0
                     && !($storedRate == 1.0 && $transactionCurrency === $baseCurrency)
@@ -535,7 +552,6 @@ class ReturnsCurrencyConverter
                     $eurusdRate = $this->_quoteProvider->formatCleanExchangeRate($storedRate);
                     $usedStoredRate = true;
                     $showMissingRateWarning = false;
-
                 } else {
                     // No stored rate or rate is 1.0 - fetch from API
                     $exchangeRate = $exchangeRateCache[$dateKey]['main'];
@@ -545,7 +561,6 @@ class ReturnsCurrencyConverter
                     $usedStoredRate = false;
                     // Show warning only if actual conversion happened (rate != 1)
                     $showMissingRateWarning = $exchangeRate != 1.0;
-
                 }
             } else {
                 // For deposits/withdrawals, use fetched exchange rates
@@ -553,7 +568,6 @@ class ReturnsCurrencyConverter
                 $eurusdRate = $this->_quoteProvider->formatCleanExchangeRate(
                     $exchangeRateCache[$dateKey]['eurusd']
                 );
-
             }
 
             $convertedItem = $item;

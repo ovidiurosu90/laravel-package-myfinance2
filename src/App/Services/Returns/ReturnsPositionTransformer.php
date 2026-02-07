@@ -67,6 +67,9 @@ class ReturnsPositionTransformer
             ];
         }
 
+        // Sort positions alphabetically by symbol
+        usort($positions, fn($a, $b) => strcasecmp($a['symbol'], $b['symbol']));
+
         return $positions;
     }
 

@@ -35,15 +35,8 @@ class ReturnsCurrencyFormatter
         'totalSalesFees',
         'totalSalesExcludedFees',
         'totalSalesNet',
-    ];
-
-    /**
-     * Fields that are conditional (only format if they exist)
-     */
-    private const CONDITIONAL_FIELDS = [
-        'totalWithdrawalsCalculated',
-        'totalGrossDividendsCalculated',
-        'totalGrossDividendsOverride',
+        'totalDepositsFees',
+        'totalWithdrawalsFees',
     ];
 
     /**
@@ -62,6 +55,9 @@ class ReturnsCurrencyFormatter
 
         // Format individual transactions (purchases and sales)
         $this->_formatTradeTransactions($converted, $displayCode);
+
+        // Format deposit/withdrawal transaction fees
+        $this->_formatDepositWithdrawalFees($converted, $displayCode);
     }
 
     /**
@@ -154,6 +150,28 @@ class ReturnsCurrencyFormatter
             }
         }
         unset($trade); // Break reference
+    }
+
+    /**
+     * Format fees on individual deposit/withdrawal items
+     */
+    private function _formatDepositWithdrawalFees(array &$converted, string $displayCode): void
+    {
+        foreach (['deposits', 'withdrawals'] as $type) {
+            if (!empty($converted[$type])) {
+                foreach ($converted[$type] as &$item) {
+                    if (!empty($item['fee'])) {
+                        $item['feeFormatted'] = MoneyFormat::get_formatted_balance(
+                            $displayCode,
+                            $item['fee']
+                        );
+                    } else {
+                        $item['feeFormatted'] = '';
+                    }
+                }
+                unset($item);
+            }
+        }
     }
 
     /**

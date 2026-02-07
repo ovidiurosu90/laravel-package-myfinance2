@@ -1,4 +1,3 @@
-
 {{-- Year Selector & Currency Toggle --}}
 <div class="card mb-4">
     <div class="card-body">
@@ -63,8 +62,14 @@
     </div>
 </div>
 
+{{-- Alerts Section --}}
+@include('myfinance2::returns.tables.alerts')
+
 {{-- Returns Data for Each Account --}}
 @foreach($returnsData as $accountId => $data)
+    @if(!empty($data['isVirtual']))
+        @continue
+    @endif
 <div class="card mb-4">
     <div class="card-header" style="cursor: pointer;"
         data-bs-toggle="collapse"
@@ -160,6 +165,42 @@
                 </tr>
             </tbody>
         </table>
+    </div>
+</div>
+@endforeach
+
+{{-- Virtual Accounts (Transfer Adjustments, etc.) --}}
+@foreach($returnsData as $accountId => $data)
+    @if(empty($data['isVirtual']))
+        @continue
+    @endif
+    @php
+        $virtualReturnValue = $selectedCurrency === 'EUR'
+            ? $data['actualReturnColored']['EUR']['formatted']
+            : $data['actualReturnColored']['USD']['formatted'];
+    @endphp
+<div class="card mb-4" style="border-style: dashed;">
+    <div class="card-header" style="cursor: pointer; background-color: #f8f9fa;"
+        data-bs-toggle="collapse"
+        data-bs-target="#account-{{ $accountId }}">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span>
+                <i class="fa-solid fa-shuffle me-1" style="font-size: 0.85rem;"></i>
+                {{ $data['virtualName'] }} - {{ $selectedYear }}
+            </span>
+            <span class="fw-bold currency-value"
+                  data-eur="{{ $data['actualReturn']['EUR']['plain'] }}"
+                  data-usd="{{ $data['actualReturn']['USD']['plain'] }}"
+                  data-eur-value="{{ $data['actualReturn']['EUR']['value'] }}"
+                  data-usd-value="{{ $data['actualReturn']['USD']['value'] }}">
+                {!! $virtualReturnValue !!}
+            </span>
+        </div>
+    </div>
+    <div class="card-body collapse" id="account-{{ $accountId }}">
+        @if($data['virtualReason'])
+            <p class="text-muted mb-0">{{ $data['virtualReason'] }}</p>
+        @endif
     </div>
 </div>
 @endforeach

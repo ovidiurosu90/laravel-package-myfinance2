@@ -36,6 +36,7 @@ class ReturnsViewTransformer
         $this->_transactionTransformer = $transactionTransformer ?? new ReturnsTransactionTransformer();
         $this->_tradeTransformer = $tradeTransformer ?? new ReturnsTradeTransformer();
     }
+
     /**
      * Transform returns data for view consumption
      *
@@ -51,6 +52,12 @@ class ReturnsViewTransformer
             // Skip metadata entries
             if (in_array($accountId, ['totalReturnEUR', 'totalReturnUSD',
                 'totalReturnEURFormatted', 'totalReturnUSDFormatted'])) {
+                continue;
+            }
+
+            // Handle virtual accounts (simplified structure)
+            if (!empty($accountData['isVirtual'])) {
+                $transformed[$accountId] = $this->_transformVirtualAccount($accountData);
                 continue;
             }
 
@@ -171,6 +178,10 @@ class ReturnsViewTransformer
                 '€',
                 '$'
             ),
+            'totalDepositsOverride' => $this->_transformDepositsOverride(
+                $accountData['EUR'] ?? [],
+                $accountData['USD'] ?? []
+            ),
             'totalWithdrawals' => $this->_valueTransformer->transformValue(
                 $accountData['EUR']['totalWithdrawals'] ?? 0,
                 $accountData['USD']['totalWithdrawals'] ?? 0,
@@ -232,6 +243,33 @@ class ReturnsViewTransformer
             'excludedTrades' => $accountData['EUR']['excludedTrades'] ?? [],
             'dividendsSummaryByTransactionCurrency' =>
                 $accountData['EUR']['dividendsSummaryByTransactionCurrency'] ?? null,
+        ];
+    }
+
+    /**
+     * Transform a virtual account's data (simplified — only return value and metadata)
+     */
+    private function _transformVirtualAccount(array $data): array
+    {
+        $eurReturn = $data['EUR']['actualReturn'] ?? 0;
+        $usdReturn = $data['USD']['actualReturn'] ?? 0;
+
+        return [
+            'isVirtual' => true,
+            'virtualName' => $data['virtualName'] ?? 'Virtual Account',
+            'virtualReason' => $data['virtualReason'] ?? null,
+            'actualReturn' => $this->_valueTransformer->transformValue(
+                $eurReturn,
+                $usdReturn,
+                '€',
+                '$'
+            ),
+            'actualReturnColored' => $this->_valueTransformer->transformValueColored(
+                $eurReturn,
+                $usdReturn,
+                '€',
+                '$'
+            ),
         ];
     }
 
@@ -317,6 +355,62 @@ class ReturnsViewTransformer
                     'calculatedFormatted' => MoneyFormat::get_formatted_balance(
                         '$',
                         $usdData['totalWithdrawalsCalculated']
+                    ),
+                ];
+                if ($result['reason'] === null) {
+                    $result['reason'] = $reason;
+                }
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Transform deposits override data for both currencies
+     */
+    private function _transformDepositsOverride(array $eurData, array $usdData): array
+    {
+        $result = [
+            'EUR' => null,
+            'USD' => null,
+            'reason' => null,
+        ];
+
+        // Check if there's an override for EUR
+        $eurOverride = $eurData['totalDepositsOverride'] ?? null;
+        if ($eurOverride !== null && isset($eurData['totalDepositsCalculated'])) {
+            $overrideValue = is_array($eurOverride) ? ($eurOverride['EUR'] ?? null) : null;
+            $reason = is_array($eurOverride) ? ($eurOverride['reason'] ?? null) : null;
+
+            if ($overrideValue !== null) {
+                $result['EUR'] = [
+                    'override' => $overrideValue,
+                    'overrideFormatted' => MoneyFormat::get_formatted_balance('€', $overrideValue),
+                    'calculated' => $eurData['totalDepositsCalculated'],
+                    'calculatedFormatted' => MoneyFormat::get_formatted_balance(
+                        '€',
+                        $eurData['totalDepositsCalculated']
+                    ),
+                ];
+                $result['reason'] = $reason;
+            }
+        }
+
+        // Check if there's an override for USD
+        $usdOverride = $usdData['totalDepositsOverride'] ?? null;
+        if ($usdOverride !== null && isset($usdData['totalDepositsCalculated'])) {
+            $overrideValue = is_array($usdOverride) ? ($usdOverride['USD'] ?? null) : null;
+            $reason = is_array($usdOverride) ? ($usdOverride['reason'] ?? null) : null;
+
+            if ($overrideValue !== null) {
+                $result['USD'] = [
+                    'override' => $overrideValue,
+                    'overrideFormatted' => MoneyFormat::get_formatted_balance('$', $overrideValue),
+                    'calculated' => $usdData['totalDepositsCalculated'],
+                    'calculatedFormatted' => MoneyFormat::get_formatted_balance(
+                        '$',
+                        $usdData['totalDepositsCalculated']
                     ),
                 ];
                 if ($result['reason'] === null) {

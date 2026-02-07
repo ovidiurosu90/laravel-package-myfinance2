@@ -26,10 +26,15 @@ class ReturnsTransactionTransformer
         $deposits = [];
         $totalEUR = 0;
         $totalUSD = 0;
+        $totalEURFees = 0;
+        $totalUSDFees = 0;
 
         foreach ($eurDeposits as $eurDep) {
             $date = $eurDep['date'] ?? '';
             $usdDep = collect($usdDeposits)->firstWhere('date', $date);
+
+            $eurFee = $eurDep['fee'] ?? 0;
+            $usdFee = $usdDep['fee'] ?? $eurDep['fee'] ?? 0;
 
             $deposits[] = [
                 'date' => $date,
@@ -37,22 +42,34 @@ class ReturnsTransactionTransformer
                 'EUR' => [
                     'amount' => $eurDep['amount'] ?? 0,
                     'formatted' => $eurDep['formatted'] ?? '',
+                    'fee' => $eurFee,
+                    'feeFormatted' => $eurDep['feeFormatted'] ?? '',
                     'eurusdRate' => $eurDep['eurusdRate'] ?? '',
                     'conversionPair' => $eurDep['conversionPair'] ?? '',
-                    'conversionExchangeRateClean' => $eurDep['conversionExchangeRateClean'] ?? '',
+                    'conversionExchangeRateClean' =>
+                        $eurDep['conversionExchangeRateClean'] ?? '',
                 ],
                 'USD' => [
                     'amount' => $usdDep['amount'] ?? $eurDep['amount'] ?? 0,
                     'formatted' => $usdDep['formatted'] ?? $eurDep['formatted'] ?? '',
+                    'fee' => $usdFee,
+                    'feeFormatted' => $usdDep['feeFormatted'] ?? $eurDep['feeFormatted'] ?? '',
                     'eurusdRate' => $usdDep['eurusdRate'] ?? '',
                     'conversionPair' => $usdDep['conversionPair'] ?? '',
-                    'conversionExchangeRateClean' => $usdDep['conversionExchangeRateClean'] ?? '',
+                    'conversionExchangeRateClean' =>
+                        $usdDep['conversionExchangeRateClean'] ?? '',
                 ],
             ];
 
             $totalEUR += $eurDep['amount'] ?? 0;
             $totalUSD += $usdDep['amount'] ?? $eurDep['amount'] ?? 0;
+            $totalEURFees += $eurFee;
+            $totalUSDFees += $usdFee;
         }
+
+        // Deposits: adjusted total = amount - fees (net deposit after fees)
+        $adjustedEUR = $totalEUR - $totalEURFees;
+        $adjustedUSD = $totalUSD - $totalUSDFees;
 
         return [
             'items' => $deposits,
@@ -60,10 +77,26 @@ class ReturnsTransactionTransformer
                 'EUR' => [
                     'amount' => $totalEUR,
                     'formatted' => MoneyFormat::get_formatted_balance('€', $totalEUR),
+                    'adjustedTotal' => $adjustedEUR,
+                    'adjustedFormatted' =>
+                        MoneyFormat::get_formatted_balance('€', $adjustedEUR),
+                    'fees' => $totalEURFees,
+                    'feesFormatted' =>
+                        MoneyFormat::get_formatted_balance('€', $totalEURFees),
+                    'feesText' =>
+                        $this->_buildTransactionFeesText('€', $totalEURFees),
                 ],
                 'USD' => [
                     'amount' => $totalUSD,
                     'formatted' => MoneyFormat::get_formatted_balance('$', $totalUSD),
+                    'adjustedTotal' => $adjustedUSD,
+                    'adjustedFormatted' =>
+                        MoneyFormat::get_formatted_balance('$', $adjustedUSD),
+                    'fees' => $totalUSDFees,
+                    'feesFormatted' =>
+                        MoneyFormat::get_formatted_balance('$', $totalUSDFees),
+                    'feesText' =>
+                        $this->_buildTransactionFeesText('$', $totalUSDFees),
                 ],
             ],
         ];
@@ -81,10 +114,15 @@ class ReturnsTransactionTransformer
         $withdrawals = [];
         $totalEUR = 0;
         $totalUSD = 0;
+        $totalEURFees = 0;
+        $totalUSDFees = 0;
 
         foreach ($eurWithdrawals as $eurWith) {
             $date = $eurWith['date'] ?? '';
             $usdWith = collect($usdWithdrawals)->firstWhere('date', $date);
+
+            $eurFee = $eurWith['fee'] ?? 0;
+            $usdFee = $usdWith['fee'] ?? $eurWith['fee'] ?? 0;
 
             $withdrawals[] = [
                 'date' => $date,
@@ -92,22 +130,35 @@ class ReturnsTransactionTransformer
                 'EUR' => [
                     'amount' => $eurWith['amount'] ?? 0,
                     'formatted' => $eurWith['formatted'] ?? '',
+                    'fee' => $eurFee,
+                    'feeFormatted' => $eurWith['feeFormatted'] ?? '',
                     'eurusdRate' => $eurWith['eurusdRate'] ?? '',
                     'conversionPair' => $eurWith['conversionPair'] ?? '',
-                    'conversionExchangeRateClean' => $eurWith['conversionExchangeRateClean'] ?? '',
+                    'conversionExchangeRateClean' =>
+                        $eurWith['conversionExchangeRateClean'] ?? '',
                 ],
                 'USD' => [
                     'amount' => $usdWith['amount'] ?? $eurWith['amount'] ?? 0,
                     'formatted' => $usdWith['formatted'] ?? $eurWith['formatted'] ?? '',
+                    'fee' => $usdFee,
+                    'feeFormatted' => $usdWith['feeFormatted']
+                        ?? $eurWith['feeFormatted'] ?? '',
                     'eurusdRate' => $usdWith['eurusdRate'] ?? '',
                     'conversionPair' => $usdWith['conversionPair'] ?? '',
-                    'conversionExchangeRateClean' => $usdWith['conversionExchangeRateClean'] ?? '',
+                    'conversionExchangeRateClean' =>
+                        $usdWith['conversionExchangeRateClean'] ?? '',
                 ],
             ];
 
             $totalEUR += $eurWith['amount'] ?? 0;
             $totalUSD += $usdWith['amount'] ?? $eurWith['amount'] ?? 0;
+            $totalEURFees += $eurFee;
+            $totalUSDFees += $usdFee;
         }
+
+        // Withdrawals: adjusted total = amount + fees (total outflow including fees)
+        $adjustedEUR = $totalEUR + $totalEURFees;
+        $adjustedUSD = $totalUSD + $totalUSDFees;
 
         return [
             'items' => $withdrawals,
@@ -115,13 +166,46 @@ class ReturnsTransactionTransformer
                 'EUR' => [
                     'amount' => $totalEUR,
                     'formatted' => MoneyFormat::get_formatted_balance('€', $totalEUR),
+                    'adjustedTotal' => $adjustedEUR,
+                    'adjustedFormatted' =>
+                        MoneyFormat::get_formatted_balance('€', $adjustedEUR),
+                    'fees' => $totalEURFees,
+                    'feesFormatted' =>
+                        MoneyFormat::get_formatted_balance('€', $totalEURFees),
+                    'feesText' =>
+                        $this->_buildTransactionFeesText('€', $totalEURFees),
                 ],
                 'USD' => [
                     'amount' => $totalUSD,
                     'formatted' => MoneyFormat::get_formatted_balance('$', $totalUSD),
+                    'adjustedTotal' => $adjustedUSD,
+                    'adjustedFormatted' =>
+                        MoneyFormat::get_formatted_balance('$', $adjustedUSD),
+                    'fees' => $totalUSDFees,
+                    'feesFormatted' =>
+                        MoneyFormat::get_formatted_balance('$', $totalUSDFees),
+                    'feesText' =>
+                        $this->_buildTransactionFeesText('$', $totalUSDFees),
                 ],
             ],
         ];
+    }
+
+    /**
+     * Build fees text for deposit/withdrawal display
+     *
+     * @param string $symbol Currency symbol (€ or $)
+     * @param float $fees Total fees amount
+     * @return string Formatted fees text, empty if no fees
+     */
+    private function _buildTransactionFeesText(string $symbol, float $fees): string
+    {
+        if (abs($fees) < ReturnsConstants::EPSILON) {
+            return '';
+        }
+
+        $feesFormatted = MoneyFormat::get_formatted_balance($symbol, abs($fees));
+        return "(including {$feesFormatted} in fees)";
     }
 
     /**

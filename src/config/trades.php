@@ -18,6 +18,43 @@ return [
         'ATVI', // Activision Blizzard - delisted (acquired by Microsoft)
     ],
 
+    // Symbols known to have Yahoo API price issues (e.g., stock splits not properly adjusted)
+    // For these symbols, if you hold a position at year-end, you should have price overrides defined
+    // This helps catch missing overrides across multiple years
+    'api_price_issue_symbols' => [
+        // Symbols loaded from private package
+    ],
+
+    // Keywords in trade descriptions that indicate the broker has already adjusted for stock splits
+    // If any trade for a symbol contains these keywords, no price override alert will be shown
+    // (case-insensitive matching)
+    'api_price_issue_suppression_keywords' => [
+        'split',
+    ],
+
+    // Alert rules for returns page
+    // These rules check trades for specific keywords and verify that required overrides are defined
+    // If a trade matches a rule but the required overrides are missing, an alert is shown
+    //
+    // Structure for keyword-based rules:
+    //   'rule_name' => [
+    //     'keywords' => ['keyword1', 'keyword2'],  // Trade description keywords (case-insensitive)
+    //     'required_overrides' => ['override_type1'],  // Required config keys
+    //     'message' => 'Alert message to display',
+    //   ]
+    //
+    // Special rule types:
+    //   'delisted' - checks against delisted_symbols list (no keywords needed)
+    //   'api_price_issues' - checks against api_price_issue_symbols list
+    //     - supports 'suppression_keywords': alert is suppressed if trade description contains these
+    //     - useful for symbols with API price issues where broker may have already fixed the data
+    //
+    // Supported override types: price_overrides, position_date_overrides,
+    //                           withdrawals_overrides, exclude_trades_from_returns
+    'alert_rules' => [
+        // Alert rules loaded from private package
+    ],
+
     'unlisted_fmv' => [
         // Unlisted fair market value data loaded from private package
     ],
@@ -33,6 +70,20 @@ return [
         ],
         'by_account' => [
             // Account-specific overrides loaded from private package
+        ],
+    ],
+
+    // Exchange rate pairs that require overrides for year start/end valuations
+    // Hierarchical structure: global pairs are required for all accounts,
+    // by_account pairs are required only for specific accounts
+    // Alert is shown if any account is missing a required override for start or end value
+    // This ensures accurate EUR conversions for portfolio valuations and tax reporting
+    'required_exchange_rate_overrides' => [
+        'global' => [
+            'EURUSD=X',  // USD to EUR conversion (required for all accounts)
+        ],
+        'by_account' => [
+            // Account-specific required pairs loaded from private package
         ],
     ],
 
@@ -55,6 +106,15 @@ return [
     // The system will fetch the price quote for that date, so you only need to specify quantity
     'position_date_overrides' => [
         // Account-specific overrides loaded from private package
+    ],
+
+    // Keywords in trade descriptions that indicate positions may need date overrides
+    // If a position has trades with these keywords, an alert will be shown to remind you
+    // to add position_date_overrides for correct account attribution on specific dates
+    // Examples: 'vested' (stock grants), 'moved' or 'transferred' (account transfers)
+    // (case-insensitive matching)
+    'position_date_override_keywords' => [
+        // Keywords loaded from private package
     ],
 
     // Dividend currency tax entity mappings
@@ -105,10 +165,12 @@ return [
     ],
 
     // Exclude specific trades from Returns page purchases & sales sections
-    // Use this to hide trades that were received as part of other corporate actions (e.g., WBD from
-    // merger/spinoff)
+    // Use this to hide trades that are accounting adjustments, not real economic transactions
+    // Common cases:
+    // - Stock split adjustments: BUY+SELL pairs on the same day to rebalance shares after a split
+    //   (detected automatically by Override Reminders when quantities differ by a split ratio)
+    // - Corporate actions: Spin-offs, mergers, divestments where shares were received without payment
     // Format: [trade_id1, trade_id2, ...] - list of trade IDs to exclude
-    // Example: [123, 456]
     'exclude_trades_from_returns' => [
         // Trade IDs loaded from private package
     ],
@@ -134,6 +196,29 @@ return [
             // Account-specific withdrawal overrides loaded from private package
         ],
     ],
+
+    // Account deposits overrides for specific years
+    // Used to adjust total deposits for accounts with special situations (e.g., vested shares)
+    // Hierarchical structure: by_account overrides apply only to specific accounts and take precedence
+    // Format: 'by_account' => [account_id => [year => ['EUR' => amount, 'USD' => amount, 'reason' => 'message'], ...], ...]
+    // Example: For account X in 2019, override deposits to include vested shares value
+    'deposits_overrides' => [
+        'by_account' => [
+            // Account-specific deposit overrides loaded from private package
+        ],
+    ],
+
+    // Gains annotations for finance-home "Gains per year" card
+    // Marks specific year/account/symbol gains as originating from transferred positions
+    // These gains are still included in totals but annotated in the UI for transparency
+    // Format: year => [account_id => [symbol => reason]]
+    'gains_annotations' => [],
+
+    // Virtual accounts for return adjustments (e.g., cross-account share transfers)
+    // NOT real brokerage accounts — they exist only to adjust total returns in the overview
+    // Individual real account returns remain unchanged (for tax reporting)
+    // Format: 'id' => ['name' => '...', 'returns' => [year => ['EUR' => x, 'USD' => y, 'reason' => '...']]]
+    'virtual_accounts' => [],
 
     // Used for both create and update
     'guiCreateMiddlewareType' => env(

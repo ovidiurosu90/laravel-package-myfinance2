@@ -141,6 +141,14 @@ class Returns
             }
         }
 
+        // Process virtual accounts (e.g., transfer adjustments)
+        $virtualAccounts = $this->_processVirtualAccounts($year);
+        foreach ($virtualAccounts as $virtualKey => $virtualData) {
+            $returnsData[$virtualKey] = $virtualData;
+            $totalReturnEUR += $virtualData['EUR']['actualReturn'] ?? 0;
+            $totalReturnUSD += $virtualData['USD']['actualReturn'] ?? 0;
+        }
+
         // Add aggregate totals to the data
         $returnsData['totalReturnEUR'] = $totalReturnEUR;
         $returnsData['totalReturnUSD'] = $totalReturnUSD;
@@ -216,6 +224,8 @@ class Returns
             'sales' => $transactions['sales'],
             'excludedTrades' => $transactions['excludedTrades'],
             'totalDeposits' => $totals['totalDeposits'],
+            'totalDepositsCalculated' => $totals['totalDepositsCalculated'],
+            'totalDepositsOverride' => $totals['totalDepositsOverride'],
             'totalWithdrawals' => $totals['totalWithdrawals'],
             'totalWithdrawalsCalculated' => $totals['totalWithdrawalsCalculated'],
             'totalWithdrawalsOverride' => $totals['totalWithdrawalsOverride'],
@@ -238,6 +248,10 @@ class Returns
             'totalDepositsFormatted' => MoneyFormat::get_formatted_balance(
                 $baseCurrency,
                 $totals['totalDeposits']
+            ),
+            'totalDepositsCalculatedFormatted' => MoneyFormat::get_formatted_balance(
+                $baseCurrency,
+                $totals['totalDepositsCalculated']
             ),
             'totalWithdrawalsFormatted' => MoneyFormat::get_formatted_balance(
                 $baseCurrency,
@@ -315,6 +329,47 @@ class Returns
     }
 
     /**
+     * Process virtual accounts from config for the given year
+     *
+     * Virtual accounts are not real brokerage accounts — they exist only to adjust
+     * total returns (e.g., for cross-account share transfers that create imbalances).
+     *
+     * @param int $year The year
+     * @return array Keyed by 'virtual_<id>', each entry has EUR/USD actualReturn and metadata
+     */
+    private function _processVirtualAccounts(int $year): array
+    {
+        $virtualAccounts = config('trades.virtual_accounts', []);
+        $result = [];
+
+        foreach ($virtualAccounts as $id => $config) {
+            $returns = $config['returns'] ?? [];
+            if (!isset($returns[$year])) {
+                continue;
+            }
+
+            $yearReturns = $returns[$year];
+            $eurReturn = $yearReturns['EUR'] ?? 0;
+            $usdReturn = $yearReturns['USD'] ?? 0;
+            $reason = $yearReturns['reason'] ?? null;
+
+            $result['virtual_' . $id] = [
+                'isVirtual' => true,
+                'virtualName' => $config['name'] ?? $id,
+                'virtualReason' => $reason,
+                'EUR' => [
+                    'actualReturn' => $eurReturn,
+                ],
+                'USD' => [
+                    'actualReturn' => $usdReturn,
+                ],
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
      * Get returns override for an account and year
      *
      * @param int $accountId The account ID
@@ -324,6 +379,26 @@ class Returns
     private function _getReturnsOverride(int $accountId, int $year): ?array
     {
         $config = config('trades.returns_overrides', []);
+        $byAccount = $config['by_account'] ?? [];
+
+        // Check if there's an override for this account and year
+        if (isset($byAccount[$accountId][$year])) {
+            return $byAccount[$accountId][$year];
+        }
+
+        return null;
+    }
+
+    /**
+     * Get deposits override for an account and year
+     *
+     * @param int $accountId The account ID
+     * @param int $year The year
+     * @return array|null Array with EUR and USD overrides, or null if no override exists
+     */
+    private function _getDepositsOverride(int $accountId, int $year): ?array
+    {
+        $config = config('trades.deposits_overrides', []);
         $byAccount = $config['by_account'] ?? [];
 
         // Check if there's an override for this account and year
@@ -407,8 +482,12 @@ class Returns
             'sales' => [],
             'excludedTrades' => [],
             'totalDeposits' => 0,
+            'totalDepositsCalculated' => 0,
+            'totalDepositsFees' => 0,
+            'totalDepositsOverride' => null,
             'totalWithdrawals' => 0,
             'totalWithdrawalsCalculated' => 0,
+            'totalWithdrawalsFees' => 0,
             'totalWithdrawalsOverride' => null,
             'totalGrossDividends' => 0,
             'totalGrossDividendsCalculated' => 0,
@@ -421,6 +500,7 @@ class Returns
             'jan1ValueFormatted' => MoneyFormat::get_formatted_balance($baseCurrency, 0),
             'dec31ValueFormatted' => MoneyFormat::get_formatted_balance($baseCurrency, 0),
             'totalDepositsFormatted' => MoneyFormat::get_formatted_balance($baseCurrency, 0),
+            'totalDepositsCalculatedFormatted' => MoneyFormat::get_formatted_balance($baseCurrency, 0),
             'totalWithdrawalsFormatted' => MoneyFormat::get_formatted_balance($baseCurrency, 0),
             'totalWithdrawalsCalculatedFormatted' => MoneyFormat::get_formatted_balance($baseCurrency, 0),
             'totalPurchasesFormatted' => MoneyFormat::get_formatted_balance($baseCurrency, 0),
@@ -556,16 +636,31 @@ class Returns
         string $baseCurrency
     ): array
     {
-        // Calculate deposit total
-        $totalDeposits = 0;
+        // Calculate deposit total with override handling
+        $totalDepositsCalculated = 0;
+        $totalDepositsFees = 0;
         foreach ($transactions['deposits'] as $deposit) {
-            $totalDeposits += $deposit['amount'];
+            $totalDepositsCalculated += $deposit['amount'];
+            $totalDepositsFees += $deposit['fee'] ?? 0;
+        }
+
+        $depositsOverride = $this->_getDepositsOverride($accountId, $year);
+        $depositsOverrideRaw = $depositsOverride;
+        $totalDeposits = $totalDepositsCalculated;
+
+        if ($depositsOverride !== null) {
+            $overrideValue = $depositsOverride[$baseCurrency] ?? null;
+            if ($overrideValue !== null) {
+                $totalDeposits = $overrideValue;
+            }
         }
 
         // Calculate withdrawal total with override handling
         $totalWithdrawalsCalculated = 0;
+        $totalWithdrawalsFees = 0;
         foreach ($transactions['withdrawals'] as $withdrawal) {
             $totalWithdrawalsCalculated += $withdrawal['amount'];
+            $totalWithdrawalsFees += $withdrawal['fee'] ?? 0;
         }
 
         $withdrawalsOverride = $this->_getWithdrawalsOverride($accountId, $year);
@@ -634,8 +729,12 @@ class Returns
 
         return [
             'totalDeposits' => $totalDeposits,
+            'totalDepositsCalculated' => $totalDepositsCalculated,
+            'totalDepositsFees' => $totalDepositsFees,
+            'totalDepositsOverride' => $depositsOverrideRaw,
             'totalWithdrawals' => $totalWithdrawals,
             'totalWithdrawalsCalculated' => $totalWithdrawalsCalculated,
+            'totalWithdrawalsFees' => $totalWithdrawalsFees,
             'totalWithdrawalsOverride' => $withdrawalsOverrideRaw,
             'totalGrossDividends' => $dividendsForReturn,
             'totalGrossDividendsCalculated' => $totalGrossDividends,
@@ -650,7 +749,13 @@ class Returns
     /**
      * Compute actual return using the formula
      *
-     * Formula: Gross Dividends + End value – Start value – Deposits + Withdrawals – Purchases (net) + Sales (net)
+     * Formula: Gross Dividends + End value - Start value
+     *          - (Deposits - Deposit Fees) + (Withdrawals + Withdrawal Fees)
+     *          - Purchases (net) + Sales (net)
+     *
+     * Deposits are reduced by fees (net deposit is less when fees apply).
+     * Withdrawals are increased by fees (total outflow includes fees).
+     * Purchases/Sales already use net totals which include their fees.
      *
      * @param array $totals Calculated totals
      * @param float $jan1Value Start value
@@ -659,11 +764,14 @@ class Returns
      */
     private function _computeActualReturn(array $totals, float $jan1Value, float $dec31Value): float
     {
+        $depositsWithFees = $totals['totalDeposits'] - ($totals['totalDepositsFees'] ?? 0);
+        $withdrawalsWithFees = $totals['totalWithdrawals'] + ($totals['totalWithdrawalsFees'] ?? 0);
+
         return $totals['totalGrossDividends']
             + $dec31Value
             - $jan1Value
-            - $totals['totalDeposits']
-            + $totals['totalWithdrawals']
+            - $depositsWithFees
+            + $withdrawalsWithFees
             - $totals['totalPurchasesNet']
             + $totals['totalSalesNet'];
     }

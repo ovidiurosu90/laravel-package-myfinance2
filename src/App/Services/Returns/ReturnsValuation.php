@@ -97,7 +97,13 @@ class ReturnsValuation
         );
 
         // Get cash balance (pass account to avoid redundant query)
-        $cashBalancesUtils = new CashBalancesUtils($accountId, $date, $account);
+        // For start of year (midnight), add 12 hours to include early Jan 1 entries (e.g., 01:01:01)
+        $cashDate = $date;
+        if ($date->format('H:i:s') === '00:00:00') {
+            $cashDate = clone $date;
+            $cashDate->modify('+12 hours');
+        }
+        $cashBalancesUtils = new CashBalancesUtils($accountId, $cashDate, $account);
         $cashValue = $cashBalancesUtils->getAmount() ?? 0;
 
         return [

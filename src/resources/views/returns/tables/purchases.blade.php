@@ -1,12 +1,24 @@
 {{-- Stock Purchases (Buys) --}}
+@php
+    $excludedPurchasesCount = collect($data['excludedTrades'])
+        ->filter(function($trade) { return $trade['action'] === 'BUY'; })
+        ->count();
+    $hasPurchasesToShow = count($data['purchases']['items']) > 0 || $excludedPurchasesCount > 0;
+@endphp
 <tr>
     <td class="fw-bold">
         {{ trans('myfinance2::returns.labels.stock-purchases') }}
-        @if(count($data['purchases']['items']) > 0)
+        @if($hasPurchasesToShow)
             <button class="btn btn-sm btn-link p-0"
                 data-bs-toggle="collapse"
                 data-bs-target="#purchases-{{ $accountId }}">
-                ({{ count($data['purchases']['items']) }} trades)
+                @if(count($data['purchases']['items']) > 0 && $excludedPurchasesCount > 0)
+                    ({{ count($data['purchases']['items']) }} trades + {{ $excludedPurchasesCount }} excluded)
+                @elseif(count($data['purchases']['items']) > 0)
+                    ({{ count($data['purchases']['items']) }} trades)
+                @else
+                    ({{ $excludedPurchasesCount }} excluded)
+                @endif
             </button>
         @endif
     </td>
@@ -36,10 +48,11 @@
         </div>
     </td>
 </tr>
-@if(count($data['purchases']['items']) > 0)
+@if($hasPurchasesToShow)
 <tr class="collapse" id="purchases-{{ $accountId }}">
     <td colspan="2">
         <table class="table table-sm table-striped mb-0">
+            @if(count($data['purchases']['items']) > 0)
             <thead>
                 <tr class="small">
                     <th>Date</th>
@@ -74,6 +87,7 @@
                     </th>
                 </tr>
             </thead>
+            @endif
             <tbody>
                 @foreach($data['purchases']['items'] as $purchase)
                     <tr class="small">
@@ -154,66 +168,79 @@
                         </td>
                     </tr>
                 @endforeach
-                @php
-                    $totalPrincipalValue = $selectedCurrency === 'EUR'
-                        ? $data['purchases']['totals']['EUR']['principalAmountGrossFormatted']
-                        : $data['purchases']['totals']['USD']['principalAmountGrossFormatted'];
-                @endphp
-                <tr class="small fw-bold">
-                    <td colspan="4">Total Purchases:</td>
-                    <td class="text-end currency-value"
-                        data-eur="{{ $data['purchases']['totals']['EUR']['principalAmountGrossFormatted'] }}"
-                        data-usd="{{ $data['purchases']['totals']['USD']['principalAmountGrossFormatted'] }}"
-                        data-eur-value="{{ $data['purchases']['totals']['EUR']['principalAmountGross'] }}"
-                        data-usd-value="{{ $data['purchases']['totals']['USD']['principalAmountGross'] }}">
-                        <span class="principal-amount-value">{!! $totalPrincipalValue !!}</span>
-                    </td>
+                @if(count($data['purchases']['items']) > 0)
                     @php
-                        $hasAnyFees = $data['purchases']['totals']['EUR']['fees'] > 0
-                            || $data['purchases']['totals']['USD']['fees'] > 0;
+                        $totalPrincipalValue = $selectedCurrency === 'EUR'
+                            ? $data['purchases']['totals']['EUR']['principalAmountGrossFormatted']
+                            : $data['purchases']['totals']['USD']['principalAmountGrossFormatted'];
                     @endphp
-                    <td class="text-end currency-value"
-                        data-eur="{{ $data['purchases']['totals']['EUR']['feesFormatted'] }}"
-                        data-usd="{{ $data['purchases']['totals']['USD']['feesFormatted'] }}">
-                        @if($selectedCurrency === 'EUR' && $hasAnyFees)
-                            <span>{!! $data['purchases']['totals']['EUR']['feesFormatted'] !!}</span>
-                        @elseif($selectedCurrency === 'USD' && $hasAnyFees)
-                            <span>{!! $data['purchases']['totals']['USD']['feesFormatted'] !!}</span>
-                        @endif
-                    </td>
-                    <td></td>
-                </tr>
-                @php
-                    $hasExcludedFees = $data['purchases']['totals']['EUR']['excludedFees'] > 0
-                        || $data['purchases']['totals']['USD']['excludedFees'] > 0;
-                @endphp
-                @if($hasExcludedFees)
-                    @php
-                        $excludedFeeValue = $selectedCurrency === 'EUR'
-                            ? '-' . $data['purchases']['totals']['EUR']['excludedFeesFormatted']
-                            : '-' . $data['purchases']['totals']['USD']['excludedFeesFormatted'];
-                    @endphp
-                    <tr class="small text-muted" style="background-color: #f8f9fa;">
-                        <td colspan="5">
-                            <small>
-                                <em>
-                                    Excluded from net total (AutoFX Fee &amp; other hidden fees)
-                                </em>
-                            </small>
+                    <tr class="small fw-bold">
+                        <td colspan="4">Total Purchases:</td>
+                        <td class="text-end currency-value"
+                            data-eur="{{ $data['purchases']['totals']['EUR']['principalAmountGrossFormatted'] }}"
+                            data-usd="{{ $data['purchases']['totals']['USD']['principalAmountGrossFormatted'] }}"
+                            data-eur-value="{{ $data['purchases']['totals']['EUR']['principalAmountGross'] }}"
+                            data-usd-value="{{ $data['purchases']['totals']['USD']['principalAmountGross'] }}">
+                            <span class="principal-amount-value">{!! $totalPrincipalValue !!}</span>
                         </td>
-                        <td class="text-end text-nowrap fw-bold currency-value" style="color: #dc3545;"
-                            data-eur="-{{ $data['purchases']['totals']['EUR']['excludedFeesFormatted'] }}"
-                            data-usd="-{{ $data['purchases']['totals']['USD']['excludedFeesFormatted'] }}">
-                            <span>{!! $excludedFeeValue !!}</span>
+                        @php
+                            $hasAnyFees = $data['purchases']['totals']['EUR']['fees'] > 0
+                                || $data['purchases']['totals']['USD']['fees'] > 0;
+                        @endphp
+                        <td class="text-end currency-value"
+                            data-eur="{{ $data['purchases']['totals']['EUR']['feesFormatted'] }}"
+                            data-usd="{{ $data['purchases']['totals']['USD']['feesFormatted'] }}">
+                            @if($selectedCurrency === 'EUR' && $hasAnyFees)
+                                <span>{!! $data['purchases']['totals']['EUR']['feesFormatted'] !!}</span>
+                            @elseif($selectedCurrency === 'USD' && $hasAnyFees)
+                                <span>{!! $data['purchases']['totals']['USD']['feesFormatted'] !!}</span>
+                            @endif
                         </td>
                         <td></td>
                     </tr>
+                    @php
+                        $hasExcludedFees = $data['purchases']['totals']['EUR']['excludedFees'] > 0
+                            || $data['purchases']['totals']['USD']['excludedFees'] > 0;
+                    @endphp
+                    @if($hasExcludedFees)
+                        @php
+                            $excludedFeeValue = $selectedCurrency === 'EUR'
+                                ? '-' . $data['purchases']['totals']['EUR']['excludedFeesFormatted']
+                                : '-' . $data['purchases']['totals']['USD']['excludedFeesFormatted'];
+                        @endphp
+                        <tr class="small text-muted" style="background-color: #f8f9fa;">
+                            <td colspan="5">
+                                <small>
+                                    <em>
+                                        Excluded from net total (AutoFX Fee &amp; other hidden fees)
+                                    </em>
+                                </small>
+                            </td>
+                            <td class="text-end text-nowrap fw-bold currency-value" style="color: #dc3545;"
+                                data-eur="-{{ $data['purchases']['totals']['EUR']['excludedFeesFormatted'] }}"
+                                data-usd="-{{ $data['purchases']['totals']['USD']['excludedFeesFormatted'] }}">
+                                <span>{!! $excludedFeeValue !!}</span>
+                            </td>
+                            <td></td>
+                        </tr>
+                    @endif
                 @endif
                 @php
                     $excludedPurchases = collect($data['excludedTrades'])
                         ->filter(function($trade) { return $trade['action'] === 'BUY'; });
                 @endphp
                 @if($excludedPurchases->count() > 0)
+                    @if(count($data['purchases']['items']) === 0)
+                        {{-- Show header when only excluded purchases exist --}}
+                        <tr class="small">
+                            <th>Date</th>
+                            <th>Symbol</th>
+                            <th class="text-end">Quantity</th>
+                            <th class="text-end">Unit Price</th>
+                            <th class="text-end">Principal Amount</th>
+                            <th class="text-end" colspan="2">Fee</th>
+                        </tr>
+                    @endif
                     <tr class="small text-muted border-top">
                         <td colspan="7" class="text-center py-2">
                             <small>

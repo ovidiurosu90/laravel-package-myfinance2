@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use ovidiuro\myfinance2\App\Services\MoneyFormat;
 use ovidiuro\myfinance2\App\Services\Returns\Returns;
+use ovidiuro\myfinance2\App\Services\Returns\ReturnsAlerts;
 use ovidiuro\myfinance2\App\Services\Returns\ReturnsConstants;
 use ovidiuro\myfinance2\App\Services\Returns\ReturnsOverview;
 use ovidiuro\myfinance2\App\Services\Returns\ReturnsViewTransformer;
@@ -85,6 +86,10 @@ class ReturnsController extends MyFinance2Controller
             $overviewData = $overviewService->handle(Auth::user()->id);
         }
 
+        // Check for alerts (reuses the already-fetched serviceData)
+        $alertsService = new ReturnsAlerts();
+        $alerts = $alertsService->check($serviceData, $year);
+
         // Prepare view data
         $viewData = [
             'returnsData' => $transformedReturnsData,
@@ -100,6 +105,7 @@ class ReturnsController extends MyFinance2Controller
             'availableYears' => range($currentYear, ReturnsConstants::MIN_YEAR),
             'overviewData' => $overviewData,
             'showOverview' => !$skipOverview,
+            'alerts' => $alerts,
         ];
 
         return view('myfinance2::returns.dashboard', $viewData);

@@ -94,6 +94,17 @@ class ReturnsOverview
             ];
         }
 
+        // Initialize virtual account entries from config
+        $virtualAccounts = config('trades.virtual_accounts', []);
+        foreach ($virtualAccounts as $id => $config) {
+            $virtualKey = 'virtual_' . $id;
+            $result['accounts'][$virtualKey] = [
+                'name' => $config['name'] ?? $id,
+                'EUR' => [],
+                'USD' => [],
+            ];
+        }
+
         // Collect data for each year
         for ($year = $minYear; $year <= $currentYear; $year++) {
             try {

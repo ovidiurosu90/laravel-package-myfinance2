@@ -33,18 +33,46 @@
                                        in account currency">Total gain</th>
                         </tr>
                     </thead>
+                    @php
+                        $gainsAnnotations = config('trades.gains_annotations', []);
+                    @endphp
                     <tbody>
                     @foreach($gainsPerYear as $year => $accounts)
-                        @php $yearTotals = [] @endphp
+                        @php
+                            $yearTotals = [];
+                            $annotatedGains = [];
+                        @endphp
                         @foreach($accounts as $account => $symbols)
                             @foreach($symbols as $symbol => $totals)
+                                @php
+                                    $annotation = $gainsAnnotations[$year][$account][$symbol]
+                                        ?? null;
+                                    if ($annotation) {
+                                        $currency = $totals['accountModel']->currency;
+                                        $annotatedGains[] = [
+                                            'symbol' => $symbol,
+                                            'gain' => $totals['total_gain_in_account_currency'],
+                                            'displayCode' => $currency->display_code,
+                                            'isoCode' => $currency->iso_code,
+                                            'reason' => $annotation,
+                                        ];
+                                    }
+                                @endphp
                         <tr>
                             <td scope="row">
                                 {{ $totals['accountModel']->name }}
                                 ({!! $totals['accountModel']->currency
                                                             ->display_code !!})
                             </td>
-                            <td scope="row">{{ $symbol }}</td>
+                            <td scope="row">
+                                {{ $symbol }}
+                                @if($annotation)
+                                    <i class="fa-solid fa-shuffle"
+                                        style="font-size: 0.75rem; color: #6c757d;"
+                                        data-bs-toggle="tooltip"
+                                        title="{{ $annotation }}"></i>
+                                @endif
+                            </td>
                             <td class="text-right">
                                 {!! ovidiuro\myfinance2\App\Services\MoneyFormat
                                 ::get_formatted_gain(
@@ -67,6 +95,35 @@
                             @endphp
                             @endforeach
                         @endforeach
+                        @if(!empty($annotatedGains))
+                            @php
+                                $annotatedTotals = [];
+                                foreach ($annotatedGains as $ag) {
+                                    if (!isset($annotatedTotals[$ag['isoCode']])) {
+                                        $annotatedTotals[$ag['isoCode']] = 0;
+                                    }
+                                    $annotatedTotals[$ag['isoCode']] += $ag['gain'];
+                                }
+                            @endphp
+                            <tr style="background-color: #f8f9fa;">
+                                <td colspan="2" class="text-muted" style="font-size: 0.85rem;">
+                                    <i class="fa-solid fa-shuffle me-1"
+                                        style="font-size: 0.7rem;"></i>
+                                    of which from transferred positions
+                                </td>
+                                <td class="text-right text-muted" style="font-size: 0.85rem;">
+                                    @foreach($annotatedTotals as $currency => $total)
+                                        &nbsp;&nbsp;&nbsp;
+                                        {!! ovidiuro\myfinance2\App\Services\MoneyFormat
+                                        ::get_formatted_gain(
+                                            $currencyUtilsService->getCurrencyByIsoCode(
+                                                $currency)->display_code,
+                                            $total
+                                        ) !!}
+                                    @endforeach
+                                </td>
+                            </tr>
+                        @endif
                         <tr class="border border-bottom border-success">
                             <th scope="row">{{ $year }}</th>
                             <td colspan="2" class="text-right">
