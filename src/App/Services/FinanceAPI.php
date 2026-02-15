@@ -83,7 +83,11 @@ class FinanceAPI
         return $quote;
     }
 
-    public function getQuotes(array $symbols, bool $checkCache = true): ?array
+    public function getQuotes(
+        array $symbols,
+        bool $checkCache = true,
+        bool $persistStats = true
+    ): ?array
     {
         $missingCachedSymbols = [];
         $quotes = [];
@@ -120,7 +124,7 @@ class FinanceAPI
 
             try {
                 $quotes = $client->getQuotes($symbols);
-                $this->cacheQuotes($quotes);
+                $this->cacheQuotes($quotes, $persistStats);
             } catch (\Exception $e) {
                 Log::warning(
                     "Couldn't get quotes for symbols "
@@ -139,8 +143,11 @@ class FinanceAPI
         return $quotes;
     }
 
-    public function getExchangeRates(array $currencyPairs, bool $checkCache = true)
-        : ?array
+    public function getExchangeRates(
+        array $currencyPairs,
+        bool $checkCache = true,
+        bool $persistStats = true
+    ): ?array
     {
         if (empty($currencyPairs)) {
             return [];
@@ -176,7 +183,7 @@ class FinanceAPI
 
             try {
                 $quotes = $client->getExchangeRates($currencyPairs);
-                $this->cacheQuotes($quotes);
+                $this->cacheQuotes($quotes, $persistStats);
             } catch (\Exception $e) {
                 Log::warning(
                     "Couldn't get exchange rates for currencyPairs" .

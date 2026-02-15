@@ -454,10 +454,21 @@ class ReturnsAlerts
         $trades = Trade::whereIn('action', ['BUY', 'SELL'])
             ->where('timestamp', '<=', $cutoffDate)
             ->whereNotNull('description')
-            ->get(['id', 'symbol', 'account_id', 'description']);
+            ->get(['id', 'symbol', 'account_id', 'description', 'is_transfer']);
 
         // Track keyword trades per symbol, separating excluded vs non-excluded
         $keywordTradesBySymbol = [];
+
+        // Collect symbols that have transfer trades (position movement already handled)
+        // Check all transfer trades regardless of cutoff date, since the existence
+        // of a transfer for a symbol means the movement is properly accounted for
+        $symbolsWithTransfers = [];
+        $transferTrades = Trade::where('is_transfer', true)
+            ->whereIn('action', ['BUY', 'SELL'])
+            ->get(['symbol']);
+        foreach ($transferTrades as $transfer) {
+            $symbolsWithTransfers[$transfer->symbol] = true;
+        }
 
         foreach ($trades as $trade) {
             $description = strtolower($trade->description ?? '');
@@ -489,9 +500,10 @@ class ReturnsAlerts
         }
 
         // Only return symbols where at least one keyword trade is not excluded
+        // and no transfer trades exist (transfers handle the position movement)
         $symbolsWithKeywords = [];
         foreach ($keywordTradesBySymbol as $symbol => $data) {
-            if ($data['hasNonExcluded']) {
+            if ($data['hasNonExcluded'] && !isset($symbolsWithTransfers[$symbol])) {
                 $symbolsWithKeywords[$symbol] = $data['accounts'];
             }
         }
@@ -513,7 +525,8 @@ class ReturnsAlerts
         int $year,
         string $dateType,
         array $symbolsWithKeywords
-    ): ?array {
+    ): ?array
+    {
         $positionsKey = $dateType . 'PositionDetails';
         $missingOverrides = [];
 
@@ -790,7 +803,8 @@ class ReturnsAlerts
         int $year,
         string $dateType,
         array $tradesBySymbol
-    ): ?array {
+    ): ?array
+    {
         $positionsKey = $dateType . 'PositionDetails';
         $missingOverrides = [];
 
@@ -951,7 +965,8 @@ class ReturnsAlerts
         int $accountId,
         int $year,
         string $dateType
-    ): bool {
+    ): bool
+    {
         // Determine the date range to check based on date type
         // Jan 1 valuation typically uses Dec 30-31 of previous year (last trading days)
         // Dec 31 valuation typically uses Dec 30-31 of current year

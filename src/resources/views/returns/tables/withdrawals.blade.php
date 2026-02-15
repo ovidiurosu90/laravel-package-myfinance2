@@ -176,6 +176,11 @@
                             @endif
                         </td>
                         <td>
+                            @if($withdrawal['isTransfer'] ?? false)
+                                <i class="fa-solid fa-shuffle text-muted me-1"
+                                    data-bs-toggle="tooltip"
+                                    title="In-kind transfer"></i>
+                            @endif
                             @if($withdrawal['description'])
                                 <em>{{ $withdrawal['description'] }}</em>
                             @endif

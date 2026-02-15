@@ -39,6 +39,7 @@ class ReturnsTransactionTransformer
             $deposits[] = [
                 'date' => $date,
                 'description' => $eurDep['description'] ?? '',
+                'isTransfer' => $eurDep['isTransfer'] ?? false,
                 'EUR' => [
                     'amount' => $eurDep['amount'] ?? 0,
                     'formatted' => $eurDep['formatted'] ?? '',
@@ -127,6 +128,7 @@ class ReturnsTransactionTransformer
             $withdrawals[] = [
                 'date' => $date,
                 'description' => $eurWith['description'] ?? '',
+                'isTransfer' => $eurWith['isTransfer'] ?? false,
                 'EUR' => [
                     'amount' => $eurWith['amount'] ?? 0,
                     'formatted' => $eurWith['formatted'] ?? '',

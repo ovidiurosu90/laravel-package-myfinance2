@@ -40,7 +40,14 @@
                 <td class="text-nowrap">{{ $item->accountModel->name }}
                     ({!! $item->accountModel->currency->display_code !!})</td>
                 <td>{{ $item->status }}</td>
-                <td>{{ $item->action }}</td>
+                <td>
+                    {{ $item->action }}
+                    @if($item->is_transfer)
+                        <i class="fa-solid fa-shuffle text-muted"
+                            data-bs-toggle="tooltip"
+                            title="In-kind transfer"></i>
+                    @endif
+                </td>
                 <td>{!! $item->getFormattedSymbol() !!}</td>
                 <td>{{ $item->getCleanQuantity() }}</td>
                 <td class="text-right">

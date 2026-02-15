@@ -21,6 +21,9 @@
                 <th scope="col">{{ trans('myfinance2::accounts.forms.item-form.'
                                          . 'is_dividend_account.label') }}
                 </th>
+                <th scope="col">{{ trans('myfinance2::accounts.forms.item-form.'
+                                         . 'funding_role.label') }}
+                </th>
                 <th scope="col" class="hidden-xs hidden-sm">Created</th>
                 <th scope="col" class="hidden-xs hidden-sm">Updated</th>
                 <th class="no-search no-sort">Actions</th>
@@ -36,9 +39,16 @@
                     ({!! $item->currency->display_code !!})</td>
                 <td>{{ $item->name }}</td>
                 <td>{{ $item->description }}</td>
-                <td>{{ $item->is_ledger_account }}</td>
-                <td>{{ $item->is_trade_account }}</td>
-                <td>{{ $item->is_dividend_account }}</td>
+                <td>@if($item->is_ledger_account)<i class="fa-regular fa-square-check"></i>@endif</td>
+                <td>@if($item->is_trade_account)<i class="fa-regular fa-square-check"></i>@endif</td>
+                <td>@if($item->is_dividend_account)<i class="fa-regular fa-square-check"></i>@endif</td>
+                <td>
+                    @if($item->funding_role)
+                        {{ trans('myfinance2::accounts.forms.item-form.'
+                                 . 'funding_role.options.'
+                                 . $item->funding_role->value) }}
+                    @endif
+                </td>
                 <td>{{ $item->created_at }}</td>
                 <td>{{ $item->updated_at }}</td>
                 <td>

@@ -3,8 +3,10 @@
 namespace ovidiuro\myfinance2\App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rules\Enum;
 use Illuminate\Validation\Rule;
 
+use ovidiuro\myfinance2\App\Enums\FundingRole;
 use ovidiuro\myfinance2\App\Models\Currency;
 
 class StoreAccount extends FormRequest
@@ -46,6 +48,7 @@ class StoreAccount extends FormRequest
             'is_ledger_account'   => 'boolean',
             'is_trade_account'    => 'boolean',
             'is_dividend_account' => 'boolean',
+            'funding_role'        => ['nullable', new Enum(FundingRole::class)],
         ];
     }
 
@@ -66,6 +69,7 @@ class StoreAccount extends FormRequest
                                         $this->is_trade_account : false,
             'is_dividend_account' => $this->is_dividend_account ?
                                         $this->is_dividend_account : false,
+            'funding_role'        => $this->funding_role ?: null,
         ];
     }
 }

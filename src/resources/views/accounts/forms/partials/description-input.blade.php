@@ -5,7 +5,7 @@
     </label>
     <div class="col-12">
         <textarea id="description" name="description"
-            class="form-control" rows="1"
+            class="form-control" style="height: 122px;"
             placeholder="{{ trans('myfinance2::accounts.forms.item-form.'
                                   . 'description.placeholder') }}"
             required maxlength="512">{{ $description }}</textarea>

@@ -235,6 +235,11 @@ class CashBalancesUtils
         }
         $trades = Trade::with('accountModel', 'tradeCurrencyModel')
             ->where($tradesWhere)
+            ->where(function ($query)
+            {
+                $query->where('is_transfer', false)
+                    ->orWhereNull('is_transfer');
+            })
             ->orderBy('timestamp', 'ASC')
             ->get();
         // Log::debug($trades);

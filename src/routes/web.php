@@ -26,5 +26,6 @@ Route::group([
     Route::post('returns/clear-cache', 'ReturnsController@clearCache')->name('returns.clear-cache');
     Route::get('funding', 'FundingController@index');
     Route::get('timeline', 'TimelineController@index')->name('timeline');
+    Route::get('overview', 'OverviewController@index')->name('overview');
 });
 

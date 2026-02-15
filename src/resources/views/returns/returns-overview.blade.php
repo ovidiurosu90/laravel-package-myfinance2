@@ -23,7 +23,7 @@
                     data-bs-toggle="toggle"
                     data-onlabel="Euro (&euro;)"
                     data-offlabel="US Dollar (&dollar;)" />
-                <span class="fw-bold fs-4" id="overview-cumulative-total"></span>
+                <span class="fw-bold fs-5" id="overview-cumulative-total"></span>
             </div>
         </div>
     </div>

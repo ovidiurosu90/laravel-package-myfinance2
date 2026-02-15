@@ -37,6 +37,11 @@ class ReturnsTrades
         $trades = Trade::with($eagerLoad)
             ->where('account_id', $accountId)
             ->whereIn('action', ['BUY', 'SELL'])
+            ->where(function ($query)
+            {
+                $query->where('is_transfer', false)
+                    ->orWhereNull('is_transfer');
+            })
             ->whereBetween('timestamp', [$startDate, $endDate])
             ->orderBy('timestamp', 'ASC')
             ->get();
@@ -60,7 +65,7 @@ class ReturnsTrades
                 continue;
             }
 
-            $formattedTrade = $this->formatTradeForDisplay($trade);
+            $formattedTrade = $this->_formatTradeForDisplay($trade);
 
             if ($trade->action === 'BUY') {
                 $purchases[] = $formattedTrade;
@@ -91,6 +96,50 @@ class ReturnsTrades
     {
         $tradesData = $this->getPurchasesAndSales($accountId, $year);
         return $tradesData['sales'];
+    }
+
+    /**
+     * Get transfer trades (in-kind transfers) for a year.
+     * These are BUY/SELL trades with is_transfer=true, representing
+     * shares moved between accounts without cash changing hands.
+     *
+     * @param int $accountId The account ID
+     * @param int $year The year to get trades for
+     * @param Account|null $preloadedAccount Pre-loaded account object (optional, avoids redundant query)
+     */
+    public function getTransferTrades(
+        int $accountId,
+        int $year,
+        ?Account $preloadedAccount = null
+    ): array
+    {
+        $startDate = "$year-01-01 00:00:00";
+        $endDate = "$year-12-31 23:59:59";
+
+        $eagerLoad = $preloadedAccount !== null
+            ? ['tradeCurrencyModel']
+            : ['accountModel.currency', 'tradeCurrencyModel'];
+
+        $trades = Trade::with($eagerLoad)
+            ->where('account_id', $accountId)
+            ->where('is_transfer', true)
+            ->whereIn('action', ['BUY', 'SELL'])
+            ->whereBetween('timestamp', [$startDate, $endDate])
+            ->orderBy('timestamp', 'ASC')
+            ->get();
+
+        if ($preloadedAccount !== null) {
+            foreach ($trades as $trade) {
+                $trade->setRelation('accountModel', $preloadedAccount);
+            }
+        }
+
+        $transfers = [];
+        foreach ($trades as $trade) {
+            $transfers[] = $this->_formatTradeForDisplay($trade);
+        }
+
+        return $transfers;
     }
 
     /**
@@ -183,7 +232,7 @@ class ReturnsTrades
     /**
      * Format a single trade for display
      */
-    private function formatTradeForDisplay(Trade $trade): array
+    private function _formatTradeForDisplay(Trade $trade): array
     {
         $timestamp = $trade->timestamp;
         if (is_string($timestamp)) {

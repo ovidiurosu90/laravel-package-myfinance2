@@ -25,7 +25,7 @@ const accountColors = [
 const totalColor = 'rgba(38, 166, 154, 1)'; // Teal
 
 // Overview data passed from PHP
-const overviewData = {!! json_encode($overviewData) !!};
+const overviewData = @json($overviewData);
 
 // Custom primitive classes to draw labels above histogram bars
 class BarLabelsRenderer
@@ -369,9 +369,41 @@ $(document).ready(function()
 
         // Apply color based on value (green for positive, red for negative)
         const color = cumulativeTotal >= 0 ? 'green' : 'red';
-        $('#overview-cumulative-total').html(
-            '<span style="color: ' + color + ';">' + formattedTotal + '</span>'
-        );
+        let html = '<span style="color: ' + color + ';">'
+            + formattedTotal + '</span>';
+
+        // Add shuffle icon if virtual accounts contribute to the total
+        const virtualTotal = overviewData.virtualCumulativeTotal
+            ? overviewData.virtualCumulativeTotal[currency] || 0
+            : 0;
+
+        if (virtualTotal !== 0) {
+            const symbol = currency === 'EUR' ? '€' : '$';
+            const formatted = new Intl.NumberFormat('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            }).format(virtualTotal);
+            const tooltipText = 'Includes ' + formatted
+                + ' ' + symbol
+                + ' from transferred positions';
+
+            html += ' <i class="fa-solid fa-shuffle ms-1"'
+                + ' style="font-size: 0.7rem; color: #6c757d;"'
+                + ' data-bs-toggle="tooltip"'
+                + ' data-bs-placement="top"'
+                + ' data-bs-custom-class="big-tooltips"'
+                + ' data-bs-html="true"'
+                + ' data-bs-title="' + tooltipText + '">'
+                + '</i>';
+        }
+
+        const $el = $('#overview-cumulative-total');
+        $el.html(html);
+
+        // Initialize tooltip on the new shuffle icon
+        if (virtualTotal !== 0) {
+            $el.find('[data-bs-toggle="tooltip"]').tooltip();
+        }
     }
 
     // Function to update status display
@@ -381,31 +413,70 @@ $(document).ready(function()
         updateCumulativeTotal(currency);
     }
 
-    // Function to build legend
-    function buildLegend()
+    // Function to calculate per-account cumulative total for a given currency
+    function getAccountCumulativeTotal(accountId, currency)
     {
+        const accountData = overviewData.accounts[accountId];
+        if (!accountData || !accountData[currency]) {
+            return 0;
+        }
+        return accountData[currency].reduce(
+            (sum, item) => sum + item.value, 0
+        );
+    }
+
+    // Function to build legend
+    function buildLegend(currency)
+    {
+        const symbol = currency === 'EUR' ? '€' : '$';
         let legendHtml = '<div style="display: flex; flex-wrap: wrap; gap: 1rem;">';
 
         // Account legend items (bars legend removed - they're self-explanatory with labels)
         Object.keys(accountSeries).forEach(function(accountId)
         {
             const series = accountSeries[accountId];
+            const isVirtual = overviewData.accounts[accountId]
+                && overviewData.accounts[accountId].isVirtual;
+
             legendHtml += '<span style="display: inline-flex; align-items: center;">';
             legendHtml += '<span style="width: 12px; height: 2px; background-color: '
                 + series._color + '; display: inline-block; margin-right: 4px;"></span>';
             legendHtml += '<span>' + series._name + '</span>';
+
+            if (isVirtual) {
+                const total = getAccountCumulativeTotal(accountId, currency);
+                const formatted = new Intl.NumberFormat('en-US', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                }).format(total);
+                const tooltipText = 'Includes ' + formatted
+                    + ' ' + symbol
+                    + ' from transferred positions';
+
+                legendHtml += ' <i class="fa-solid fa-shuffle ms-1"'
+                    + ' style="font-size: 0.7rem; color: #6c757d;"'
+                    + ' data-bs-toggle="tooltip"'
+                    + ' data-bs-placement="top"'
+                    + ' data-bs-custom-class="big-tooltips"'
+                    + ' data-bs-html="true"'
+                    + ' data-bs-title="' + tooltipText + '">'
+                    + '</i>';
+            }
+
             legendHtml += '</span>';
         });
 
         legendHtml += '</div>';
-        $('#overview-legend').html(legendHtml);
+        const $legend = $('#overview-legend');
+        $legend.html(legendHtml);
+        $legend.find('[data-bs-toggle="tooltip"]').tooltip();
     }
 
     // Initial data load
     const initialCurrency = $element.data('overview_currency') || 'EUR';
     updateSeriesData(initialCurrency);
     updateStatus(initialCurrency);
-    buildLegend();
+    buildLegend(initialCurrency);
 
     // Apply scale margins
     overviewChart.priceScale('left').applyOptions({
@@ -438,10 +509,11 @@ $(document).ready(function()
         url.searchParams.set('overview_currency', newCurrency);
         window.history.replaceState(null, null, url);
 
-        // Update formatters, data, and status
+        // Update formatters, data, status, and legend
         updateFormatters(newCurrency);
         updateSeriesData(newCurrency);
         updateStatus(newCurrency);
+        buildLegend(newCurrency);
     });
 
     // Handle collapse toggle for chevron icon

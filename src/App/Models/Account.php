@@ -42,6 +42,7 @@ class Account extends MyFinance2Model
         'is_ledger_account'   => 'boolean',
         'is_trade_account'    => 'boolean',
         'is_dividend_account' => 'boolean',
+        'funding_role'        => \ovidiuro\myfinance2\App\Enums\FundingRole::class,
     ];
 
     protected $fillable = [
@@ -51,6 +52,7 @@ class Account extends MyFinance2Model
         'is_ledger_account',
         'is_trade_account',
         'is_dividend_account',
+        'funding_role',
     ];
 
     /**

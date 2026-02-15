@@ -25,13 +25,22 @@ return [
                 'placeholder'   => 'Input Description',
             ],
             'is_ledger_account' => [
-                'label'         => 'Is Ledger Account',
+                'label'         => 'Is Ledger',
             ],
             'is_trade_account' => [
-                'label'         => 'Is Trade Account',
+                'label'         => 'Is Trade',
             ],
             'is_dividend_account' => [
-                'label'         => 'Is Dividend Account',
+                'label'         => 'Is Dividend',
+            ],
+            'funding_role' => [
+                'label'   => 'Funding Role',
+                'options' => [
+                    'source'       => 'Source',
+                    'intermediary' => 'Intermediary',
+                    'investment'   => 'Investment',
+                    'other'        => 'Other',
+                ],
             ],
             'buttons' => [
                 'save-item' => [

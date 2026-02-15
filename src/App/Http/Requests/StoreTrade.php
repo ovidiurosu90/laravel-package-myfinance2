@@ -63,6 +63,7 @@ class StoreTrade extends FormRequest
             'unit_price'        => 'required|numeric',
             'fee'               => 'required|numeric',
             'description'       => 'nullable|string|max:512',
+            'is_transfer'       => 'nullable|boolean',
         ];
     }
 
@@ -84,6 +85,7 @@ class StoreTrade extends FormRequest
             'unit_price'        => $this->unit_price,
             'fee'               => $this->fee,
             'description'       => $this->description,
+            'is_transfer'       => (bool) $this->is_transfer,
         ];
     }
 }

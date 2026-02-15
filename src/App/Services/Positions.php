@@ -25,6 +25,19 @@ class Positions
      */
     private bool $_includeClosedTrades = false;
 
+    /**
+     * @var bool
+     * Controls whether to persist stats (stats_today / stats_historical)
+     * - true: Write to database (default, for crons/normal operations)
+     * - false: Cache only, no database writes (Overview/Returns)
+     */
+    private bool $_persistStats = true;
+
+    public function setPersistStats(bool $persistStats): void
+    {
+        $this->_persistStats = $persistStats;
+    }
+
     public function setExtraSymbols(array $extraSymbols = array()): void
     {
         $this->_extraSymbols = $extraSymbols;
@@ -675,21 +688,41 @@ class Positions
     {
         $trades = $this->getTrades($date);
         $positions = self::tradesToPositions($trades);
+
+        // When viewing historical positions, filter out zero-quantity positions
+        // (e.g., stocks fully sold before the requested date)
+        if ($date !== null) {
+            foreach ($positions as $accountId => &$accountPositions) {
+                $accountPositions = array_filter(
+                    $accountPositions,
+                    fn($pos) => abs($pos['quantity']) > 0.0001
+                );
+            }
+            unset($accountPositions);
+        }
+
         $accountData = self::tradesToAccountData($trades);
         $symbols = self::tradesToSymbols($trades);
 
         $financeUtils = new FinanceUtils();
 
         $exchangeRateData = self::tradesToExchangeRateData($trades);
-        $exchangeRateData = $financeUtils->getExchangeRates($exchangeRateData,
-            $date);
+        $exchangeRateData = $financeUtils->getExchangeRates(
+            $exchangeRateData,
+            $date,
+            $this->_persistStats
+        );
         // LOG::debug("exchangeRateData 535: " . print_r($exchangeRateData, true));
 
         $quoteSymbols = array_merge(
             array_keys(self::tradesToSymbols($trades)),
             $this->_extraSymbols
         );
-        $quotes = $financeUtils->getQuotes($quoteSymbols, $date);
+        $quotes = $financeUtils->getQuotes(
+            $quoteSymbols,
+            $date,
+            $this->_persistStats
+        );
 
         foreach ($positions as $accountId => &$symbols) {
             foreach ($symbols as $symbol => &$position) {

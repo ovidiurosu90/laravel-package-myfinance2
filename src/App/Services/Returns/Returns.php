@@ -223,6 +223,7 @@ class Returns
             'purchases' => $transactions['purchases'],
             'sales' => $transactions['sales'],
             'excludedTrades' => $transactions['excludedTrades'],
+            'transferTrades' => $transactions['transferTrades'] ?? [],
             'totalDeposits' => $totals['totalDeposits'],
             'totalDepositsCalculated' => $totals['totalDepositsCalculated'],
             'totalDepositsOverride' => $totals['totalDepositsOverride'],
@@ -481,6 +482,7 @@ class Returns
             'purchases' => [],
             'sales' => [],
             'excludedTrades' => [],
+            'transferTrades' => [],
             'totalDeposits' => 0,
             'totalDepositsCalculated' => 0,
             'totalDepositsFees' => 0,
@@ -609,14 +611,49 @@ class Returns
 
         // Pass pre-loaded account to avoid redundant eager loading queries
         $tradesData = $this->_trades->getPurchasesAndSales($accountId, $year, $account);
+        $transferTrades = $this->_trades->getTransferTrades($accountId, $year, $account);
+
+        $deposits = $this->_deposits->getDeposits($accountId, $year, $account);
+        $withdrawals = $this->_withdrawals->getWithdrawals($accountId, $year, $account);
+
+        // Inject transfer trades as synthetic deposits/withdrawals
+        foreach ($transferTrades as $transfer) {
+            $amountInAccountCurrency = $transfer['principal_amount']
+                / $transfer['exchangeRate'];
+
+            if ($transfer['action'] === 'BUY') {
+                // Transfer BUY = shares arrived => treat as deposit
+                $deposits[] = [
+                    'date' => $transfer['date'],
+                    'amount' => $amountInAccountCurrency,
+                    'fee' => 0,
+                    'description' => $transfer['description']
+                        ?? 'In-kind transfer',
+                    'fromAccount' => 'Transfer',
+                    'isTransfer' => true,
+                ];
+            } elseif ($transfer['action'] === 'SELL') {
+                // Transfer SELL = shares left => treat as withdrawal
+                $withdrawals[] = [
+                    'date' => $transfer['date'],
+                    'amount' => $amountInAccountCurrency,
+                    'fee' => 0,
+                    'description' => $transfer['description']
+                        ?? 'In-kind transfer',
+                    'toAccount' => 'Transfer',
+                    'isTransfer' => true,
+                ];
+            }
+        }
 
         return [
-            'deposits' => $this->_deposits->getDeposits($accountId, $year, $account),
-            'withdrawals' => $this->_withdrawals->getWithdrawals($accountId, $year, $account),
+            'deposits' => $deposits,
+            'withdrawals' => $withdrawals,
             'dividendsList' => $this->_dividends->getDividends($accountId, $year, $account),
             'purchases' => $tradesData['purchases'],
             'sales' => $tradesData['sales'],
             'excludedTrades' => $this->_trades->getExcludedTrades($accountId, $year, $account),
+            'transferTrades' => $transferTrades,
         ];
     }
 

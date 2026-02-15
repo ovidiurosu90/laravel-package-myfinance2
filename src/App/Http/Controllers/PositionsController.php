@@ -22,8 +22,20 @@ class PositionsController extends MyFinance2Controller
     {
         $service = new Positions();
 
+        $date = null;
+        $dateInput = request()->input('date');
+        if (!empty($dateInput)) {
+            try {
+                $date = new \DateTime($dateInput . ' 23:59:59');
+                $service->setIncludeClosedTrades(true);
+            } catch (\Exception $e) {
+                Log::warning('Invalid date parameter for positions: ' . $dateInput);
+            }
+        }
+
         // array with items grouped by account and account data
-        $data = $service->handle();
+        $data = $service->handle($date);
+        $data['selectedDate'] = $dateInput;
 
         return view('myfinance2::positions.dashboard', $data);
     }

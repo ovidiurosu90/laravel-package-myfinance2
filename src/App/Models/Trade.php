@@ -39,6 +39,7 @@ class Trade extends MyFinance2Model
         'quantity'          => 'decimal:8',
         'unit_price'        => 'decimal:4',
         'fee'               => 'decimal:2',
+        'is_transfer'       => 'boolean',
         'created_at'        => 'datetime',
         'updated_at'        => 'datetime',
         'deleted_at'        => 'datetime',
@@ -55,6 +56,7 @@ class Trade extends MyFinance2Model
         'unit_price',
         'fee',
         'description',
+        'is_transfer',
     ];
 
     /**

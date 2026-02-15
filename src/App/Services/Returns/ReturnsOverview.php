@@ -100,6 +100,7 @@ class ReturnsOverview
             $virtualKey = 'virtual_' . $id;
             $result['accounts'][$virtualKey] = [
                 'name' => $config['name'] ?? $id,
+                'isVirtual' => true,
                 'EUR' => [],
                 'USD' => [],
             ];
@@ -124,9 +125,17 @@ class ReturnsOverview
 
         // Calculate cumulative totals (sum of all years)
         $result['cumulativeTotal'] = [
-            'EUR' => $this->_calculateCumulativeTotal($result['total']['EUR']),
-            'USD' => $this->_calculateCumulativeTotal($result['total']['USD']),
+            'EUR' => $this->_calculateCumulativeTotal(
+                $result['total']['EUR']
+            ),
+            'USD' => $this->_calculateCumulativeTotal(
+                $result['total']['USD']
+            ),
         ];
+
+        // Calculate virtual accounts' cumulative totals
+        $result['virtualCumulativeTotal'] = $this
+            ->_calculateVirtualCumulativeTotal($result['accounts']);
 
         return $result;
     }
@@ -198,6 +207,38 @@ class ReturnsOverview
             $total += $item['value'];
         }
         return round($total, 2);
+    }
+
+    /**
+     * Calculate cumulative total for virtual (transfer adjustment)
+     * accounts only.
+     *
+     * @param array $accounts Account data from the result
+     * @return array{EUR: float, USD: float}
+     */
+    private function _calculateVirtualCumulativeTotal(
+        array $accounts
+    ): array
+    {
+        $eurTotal = 0.0;
+        $usdTotal = 0.0;
+
+        foreach ($accounts as $accountData) {
+            if (empty($accountData['isVirtual'])) {
+                continue;
+            }
+            $eurTotal += $this->_calculateCumulativeTotal(
+                $accountData['EUR'] ?? []
+            );
+            $usdTotal += $this->_calculateCumulativeTotal(
+                $accountData['USD'] ?? []
+            );
+        }
+
+        return [
+            'EUR' => round($eurTotal, 2),
+            'USD' => round($usdTotal, 2),
+        ];
     }
 
     /**

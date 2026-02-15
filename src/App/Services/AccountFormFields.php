@@ -24,6 +24,7 @@ class AccountFormFields extends MyFormFields
         'is_ledger_account'   => true,
         'is_trade_account'    => true,
         'is_dividend_account' => true,
+        'funding_role'        => null,
     ];
 
     /**

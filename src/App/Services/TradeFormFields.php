@@ -8,7 +8,10 @@ use ovidiuro\myfinance2\App\Models\Currency;
 
 class TradeFormFields extends MyFormFields
 {
-    protected function model() { return Trade::class; }
+    protected function model()
+    {
+        return Trade::class;
+    }
 
     /**
      * List of fields and default value for each field.
@@ -26,6 +29,7 @@ class TradeFormFields extends MyFormFields
         'unit_price'        => '',
         'fee'               => '',
         'description'       => '',
+        'is_transfer'       => false,
     ];
 
     /**

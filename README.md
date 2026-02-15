@@ -80,7 +80,7 @@ tar -xf libcurl-impersonate-v0.6.1.x86_64-linux-gnu.tar.gz
 
 sudo su
 cd /usr/local/lib/
-ln -s [USER_HOME]/curl-impersonate/libcurl-impersonate-chrome.so .
+ln -s /home/$USER/curl-impersonate/libcurl-impersonate-chrome.so .
 ls -la /usr/local/lib/libcurl-impersonate-chrome.so
 ```
 
@@ -111,7 +111,7 @@ php artisan cache:clear && php artisan config:cache
 # - --historical                  → fetches stock prices per symbol
 # - --historical-account-overview → calculates account statistics per account/date
 # (NOT in crontab)
-sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Repositories/laravel-admin/ && php artisan app:finance-api-cron --historical --start=2026-01-08 --end=2026-01-18"
+sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd /home/$USER/Repositories/laravel-admin/ && php artisan app:finance-api-cron --historical --start=2026-01-08 --end=2026-01-18"
 
 # Purpose: Maintains a complete week of historical account performance data for trend analysis and recovery after downtime
 # For each historical date:
@@ -120,7 +120,7 @@ sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Re
 # - Rebuilds historical chart data points
 # NOTE This command expects data to be already in, so run the command from above
 # NOTE If we use the same start & end dates for both commands, it may fail if there is no failover. To go around that, extend the first command to the left with a few days
-sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Repositories/laravel-admin/ && php artisan app:finance-api-cron --historical-account-overview --start=$(date +%Y-%m-%d --date '-8 day') --end=$(date +%Y-%m-%d --date '-1 day')"
+sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd /home/$USER/Repositories/laravel-admin/ && php artisan app:finance-api-cron --historical-account-overview --start=$(date +%Y-%m-%d --date '-8 day') --end=$(date +%Y-%m-%d --date '-1 day')"
 ```
 
 
@@ -138,11 +138,11 @@ sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Re
 # - Reduced API calls to Yahoo Finance
 # - Maintains fresh data for current year
 # (NOT in crontab - runs ad-hoc when needed or scheduled separately)
-sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Repositories/laravel-admin/ && php artisan app:finance-api-cron --refresh-returns"
+sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd /home/$USER/Repositories/laravel-admin/ && php artisan app:finance-api-cron --refresh-returns"
 
 # With --force flag: Clears all cache markers and refreshes ALL years (including those with valid cache)
 # Use this when you need to rebuild the entire cache (e.g., after config changes, price overrides, etc.)
-sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Repositories/laravel-admin/ && php artisan app:finance-api-cron --refresh-returns --force"
+sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd /home/$USER/Repositories/laravel-admin/ && php artisan app:finance-api-cron --refresh-returns --force"
 ```
 
 

@@ -1,15 +1,24 @@
 @role(['admin', 'financeadmin'])
 <li class="nav-item dropdown">
-    <a class="nav-link dropdown-toggle" href="#" id="navbar-dropdown-myfinance2" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+    <a class="nav-link dropdown-toggle" href="#"
+       id="navbar-dropdown-myfinance2" role="button"
+       data-bs-toggle="dropdown"
+       aria-haspopup="true" aria-expanded="false">
         {!! trans('myfinance2::titles.navbarDropdownFinance') !!}
     </a>
     <div class="dropdown-menu" aria-labelledby="navbar-dropdown-myfinance2">
-        <a class="dropdown-item {{ Request::is('finance-home') ? 'active' : null }}" href="{{ url('/finance-home') }}">
+        <a class="dropdown-item {{ Request::is('finance-home') ? 'active' : null }}"
+           href="{{ url('/finance-home') }}">
             {!! trans('myfinance2::titles.home') !!}
         </a>
         <div class="dropdown-divider"></div>
+        <a class="dropdown-item {{ Request::is('overview') ? 'active' : null }}" href="{{ url('/overview') }}">
+            {!! trans('myfinance2::overview.titles.dashboard') !!}
+        </a>
+        <div class="dropdown-divider"></div>
 
-        <a class="dropdown-item {{ Request::is('ledger-transactions') ? 'active' : null }}" href="{{ url('/ledger-transactions') }}">
+        <a class="dropdown-item {{ Request::is('ledger-transactions') ? 'active' : null }}"
+           href="{{ url('/ledger-transactions') }}">
             {!! trans('myfinance2::ledger.titles.dashboard') !!}
         </a>
         <div class="dropdown-divider"></div>
@@ -19,7 +28,8 @@
         </a>
         <div class="dropdown-divider"></div>
 
-        <a class="dropdown-item {{ Request::is('watchlist-symbols') ? 'active' : null }}" href="{{ url('/watchlist-symbols') }}">
+        <a class="dropdown-item {{ Request::is('watchlist-symbols') ? 'active' : null }}"
+           href="{{ url('/watchlist-symbols') }}">
             {!! trans('myfinance2::watchlistsymbols.titles.dashboard') !!}
         </a>
         <div class="dropdown-divider"></div>
@@ -40,7 +50,8 @@
         </a>
         <div class="dropdown-divider"></div>
 
-        <a class="dropdown-item {{ Request::is('cash-balances') ? 'active' : null }}" href="{{ url('/cash-balances') }}">
+        <a class="dropdown-item {{ Request::is('cash-balances') ? 'active' : null }}"
+           href="{{ url('/cash-balances') }}">
             {!! trans('myfinance2::cashbalances.titles.dashboard') !!}
         </a>
         <div class="dropdown-divider"></div>

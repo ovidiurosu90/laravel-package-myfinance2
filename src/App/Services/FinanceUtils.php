@@ -233,8 +233,11 @@ class FinanceUtils
      *                                                 trade_currency   => 'USD',
      *                                                 exchange_rate    => 1.1))
      */
-    public function getExchangeRates(array $exchangeRateData,
-        \DateTimeInterface $date = null): ?array
+    public function getExchangeRates(
+        array $exchangeRateData,
+        \DateTimeInterface $date = null,
+        bool $persistStats = true
+    ): ?array
     {
         if (empty($exchangeRateData)) {
             return [];
@@ -248,7 +251,10 @@ class FinanceUtils
             $results =
                 $financeAPI->getHistoricalExchangeRates($currencyPairs, $date);
         } else {
-            $results = $financeAPI->getExchangeRates($currencyPairs);
+            $results = $financeAPI->getExchangeRates(
+                $currencyPairs,
+                persistStats: $persistStats
+            );
         }
 
         if (empty($date)) {
@@ -298,7 +304,11 @@ class FinanceUtils
      * @return array(symbol => (price, currency, name, quote_timestamp, day_change))
      *         or null if failure
      */
-    public function getQuotes(array $symbols, ?\DateTimeInterface $date = null): ?array
+    public function getQuotes(
+        array $symbols,
+        ?\DateTimeInterface $date = null,
+        bool $persistStats = true
+    ): ?array
     {
         $quotesArray = [];
         if (empty($symbols)) {
@@ -306,7 +316,10 @@ class FinanceUtils
         }
 
         $financeAPI = new FinanceAPI();
-        $quotes = $financeAPI->getQuotes($symbols);
+        $quotes = $financeAPI->getQuotes(
+            $symbols,
+            persistStats: $persistStats
+        );
         if (empty($quotes)) {
             return null;
         }
