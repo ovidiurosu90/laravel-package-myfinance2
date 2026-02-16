@@ -235,7 +235,7 @@ class FinanceAPI
      * @return $results array(HistoricalData)
      */
     public function getHistoricalExchangeRates(array $currencyPairs,
-        \DateTimeInterface $date): ?array
+        \DateTimeInterface $date, bool $persistStats = true): ?array
     {
         if (empty($currencyPairs)) {
             return [];
@@ -254,7 +254,9 @@ class FinanceAPI
         foreach ($symbols as $symbol) {
             try {
                 $quote = $this->getQuote($symbol); //LATER Get rid of this!
-                $historicalData = $this->getHistoricalQuoteData($quote, $date);
+                $historicalData = $this->getHistoricalQuoteData(
+                    $quote, $date, persistStats: $persistStats
+                );
                 $historicalDataItems[] = $historicalData;
             } catch (\Exception $e) {
                 // Check if it's a weekend (expected failure)

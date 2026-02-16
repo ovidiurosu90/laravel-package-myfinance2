@@ -248,8 +248,9 @@ class FinanceUtils
 
         $results = [];
         if (!empty($date) && date('Y-m-d') != $date->format('Y-m-d')) {
-            $results =
-                $financeAPI->getHistoricalExchangeRates($currencyPairs, $date);
+            $results = $financeAPI->getHistoricalExchangeRates(
+                $currencyPairs, $date, $persistStats
+            );
         } else {
             $results = $financeAPI->getExchangeRates(
                 $currencyPairs,

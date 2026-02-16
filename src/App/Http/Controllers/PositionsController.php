@@ -28,6 +28,7 @@ class PositionsController extends MyFinance2Controller
             try {
                 $date = new \DateTime($dateInput . ' 23:59:59');
                 $service->setIncludeClosedTrades(true);
+                $service->setPersistStats(false);
             } catch (\Exception $e) {
                 Log::warning('Invalid date parameter for positions: ' . $dateInput);
             }
