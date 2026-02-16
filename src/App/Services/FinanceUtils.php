@@ -120,7 +120,7 @@ class FinanceUtils
      * @return $results array(HistoricalData)
      */
     public function getLastAvailableExchangeRates(array $currencyPairs,
-        \DateTimeInterface $date): ?array
+        \DateTimeInterface $date, bool $persistStats = true): ?array
     {
         if (empty($currencyPairs)) {
             return [];
@@ -139,7 +139,8 @@ class FinanceUtils
 
             $results = $financeAPI->getHistoricalExchangeRates(
                 $currencyPairs,
-                $currentDate
+                $currentDate,
+                $persistStats
             );
 
             if (!empty($results)) {
@@ -172,8 +173,8 @@ class FinanceUtils
     }
 
 
-    public function getLastAvailableQuote(Quote $quote, \DateTimeInterface $date)
-        : ?HistoricalData
+    public function getLastAvailableQuote(Quote $quote, \DateTimeInterface $date,
+        bool $persistStats = true): ?HistoricalData
     {
         //NOTE there is no historical data when market is closed
         //      so we look for the day before or the day before that
@@ -188,7 +189,8 @@ class FinanceUtils
 
             $historicalQuoteData = $financeAPI->getHistoricalQuoteData(
                 $quote,
-                $currentDate
+                $currentDate,
+                persistStats: $persistStats
             );
 
             if (!empty($historicalQuoteData)) {
@@ -263,7 +265,9 @@ class FinanceUtils
         }
 
         if (empty($results)) {
-            $results = $this->getLastAvailableExchangeRates($currencyPairs, $date);
+            $results = $this->getLastAvailableExchangeRates(
+                $currencyPairs, $date, $persistStats
+            );
         }
 
         $currenciesMapping = config('general.currencies_mapping');
@@ -404,7 +408,9 @@ class FinanceUtils
 
             //NOTE If we provide a date, we overwrite the price and quote timestamp
             if (!empty($date) && date('Y-m-d') != $date->format('Y-m-d')) {
-                $historicalQuoteData = $this->getLastAvailableQuote($quote, $date);
+                $historicalQuoteData = $this->getLastAvailableQuote(
+                    $quote, $date, $persistStats
+                );
 
                 if (!empty($historicalQuoteData)) {
                     $quotesArray[$quote->getSymbol()]['price'] =
