@@ -48,29 +48,30 @@ class ReturnsOverview
      *     ],
      * ]
      *
-     * @param int $userId User ID for cache key
+     * @param int $userId User ID - used for cache key and to scope account data to this user
      * @return array Returns overview data
      */
     public function handle(int $userId): array
     {
         $cacheKey = "returns:overview:{$userId}";
 
-        return Cache::remember($cacheKey, self::CACHE_TTL, function ()
+        return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($userId)
         {
-            return $this->_calculateOverviewData();
+            return $this->_calculateOverviewData($userId);
         });
     }
 
     /**
-     * Calculate overview data for all years
+     * Calculate overview data for all years, scoped to a specific user
      */
-    private function _calculateOverviewData(): array
+    private function _calculateOverviewData(int $userId): array
     {
         $currentYear = (int) date('Y');
         $minYear = ReturnsConstants::MIN_YEAR;
 
-        // Get all accounts to maintain consistent ordering
+        // Get accounts for this user only
         $accounts = Account::with('currency')
+            ->where('user_id', $userId)
             ->where('is_trade_account', '1')
             ->orderBy('name')
             ->get()
@@ -109,7 +110,7 @@ class ReturnsOverview
         // Collect data for each year
         for ($year = $minYear; $year <= $currentYear; $year++) {
             try {
-                $yearData = $this->_returnsService->handle($year);
+                $yearData = $this->_returnsService->handle($year, $userId);
                 $this->_processYearData($result, $yearData, $year);
             } catch (\Exception $e) {
                 Log::error("Failed to get returns for year {$year}: " . $e->getMessage());

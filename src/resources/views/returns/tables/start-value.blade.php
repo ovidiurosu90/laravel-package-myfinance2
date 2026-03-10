@@ -8,6 +8,8 @@
             ? $data['jan1Value']['EUR']['formatted']
             : $data['jan1Value']['USD']['formatted'];
     @endphp
+    <td class="text-end fw-bold"
+        style="color: #6c757d; white-space: nowrap; width: 1%;">−</td>
     <td class="currency-value"
         data-eur="{{ $data['jan1Value']['EUR']['formatted'] }}"
         data-usd="{{ $data['jan1Value']['USD']['formatted'] }}">
@@ -35,6 +37,7 @@
             ? $data['jan1PositionsValue']['EUR']['formatted']
             : $data['jan1PositionsValue']['USD']['formatted'];
     @endphp
+    <td></td>
     <td><small class="text-muted currency-value"
         data-eur="{{ $data['jan1PositionsValue']['EUR']['formatted'] }}"
         data-usd="{{ $data['jan1PositionsValue']['USD']['formatted'] }}">
@@ -43,7 +46,7 @@
 </tr>
 @if(count($data['jan1PositionDetails']) > 0)
 <tr class="collapse" id="jan1-positions-{{ $accountId }}">
-    <td colspan="2">
+    <td colspan="3">
         <table class="table table-sm table-striped mb-0">
             <thead>
                 <tr class="small">
@@ -168,6 +171,7 @@
 @endphp
 <tr class="table-light">
     <td style="padding-left: 2rem;"><small class="text-muted">Cash:</small></td>
+    <td></td>
     <td><small class="text-muted currency-value"
         data-eur="{{ $data['jan1CashValue']['EUR']['formatted'] }}"
         data-usd="{{ $data['jan1CashValue']['USD']['formatted'] }}">

@@ -66,15 +66,21 @@ class Returns
      * Main entry point: Calculate returns for all trading accounts for a year
      *
      * @param int $year The year to calculate returns for
+     * @param int|null $userId Optional user ID to filter accounts (for CLI/cron context)
      * @return array Returns data for all trading accounts
      */
-    public function handle(int $year): array
+    public function handle(int $year, ?int $userId = null): array
     {
-        // Get all trading accounts
-        $accounts = Account::with('currency')
+        // Get trading accounts, optionally filtered by user (for cron context where scope is disabled)
+        $query = Account::with('currency')
             ->where('is_trade_account', '1')
-            ->orderBy('name')
-            ->get();
+            ->orderBy('name');
+
+        if ($userId !== null) {
+            $query->where('user_id', $userId);
+        }
+
+        $accounts = $query->get();
 
         // Pre-fetch currencies used for conversion (EUR, USD)
         $this->_prefetchCurrencies(['EUR', 'USD']);

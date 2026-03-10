@@ -563,11 +563,34 @@ class ReturnsCurrencyConverter
                     $showMissingRateWarning = $exchangeRate != 1.0;
                 }
             } else {
-                // For deposits/withdrawals, use fetched exchange rates
-                $exchangeRate = $exchangeRateCache[$dateKey]['main'];
-                $eurusdRate = $this->_quoteProvider->formatCleanExchangeRate(
-                    $exchangeRateCache[$dateKey]['eurusd']
-                );
+                // For deposits/withdrawals: use stored exchange rate if available,
+                // otherwise fall back to fetched rate.
+                // The ledger exchange_rate is the debit→credit multiplier:
+                //   deposits (account = credit side): convert back via 1/storedRate
+                //   withdrawals (account = debit side): convert forward via storedRate
+                $storedRate = (float)($item['exchangeRate'] ?? 0);
+                $hasStoredRate = $storedRate > 0 && $storedRate != 1.0;
+
+                if ($hasStoredRate && $baseCurrency !== $targetCurrency) {
+                    $exchangeRate = $type === 'deposit' ? 1.0 / $storedRate : $storedRate;
+                    $usedStoredRate = true;
+                } else {
+                    $exchangeRate = $exchangeRateCache[$dateKey]['main'];
+                }
+
+                // For the eurusdRate tooltip: use stored rate when available,
+                // normalizing to the EUR→USD direction (>1) since EURUSD is always displayed
+                // as EUR/USD. The stored rate is the debit→credit multiplier, so:
+                //   >1 means EUR→USD direction (e.g. 1.1705): use as-is
+                //   <1 means USD→EUR direction (e.g. 0.8372): invert to get EUR→USD (1.1944)
+                if ($hasStoredRate) {
+                    $eurusdForDisplay = $storedRate > 1.0 ? $storedRate : 1.0 / $storedRate;
+                    $eurusdRate = $this->_quoteProvider->formatCleanExchangeRate($eurusdForDisplay);
+                } else {
+                    $eurusdRate = $this->_quoteProvider->formatCleanExchangeRate(
+                        $exchangeRateCache[$dateKey]['eurusd']
+                    );
+                }
             }
 
             $convertedItem = $item;

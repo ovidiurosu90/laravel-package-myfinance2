@@ -128,7 +128,13 @@ function updateOverrideDisplay($td, $span, cellData)
 
         // Show and update the calculated value if element exists
         if ($smallOverride.length > 0) {
-            $smallOverride.html('(Calculated: ' + cellData.calculated + ')');
+            var calculatedHtml = '(Calculated: ' + cellData.calculated;
+            if (cellData.feesText) {
+                var feesInner = cellData.feesText.replace(/^\(/, '').replace(/\)$/, '');
+                calculatedHtml += ', ' + feesInner;
+            }
+            calculatedHtml += ')';
+            $smallOverride.html(calculatedHtml);
             $smallOverride.show();
         }
 
@@ -219,9 +225,11 @@ function updateCurrencyCell($td, isEUR)
     }
 
     // Update transaction fees text (deposits/withdrawals header suffix)
+    // When an override is shown, fees are folded into the "Calculated" text instead
     var $transactionFeesText = $td.find('.transaction-fees-text');
     if ($transactionFeesText.length > 0) {
-        if (cellData.feesText) {
+        var hasOverride = cellData.override != null && cellData.override !== '';
+        if (!hasOverride && cellData.feesText) {
             $transactionFeesText.html(cellData.feesText);
             $transactionFeesText.show();
         } else {

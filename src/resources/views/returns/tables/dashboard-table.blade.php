@@ -115,6 +115,8 @@
                 {{-- Actual Return --}}
                 <tr class="table-primary">
                     <td class="fw-bold">{{ trans('myfinance2::returns.labels.actual-return') }}</td>
+                    <td class="text-end fw-bold"
+                        style="color: #6c757d; white-space: nowrap; width: 1%;">=</td>
                     <td class="fw-bold currency-value"
                         data-eur="{{ $data['actualReturn']['EUR']['plain'] }}"
                         data-usd="{{ $data['actualReturn']['USD']['plain'] }}"

@@ -10,6 +10,8 @@
             </button>
         @endif
     </td>
+    <td class="text-end fw-bold"
+        style="color: #6c757d; white-space: nowrap; width: 1%;">+</td>
     <td class="currency-value"
         data-eur="{{ $data['dividends']['totals']['EUR']['formatted'] }}"
         data-usd="{{ $data['dividends']['totals']['USD']['formatted'] }}"
@@ -56,7 +58,7 @@
 </tr>
 @if(count($data['dividends']['items']) > 0)
 <tr class="collapse" id="dividends-{{ $accountId }}">
-    <td colspan="2">
+    <td colspan="3">
         <table class="table table-sm table-striped mb-0">
             <thead>
                 <tr class="small">

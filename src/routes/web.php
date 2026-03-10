@@ -23,6 +23,8 @@ Route::group([
     Route::get('finance-home', 'HomeController@index')->name('home');
     Route::get('positions', 'PositionsController@index');
     Route::get('returns', 'ReturnsController@index')->name('returns.index');
+    Route::get('returns/refreshing', 'ReturnsController@refreshing')->name('returns.refreshing');
+    Route::get('returns/refresh-status', 'ReturnsController@refreshStatus')->name('returns.refresh-status');
     Route::post('returns/clear-cache', 'ReturnsController@clearCache')->name('returns.clear-cache');
     Route::get('funding', 'FundingController@index');
     Route::get('timeline', 'TimelineController@index')->name('timeline');

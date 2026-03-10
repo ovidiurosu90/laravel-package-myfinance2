@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace ovidiuro\myfinance2\App\Http\Controllers;
 
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -149,8 +151,11 @@ class ReturnsController extends MyFinance2Controller
                 Log::info("Clearing cache (driver: $cacheDriver, files before: $cacheFilesBefore)");
             }
 
-            // Clear all cache
+            // Clear all application cache
             $flushResult = Cache::flush();
+
+            // Clear config cache so config file changes (e.g. overrides) take effect immediately
+            Artisan::call('config:clear');
 
             // Count cache files after flush (for file driver only)
             if ($cacheDriver === 'file' && $cachePath && is_dir($cachePath)) {
@@ -179,12 +184,11 @@ class ReturnsController extends MyFinance2Controller
                 Log::info("Returns cache cleared successfully (driver: $cacheDriver, files after: $cacheFilesAfter)");
             }
 
-            return redirect()->route('myfinance2::returns.index', ['year' => $year])
-                ->with(
-                    'success',
-                    'Cache cleared successfully. '
-                    . 'The returns page will recalculate on next load.'
-                );
+            // Mark refresh as in-progress and kick off background recalculation
+            Cache::put('returns_refresh_in_progress', true, 3600);
+            $this->_launchRefreshInBackground();
+
+            return redirect()->route('myfinance2::returns.refreshing', ['year' => $year]);
         } catch (\Exception $e) {
             Log::error(
                 "Failed to clear returns cache: " . $e->getMessage()
@@ -193,6 +197,47 @@ class ReturnsController extends MyFinance2Controller
             return redirect()->route('myfinance2::returns.index', ['year' => $year])
                 ->with('error', 'Failed to clear cache. Error: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Show the "refresh in progress" loading page (lightweight, no heavy calculations)
+     *
+     * @return \Illuminate\View\View
+     */
+    public function refreshing(): \Illuminate\View\View
+    {
+        $year = (int) request()->input('year', date('Y'));
+        return view('myfinance2::returns.refreshing', ['selectedYear' => $year]);
+    }
+
+    /**
+     * Return JSON status of the background returns refresh
+     *
+     * @return JsonResponse
+     */
+    public function refreshStatus(): JsonResponse
+    {
+        $currentYear = (int) date('Y');
+        $markerKey = 'returns_year_' . $currentYear . '_complete';
+
+        if (Cache::has($markerKey)) {
+            Cache::forget('returns_refresh_in_progress');
+            return response()->json(['status' => 'complete']);
+        }
+
+        return response()->json(['status' => 'in_progress']);
+    }
+
+    /**
+     * Launch the returns refresh artisan command as a non-blocking background process
+     */
+    private function _launchRefreshInBackground(): void
+    {
+        $php = PHP_BINARY;
+        $artisan = escapeshellarg(base_path('artisan'));
+        $cmd = "$php $artisan app:finance-api-cron --refresh-returns --force > /dev/null 2>&1 &";
+        Log::info("Launching background returns refresh: $cmd");
+        shell_exec($cmd);
     }
 
     /**

@@ -22,6 +22,8 @@
             </button>
         @endif
     </td>
+    <td class="text-end fw-bold"
+        style="color: #6c757d; white-space: nowrap; width: 1%;">−</td>
     <td class="currency-value"
         data-eur="{{ $data['purchases']['totals']['EUR']['principalAmountFormatted'] }}"
         data-usd="{{ $data['purchases']['totals']['USD']['principalAmountFormatted'] }}"
@@ -50,7 +52,7 @@
 </tr>
 @if($hasPurchasesToShow)
 <tr class="collapse" id="purchases-{{ $accountId }}">
-    <td colspan="2">
+    <td colspan="3">
         <table class="table table-sm table-striped mb-0">
             @if(count($data['purchases']['items']) > 0)
             <thead>

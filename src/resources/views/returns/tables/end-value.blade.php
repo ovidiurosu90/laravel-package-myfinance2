@@ -12,6 +12,8 @@
             ? $data['dec31Value']['EUR']['formatted']
             : $data['dec31Value']['USD']['formatted'];
     @endphp
+    <td class="text-end fw-bold"
+        style="color: #6c757d; white-space: nowrap; width: 1%;">+</td>
     <td class="currency-value"
         data-eur="{{ $data['dec31Value']['EUR']['formatted'] }}"
         data-usd="{{ $data['dec31Value']['USD']['formatted'] }}">
@@ -39,6 +41,7 @@
             ? $data['dec31PositionsValue']['EUR']['formatted']
             : $data['dec31PositionsValue']['USD']['formatted'];
     @endphp
+    <td></td>
     <td><small class="text-muted currency-value"
         data-eur="{{ $data['dec31PositionsValue']['EUR']['formatted'] }}"
         data-usd="{{ $data['dec31PositionsValue']['USD']['formatted'] }}">
@@ -47,7 +50,7 @@
 </tr>
 @if(count($data['dec31PositionDetails']) > 0)
 <tr class="collapse" id="dec31-positions-{{ $accountId }}">
-    <td colspan="2">
+    <td colspan="3">
         <table class="table table-sm table-striped mb-0">
             <thead>
                 <tr class="small">
@@ -172,6 +175,7 @@
 @endphp
 <tr class="table-light">
     <td style="padding-left: 2rem;"><small class="text-muted">Cash:</small></td>
+    <td></td>
     <td><small class="text-muted currency-value"
         data-eur="{{ $data['dec31CashValue']['EUR']['formatted'] }}"
         data-usd="{{ $data['dec31CashValue']['USD']['formatted'] }}">

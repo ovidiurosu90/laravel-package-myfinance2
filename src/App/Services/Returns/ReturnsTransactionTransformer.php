@@ -29,9 +29,9 @@ class ReturnsTransactionTransformer
         $totalEURFees = 0;
         $totalUSDFees = 0;
 
-        foreach ($eurDeposits as $eurDep) {
+        foreach ($eurDeposits as $index => $eurDep) {
             $date = $eurDep['date'] ?? '';
-            $usdDep = collect($usdDeposits)->firstWhere('date', $date);
+            $usdDep = $usdDeposits[$index] ?? null;
 
             $eurFee = $eurDep['fee'] ?? 0;
             $usdFee = $usdDep['fee'] ?? $eurDep['fee'] ?? 0;
@@ -118,9 +118,9 @@ class ReturnsTransactionTransformer
         $totalEURFees = 0;
         $totalUSDFees = 0;
 
-        foreach ($eurWithdrawals as $eurWith) {
+        foreach ($eurWithdrawals as $index => $eurWith) {
             $date = $eurWith['date'] ?? '';
-            $usdWith = collect($usdWithdrawals)->firstWhere('date', $date);
+            $usdWith = $usdWithdrawals[$index] ?? null;
 
             $eurFee = $eurWith['fee'] ?? 0;
             $usdFee = $usdWith['fee'] ?? $eurWith['fee'] ?? 0;
@@ -236,13 +236,10 @@ class ReturnsTransactionTransformer
     {
         $dividends = [];
 
-        foreach ($eurDividends as $eurDiv) {
+        foreach ($eurDividends as $index => $eurDiv) {
             $symbol = $eurDiv['symbol'] ?? '';
             $date = $eurDiv['date'] ?? '';
-            $usdDiv = collect($usdDividends)
-                ->where('symbol', $symbol)
-                ->where('date', $date)
-                ->first();
+            $usdDiv = $usdDividends[$index] ?? null;
 
             $eurAmount = $eurDiv['amount'] ?? 0;
             $usdAmount = $usdDiv['amount'] ?? $eurDiv['amount'] ?? 0;

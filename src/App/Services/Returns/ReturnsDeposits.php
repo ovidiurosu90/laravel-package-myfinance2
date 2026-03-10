@@ -59,6 +59,7 @@ class ReturnsDeposits
                 'date' => $timestamp->format('Y-m-d'),
                 'amount' => $transaction->amount,
                 'fee' => $transaction->fee,
+                'exchangeRate' => (float)$transaction->exchange_rate,
                 'description' => $transaction->description,
                 'fromAccount' => $transaction->debitAccountModel->name ?? 'Unknown',
                 'formatted' => MoneyFormat::get_formatted_balance(

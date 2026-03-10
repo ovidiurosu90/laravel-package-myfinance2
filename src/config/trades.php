@@ -51,9 +51,7 @@ return [
     //
     // Supported override types: price_overrides, position_date_overrides,
     //                           withdrawals_overrides, exclude_trades_from_returns
-    'alert_rules' => [
-        // Alert rules loaded from private package
-    ],
+    'alert_rules' => [],
 
     'unlisted_fmv' => [
         // Unlisted fair market value data loaded from private package

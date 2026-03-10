@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Log;
 
 use ovidiuro\myfinance2\App\Services\Returns\Returns;
 use ovidiuro\myfinance2\App\Services\Returns\ReturnsConstants;
+use ovidiuro\myfinance2\App\Services\Returns\ReturnsOverview;
 
 /**
  * Trait for returns refresh operations
@@ -83,6 +84,8 @@ trait FinanceApiCronReturnsTrait
             "END app:finance-api-cron refreshReturns() => "
             . "$totalYearsProcessed years processed, $totalYearsSkipped years skipped"
         );
+
+        $this->_refreshReturnsOverview();
     }
 
     /**
@@ -241,6 +244,30 @@ trait FinanceApiCronReturnsTrait
         }
 
         Log::info("Cleared $clearedKeys cache entries for year $year");
+    }
+
+    /**
+     * Rebuild the returns overview cache for all users.
+     * Clears the existing cache first to ensure fresh data is used.
+     */
+    private function _refreshReturnsOverview(): void
+    {
+        Log::info('START _refreshReturnsOverview()');
+        try {
+            $userIds = \DB::table('users')->pluck('id');
+            $overviewService = new ReturnsOverview();
+
+            foreach ($userIds as $userId) {
+                ReturnsOverview::clearCache($userId);
+                $overviewService->handle($userId);
+                Log::info("Returns overview built for user $userId");
+            }
+
+            Log::info('END _refreshReturnsOverview() => ' . count($userIds) . ' users processed');
+        } catch (\Exception $e) {
+            Log::error('Failed to refresh returns overview: ' . $e->getMessage()
+                . ' | ' . $e->getFile() . ':' . $e->getLine());
+        }
     }
 }
 

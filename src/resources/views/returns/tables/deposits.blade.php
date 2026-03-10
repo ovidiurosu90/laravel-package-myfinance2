@@ -42,6 +42,8 @@
                 ? $data['deposits']['totals']['USD']['adjustedFormatted']
                 : $data['deposits']['totals']['USD']['formatted']);
     @endphp
+    <td class="text-end fw-bold"
+        style="color: #6c757d; white-space: nowrap; width: 1%;">−</td>
     <td class="currency-value"
         data-eur="{{ $dataEur }}"
         data-usd="{{ $dataUsd }}"
@@ -81,10 +83,20 @@
                 <small style="color: #6c757d; margin-left: 0.5rem;
                     {{ $showOverride ? '' : 'display: none;' }}"
                     class="deposits-calculated-value">
-                    (Calculated: {!! $calculatedText !!})
+                    @php
+                        $feesForCalc = $hasDepositFees && $showOverride
+                            ? ($selectedCurrency === 'EUR'
+                                ? ($data['deposits']['totals']['EUR']['feesFormatted'] ?? '')
+                                : ($data['deposits']['totals']['USD']['feesFormatted'] ?? ''))
+                            : '';
+                        $calculatedWithFees = $feesForCalc
+                            ? '(Calculated: ' . $calculatedText . ', including ' . $feesForCalc . ' in fees)'
+                            : '(Calculated: ' . $calculatedText . ')';
+                    @endphp
+                    {!! $calculatedWithFees !!}
                 </small>
             @endif
-            @if($hasDepositFees)
+            @if($hasDepositFees && !($showOverride ?? false))
                 @php
                     $currentFeesText = $selectedCurrency === 'EUR'
                         ? ($data['deposits']['totals']['EUR']['feesText'] ?? '')
@@ -100,7 +112,7 @@
 </tr>
 @if(count($data['deposits']['items']) > 0)
 <tr class="collapse" id="deposits-{{ $accountId }}">
-    <td colspan="2">
+    <td colspan="3">
         <table class="table table-sm table-striped mb-0">
             <thead>
                 <tr class="small">
