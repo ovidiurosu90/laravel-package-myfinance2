@@ -29,7 +29,7 @@
         </tr>
         <tr>
             <td></td>
-            <td><span id="currency_exchange-status-time"></span></td>
+            <td><span id="currency_exchange-status-time"></span>&nbsp;&nbsp;<span id="eurusd-signal"></span></td>
             <td><span id="cost-status-percentage"></span></td>
             <td><span id="mvalue-status-percentage"></span></td>
             <td><span id="change-status-percentage"></span></td>

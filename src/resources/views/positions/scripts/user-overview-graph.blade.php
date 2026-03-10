@@ -152,6 +152,15 @@ $(document).ready(function()
         $currencyExchangeElement.html("EURUSD " + currencyExchangeLast.value);
         $currencyExchangeElement.attr('title', currencyExchangeLast.time);
         $('#currency_exchange-status-time').html(currencyExchangeLast.time);
+
+        const eurusdRate = parseFloat(currencyExchangeLast.value);
+        const buyUsdAbove = {{ config('trades.eurusd_thresholds.buy_usd_above') }};
+        const sellUsdBelow = {{ config('trades.eurusd_thresholds.sell_usd_below') }};
+        if (eurusdRate > buyUsdAbove) {
+            $('#eurusd-signal').html('<span class="badge bg-success">buy $</span>');
+        } else if (eurusdRate < sellUsdBelow) {
+            $('#eurusd-signal').html('<span class="badge bg-danger">sell $</span>');
+        }
     }
 
     // Create formatter instances for all series

@@ -12,6 +12,14 @@ return [
 
     'unlisted' => 'UNLISTED',
 
+    // EURUSD rate thresholds for buy/sell USD signal shown in the positions dashboard
+    // When EURUSD is above buy_usd_above, it's a good time to buy USD (EUR is strong)
+    // When EURUSD is below sell_usd_below, it's a good time to sell USD (EUR is weak)
+    'eurusd_thresholds' => [
+        'buy_usd_above'  => 1.185,
+        'sell_usd_below' => 1.065,
+    ],
+
     // Symbols that are known to be delisted and should not be fetched from API
     // For these symbols, price overrides will be used instead
     'delisted_symbols' => [
