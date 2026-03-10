@@ -52,7 +52,11 @@ class FinanceApiCron extends Command
         // Disable user scope for CLI context - all queries will work without auth()->user()
         AssignedToUserScope::disable();
 
-        $lock = Cache::lock('finance-api-cron', 55); // seconds
+        // --refresh-returns processes all years (2016–now) and can take several minutes;
+        // use a long lock TTL so a second invocation cannot start while the first is still running.
+        $refreshReturns = $this->option('refresh-returns');
+        $lockTtl = $refreshReturns ? 480 : 55; // 8 min for returns refresh, 55s for minutely cron
+        $lock = Cache::lock('finance-api-cron', $lockTtl);
 
         if (!$lock->get()) {
             Log::info('Already running, skipping...');
@@ -63,7 +67,6 @@ class FinanceApiCron extends Command
         $end = $this->option('end');
         $historical = $this->option('historical');
         $historicalAccountOverview = $this->option('historical-account-overview');
-        $refreshReturns = $this->option('refresh-returns');
 
         if (!$start && ($historical || $historicalAccountOverview)) {
             Log::error('Missing option --start');

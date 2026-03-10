@@ -133,6 +133,9 @@ class ReturnsController extends MyFinance2Controller
             $cacheFilesAfter = 0;
             $cachePath = null;
 
+            // Check before flush — the flag is wiped by Cache::flush() below
+            $alreadyRefreshing = Cache::has('returns_refresh_in_progress');
+
             // Count cache files before flush (for file driver only)
             if ($cacheDriver === 'file') {
                 $cachePath = storage_path('framework/cache/data');
@@ -175,18 +178,25 @@ class ReturnsController extends MyFinance2Controller
                         . 'Please run: sudo chown -R $USER:www-data storage/framework/cache/ && sudo chmod -R 775 storage/framework/cache/');
             }
 
+            // Test context (array driver): skip background process and go straight to index
             if ($cacheDriver === 'array') {
                 Log::info(
                     "Cache clear completed (driver: array - in-memory only). "
                     . "Production cache was not affected."
                 );
-            } else {
-                Log::info("Returns cache cleared successfully (driver: $cacheDriver, files after: $cacheFilesAfter)");
+                return redirect()->route('myfinance2::returns.index', ['year' => $year])
+                    ->with('success', 'Cache cleared successfully.');
             }
 
-            // Mark refresh as in-progress and kick off background recalculation
+            Log::info("Returns cache cleared successfully (driver: $cacheDriver, files after: $cacheFilesAfter)");
+
             Cache::put('returns_refresh_in_progress', true, 3600);
-            $this->_launchRefreshInBackground();
+
+            if ($alreadyRefreshing) {
+                Log::info("Background refresh already in progress, skipping new launch");
+            } else {
+                $this->_launchRefreshInBackground();
+            }
 
             return redirect()->route('myfinance2::returns.refreshing', ['year' => $year]);
         } catch (\Exception $e) {
