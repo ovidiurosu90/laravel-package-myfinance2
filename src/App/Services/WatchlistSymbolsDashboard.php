@@ -1,9 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace ovidiuro\myfinance2\App\Services;
 
 use ovidiuro\myfinance2\App\Models\WatchlistSymbol;
 use ovidiuro\myfinance2\App\Models\Trade;
+use ovidiuro\myfinance2\App\Models\Order;
 use ovidiuro\myfinance2\App\Services\Positions;
 
 use Illuminate\Support\Facades\Log;
@@ -15,7 +18,7 @@ class WatchlistSymbolsDashboard
      *
      * @return array (item1, item2, ...)
      */
-    public function handle()
+    public function handle(): array
     {
         $currencyUtilsService = new CurrencyUtils(true);
         $watchlistSymbols = WatchlistSymbol::all();
@@ -26,9 +29,16 @@ class WatchlistSymbolsDashboard
 
         $positionsService = new Positions();
         $positionsService->setExtraSymbols(array_keys($watchlistSymbolsDictionary));
+        $positionsService->setPersistStats(false);
         $positionsData = $positionsService->handle();
         if (empty($positionsData['quotes'])) {
             return [];
+        }
+
+        $openOrders = Order::whereIn('status', ['DRAFT', 'PLACED'])->get();
+        $openOrdersBySymbol = [];
+        foreach ($openOrders as $order) {
+            $openOrdersBySymbol[$order->symbol][] = $order;
         }
 
         $items = $positionsData['quotes'];
@@ -43,6 +53,7 @@ class WatchlistSymbolsDashboard
                 $currencyUtilsService->getCurrencyByIsoCode($quoteData['currency']);
             $items[$symbol]['item'] = $watchlistSymbolsDictionary[$symbol];
             $items[$symbol]['open_positions'] = [];
+            $items[$symbol]['open_orders'] = $openOrdersBySymbol[$symbol] ?? [];
             $items[$symbol]['base_value'] = null;
         }
         if (empty($positionsData['groupedItems'])) {

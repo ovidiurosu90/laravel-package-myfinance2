@@ -2,10 +2,12 @@
 
 namespace ovidiuro\myfinance2\App\Models;
 
+use ovidiuro\myfinance2\App\Models\Order;
 use ovidiuro\myfinance2\App\Services\MoneyFormat;
 use ovidiuro\myfinance2\App\Services\FinanceAPI;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Trade extends MyFinance2Model
 {
@@ -76,18 +78,55 @@ class Trade extends MyFinance2Model
         return $this->belongsTo(Currency::class, 'trade_currency_id', 'id');
     }
 
-    public function getCleanQuantity()
+    /**
+     * Get the orders linked to this trade.
+     */
+    public function linkedOrders(): HasMany
     {
-        return round($this->quantity) == $this->quantity
-            ? round($this->quantity)
-            : round($this->quantity, 6);
+        return $this->hasMany(Order::class, 'trade_id', 'id');
     }
 
-    public function getCleanExchangeRate()
+    public function getShortLabel(): string
     {
-        return round($this->exchange_rate) == $this->exchange_rate
-            ? round($this->exchange_rate)
-            : round($this->exchange_rate, 4);
+        $date  = $this->timestamp ? $this->timestamp->format('Y-m-d') : '—';
+        $parts = [$this->action, $this->getCleanQuantity() . 'x', $this->symbol];
+
+        if (!empty($this->tradeCurrencyModel)) {
+            $price    = MoneyFormat::get_formatted_price_plain($this->unit_price);
+            $currency = html_entity_decode(
+                $this->tradeCurrencyModel->display_code, ENT_HTML5, 'UTF-8'
+            );
+            $parts[] = '@ ' . $price . ' ' . $currency;
+        }
+
+        if (!empty($this->accountModel)) {
+            $accountCurrency = html_entity_decode(
+                $this->accountModel->currency->display_code, ENT_HTML5, 'UTF-8'
+            );
+            $parts[] = 'via ' . $this->accountModel->name . ' (' . $accountCurrency . ')';
+        }
+
+        $parts[] = 'on ' . $date;
+
+        return implode(' ', $parts);
+    }
+
+    public function getCleanQuantity(): float|int
+    {
+        $quantity = (float) $this->quantity;
+
+        return round($quantity) == $quantity
+            ? (int) round($quantity)
+            : (float) round($quantity, 6);
+    }
+
+    public function getCleanExchangeRate(): float|int
+    {
+        $rate = (float) $this->exchange_rate;
+
+        return round($rate) == $rate
+            ? (int) round($rate)
+            : (float) round($rate, 4);
     }
 
     public function getFormattedSymbol()

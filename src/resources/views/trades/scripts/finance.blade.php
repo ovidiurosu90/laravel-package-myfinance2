@@ -116,6 +116,11 @@ $(document).ready(function()
         });
     });
 
+    @if (!empty($autoFetchFinanceData))
+    if ($symbolInput.val()) {
+        $getFinanceData.click();
+    }
+    @endif
 });
 </script>
 

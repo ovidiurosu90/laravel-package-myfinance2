@@ -12,6 +12,24 @@ Route::group([
     Route::patch('trades/close-symbol',
                  'TradesController@closeSymbol')->name('trades.close-symbol');
 
+    #NOTE Orders custom action routes must be before Route::resource
+    Route::post('orders/{id}/place',
+                'OrdersController@place')->name('orders.place');
+    Route::post('orders/{id}/fill',
+                'OrdersController@fill')->name('orders.fill');
+    Route::post('orders/{id}/expire',
+                'OrdersController@expire')->name('orders.expire');
+    Route::post('orders/{id}/cancel',
+                'OrdersController@cancel')->name('orders.cancel');
+    Route::post('orders/{id}/reopen',
+                'OrdersController@reopen')->name('orders.reopen');
+    Route::post('orders/{id}/link-trade',
+                'OrdersController@linkTrade')->name('orders.link-trade');
+    Route::post('orders/{id}/unlink-trade',
+                'OrdersController@unlinkTrade')->name('orders.unlink-trade');
+
+    Route::resource('orders', 'OrdersController');
+
     Route::resource('currencies', 'CurrenciesController');
     Route::resource('accounts', 'AccountsController');
     Route::resource('ledger-transactions', 'LedgerTransactionsController');

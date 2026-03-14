@@ -1,3 +1,11 @@
+<style>
+    .open-positions {
+        padding: 0.35rem 0.6rem;
+    }
+    .open-positions .trades td {
+        padding: 0.1rem 0.3rem;
+    }
+</style>
 <div class="table-responsive">
     <table class="table table-sm data-table watchlist-symbol-items-table
                   table-hover">
@@ -10,6 +18,7 @@
                 <th class="text-right text-nowrap">% Above low</th>
                 <th class="text-right text-nowrap">% Below high</th>
                 <th class="no-sort text-nowrap">Open Positions</th>
+                <th class="no-search no-sort">Orders</th>
                 <th class="no-search no-sort">Actions</th>
                 <th class="no-search no-sort"></th>
             </tr>
@@ -144,6 +153,29 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                     @endif
                     @endforeach
                 @endif
+                </td>
+                <td>
+                    <a class="btn btn-sm btn-outline-success w-100 mb-1"
+                        href="{{ route('myfinance2::orders.create',
+                                       ['symbol' => $symbol]) }}"
+                        data-bs-toggle="tooltip"
+                        title="Create Order for {{ $symbol }}">
+                        Order <i class="fa fa-fw fa-plus-circle" aria-hidden="true"></i>
+                    </a>
+                    @if (!empty($quoteData['open_orders']))
+                        @php $openOrderCount = count($quoteData['open_orders']); @endphp
+                        <a href="{{ route('myfinance2::orders.index',
+                                         ['view' => 'active']) }}"
+                            class="d-block text-center"
+                            data-bs-toggle="tooltip"
+                            title="{{ $openOrderCount }} open {{ $openOrderCount == 1 ? 'order' : 'orders' }} for {{ $symbol }}">
+                            @foreach ($quoteData['open_orders'] as $openOrder)
+                            <span class="badge {{ $openOrder->getStatusBadgeClass() }}">
+                                {{ $openOrder->status }}
+                            </span>
+                            @endforeach
+                        </a>
+                    @endif
                 </td>
                 <td>
                     <a class="btn btn-sm btn-outline-secondary w-100"

@@ -1,5 +1,8 @@
 <form action="{{ route('myfinance2::trades.store') }}" method="POST" accept-charset="utf-8" class="mb-0 needs-validation" enctype="multipart/form-data" role="form" >
     {{ method_field('POST') }}
+    @if (!empty($order_id))
+        <input type="hidden" name="order_id" value="{{ $order_id }}">
+    @endif
     <div class="card-body">
         @include('myfinance2::trades.forms.item-form')
     </div>

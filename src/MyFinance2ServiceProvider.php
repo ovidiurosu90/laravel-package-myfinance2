@@ -52,20 +52,13 @@ class MyFinance2ServiceProvider extends ServiceProvider
             'watchlistsymbols');
         $this->mergeConfigFrom(__DIR__ . '/config/currencies.php', 'currencies');
         $this->mergeConfigFrom(__DIR__ . '/config/accounts.php', 'accounts');
+        $this->mergeConfigFrom(__DIR__ . '/config/orders.php', 'orders');
         $this->loadMigrations();
 
         $this->loadRoutesFrom(__DIR__ . '/routes/web.php');
         $this->loadRoutesFrom(__DIR__ . '/routes/api.php');
         $this->loadViewsFrom(__DIR__ . '/resources/views/', $this->_packageTag);
         $this->publishFiles();
-
-        $this->app->make('ovidiuro\myfinance2\App\Http\Controllers'
-            . '\MyFinance2Controller');
-        $this->app->singleton(ovidiuro\myfinance2\App\Http\Controllers\MyFinance2Controller\MyFinance2Controller::class, function ()
-        {
-            return new App\Http\Controllers\MyService2Controller();
-        });
-        $this->app->alias(MyService2Controller::class, $this->_packageTag);
 
         $this->commands([
             \ovidiuro\myfinance2\App\Console\Commands\FinanceApiCron::class,

@@ -5,6 +5,7 @@ namespace ovidiuro\myfinance2\App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
+use ovidiuro\myfinance2\App\Models\Order;
 use ovidiuro\myfinance2\App\Models\Trade;
 use ovidiuro\myfinance2\App\Services\TradeFormFields;
 use ovidiuro\myfinance2\App\Http\Requests\StoreTrade;
@@ -25,7 +26,7 @@ class TradesController extends MyFinance2Controller
      */
     public function index()
     {
-        $items = Trade::with('accountModel', 'tradeCurrencyModel')->get();
+        $items = Trade::with('accountModel', 'tradeCurrencyModel', 'linkedOrders')->get();
         return view('myfinance2::trades.crud.dashboard', ['items' => $items]);
     }
 
@@ -41,6 +42,23 @@ class TradesController extends MyFinance2Controller
         $service = new TradeFormFields();
         $data = $service->handle(); // associative array having form fields as keys
 
+        $prefillFields = [
+            'symbol', 'action', 'quantity', 'unit_price',
+            'account_id', 'trade_currency_id', 'exchange_rate',
+            'timestamp', 'description',
+        ];
+        foreach ($prefillFields as $field) {
+            if ($request->has($field)) {
+                $data[$field] = $request->query($field);
+            }
+        }
+
+        $data['order_id'] = $request->query('order_id');
+        $data['linkedOrder'] = $data['order_id']
+            ? Order::with('accountModel', 'tradeCurrencyModel')->find((int) $data['order_id'])
+            : null;
+        $data['autoFetchFinanceData'] = !empty($data['linkedOrder']);
+
         return view('myfinance2::trades.crud.create', $data);
     }
 
@@ -55,6 +73,14 @@ class TradesController extends MyFinance2Controller
     {
         $data = $request->fillData();
         $item = Trade::create($data);
+
+        if ($request->order_id) {
+            $order = Order::find((int) $request->order_id);
+            if ($order) {
+                $order->trade_id = $item->id;
+                $order->save();
+            }
+        }
 
         return redirect()->route('myfinance2::trades.index')->with('success',
             trans('myfinance2::general.flash-messages.item-created',

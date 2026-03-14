@@ -714,10 +714,10 @@ class Positions
         );
         // LOG::debug("exchangeRateData 535: " . print_r($exchangeRateData, true));
 
-        $quoteSymbols = array_merge(
+        $quoteSymbols = array_values(array_unique(array_merge(
             array_keys(self::tradesToSymbols($trades)),
             $this->_extraSymbols
-        );
+        )));
         $quotes = $financeUtils->getQuotes(
             $quoteSymbols,
             $date,

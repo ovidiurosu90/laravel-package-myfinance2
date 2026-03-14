@@ -35,7 +35,17 @@
         @if( $items->count() > 0)
             @foreach($items as $item)
             <tr>
-                <td>{{ $item->id }}</td>
+                <td>
+                    {{ $item->id }}
+                    @foreach ($item->linkedOrders as $order)
+                        <a href="{{ route('myfinance2::orders.edit', $order->id) }}"
+                            class="badge bg-secondary text-decoration-none d-block mt-1"
+                            data-bs-toggle="tooltip"
+                            title="Order #{{ $order->id }}: {{ $order->action }} {{ $order->symbol }} ({{ $order->status }})">
+                            #{{ $order->id }}
+                        </a>
+                    @endforeach
+                </td>
                 <td>{{ $item->timestamp }}</td>
                 <td class="text-nowrap">{{ $item->accountModel->name }}
                     ({!! $item->accountModel->currency->display_code !!})</td>

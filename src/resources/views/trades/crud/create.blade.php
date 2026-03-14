@@ -21,6 +21,18 @@
                             </a>
                         </div>
                     </div>
+                    @if (!empty($linkedOrder))
+                    <div class="card-body pb-0">
+                        <div class="alert alert-info py-2" role="alert">
+                            <strong>Linked to Order #{{ $linkedOrder->id }}</strong>
+                            — {{ $linkedOrder->getShortLabel() }}
+                            <small class="d-block mt-1">
+                                This trade will be automatically linked to this order when saved.
+                            </small>
+                        </div>
+                    </div>
+                    @endif
+
                     @include('myfinance2::trades.forms.create-item-form')
                 </div>
             </div>
