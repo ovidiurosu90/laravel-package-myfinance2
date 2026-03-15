@@ -4,6 +4,7 @@ namespace ovidiuro\myfinance2\App\Http\Controllers;
 
 use Illuminate\Support\Facades\Log;
 
+use ovidiuro\myfinance2\App\Services\MoversService;
 use ovidiuro\myfinance2\App\Services\Positions;
 
 class PositionsController extends MyFinance2Controller
@@ -37,6 +38,11 @@ class PositionsController extends MyFinance2Controller
         // array with items grouped by account and account data
         $data = $service->handle($date);
         $data['selectedDate'] = $dateInput;
+
+        // Movers data is only shown for the current date (not historical views)
+        $data['moversData'] = empty($dateInput)
+            ? (new MoversService())->getMovers(auth()->id())
+            : null;
 
         return view('myfinance2::positions.dashboard', $data);
     }

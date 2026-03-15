@@ -23,6 +23,7 @@ class FinanceApiCron extends Command
     use FinanceApiCronQuotesTrait;
     use FinanceApiCronChartsTrait;
     use FinanceApiCronReturnsTrait;
+    use FinanceApiCronMoversTrait;
 
     /**
      * The name and signature of the console command.
@@ -96,6 +97,7 @@ class FinanceApiCron extends Command
             $this->refreshQuotes();
             $this->refreshExchangeRates();
             $this->refreshAccountOverview();
+            $this->refreshMovers();
         } finally {
             $lock->release();
         }

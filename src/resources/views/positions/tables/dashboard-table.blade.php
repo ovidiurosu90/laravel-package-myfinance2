@@ -50,6 +50,11 @@
     </div>
 </div>
 <div class="clearfix mb-4"></div>
+
+@if(!is_null($moversData ?? null))
+    @include('myfinance2::positions.partials.movers')
+    <div class="clearfix mb-4"></div>
+@endif
 @endif
 
 @foreach($groupedItems as $accountId => $items)

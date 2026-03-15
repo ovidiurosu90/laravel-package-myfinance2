@@ -253,11 +253,9 @@ class Stats
             $currentDaysBefore++;
         } while ($currentDaysBefore <= $maxDaysBefore);
 
-        LOG::error('We were unable to get the stats for ' . $symbol
-                  . ' for the requested date ('
-                  . $date->format(trans('myfinance2::general.date-format'))
-                  . ') or before! This should never happen (Stats 249)! '
-                  . 'We still failed after all these tries!');
+        LOG::warning('Stats: no data for ' . $symbol
+                  . ' on ' . $date->format(trans('myfinance2::general.date-format'))
+                  . ' or the previous 7 days (market closed / data gap).');
         return null;
     }
 

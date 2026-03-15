@@ -6,6 +6,7 @@ return [
         'open-positions'    => 'Open Positions',
         'no-open-positions' => 'No Open Positions',
         'user-overview'     => 'User Overview',
+        'biggest-movers'    => 'Biggest Movers',
     ],
 ];
 

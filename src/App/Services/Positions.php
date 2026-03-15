@@ -712,6 +712,11 @@ class Positions
             $date,
             $this->_persistStats
         );
+        if ($exchangeRateData === null) {
+            LOG::warning('Positions::handle(): could not fetch exchange rates for date '
+                . ($date ? $date->format('Y-m-d') : 'today') . ', skipping.');
+            return null;
+        }
         // LOG::debug("exchangeRateData 535: " . print_r($exchangeRateData, true));
 
         $quoteSymbols = array_values(array_unique(array_merge(
