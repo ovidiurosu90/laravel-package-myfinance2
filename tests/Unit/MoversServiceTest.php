@@ -2,6 +2,8 @@
 
 namespace ovidiuro\myfinance2\Tests\Unit;
 
+use Illuminate\Container\Container;
+use Illuminate\Support\Facades\Facade;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use ovidiuro\myfinance2\App\Services\MoversService;
@@ -18,6 +20,15 @@ class MoversServiceTest extends TestCase
     {
         $this->_service = new MoversService();
         $this->_reflection = new ReflectionClass(MoversService::class);
+
+        // Provide a no-op logger so Log::warning() calls don't throw in unit tests.
+        $app = new Container();
+        $app->instance('log', new class {
+            public function warning(string $message, array $context = []): void
+            {
+            }
+        });
+        Facade::setFacadeApplication($app);
     }
 
     private function _invokePrivate(string $method, array $args = []): mixed
@@ -36,23 +47,25 @@ class MoversServiceTest extends TestCase
     }
 
     /**
-     * Core ranking: worst 3 losers and best 3 gainers are selected correctly.
+     * Core ranking: worst 5 losers and best 5 gainers are selected correctly.
      */
-    public function test_rank_gains_selects_top_3_in_correct_order(): void
+    public function test_rank_gains_selects_top_5_in_correct_order(): void
     {
         $gains = [
             'A' => $this->_gain('A', -500), 'B' => $this->_gain('B', -200),
             'C' => $this->_gain('C', -50),  'D' => $this->_gain('D', -10),
             'E' => $this->_gain('E', 100),  'F' => $this->_gain('F', 800),
             'G' => $this->_gain('G', 1200), 'H' => $this->_gain('H', 50),
+            'I' => $this->_gain('I', -300), 'J' => $this->_gain('J', 400),
+            'K' => $this->_gain('K', 600),  'L' => $this->_gain('L', -5),
         ];
 
         $result = $this->_invokePrivate('_rankGains', [$gains]);
 
-        $this->assertCount(3, $result['losers']);
-        $this->assertCount(3, $result['gainers']);
-        $this->assertSame(['A', 'B', 'C'], array_column($result['losers'], 'symbol'));
-        $this->assertSame(['G', 'F', 'E'], array_column($result['gainers'], 'symbol'));
+        $this->assertCount(5, $result['losers']);
+        $this->assertCount(5, $result['gainers']);
+        $this->assertSame(['A', 'I', 'B', 'C', 'D'], array_column($result['losers'], 'symbol'));
+        $this->assertSame(['G', 'F', 'K', 'J', 'E'], array_column($result['gainers'], 'symbol'));
     }
 
     /**
@@ -99,6 +112,7 @@ class MoversServiceTest extends TestCase
     /**
      * EUR positions: gain_eur = day_change * quantity (no FX conversion).
      * Verifies the core gain formula and that gain_percentage comes from the quote.
+     * Also verifies portfolio_total_eur and portfolio_total_pct are set correctly.
      */
     public function test_compute_today_movers_gain_formula_eur_position(): void
     {
@@ -111,6 +125,9 @@ class MoversServiceTest extends TestCase
         $this->assertCount(1, $result['gainers']);
         $this->assertEqualsWithDelta(20.0, $result['gainers'][0]['gain_eur'], 0.001);
         $this->assertEqualsWithDelta(2.5, $result['gainers'][0]['gain_percentage'], 0.001);
+        $this->assertArrayHasKey('portfolio_total_eur', $result);
+        $this->assertEqualsWithDelta(20.0, $result['portfolio_total_eur'], 0.001);
+        $this->assertEqualsWithDelta(2.5, $result['portfolio_total_pct'], 0.001);
     }
 
     /**

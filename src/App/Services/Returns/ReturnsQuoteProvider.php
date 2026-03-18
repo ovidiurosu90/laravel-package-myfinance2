@@ -7,7 +7,7 @@ namespace ovidiuro\myfinance2\App\Services\Returns;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use ovidiuro\myfinance2\App\Services\FinanceAPI;
-use ovidiuro\myfinance2\App\Services\Positions;
+use ovidiuro\myfinance2\App\Services\UnlistedSymbol;
 
 /**
  * Returns Quote Provider
@@ -200,17 +200,16 @@ class ReturnsQuoteProvider
         string $symbol,
         \DateTimeInterface $date
     ): ?array {
-        $unlistedFMV = config('trades.unlisted_fmv');
-        if (empty($unlistedFMV[$symbol])) {
+        $fmvData = config('trades.unlisted_fmv');
+        if (empty($fmvData[$symbol])) {
             Log::warning(
-                "Unlisted symbol $symbol not found in config "
-                . "trades.unlisted_fmv"
+                "Unlisted symbol $symbol not found in config trades.unlisted_fmv"
             );
             return null;
         }
 
-        list($price, $priceTimestamp) = Positions::getUnlistedFMV(
-            $unlistedFMV[$symbol],
+        [$price, $priceTimestamp] = UnlistedSymbol::getPriceAndTimestamp(
+            $fmvData[$symbol],
             $date
         );
 

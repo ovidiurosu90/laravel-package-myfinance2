@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 use ovidiuro\myfinance2\App\Models\StatHistorical;
+use ovidiuro\myfinance2\App\Models\StatToday;
 use ovidiuro\myfinance2\App\Models\Trade;
 use ovidiuro\myfinance2\App\Models\Scopes\AssignedToUserScope;
 
@@ -31,7 +32,7 @@ class MoversService
 {
     private const CACHE_TTL_TODAY = 120;        // 2 minutes
     private const CACHE_TTL_HISTORICAL = 86400; // 24 hours
-    private const TOP_N = 3;
+    private const TOP_N = 5;
 
     /** Per-instance EUR rate cache to avoid repeated StatHistorical lookups within one refresh. */
     private array $_eurRateCache = [];
@@ -62,14 +63,40 @@ class MoversService
             $qty = (float) $trade->quantity;
             if (!isset($positions[$symbol])) {
                 $positions[$symbol] = [
-                    'quantity'       => 0,
-                    'trade_currency' => $trade->tradeCurrencyModel->iso_code,
+                    'quantity'            => 0,
+                    'trade_currency'      => $trade->tradeCurrencyModel->iso_code,
+                    'earliest_trade_date' => null,
+                    'total_buy_cost'      => 0.0,
+                    'total_buy_qty'       => 0.0,
                 ];
             }
             $positions[$symbol]['quantity'] += ($trade->action === 'BUY' ? $qty : -$qty);
+
+            $tradeDate = $trade->timestamp ? $trade->timestamp->format('Y-m-d') : null;
+            if ($tradeDate !== null) {
+                if ($positions[$symbol]['earliest_trade_date'] === null
+                    || $tradeDate < $positions[$symbol]['earliest_trade_date']) {
+                    $positions[$symbol]['earliest_trade_date'] = $tradeDate;
+                }
+            }
+
+            if ($trade->action === 'BUY') {
+                $feeInTradeCurrency = (float) $trade->fee * (float) $trade->exchange_rate;
+                $positions[$symbol]['total_buy_cost'] += $qty * (float) $trade->unit_price + $feeInTradeCurrency;
+                $positions[$symbol]['total_buy_qty'] += $qty;
+            }
         }
 
-        return array_filter($positions, fn($p) => abs($p['quantity']) > 0.0001);
+        $positions = array_filter($positions, fn($p) => abs($p['quantity']) > 0.0001);
+
+        foreach ($positions as &$pos) {
+            $pos['avg_cost_in_trade_cur'] = $pos['total_buy_qty'] > 0.0001
+                ? $pos['total_buy_cost'] / $pos['total_buy_qty']
+                : null;
+        }
+        unset($pos);
+
+        return $positions;
     }
 
     /**
@@ -98,6 +125,16 @@ class MoversService
     }
 
     /**
+     * Get the most recent historical price on or before $date for a single symbol.
+     * Returns: ['unit_price' => float, 'date' => string] or null.
+     */
+    private function _getHistoricalPrice(string $symbol, \DateTimeInterface $date): ?array
+    {
+        $result = $this->_batchGetHistoricalPrices([$symbol], $date);
+        return $result[$symbol] ?? null;
+    }
+
+    /**
      * Get the earliest available historical price for a symbol (inception fallback).
      * Results are memoized within the instance lifetime.
      * Returns: ['unit_price' => float, 'date' => string] or null.
@@ -118,6 +155,69 @@ class MoversService
             : null;
 
         return $this->_inceptionCache[$symbol];
+    }
+
+    /**
+     * Check if a day-over-day price ratio matches a common stock split ratio (forward or reverse).
+     * Uses the same ratios and tolerance as ReturnsAlerts: [3, 5, 10, 20] with 25% tolerance.
+     * Checks both forward splits (price drops: ratio ≈ 1/sr) and reverse splits (price rises: ratio ≈ sr).
+     */
+    private function _looksLikeSplitRatio(float $ratio): bool
+    {
+        $splitRatios = [3, 5, 10, 20];
+        $tolerance = 0.25;
+        foreach ($splitRatios as $sr) {
+            if (abs($ratio - $sr) <= $sr * $tolerance) {
+                return true;
+            }
+            $inverse = 1.0 / $sr;
+            if (abs($ratio - $inverse) <= $inverse * $tolerance) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Scan stats_historical for day-over-day price jumps that match common split ratios.
+     * Returns: symbol => ['unit_price' => float, 'date' => string] pointing to the first entry
+     *          after the LAST detected split, or null if no split was found for that symbol.
+     * The caller should use the returned entry as the reference price instead of the period start.
+     */
+    private function _detectSplitsInPeriod(array $symbols, \DateTimeInterface $referenceDate): array
+    {
+        if (empty($symbols)) {
+            return [];
+        }
+
+        $rows = StatHistorical::withoutGlobalScope(AssignedToUserScope::class)
+            ->whereIn('symbol', $symbols)
+            ->where('date', '>=', $referenceDate->format('Y-m-d'))
+            ->orderBy('symbol')
+            ->orderBy('date', 'ASC')
+            ->get(['symbol', 'unit_price', 'date']);
+
+        $bySymbol = [];
+        foreach ($rows as $row) {
+            $bySymbol[$row->symbol][] = ['date' => $row->date, 'unit_price' => (float) $row->unit_price];
+        }
+
+        $result = [];
+        foreach ($bySymbol as $symbol => $prices) {
+            $lastSplitIdx = null;
+            for ($i = 0; $i < count($prices) - 1; $i++) {
+                if ($prices[$i]['unit_price'] <= 0) {
+                    continue;
+                }
+                $ratio = $prices[$i + 1]['unit_price'] / $prices[$i]['unit_price'];
+                if ($this->_looksLikeSplitRatio($ratio)) {
+                    $lastSplitIdx = $i + 1;
+                }
+            }
+            $result[$symbol] = $lastSplitIdx !== null ? $prices[$lastSplitIdx] : null;
+        }
+
+        return $result;
     }
 
     /**
@@ -157,11 +257,21 @@ class MoversService
         }
 
         $cfg = $exchangeMap[$tradeCurrency];
-        $row = StatHistorical::withoutGlobalScope(AssignedToUserScope::class)
-            ->where('symbol', $cfg['symbol'])
-            ->where('date', '<=', $date->format('Y-m-d'))
-            ->orderBy('date', 'DESC')
-            ->first();
+
+        $row = null;
+        if ($date->format('Y-m-d') === date('Y-m-d')) {
+            $row = StatToday::withoutGlobalScope(AssignedToUserScope::class)
+                ->where('symbol', $cfg['symbol'])
+                ->orderBy('timestamp', 'DESC')
+                ->first();
+        }
+        if (empty($row) || (float) $row->unit_price <= 0) {
+            $row = StatHistorical::withoutGlobalScope(AssignedToUserScope::class)
+                ->where('symbol', $cfg['symbol'])
+                ->where('date', '<=', $date->format('Y-m-d'))
+                ->orderBy('date', 'DESC')
+                ->first();
+        }
 
         if (empty($row) || (float) $row->unit_price <= 0) {
             $ctx = $symbol ? " (symbol: {$symbol})" : '';
@@ -248,8 +358,8 @@ class MoversService
     private function _formatPeriodRange(\DateTimeInterface $from, \DateTimeInterface $to): string
     {
         $sameYear = $from->format('Y') === $to->format('Y');
-        $fromStr = $sameYear ? $from->format('M j') : $from->format('M j, Y');
-        $toStr = $sameYear ? $to->format('M j') : $to->format('M j, Y');
+        $fromStr = $sameYear ? $from->format('M j') : $from->format("M 'y");
+        $toStr = $sameYear ? $to->format('M j') : $to->format("M 'y");
         return $fromStr . ' – ' . $toStr;
     }
 
@@ -265,6 +375,7 @@ class MoversService
         $total = 0.0;
         foreach ($positions as $symbol => $position) {
             if (empty($quotes[$symbol]['price'])) {
+                Log::warning("MoversService: no quote price for {$symbol}, excluded from portfolio total");
                 continue;
             }
             $eurRate = $this->_getEurRate($position['trade_currency'], $currentDate, $symbol);
@@ -314,6 +425,7 @@ class MoversService
 
         foreach ($positions as $symbol => $position) {
             if (!isset($quotes[$symbol])) {
+                Log::warning("MoversService: no quote for {$symbol} in today movers, skipping");
                 continue;
             }
             $dayChange = $quotes[$symbol]['day_change'] ?? 0;
@@ -342,18 +454,148 @@ class MoversService
             ];
         }
 
-        return $this->_rankGains($gains);
+        $ranked = $this->_rankGains($gains);
+        $portfolioTotalEur = array_sum(array_column($gains, 'gain_eur'));
+        $ranked['portfolio_total_eur'] = $portfolioTotalEur;
+        $ranked['portfolio_total_pct'] = $totalPortfolioEur > 0.005
+            ? ($portfolioTotalEur / $totalPortfolioEur) * 100
+            : 0;
+        return $ranked;
     }
 
     /**
      * Compute historical period movers using live price from $quotes as current price
      * and pre-fetched $batchRefPrices for the reference price.
+     * If a split was detected for a symbol within the period ($splitAdjustedRefs), the first
+     * post-split entry is used as reference instead, preventing pre/post-split price comparisons.
      * Falls back to inception date when no reference price exists for the full period.
      */
     private function _computeHistoricalPeriodMovers(
         array $positions,
         array $quotes,
         array $batchRefPrices,
+        array $splitAdjustedRefs,
+        \DateTimeInterface $currentDate,
+        float $totalPortfolioEur,
+        \DateTimeInterface $referenceDate
+    ): array
+    {
+        $delistedSymbols = config('trades.delisted_symbols', []);
+        $apiPriceIssueSymbols = config('trades.api_price_issue_symbols', []);
+        $refDateStr = $referenceDate->format('Y-m-d');
+        $gains = [];
+
+        foreach ($positions as $symbol => $position) {
+            if (in_array($symbol, $delistedSymbols, true)) {
+                continue;
+            }
+            $earliestTradeDate = $position['earliest_trade_date'] ?? null;
+            $isLateOpen = ($earliestTradeDate !== null && $earliestTradeDate > $refDateStr);
+            if (empty($quotes[$symbol]['price'])) {
+                Log::warning("MoversService: no quote price for {$symbol} in historical movers, skipping");
+                continue;
+            }
+
+            $currentPrice = (float) $quotes[$symbol]['price'];
+            $inceptionLabel = null;
+            $inceptionTooltip = null;
+
+            if ($isLateOpen) {
+                // Position was opened after the period start — use avg cost (same as all-time),
+                // so the value matches the Gain column in Open Positions.
+                $avgCost = $position['avg_cost_in_trade_cur'] ?? null;
+                if ($avgCost === null || $avgCost <= 0) {
+                    Log::warning("MoversService: {$symbol} opened after period start"
+                        . " but has no avg cost, skipping");
+                    continue;
+                }
+                $refPriceStat = ['unit_price' => $avgCost];
+                $refDate = new \DateTime($earliestTradeDate);
+                $inceptionLabel = 'since ' . $refDate->format("M 'y");
+                $openDate = $refDate->format('M j, Y');
+                $inceptionTooltip = 'This position was opened on ' . $openDate . ','
+                    . ' after the start of this period. Value matches All-time.';
+            } elseif (!empty($splitAdjustedRefs[$symbol])) {
+                // A split was detected within the period — use the first post-split entry as
+                // reference to avoid comparing pre-split and post-split prices.
+                $refPriceStat = $splitAdjustedRefs[$symbol];
+                $refDate = new \DateTime($refPriceStat['date']);
+                $inceptionLabel = 'since ' . $refDate->format("M 'y");
+                $inceptionTooltip = 'Stock split detected within this period.'
+                    . ' Comparison starts from ' . $refDate->format('M j, Y')
+                    . ' (first available post-split price) instead of the period start.';
+            } else {
+                $refPriceStat = $batchRefPrices[$symbol] ?? null;
+                if (empty($refPriceStat)) {
+                    // For symbols with known API price issues (e.g. stock splits not in
+                    // stats_historical), skip the inception fallback — the oldest stored price
+                    // may be pre-split and produce wrong numbers.
+                    if (in_array($symbol, $apiPriceIssueSymbols, true)) {
+                        continue;
+                    }
+                    $refPriceStat = $this->_getInceptionPrice($symbol);
+                    if (empty($refPriceStat)) {
+                        Log::warning("MoversService: no historical or inception price for"
+                            . " {$symbol}, skipping");
+                        continue;
+                    }
+                    $refDate = new \DateTime($refPriceStat['date']);
+                    $inceptionLabel = 'since ' . $refDate->format("M 'y");
+                }
+            }
+
+            $eurRateToday = $this->_getEurRate($position['trade_currency'], $currentDate, $symbol);
+            if ($eurRateToday === null) {
+                continue;
+            }
+            // Unlisted symbols have manually-set FMV prices that rarely change; applying a
+            // different EUR rate at the reference date would produce phantom gains/losses from
+            // currency movement alone, not from any actual price change.
+            if (UnlistedSymbol::isUnlisted($symbol)) {
+                $eurRateRef = $eurRateToday;
+            } else {
+                $fxRefDate = $isLateOpen
+                    ? new \DateTime($earliestTradeDate)
+                    : new \DateTime($refPriceStat['date']);
+                $eurRateRef = $this->_getEurRate($position['trade_currency'], $fxRefDate, $symbol)
+                    ?? $eurRateToday;
+            }
+            $qty = $position['quantity'];
+            $gainEur = ($currentPrice * $eurRateToday - $refPriceStat['unit_price'] * $eurRateRef) * $qty;
+
+            if (abs($gainEur) < 0.005) {
+                continue;
+            }
+
+            $gains[$symbol] = [
+                'symbol'            => $symbol,
+                'gain_eur'          => $gainEur,
+                'gain_percentage'   => $totalPortfolioEur > 0.005
+                    ? ($gainEur / $totalPortfolioEur) * 100
+                    : 0,
+                'inception_label'   => $inceptionLabel,
+                'inception_tooltip' => $inceptionTooltip,
+            ];
+        }
+
+        $ranked = $this->_rankGains($gains);
+        $portfolioTotalEur = array_sum(array_column($gains, 'gain_eur'));
+        $ranked['portfolio_total_eur'] = $portfolioTotalEur;
+        $ranked['portfolio_total_pct'] = $totalPortfolioEur > 0.005
+            ? ($portfolioTotalEur / $totalPortfolioEur) * 100
+            : 0;
+        return $ranked;
+    }
+
+    /**
+     * Compute all-time movers using each position's weighted average cost as the reference price.
+     * This matches the "Gain" column in Open Positions and correctly handles DCA positions
+     * (where using the earliest historical market price would overstate gains/losses).
+     * Every entry shows "since MMM 'YY" (the earliest trade date) as its label.
+     */
+    private function _computeAlltimeMovers(
+        array $positions,
+        array $quotes,
         \DateTimeInterface $currentDate,
         float $totalPortfolioEur
     ): array
@@ -362,49 +604,52 @@ class MoversService
         $gains = [];
 
         foreach ($positions as $symbol => $position) {
-            if (FinanceAPI::isUnlisted($symbol) || in_array($symbol, $delistedSymbols, true)) {
+            if (in_array($symbol, $delistedSymbols, true)) {
                 continue;
             }
             if (empty($quotes[$symbol]['price'])) {
+                Log::warning("MoversService: no quote price for {$symbol} in all-time movers, skipping");
                 continue;
             }
-
-            $currentPrice = (float) $quotes[$symbol]['price'];
-            $refPriceStat = $batchRefPrices[$symbol] ?? null;
-            $inceptionLabel = null;
-
-            if (empty($refPriceStat)) {
-                $refPriceStat = $this->_getInceptionPrice($symbol);
-                if (empty($refPriceStat)) {
-                    continue;
-                }
-                $refDate = new \DateTime($refPriceStat['date']);
-                $inceptionLabel = 'since ' . $refDate->format("M 'y");
+            $earliestTradeDate = $position['earliest_trade_date'] ?? null;
+            $avgCost = $position['avg_cost_in_trade_cur'] ?? null;
+            if ($earliestTradeDate === null || $avgCost === null || $avgCost <= 0) {
+                Log::warning("MoversService: {$symbol} missing earliest_trade_date or avg_cost, skipping");
+                continue;
             }
 
             $eurRate = $this->_getEurRate($position['trade_currency'], $currentDate, $symbol);
             if ($eurRate === null) {
                 continue;
             }
-            $qty = $position['quantity'];
-            $gainInTradeCurrency = ($currentPrice - $refPriceStat['unit_price']) * $qty;
+
+            $currentPrice = (float) $quotes[$symbol]['price'];
+            $gainInTradeCurrency = ($currentPrice - $avgCost) * $position['quantity'];
             $gainEur = $gainInTradeCurrency * $eurRate;
 
             if (abs($gainEur) < 0.005) {
                 continue;
             }
 
+            $refDate = new \DateTime($earliestTradeDate);
             $gains[$symbol] = [
-                'symbol'          => $symbol,
-                'gain_eur'        => $gainEur,
-                'gain_percentage' => $totalPortfolioEur > 0.005
+                'symbol'            => $symbol,
+                'gain_eur'          => $gainEur,
+                'gain_percentage'   => $totalPortfolioEur > 0.005
                     ? ($gainEur / $totalPortfolioEur) * 100
                     : 0,
-                'inception_label' => $inceptionLabel,
+                'inception_label'   => 'since ' . $refDate->format("M 'y"),
+                'inception_tooltip' => null,
             ];
         }
 
-        return $this->_rankGains($gains);
+        $ranked = $this->_rankGains($gains);
+        $portfolioTotalEur = array_sum(array_column($gains, 'gain_eur'));
+        $ranked['portfolio_total_eur'] = $portfolioTotalEur;
+        $ranked['portfolio_total_pct'] = $totalPortfolioEur > 0.005
+            ? ($portfolioTotalEur / $totalPortfolioEur) * 100
+            : 0;
+        return $ranked;
     }
 
     /**
@@ -427,6 +672,19 @@ class MoversService
         }
 
         $currentDate = new \DateTime();
+
+        // Inject FMV prices for unlisted symbols (not returned by FinanceAPI).
+        foreach ($positions as $symbol => $position) {
+            if (!UnlistedSymbol::isUnlisted($symbol) || isset($quotes[$symbol])) {
+                continue;
+            }
+            $price = UnlistedSymbol::getPrice($symbol, $currentDate);
+            if ($price !== null) {
+                $quotes[$symbol] = ['price' => $price, 'day_change' => 0];
+            } else {
+                Log::warning("MoversService: unlisted symbol {$symbol} has no FMV config, skipping");
+            }
+        }
         $totalPortfolioEur = $this->_computeTotalPortfolioValueEur($positions, $quotes, $currentDate);
 
         // For "today" label: on weekends, find the last trading day with enough account data.
@@ -446,6 +704,7 @@ class MoversService
 
         $todayMovers = $this->_computeTodayMovers($positions, $quotes, $currentDate, $totalPortfolioEur);
         $todayMovers['date_label'] = $todayDateLabel;
+        $todayMovers['total_portfolio_eur'] = $totalPortfolioEur;
         Cache::put($this->_getCacheKey($userId, 'today'), $todayMovers, self::CACHE_TTL_TODAY);
 
         $symbols = array_keys($positions);
@@ -457,17 +716,43 @@ class MoversService
 
         foreach ($referenceDates as $period => $referenceDate) {
             $batchRefPrices = $this->_batchGetHistoricalPrices($symbols, $referenceDate);
+
+            // Inject FMV reference prices for unlisted symbols.
+            foreach ($positions as $symbol => $position) {
+                if (!UnlistedSymbol::isUnlisted($symbol)) {
+                    continue;
+                }
+                $refPrice = UnlistedSymbol::getPrice($symbol, $referenceDate);
+                if ($refPrice !== null) {
+                    $batchRefPrices[$symbol] = [
+                        'unit_price' => $refPrice,
+                        'date'       => $referenceDate->format('Y-m-d'),
+                    ];
+                } else {
+                    Log::warning("MoversService: unlisted symbol {$symbol} has no FMV"
+                        . " for reference date {$referenceDate->format('Y-m-d')}"
+                        . " (period: {$period}), skipping");
+                }
+            }
+
+            $splitAdjustedRefs = $this->_detectSplitsInPeriod($symbols, $referenceDate);
             $movers = $this->_computeHistoricalPeriodMovers(
-                $positions, $quotes, $batchRefPrices, $currentDate, $totalPortfolioEur
+                $positions, $quotes, $batchRefPrices, $splitAdjustedRefs,
+                $currentDate, $totalPortfolioEur, $referenceDate
             );
             $movers['period_label'] = $this->_formatPeriodRange($referenceDate, $currentDate);
+            $movers['total_portfolio_eur'] = $totalPortfolioEur;
             Cache::put($this->_getCacheKey($userId, $period), $movers, self::CACHE_TTL_HISTORICAL);
         }
+
+        $alltimeMovers = $this->_computeAlltimeMovers($positions, $quotes, $currentDate, $totalPortfolioEur);
+        $alltimeMovers['total_portfolio_eur'] = $totalPortfolioEur;
+        Cache::put($this->_getCacheKey($userId, 'alltime'), $alltimeMovers, self::CACHE_TTL_HISTORICAL);
     }
 
     /**
-     * Read movers for a user from cache for all four periods.
-     * Returns: ['today' => ..., 'weekly' => ..., 'monthly' => ..., 'yearly' => ...]
+     * Read movers for a user from cache for all five periods.
+     * Returns: ['today' => ..., 'weekly' => ..., 'monthly' => ..., 'yearly' => ..., 'alltime' => ...]
      * Each value is ['losers' => [...], 'gainers' => [...]] or null when not yet cached.
      */
     public function getMovers(int $userId): array
@@ -477,6 +762,7 @@ class MoversService
             'weekly'  => Cache::get($this->_getCacheKey($userId, 'weekly')),
             'monthly' => Cache::get($this->_getCacheKey($userId, 'monthly')),
             'yearly'  => Cache::get($this->_getCacheKey($userId, 'yearly')),
+            'alltime' => Cache::get($this->_getCacheKey($userId, 'alltime')),
         ];
     }
 

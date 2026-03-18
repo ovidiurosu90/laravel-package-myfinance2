@@ -10,7 +10,12 @@
     <div>
         <span class="fw-semibold">{{ $mover['symbol'] }}</span>
         @if(!empty($mover['inception_label']))
-            <small class="text-muted ms-1">{{ $mover['inception_label'] }}</small>
+            <br><small class="text-muted">{{ $mover['inception_label'] }}
+                @if(!empty($mover['inception_tooltip']))
+                    <span data-bs-toggle="tooltip" data-bs-placement="top"
+                        data-bs-title="{{ $mover['inception_tooltip'] }}"> &#9432;</span>
+                @endif
+            </small>
         @endif
     </div>
     <div class="text-end ms-2">

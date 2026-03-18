@@ -35,7 +35,7 @@ class FinanceAPI
 
     public static function isUnlisted(string $symbol): bool
     {
-        return str_starts_with($symbol, config('trades.unlisted'));
+        return UnlistedSymbol::isUnlisted($symbol);
     }
 
     /**

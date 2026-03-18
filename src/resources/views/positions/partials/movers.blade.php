@@ -4,6 +4,7 @@
         ['key' => 'weekly',  'label' => '1 Week'],
         ['key' => 'monthly', 'label' => '1 Month'],
         ['key' => 'yearly',  'label' => '1 Year'],
+        ['key' => 'alltime', 'label' => 'All-time'],
     ];
     $hasAnyData = !empty(array_filter($moversData ?? [], fn($v) => !is_null($v)));
     foreach ($moverColumns as &$col) {
@@ -30,10 +31,13 @@
     $summaryMonthGainer  = ($moversData['monthly']['gainers'] ?? [])[0] ?? null;
     $summaryYearLoser    = ($moversData['yearly']['losers']   ?? [])[0] ?? null;
     $summaryYearGainer   = ($moversData['yearly']['gainers']  ?? [])[0] ?? null;
+    $summaryAlltimeLoser  = ($moversData['alltime']['losers']  ?? [])[0] ?? null;
+    $summaryAlltimeGainer = ($moversData['alltime']['gainers'] ?? [])[0] ?? null;
     $hasSummary = $summaryTodayLoser || $summaryTodayGainer
         || $summaryWeekLoser || $summaryWeekGainer
         || $summaryMonthLoser || $summaryMonthGainer
-        || $summaryYearLoser || $summaryYearGainer;
+        || $summaryYearLoser || $summaryYearGainer
+        || $summaryAlltimeLoser || $summaryAlltimeGainer;
 @endphp
 
 <div class="card">
@@ -115,6 +119,24 @@
                         </span>
                     @endif
                 @endif
+                @if($summaryAlltimeLoser || $summaryAlltimeGainer)
+                    <span class="text-muted">·</span>
+                    <span class="text-muted text-nowrap">All-time</span>
+                    @if($summaryAlltimeLoser)
+                        <span class="text-danger text-nowrap">
+                            <i class="fa fa-caret-down"></i>
+                            {{ $summaryAlltimeLoser['symbol'] }}
+                            {{ number_format(abs($summaryAlltimeLoser['gain_eur']), 0, '.', ',') }}&nbsp;&euro;
+                        </span>
+                    @endif
+                    @if($summaryAlltimeGainer)
+                        <span class="text-success text-nowrap">
+                            <i class="fa fa-caret-up"></i>
+                            {{ $summaryAlltimeGainer['symbol'] }}
+                            {{ number_format($summaryAlltimeGainer['gain_eur'], 0, '.', ',') }}&nbsp;&euro;
+                        </span>
+                    @endif
+                @endif
             </div>
             @endif
             <div class="ms-auto flex-shrink-0">
@@ -137,7 +159,7 @@
                 <div class="row g-3">
                     @foreach($moverColumns as $col)
                         @php $periodData = $moversData[$col['key']] ?? null; @endphp
-                        <div class="col-12 col-md-6 col-lg-3">
+                        <div class="col-12 col-md-6 col-lg">
                             @php
                                 $subLabelHtml = '';
                                 if (!empty($col['sub_label'])) {
@@ -159,49 +181,166 @@
                                     <i class="fa fa-spinner fa-spin me-1"></i> Calculating...
                                 </p>
                             @else
-                                @if(!empty($periodData['losers']))
-                                    <div class="mb-1">
-                                        <small class="text-muted text-uppercase fw-semibold"
-                                            style="font-size: 0.7rem; letter-spacing: 0.05em;">
-                                            <i class="fa fa-caret-down me-1"></i>Losers
-                                        </small>
-                                    </div>
-                                    @foreach($periodData['losers'] as $mover)
+                                @php
+                                    $ptEur = $periodData['portfolio_total_eur'] ?? null;
+                                    $ptPct = $periodData['portfolio_total_pct'] ?? 0;
+                                    $ptColorClass = ($ptEur !== null && $ptEur >= 0) ? 'text-success' : 'text-danger';
+                                    $ptSign = ($ptEur !== null && $ptEur >= 0) ? '+' : '-';
+                                @endphp
+                                @if($ptEur !== null)
+                                <div class="d-flex justify-content-between align-items-baseline
+                                    border rounded px-2 py-1 mb-3 {{ $ptColorClass }}"
+                                    style="font-size: 0.82rem;">
+                                    <small class="text-muted text-uppercase fw-semibold"
+                                        style="font-size: 0.7rem; letter-spacing: 0.05em;">Portfolio</small>
+                                    <span class="fw-semibold">
+                                        {{ $ptSign }}{{ number_format(abs($ptEur), 0, '.', ',') }}&nbsp;&euro;
+                                        <small>({{ $ptSign }}{{ number_format(abs($ptPct), 2) }}%)</small>
+                                    </span>
+                                </div>
+                                @endif
+                                <div class="mb-1">
+                                    <small class="text-muted text-uppercase fw-semibold"
+                                        style="font-size: 0.7rem; letter-spacing: 0.05em;">
+                                        <i class="fa fa-caret-down me-1"></i>Losers
+                                    </small>
+                                </div>
+                                @for($i = 0; $i < 5; $i++)
+                                    @if(isset($periodData['losers'][$i]))
                                         @include('myfinance2::positions.partials.movers-entry', [
-                                            'mover' => $mover,
+                                            'mover' => $periodData['losers'][$i],
                                         ])
-                                    @endforeach
-                                @endif
+                                    @else
+                                        <div class="mb-2" style="min-height: 2.85rem;"></div>
+                                    @endif
+                                @endfor
 
-                                @if(!empty($periodData['losers']) && !empty($periodData['gainers']))
-                                    <hr class="my-2">
-                                @endif
+                                <hr class="my-2">
 
-                                @if(!empty($periodData['gainers']))
-                                    <div class="mb-1">
-                                        <small class="text-muted text-uppercase fw-semibold"
-                                            style="font-size: 0.7rem; letter-spacing: 0.05em;">
-                                            <i class="fa fa-caret-up me-1"></i>Gainers
-                                        </small>
-                                    </div>
-                                    @foreach($periodData['gainers'] as $mover)
+                                <div class="mb-1">
+                                    <small class="text-muted text-uppercase fw-semibold"
+                                        style="font-size: 0.7rem; letter-spacing: 0.05em;">
+                                        <i class="fa fa-caret-up me-1"></i>Gainers
+                                    </small>
+                                </div>
+                                @for($i = 0; $i < 5; $i++)
+                                    @if(isset($periodData['gainers'][$i]))
                                         @include('myfinance2::positions.partials.movers-entry', [
-                                            'mover' => $mover,
+                                            'mover' => $periodData['gainers'][$i],
                                         ])
-                                    @endforeach
+                                    @else
+                                        <div class="mb-2" style="min-height: 2.85rem;"></div>
+                                    @endif
+                                @endfor
+
+                                @if($col['key'] === 'today')
+                                    <ul class="d-lg-none text-muted mt-2 mb-0"
+                                        style="font-size: 0.72rem; line-height: 1.5; padding-left: 1rem;">
+                                        <li><strong>Ref:</strong> today's day change &times; qty
+                                            (from live quote)</li>
+                                        <li>Matches <em>Day gain</em> in Open Positions below</li>
+                                        <li>Small &euro; differences: Movers sums across all accounts
+                                            and converts at today's EUR rate; Open Positions shows
+                                            per-account values in account currency</li>
+                                    </ul>
                                 @endif
 
-                                @if(empty($periodData['losers']) && empty($periodData['gainers']))
-                                    <p class="text-muted small mb-0">No movers</p>
+                                @if(in_array($col['key'], ['weekly', 'monthly', 'yearly']))
+                                    <ul class="d-lg-none text-muted mt-2 mb-0"
+                                        style="font-size: 0.72rem; line-height: 1.5; padding-left: 1rem;">
+                                        <li><strong>Ref:</strong> market price at period start
+                                            &times; qty &mdash; not avg cost (can differ from
+                                            All-time)</li>
+                                        <li>E.g.: avg cost $200, period started at $250, now $180
+                                            &rarr; $7,000 here vs $2,000 all-time
+                                            (both &times; 100 shares)</li>
+                                        <li>Positions opened mid-period use avg cost instead</li>
+                                        <li>User Overview&rsquo;s mvalue delta also includes the
+                                            full market value of new positions added during the
+                                            period &mdash; numbers won&rsquo;t match when new
+                                            capital was deployed</li>
+                                    </ul>
+                                @endif
+
+                                @if($col['key'] === 'alltime')
+                                    <ul class="d-lg-none text-muted mt-2 mb-0"
+                                        style="font-size: 0.72rem; line-height: 1.5; padding-left: 1rem;">
+                                        <li><strong>Ref:</strong> avg cost &times; qty &mdash;
+                                            conceptually matches <em>Gain</em> in Open Positions
+                                            (summed across accounts, converted to &euro;)</li>
+                                        <li>Movers uses today&rsquo;s EUR rate; Open Positions uses
+                                            the rate at each trade&rsquo;s execution time</li>
+                                        <li>The gap grows with EUR/USD movement since your positions
+                                            were opened</li>
+                                    </ul>
                                 @endif
                             @endif
                         </div>
                     @endforeach
                 </div>
-                <p class="text-muted small mt-3 mb-0">
-                    <strong>&euro;</strong> — total position gain/loss in EUR.
-                    <strong>%</strong> — share of total portfolio.
-                </p>
+                {{-- Notes row: on lg+ spans correctly across the 5 equal-width columns --}}
+                <div class="d-none d-lg-flex mt-2" style="gap: 1rem;">
+                    <div style="flex: 1 0 0%;">
+                        <ul class="text-muted mb-0"
+                            style="font-size: 0.72rem; line-height: 1.5; padding-left: 1rem;">
+                            <li><strong>Ref:</strong> today's day change &times; qty
+                                (from live quote)</li>
+                            <li>Matches <em>Day gain</em> in Open Positions below</li>
+                            <li>Small &euro; differences: Movers sums across all accounts and
+                                converts at today's EUR rate; Open Positions shows per-account
+                                values in account currency</li>
+                        </ul>
+                    </div>
+                    <div style="flex: 3 0 0%;">
+                        <ul class="text-muted mb-0"
+                            style="font-size: 0.72rem; line-height: 1.5; padding-left: 1rem;">
+                            <li><strong>Ref:</strong> market price at period start &times; qty
+                                &mdash; not avg cost (can differ from All-time)</li>
+                            <li>E.g.: avg cost $200, period started at $250, now $180 &rarr;
+                                $7,000 here vs $2,000 all-time (both &times; 100 shares)</li>
+                            <li>Positions opened mid-period use avg cost instead</li>
+                            <li>User Overview&rsquo;s mvalue delta also includes the full market
+                                value of new positions added during the period &mdash; numbers
+                                won&rsquo;t match when new capital was deployed</li>
+                        </ul>
+                    </div>
+                    <div style="flex: 1 0 0%;">
+                        <ul class="text-muted mb-0"
+                            style="font-size: 0.72rem; line-height: 1.5; padding-left: 1rem;">
+                            <li><strong>Ref:</strong> avg cost &times; qty &mdash; conceptually
+                                matches <em>Gain</em> in Open Positions (summed across accounts,
+                                converted to &euro;)</li>
+                            <li>Movers uses today&rsquo;s EUR rate; Open Positions uses the rate
+                                at each trade&rsquo;s execution time</li>
+                            <li>The gap grows with EUR/USD movement since your positions were
+                                opened</li>
+                        </ul>
+                    </div>
+                </div>
+                @php
+                    $totalPortfolioEur = null;
+                    foreach ($moversData as $pd) {
+                        if (!empty($pd['total_portfolio_eur'])) {
+                            $totalPortfolioEur = $pd['total_portfolio_eur'];
+                            break;
+                        }
+                    }
+                @endphp
+                <ul class="text-muted mt-3 mb-0"
+                    style="font-size: 0.72rem; line-height: 1.5; padding-left: 1rem;">
+                    <li><strong>&euro;</strong> &mdash; total position gain/loss in EUR</li>
+                    <li>
+                        <strong>%</strong> &mdash; each position&rsquo;s &euro; gain/loss as a
+                        share of today&rsquo;s total portfolio market value
+                        @if($totalPortfolioEur !== null)
+                            (&euro;{{ number_format($totalPortfolioEur, 0, '.', ',') }})
+                        @endif
+                        &mdash; a weight, not a return rate
+                    </li>
+                    <li>Unlike User Overview&nbsp;% (e.g. +81.3% for mvalue = your holdings are
+                        currently worth 81.3% of what you paid), Movers&nbsp;% is not relative
+                        to cost</li>
+                </ul>
             @endif
         </div>
     </div>
@@ -216,7 +355,7 @@
     // Restore saved state (default: collapsed)
     if (localStorage.getItem('movers-collapsed') === 'expanded') {
         summaryEl?.classList.add('d-none');
-        bootstrap.Collapse.getOrCreateInstance(moversEl, { toggle: false }).show();
+        window.bootstrap?.Collapse.getOrCreateInstance(moversEl, { toggle: false }).show();
     }
 
     moversEl?.addEventListener('show.bs.collapse', () => {

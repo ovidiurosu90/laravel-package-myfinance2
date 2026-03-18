@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Collection;
 
 use ovidiuro\myfinance2\App\Models\Trade;
 use ovidiuro\myfinance2\App\Models\Account;
+use ovidiuro\myfinance2\App\Services\UnlistedSymbol;
 
 class Positions
 {
@@ -327,10 +328,7 @@ class Positions
 
         $position['symbol_name'] = $symbol;
         if ($isUnlisted) {
-            $unlistedFMV = config('trades.unlisted_fmv');
-            $position['symbol_name'] = !empty($unlistedFMV[$symbol]['symbol_name'])
-                ? $unlistedFMV[$symbol]['symbol_name']
-                : $symbol;
+            $position['symbol_name'] = UnlistedSymbol::getName($symbol);
         } else {
             $position['symbol_name'] = !empty($quote['name'])
                 ? $quote['name'] : $symbol;
@@ -340,34 +338,7 @@ class Positions
     public static function getUnlistedFMV(array $unlistedFMVData,
         \DateTimeInterface $date = null): array
     {
-        if (empty($date)) {
-            $date = new \DateTime();
-        }
-        $price = 0;
-        $priceTimestamp = $date;
-
-        if (empty($unlistedFMVData['quotes'])) {
-            return [
-                $price,
-                $priceTimestamp,
-            ];
-        }
-
-        $price = $unlistedFMVData['quotes'][0]['price'];
-        $priceTimestamp = new \DateTime($unlistedFMVData['quotes'][0]['timestamp']);
-
-        foreach ($unlistedFMVData['quotes'] as $quote) {
-            $quoteTimestamp = new \DateTime($quote['timestamp']);
-            if ($quoteTimestamp <= $date && $quoteTimestamp > $priceTimestamp) {
-                $price = $quote['price'];
-                $priceTimestamp = $quoteTimestamp;
-            }
-        }
-
-        return [
-            $price,
-            $priceTimestamp,
-        ];
+        return UnlistedSymbol::getPriceAndTimestamp($unlistedFMVData, $date);
     }
 
     public static function addPrice(array &$position, array $quote = null,
