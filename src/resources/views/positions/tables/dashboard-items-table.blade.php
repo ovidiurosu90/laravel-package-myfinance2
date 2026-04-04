@@ -1,3 +1,4 @@
+@use('ovidiuro\myfinance2\App\Services\FinanceAPI')
 <div class="table-responsive">
     <table class="table table-sm table-striped data-table
                   positions-dashboard-items-table">
@@ -33,8 +34,7 @@
             <tr>
                 <td class="text-nowrap" data-bs-toggle="tooltip"
                     title="{!! $item['symbol_name'] !!}">
-                    @if (!\ovidiuro\myfinance2\App\Services\FinanceAPI::isUnlisted(
-                        $item['symbol']))
+                    @if (!FinanceAPI::isUnlisted($item['symbol']))
                     <a href="https://finance.yahoo.com/quote/{{ $item['symbol'] }}"
                         target="_blank">
                         {{ $item['symbol'] }}

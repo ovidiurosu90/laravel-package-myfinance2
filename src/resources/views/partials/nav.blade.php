@@ -1,3 +1,4 @@
+@use('ovidiuro\myfinance2\App\Models\PriceAlert')
 @role(['admin', 'financeadmin'])
 <li class="nav-item dropdown">
     <a class="nav-link dropdown-toggle" href="#"
@@ -37,6 +38,17 @@
         <a class="dropdown-item {{ Request::is('orders') || Request::is('orders/*') ? 'active' : null }}"
            href="{{ url('/orders') }}">
             {!! trans('myfinance2::orders.titles.dashboard') !!}
+        </a>
+        <div class="dropdown-divider"></div>
+
+        <a class="dropdown-item
+            {{ Request::is('price-alerts') || Request::is('price-alerts/*') ? 'active' : null }}"
+           href="{{ url('/price-alerts') }}">
+            {!! trans('myfinance2::alerts.titles.dashboard') !!}
+            @php $activeAlertsCount = PriceAlert::where('status', 'ACTIVE')->count(); @endphp
+            @if ($activeAlertsCount > 0)
+                <span class="badge bg-success ms-1">{{ $activeAlertsCount }}</span>
+            @endif
         </a>
         <div class="dropdown-divider"></div>
 

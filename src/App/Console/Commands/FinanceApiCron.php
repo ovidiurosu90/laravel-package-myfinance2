@@ -24,6 +24,7 @@ class FinanceApiCron extends Command
     use FinanceApiCronChartsTrait;
     use FinanceApiCronReturnsTrait;
     use FinanceApiCronMoversTrait;
+    use FinanceApiCronAlertsTrait;
 
     /**
      * The name and signature of the console command.
@@ -36,7 +37,8 @@ class FinanceApiCron extends Command
         {--refresh-returns}
         {--force}
         {--start=}
-        {--end=}';
+        {--end=}
+        {--skip-alerts}';
 
     /**
      * The console command description.
@@ -98,6 +100,9 @@ class FinanceApiCron extends Command
             $this->refreshExchangeRates();
             $this->refreshAccountOverview();
             $this->refreshMovers();
+            if (!$this->option('skip-alerts')) {
+                $this->evaluateAlerts();
+            }
         } finally {
             $lock->release();
         }

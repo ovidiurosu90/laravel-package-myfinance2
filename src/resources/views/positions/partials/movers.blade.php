@@ -23,21 +23,25 @@
     }
     unset($col);
 
-    $summaryTodayLoser   = ($moversData['today']['losers']    ?? [])[0] ?? null;
-    $summaryTodayGainer  = ($moversData['today']['gainers']   ?? [])[0] ?? null;
-    $summaryWeekLoser    = ($moversData['weekly']['losers']   ?? [])[0] ?? null;
-    $summaryWeekGainer   = ($moversData['weekly']['gainers']  ?? [])[0] ?? null;
-    $summaryMonthLoser   = ($moversData['monthly']['losers']  ?? [])[0] ?? null;
-    $summaryMonthGainer  = ($moversData['monthly']['gainers'] ?? [])[0] ?? null;
-    $summaryYearLoser    = ($moversData['yearly']['losers']   ?? [])[0] ?? null;
-    $summaryYearGainer   = ($moversData['yearly']['gainers']  ?? [])[0] ?? null;
-    $summaryAlltimeLoser  = ($moversData['alltime']['losers']  ?? [])[0] ?? null;
-    $summaryAlltimeGainer = ($moversData['alltime']['gainers'] ?? [])[0] ?? null;
-    $hasSummary = $summaryTodayLoser || $summaryTodayGainer
-        || $summaryWeekLoser || $summaryWeekGainer
-        || $summaryMonthLoser || $summaryMonthGainer
-        || $summaryYearLoser || $summaryYearGainer
-        || $summaryAlltimeLoser || $summaryAlltimeGainer;
+    $summaryItems = [];
+    foreach ($moverColumns as $col) {
+        $colData = $moversData[$col['key']] ?? null;
+        $ptEur = $colData['portfolio_total_eur'] ?? null;
+        $ptPct = $colData['portfolio_total_pct'] ?? null;
+        if ($ptEur !== null && $ptPct !== null) {
+            $summaryItems[] = [
+                'label'   => $col['key'] === 'today' ? 'Today'
+                    : ($col['key'] === 'weekly'  ? '1W'
+                    : ($col['key'] === 'monthly' ? '1M'
+                    : ($col['key'] === 'yearly'  ? '1Y' : 'All'))),
+                'eur'     => $ptEur,
+                'pct'     => $ptPct,
+                'color'   => $ptEur >= 0 ? 'text-success' : 'text-danger',
+                'sign'    => $ptEur >= 0 ? '+' : '-',
+            ];
+        }
+    }
+    $hasSummary = !empty($summaryItems);
 @endphp
 
 <div class="card">
@@ -50,93 +54,14 @@
             <div id="movers-summary"
                 class="d-flex align-items-center gap-2 flex-grow-1 overflow-hidden"
                 style="font-size: 0.8rem;">
-                <span class="text-muted text-nowrap">Today</span>
-                @if($summaryTodayLoser)
-                    <span class="text-danger text-nowrap">
-                        <i class="fa fa-caret-down"></i>
-                        {{ $summaryTodayLoser['symbol'] }}
-                        {{ number_format(abs($summaryTodayLoser['gain_eur']), 0, '.', ',') }}&nbsp;&euro;
+                @foreach($summaryItems as $i => $item)
+                    @if($i > 0)<span class="text-muted">·</span>@endif
+                    <span class="text-muted text-nowrap">{{ $item['label'] }}</span>
+                    <span class="{{ $item['color'] }} text-nowrap fw-semibold">
+                        {{ $item['sign'] }}{{ number_format(abs($item['eur']), 0, '.', ',') }}&nbsp;&euro;
+                        <small>({{ $item['sign'] }}{{ number_format(abs($item['pct']), 2) }}%)</small>
                     </span>
-                @endif
-                @if($summaryTodayGainer)
-                    <span class="text-success text-nowrap">
-                        <i class="fa fa-caret-up"></i>
-                        {{ $summaryTodayGainer['symbol'] }}
-                        {{ number_format($summaryTodayGainer['gain_eur'], 0, '.', ',') }}&nbsp;&euro;
-                    </span>
-                @endif
-                @if($summaryWeekLoser || $summaryWeekGainer)
-                    <span class="text-muted">·</span>
-                    <span class="text-muted text-nowrap">1W</span>
-                    @if($summaryWeekLoser)
-                        <span class="text-danger text-nowrap">
-                            <i class="fa fa-caret-down"></i>
-                            {{ $summaryWeekLoser['symbol'] }}
-                            {{ number_format(abs($summaryWeekLoser['gain_eur']), 0, '.', ',') }}&nbsp;&euro;
-                        </span>
-                    @endif
-                    @if($summaryWeekGainer)
-                        <span class="text-success text-nowrap">
-                            <i class="fa fa-caret-up"></i>
-                            {{ $summaryWeekGainer['symbol'] }}
-                            {{ number_format($summaryWeekGainer['gain_eur'], 0, '.', ',') }}&nbsp;&euro;
-                        </span>
-                    @endif
-                @endif
-                @if($summaryMonthLoser || $summaryMonthGainer)
-                    <span class="text-muted">·</span>
-                    <span class="text-muted text-nowrap">1M</span>
-                    @if($summaryMonthLoser)
-                        <span class="text-danger text-nowrap">
-                            <i class="fa fa-caret-down"></i>
-                            {{ $summaryMonthLoser['symbol'] }}
-                            {{ number_format(abs($summaryMonthLoser['gain_eur']), 0, '.', ',') }}&nbsp;&euro;
-                        </span>
-                    @endif
-                    @if($summaryMonthGainer)
-                        <span class="text-success text-nowrap">
-                            <i class="fa fa-caret-up"></i>
-                            {{ $summaryMonthGainer['symbol'] }}
-                            {{ number_format($summaryMonthGainer['gain_eur'], 0, '.', ',') }}&nbsp;&euro;
-                        </span>
-                    @endif
-                @endif
-                @if($summaryYearLoser || $summaryYearGainer)
-                    <span class="text-muted">·</span>
-                    <span class="text-muted text-nowrap">1Y</span>
-                    @if($summaryYearLoser)
-                        <span class="text-danger text-nowrap">
-                            <i class="fa fa-caret-down"></i>
-                            {{ $summaryYearLoser['symbol'] }}
-                            {{ number_format(abs($summaryYearLoser['gain_eur']), 0, '.', ',') }}&nbsp;&euro;
-                        </span>
-                    @endif
-                    @if($summaryYearGainer)
-                        <span class="text-success text-nowrap">
-                            <i class="fa fa-caret-up"></i>
-                            {{ $summaryYearGainer['symbol'] }}
-                            {{ number_format($summaryYearGainer['gain_eur'], 0, '.', ',') }}&nbsp;&euro;
-                        </span>
-                    @endif
-                @endif
-                @if($summaryAlltimeLoser || $summaryAlltimeGainer)
-                    <span class="text-muted">·</span>
-                    <span class="text-muted text-nowrap">All-time</span>
-                    @if($summaryAlltimeLoser)
-                        <span class="text-danger text-nowrap">
-                            <i class="fa fa-caret-down"></i>
-                            {{ $summaryAlltimeLoser['symbol'] }}
-                            {{ number_format(abs($summaryAlltimeLoser['gain_eur']), 0, '.', ',') }}&nbsp;&euro;
-                        </span>
-                    @endif
-                    @if($summaryAlltimeGainer)
-                        <span class="text-success text-nowrap">
-                            <i class="fa fa-caret-up"></i>
-                            {{ $summaryAlltimeGainer['symbol'] }}
-                            {{ number_format($summaryAlltimeGainer['gain_eur'], 0, '.', ',') }}&nbsp;&euro;
-                        </span>
-                    @endif
-                @endif
+                @endforeach
             </div>
             @endif
             <div class="ms-auto flex-shrink-0">

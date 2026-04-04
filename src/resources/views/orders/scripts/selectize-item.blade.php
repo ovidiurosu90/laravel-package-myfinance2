@@ -38,6 +38,11 @@ $(document).ready(function ()
     });
     var actionSelectize = $actionSelect[0].selectize;
 
+    var actionPrefill = @json($action_prefill ?? '');
+    if (actionSelectize && actionPrefill) {
+        actionSelectize.setValue(actionPrefill, true);
+    }
+
     var $statusSelect = $("#status-select").selectize({
         placeholder: ' {{ trans('myfinance2::orders.forms.item-form.status.placeholder') }} ',
         allowClear: true,

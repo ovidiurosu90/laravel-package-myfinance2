@@ -53,6 +53,7 @@ class MyFinance2ServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(__DIR__ . '/config/currencies.php', 'currencies');
         $this->mergeConfigFrom(__DIR__ . '/config/accounts.php', 'accounts');
         $this->mergeConfigFrom(__DIR__ . '/config/orders.php', 'orders');
+        $this->mergeConfigFrom(__DIR__ . '/config/alerts.php', 'alerts');
         $this->loadMigrations();
 
         $this->loadRoutesFrom(__DIR__ . '/routes/web.php');
@@ -63,6 +64,7 @@ class MyFinance2ServiceProvider extends ServiceProvider
         $this->commands([
             \ovidiuro\myfinance2\App\Console\Commands\FinanceApiCron::class,
             \ovidiuro\myfinance2\App\Console\Commands\StatsCron::class,
+            \ovidiuro\myfinance2\App\Console\Commands\SuggestAlerts::class,
         ]);
     }
 

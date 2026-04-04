@@ -40,7 +40,7 @@ $(document).ready(function()
                 }
 
                 if (!$limitPriceInput.val()) {
-                    $limitPriceInput.val(s.limit_price);
+                    $limitPriceInput.val(s.limit_price).trigger('input');
                 }
 
                 if (s.suggested_qty !== null && !$quantityInput.val()) {

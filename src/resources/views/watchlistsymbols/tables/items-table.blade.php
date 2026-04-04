@@ -1,3 +1,4 @@
+@php use ovidiuro\myfinance2\App\Services\MoneyFormat; @endphp
 <style>
     .open-positions {
         padding: 0.35rem 0.6rem;
@@ -19,6 +20,7 @@
                 <th class="text-right text-nowrap">% Below high</th>
                 <th class="no-sort text-nowrap">Open Positions</th>
                 <th class="no-search no-sort">Orders</th>
+                <th class="no-search no-sort">Alerts</th>
                 <th class="no-search no-sort">Actions</th>
                 <th class="no-search no-sort"></th>
             </tr>
@@ -54,7 +56,7 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                         title="Quote timestamp: {{ $quoteData['quote_timestamp']
                             ->format(trans('myfinance2::general.datetime-format'))
                         }}">
-                        {!! ovidiuro\myfinance2\App\Services\MoneyFormat
+                        {!! MoneyFormat
                         ::get_formatted_balance(
                             $quoteData['tradeCurrencyModel']->display_code,
                             $quoteData['price']
@@ -81,13 +83,13 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                 <td class="text-right"
                     data-order="{{ $quoteData['day_change_percentage'] }}">
                     <div>
-                        {!! ovidiuro\myfinance2\App\Services\MoneyFormat
+                        {!! MoneyFormat
                         ::get_formatted_balance_percentage(
                             $quoteData['day_change_percentage']
                         ) !!}
                     </div>
                     <div style="line-height: 24px">
-                        {!! ovidiuro\myfinance2\App\Services\MoneyFormat
+                        {!! MoneyFormat
                         ::get_formatted_balance(
                             $quoteData['tradeCurrencyModel']->display_code,
                             $quoteData['day_change']
@@ -104,14 +106,14 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                 </td>
                 <td class="text-right">
                     <div class="text-nowrap">
-                        {!! ovidiuro\myfinance2\App\Services\MoneyFormat
+                        {!! MoneyFormat
                         ::get_formatted_balance(
                             $quoteData['tradeCurrencyModel']->display_code,
                             $quoteData['fiftyTwoWeekLow']
                         ) !!}
                     </div>
                     <div class="text-nowrap">
-                        {!! ovidiuro\myfinance2\App\Services\MoneyFormat
+                        {!! MoneyFormat
                         ::get_formatted_balance(
                             $quoteData['tradeCurrencyModel']->display_code,
                             $quoteData['fiftyTwoWeekHigh']
@@ -121,7 +123,7 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                 <td class="text-right"
                     data-order="{{ $quoteData['fiftyTwoWeekLowChangePercent']
                                     * 100 }}">
-                    {!! ovidiuro\myfinance2\App\Services\MoneyFormat
+                    {!! MoneyFormat
                     ::get_formatted_52wk_low_percentage(
                         $quoteData['fiftyTwoWeekLowChangePercent'] * 100
                     ) !!}
@@ -129,7 +131,7 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                 <td class="text-right"
                     data-order="{{ - $quoteData['fiftyTwoWeekHighChangePercent']
                                     * 100 }}">
-                    {!! ovidiuro\myfinance2\App\Services\MoneyFormat
+                    {!! MoneyFormat
                     ::get_formatted_52wk_high_percentage(
                         - $quoteData['fiftyTwoWeekHighChangePercent'] * 100,
                         count($quoteData['open_positions']) > 0
@@ -172,6 +174,29 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                             @foreach ($quoteData['open_orders'] as $openOrder)
                             <span class="badge {{ $openOrder->getStatusBadgeClass() }}">
                                 {{ $openOrder->status }}
+                            </span>
+                            @endforeach
+                        </a>
+                    @endif
+                </td>
+                <td>
+                    <a class="btn btn-sm btn-warning w-100 mb-1"
+                        href="{{ route('myfinance2::price-alerts.create',
+                                       ['symbol' => $symbol, 'source' => 'watchlist']) }}"
+                        data-bs-toggle="tooltip"
+                        title="Create Alert for {{ $symbol }}">
+                        Alert <i class="fa fa-fw fa-plus-circle" aria-hidden="true"></i>
+                    </a>
+                    @if (!empty($quoteData['active_alerts']))
+                        @php $activeAlertCount = count($quoteData['active_alerts']); @endphp
+                        <a href="{{ route('myfinance2::price-alerts.index') }}"
+                            class="d-block text-center w-100"
+                            data-bs-toggle="tooltip"
+                            title="{{ $activeAlertCount }} active {{ $activeAlertCount == 1 ? 'alert' : 'alerts' }} for {{ $symbol }}">
+                            @foreach ($quoteData['active_alerts'] as $activeAlert)
+                            <span class="badge d-block w-100 {{ $activeAlert->getStatusBadgeClass() }}">
+                                {{ $activeAlert->alert_type === 'PRICE_ABOVE' ? '▲' : '▼' }}
+                                {!! $quoteData['tradeCurrencyModel']->display_code !!}{{ MoneyFormat::get_formatted_price((float) $activeAlert->target_price) }}
                             </span>
                             @endforeach
                         </a>

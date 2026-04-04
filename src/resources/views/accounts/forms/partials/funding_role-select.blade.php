@@ -1,3 +1,4 @@
+@use('ovidiuro\myfinance2\App\Enums\FundingRole')
 <div class="mb-3 has-feedback row {{
     $errors->has('funding_role') ? 'has-error' : '' }}">
 
@@ -12,10 +13,10 @@
             <option value=""
                 @if (empty($funding_role)) selected @endif>
             </option>
-            @foreach(\ovidiuro\myfinance2\App\Enums\FundingRole::cases()
+            @foreach(FundingRole::cases()
                      as $role)
                 <option value="{{ $role->value }}"
-                    @if (($funding_role ?? '') instanceof \ovidiuro\myfinance2\App\Enums\FundingRole
+                    @if (($funding_role ?? '') instanceof FundingRole
                         ? $funding_role === $role
                         : ($funding_role ?? '') === $role->value)
                         selected

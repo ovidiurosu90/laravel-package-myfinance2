@@ -7,6 +7,7 @@ namespace ovidiuro\myfinance2\App\Services;
 use ovidiuro\myfinance2\App\Models\WatchlistSymbol;
 use ovidiuro\myfinance2\App\Models\Trade;
 use ovidiuro\myfinance2\App\Models\Order;
+use ovidiuro\myfinance2\App\Models\PriceAlert;
 use ovidiuro\myfinance2\App\Services\Positions;
 
 use Illuminate\Support\Facades\Log;
@@ -41,6 +42,15 @@ class WatchlistSymbolsDashboard
             $openOrdersBySymbol[$order->symbol][] = $order;
         }
 
+        $quoteSymbols = array_keys($positionsData['quotes']);
+        $activeAlerts = PriceAlert::whereIn('symbol', $quoteSymbols)
+            ->where('status', 'ACTIVE')
+            ->get();
+        $activeAlertsBySymbol = [];
+        foreach ($activeAlerts as $alert) {
+            $activeAlertsBySymbol[$alert->symbol][] = $alert;
+        }
+
         $items = $positionsData['quotes'];
         foreach ($items as $symbol => $quoteData) {
             if (empty($watchlistSymbolsDictionary[$symbol])) {
@@ -54,6 +64,7 @@ class WatchlistSymbolsDashboard
             $items[$symbol]['item'] = $watchlistSymbolsDictionary[$symbol];
             $items[$symbol]['open_positions'] = [];
             $items[$symbol]['open_orders'] = $openOrdersBySymbol[$symbol] ?? [];
+            $items[$symbol]['active_alerts'] = $activeAlertsBySymbol[$symbol] ?? [];
             $items[$symbol]['base_value'] = null;
         }
         if (empty($positionsData['groupedItems'])) {

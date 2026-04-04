@@ -195,6 +195,32 @@ class MoneyFormat
     }
 
     /**
+     * Format a price matching the positions/watchlist display convention:
+     * - 2 decimals for prices >= 1.00 (normal stocks)
+     * - 4 decimals for prices >= 0.01 (penny stocks)
+     * - 6 decimals for prices < 0.01 (micro-cap / cheap crypto)
+     * Returns plain string without HTML or currency symbol.
+     *
+     * @param mixed $value
+     *
+     * @return string
+     */
+    public static function get_formatted_price($value): string
+    {
+        $floatValue = (float) $value;
+
+        if ($floatValue >= 1.0) {
+            return number_format($floatValue, 2);
+        }
+
+        if ($floatValue >= 0.01) {
+            return number_format($floatValue, 4);
+        }
+
+        return number_format($floatValue, 6);
+    }
+
+    /**
      * Format an exchange rate with intelligent decimal handling (plain, no HTML)
      * Uses 0 decimals for whole numbers, 4 decimals for detailed rates
      * Safely casts string values from database

@@ -5,6 +5,7 @@ namespace ovidiuro\myfinance2\App\Console\Commands;
 use Illuminate\Support\Facades\Log;
 
 use ovidiuro\myfinance2\App\Models\Dividend;
+use ovidiuro\myfinance2\App\Models\PriceAlert;
 use ovidiuro\myfinance2\App\Models\Trade;
 use ovidiuro\myfinance2\App\Models\WatchlistSymbol;
 use ovidiuro\myfinance2\App\Services\FinanceAPI;
@@ -23,8 +24,13 @@ trait FinanceApiCronQuotesTrait
             ->distinct()
             ->pluck('symbol')
             ->toArray();
+        $alertSymbols = PriceAlert::where('status', 'ACTIVE')
+            ->select('symbol')
+            ->distinct()
+            ->pluck('symbol')
+            ->toArray();
 
-        $symbols = array_unique(array_merge($dividends, $trades, $watchlistSymbols));
+        $symbols = array_unique(array_merge($dividends, $trades, $watchlistSymbols, $alertSymbols));
         sort($symbols);
 
         return $symbols;

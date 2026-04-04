@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 
 use ovidiuro\myfinance2\App\Models\Order;
 use ovidiuro\myfinance2\App\Models\Trade;
+use ovidiuro\myfinance2\App\Services\FinanceUtils;
 use ovidiuro\myfinance2\App\Services\OrderFormFields;
 use ovidiuro\myfinance2\App\Http\Requests\StoreOrder;
 use ovidiuro\myfinance2\App\Http\Requests\UpdateOrder;
@@ -80,6 +81,23 @@ class OrdersController extends MyFinance2Controller
         $data['symbolPrefill'] = $symbolPrefill;
         $data['duplicateOrders'] = $duplicateOrders;
 
+        $actionPrefill = $request->query('action');
+        if ($actionPrefill && in_array(strtoupper($actionPrefill), ['BUY', 'SELL'], true)) {
+            $data['action_prefill'] = strtoupper($actionPrefill);
+        }
+
+        $alertId = $request->query('alert_id');
+        if ($alertId && is_numeric($alertId) && empty($data['description'])) {
+            $data['description'] = 'Price Alert #' . (int) $alertId;
+        }
+
+        $data['projectedGain'] = null;
+        $data['projectedGainPriceLabel'] = null;
+        if ($symbolPrefill) {
+            $data['projectedGain'] = $this->_buildProjectedGainAtCurrentPrice($symbolPrefill);
+            $data['projectedGainPriceLabel'] = 'current market price';
+        }
+
         return view('myfinance2::orders.crud.create', $data);
     }
 
@@ -120,6 +138,9 @@ class OrdersController extends MyFinance2Controller
 
         $service = new OrderFormFields($id);
         $data = $service->handle();
+
+        $data['projectedGain'] = $this->_buildProjectedGain($item);
+        $data['projectedGainPriceLabel'] = 'limit price';
 
         return view('myfinance2::orders.crud.edit', $data);
     }
@@ -362,5 +383,87 @@ class OrdersController extends MyFinance2Controller
 
         return redirect()->route('myfinance2::orders.index')->with('success',
             trans('myfinance2::orders.flash-messages.trade-unlinked', ['id' => $item->id]));
+    }
+
+    /**
+     * Compute projected gain/loss for a SELL order at its limit_price.
+     * Returns an array with gain info, or null if not applicable.
+     *
+     * @param Order $order
+     *
+     * @return array|null
+     */
+    private function _buildProjectedGain(Order $order): ?array
+    {
+        if ($order->action !== 'SELL' || (float) $order->limit_price <= 0) {
+            return null;
+        }
+
+        return $this->_computeProjectedGain($order->symbol, (float) $order->limit_price);
+    }
+
+    /**
+     * Compute projected gain/loss at the current market price (for create prefill).
+     * Returns an array with gain info, or null if not applicable.
+     *
+     * @param string $symbol
+     *
+     * @return array|null
+     */
+    private function _buildProjectedGainAtCurrentPrice(string $symbol): ?array
+    {
+        $quotes = (new FinanceUtils())->getQuotes([$symbol], null, false);
+        $currentPrice = is_array($quotes) ? (float) ($quotes[$symbol]['price'] ?? 0) : 0;
+
+        if ($currentPrice <= 0) {
+            return null;
+        }
+
+        return $this->_computeProjectedGain($symbol, $currentPrice);
+    }
+
+    /**
+     * Shared projected gain computation from open BUY positions at a given sell price.
+     *
+     * @param string $symbol
+     * @param float  $sellPrice
+     *
+     * @return array|null
+     */
+    private function _computeProjectedGain(string $symbol, float $sellPrice): ?array
+    {
+        $openTrades = Trade::where('symbol', $symbol)
+            ->where('status', 'OPEN')
+            ->where('action', 'BUY')
+            ->get();
+
+        if ($openTrades->isEmpty()) {
+            return null;
+        }
+
+        $totalQty = 0.0;
+        $totalCost = 0.0;
+        foreach ($openTrades as $trade) {
+            $qty = (float) $trade->quantity;
+            $totalQty += $qty;
+            $totalCost += $qty * (float) $trade->unit_price;
+        }
+
+        if ($totalQty <= 0) {
+            return null;
+        }
+
+        $avgCost     = $totalCost / $totalQty;
+        $gainPerUnit = $sellPrice - $avgCost;
+        $totalGain   = $gainPerUnit * $totalQty;
+        $gainPct     = $avgCost > 0 ? ($gainPerUnit / $avgCost) * 100.0 : 0.0;
+
+        return [
+            'gain_value'   => round($totalGain, 2),
+            'gain_pct'     => round($gainPct, 4),
+            'avg_cost'     => $avgCost,
+            'total_qty'    => $totalQty,
+            'has_position' => true,
+        ];
     }
 }

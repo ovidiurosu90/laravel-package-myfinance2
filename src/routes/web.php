@@ -12,6 +12,22 @@ Route::group([
     Route::patch('trades/close-symbol',
                  'TradesController@closeSymbol')->name('trades.close-symbol');
 
+    #NOTE Price Alert custom action routes must be before Route::resource
+    Route::post('price-alerts/{id}/pause',
+                'PriceAlertController@pause')->name('price-alerts.pause');
+    Route::post('price-alerts/{id}/resume',
+                'PriceAlertController@resume')->name('price-alerts.resume');
+    Route::get('price-alerts/history',
+               'PriceAlertNotificationController@index')->name('price-alerts.history');
+    Route::delete('price-alerts/history/{id}',
+                  'PriceAlertNotificationController@destroy')->name('price-alerts.history.destroy');
+    Route::post('price-alerts/suggest',
+                'PriceAlertController@suggest')->name('price-alerts.suggest');
+    Route::post('price-alerts/bulk-action',
+                'PriceAlertController@bulkAction')->name('price-alerts.bulk-action');
+
+    Route::resource('price-alerts', 'PriceAlertController');
+
     #NOTE Orders custom action routes must be before Route::resource
     Route::post('orders/{id}/place',
                 'OrdersController@place')->name('orders.place');

@@ -1,3 +1,4 @@
+@use('ovidiuro\myfinance2\App\Services\FinanceAPI')
 <div class="mb-3 required has-feedback row {{ $errors->has('symbol') ?
                                                     'has-error' : '' }}">
     <label for="symbol" class="col-5 control-label">
@@ -19,8 +20,7 @@
             <div class="input-group-append">
                 <button id="is-listed" class="btn btn-outline-secondary"
                     type="button">{{
-                        (\ovidiuro\myfinance2\App\Services\FinanceAPI
-                        ::isUnlisted($symbol))
+                        (FinanceAPI::isUnlisted($symbol))
                             ? 'Unlisted'
                             : 'Listed'
                     }}</button>
