@@ -159,23 +159,10 @@ class MoversService
 
     /**
      * Check if a day-over-day price ratio matches a common stock split ratio (forward or reverse).
-     * Uses the same ratios and tolerance as ReturnsAlerts: [3, 5, 10, 20] with 25% tolerance.
-     * Checks both forward splits (price drops: ratio ≈ 1/sr) and reverse splits (price rises: ratio ≈ sr).
      */
     private function _looksLikeSplitRatio(float $ratio): bool
     {
-        $splitRatios = [3, 5, 10, 20];
-        $tolerance = 0.25;
-        foreach ($splitRatios as $sr) {
-            if (abs($ratio - $sr) <= $sr * $tolerance) {
-                return true;
-            }
-            $inverse = 1.0 / $sr;
-            if (abs($ratio - $inverse) <= $inverse * $tolerance) {
-                return true;
-            }
-        }
-        return false;
+        return SplitDetectionService::looksLikeSplitRatio($ratio);
     }
 
     /**

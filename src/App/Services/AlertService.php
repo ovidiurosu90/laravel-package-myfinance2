@@ -112,7 +112,10 @@ class AlertService
             }
 
             if ($this->_isPotentialSplitAnomaly($alert, $currentPrice)) {
-                $this->_sendSplitWarningEmail($alert, $currentPrice, $userId);
+                $sent = $this->_sendSplitWarningEmail($alert, $currentPrice, $userId);
+                if ($sent) {
+                    $notifiedToday[] = $alert->symbol;
+                }
                 $stats['skipped']++;
                 continue;
             }
@@ -484,7 +487,12 @@ class AlertService
     }
 
     /**
-     * Detect potential stock-split anomaly: target is far from current price.
+     * Detect potential stock-split anomaly: target price is suspiciously far from the
+     * current price — beyond the smallest known split ratio — suggesting the alert was
+     * set before an unapplied split.
+     *
+     * Uses a threshold (not a proximity match) so that any ratio ≥ min(SPLIT_RATIOS)
+     * is flagged, not just values close to a specific split factor.
      *
      * @param PriceAlert $alert
      * @param float      $currentPrice
@@ -493,17 +501,11 @@ class AlertService
      */
     private function _isPotentialSplitAnomaly(PriceAlert $alert, float $currentPrice): bool
     {
-        if ($currentPrice <= 0) {
-            return false;
-        }
-
-        $ratio = (float) config('alerts.split_anomaly_ratio', 3);
-
-        return match ($alert->alert_type) {
-            'PRICE_ABOVE' => (float) $alert->target_price > $currentPrice * $ratio,
-            'PRICE_BELOW' => (float) $alert->target_price < $currentPrice / $ratio,
-            default       => false,
-        };
+        return SplitDetectionService::isAlertTargetStale(
+            $alert->alert_type,
+            (float) $alert->target_price,
+            $currentPrice
+        );
     }
 
     /**
@@ -547,28 +549,34 @@ class AlertService
 
     /**
      * Send a split-anomaly maintenance warning email.
+     * Creates a notification record so the 1-per-day throttle applies to split warnings too.
      *
      * @param PriceAlert $alert
      * @param float      $currentPrice
      * @param int        $userId
      *
-     * @return void
+     * @return bool
      */
-    private function _sendSplitWarningEmail(PriceAlert $alert, float $currentPrice, int $userId): void
+    private function _sendSplitWarningEmail(PriceAlert $alert, float $currentPrice, int $userId): bool
     {
         $emailTo = config('alerts.email_to') ?: $this->_getUserEmail($userId);
 
         if (empty($emailTo)) {
-            return;
+            return false;
         }
+
+        $notification = $this->_createNotificationRecord($alert, $currentPrice, null, $userId, 'SENT');
 
         try {
             $mailable = new PriceAlertTriggered($alert, $currentPrice, null, true);
             Mail::to($emailTo)->send($mailable);
             Log::warning("AlertService: split anomaly detected for alert #{$alert->id} ({$alert->symbol})"
                 . " — maintenance email sent");
+            return true;
         } catch (\Throwable $e) {
             Log::error("AlertService: split warning email failed for alert #{$alert->id}: " . $e->getMessage());
+            $notification->update(['status' => 'FAILED', 'error_message' => substr($e->getMessage(), 0, 500)]);
+            return false;
         }
     }
 

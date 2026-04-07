@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ovidiuro\myfinance2\App\Services\Returns;
 
 use ovidiuro\myfinance2\App\Models\Trade;
+use ovidiuro\myfinance2\App\Services\SplitDetectionService;
 
 /**
  * Returns Alerts Service
@@ -28,13 +29,6 @@ class ReturnsAlerts
     private array $_positionOverrideKeywords;
     private array $_withdrawalsOverrides;
     private array $_depositsOverrides;
-
-    // Common stock split ratios to detect (3:1, 5:1, 10:1, 20:1)
-    private const SPLIT_RATIOS = [3, 5, 10, 20];
-
-    // Tolerance for detecting split ratios (e.g., 0.25 = 25% tolerance)
-    // Using 25% to account for price movements between the last trade date and valuation date
-    private const RATIO_TOLERANCE = 0.25;
 
     public function __construct()
     {
@@ -731,19 +725,7 @@ class ReturnsAlerts
      */
     private function _isSplitRatio(float $qty1, float $qty2): bool
     {
-        if ($qty1 <= 0 || $qty2 <= 0) {
-            return false;
-        }
-
-        $ratio = $qty1 > $qty2 ? $qty1 / $qty2 : $qty2 / $qty1;
-
-        foreach (self::SPLIT_RATIOS as $splitRatio) {
-            if ($this->_isCloseToRatio($ratio, $splitRatio)) {
-                return true;
-            }
-        }
-
-        return false;
+        return SplitDetectionService::isQuantitySplitRatio($qty1, $qty2);
     }
 
     /**
@@ -881,17 +863,16 @@ class ReturnsAlerts
     }
 
     /**
-     * Detect if API price vs trade prices suggests a stock split issue
+     * Detect if API price vs trade prices suggests a stock split issue.
      *
      * Returns true if the ratio between the most recent trade price and API price
-     * is close to a common split ratio (3x, 5x, 10x, 20x, etc.)
+     * is close to a known split ratio (forward or reverse).
      * Using the most recent trade price (closest to valuation date) gives more accurate
      * detection than averaging all historical trades which may span multiple splits.
      */
     private function _detectsSplitIssue(float $apiPrice, array $trades): bool
     {
         if (empty($trades) || $apiPrice <= 0) {
-            // No trades to compare - can't detect split issue, skip alert
             return false;
         }
 
@@ -900,34 +881,7 @@ class ReturnsAlerts
             return false;
         }
 
-        // Calculate the ratio (could be > 1 or < 1 depending on split direction)
-        $ratio = $recentTradePrice / $apiPrice;
-
-        // Check if ratio is close to any common split factor
-        foreach (self::SPLIT_RATIOS as $splitRatio) {
-            // Check for ratio close to splitRatio (API price too low - split not applied)
-            if ($this->_isCloseToRatio($ratio, $splitRatio)) {
-                return true;
-            }
-            // Check for inverse ratio (API price too high - reverse split not applied)
-            if ($this->_isCloseToRatio($ratio, 1 / $splitRatio)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Check if a value is close to a target ratio within tolerance
-     */
-    private function _isCloseToRatio(float $value, float $target): bool
-    {
-        if ($target <= 0) {
-            return false;
-        }
-        $tolerance = $target * self::RATIO_TOLERANCE;
-        return abs($value - $target) <= $tolerance;
+        return SplitDetectionService::isPriceSplitAnomaly($recentTradePrice, $apiPrice);
     }
 
     /**

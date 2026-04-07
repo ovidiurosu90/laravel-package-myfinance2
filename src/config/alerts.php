@@ -11,5 +11,4 @@ return [
     'throttle_hours'           => env('MYFINANCE2_ALERTS_THROTTLE_HOURS', 24),
     'suggestion_threshold_pct' => env('MYFINANCE2_SUGGESTION_THRESHOLD_PCT', 3),
     'market_hours_only'        => env('MYFINANCE2_ALERTS_MARKET_HOURS_ONLY', false),
-    'split_anomaly_ratio'      => env('MYFINANCE2_ALERTS_SPLIT_ANOMALY_RATIO', 3),
 ];

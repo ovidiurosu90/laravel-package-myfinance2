@@ -1,4 +1,5 @@
 @use('ovidiuro\myfinance2\App\Services\MoneyFormat')
+@use('ovidiuro\myfinance2\App\Services\SplitDetectionService')
 @extends('layouts.app')
 @section('template_title', 'Alert Notification History')
 @section('template_linked_css')
@@ -31,10 +32,42 @@
                     </div>
                     <div class="card-body p-0">
                         <div class="p-3">
+                            <div id="history-bulk-action-bar" style="display:none"
+                                 class="d-flex align-items-center gap-1 flex-wrap">
+                                <span id="history-bulk-selection-count"
+                                      class="text-muted small fw-semibold me-1"></span>
+                                <form method="POST"
+                                      action="{{ route('myfinance2::price-alerts.history.bulk-action') }}"
+                                      id="history-bulk-action-form"
+                                      class="d-flex gap-1 flex-wrap mb-0">
+                                    @csrf
+                                    <input type="hidden" name="action" value="delete">
+                                    <button type="button"
+                                            id="history-bulk-delete-btn"
+                                            class="btn btn-sm btn-outline-danger"
+                                            data-bs-toggle="tooltip"
+                                            title="Delete selected notification records"
+                                            disabled>
+                                        <i class="fa fa-fw fa-trash" aria-hidden="true"></i> Delete
+                                    </button>
+                                    <button type="button"
+                                            id="history-bulk-clear"
+                                            class="btn btn-sm btn-link text-secondary p-0 ms-1"
+                                            data-bs-toggle="tooltip"
+                                            title="Clear selection"
+                                            disabled>
+                                        <i class="fa fa-fw fa-times" aria-hidden="true"></i>
+                                    </button>
+                                </form>
+                            </div>
                             <div class="table-responsive">
                                 <table class="table table-sm table-striped data-table alert-history-table">
                                     <thead>
                                         <tr>
+                                            <th class="no-sort no-search" style="width: 1px;">
+                                                <input type="checkbox" id="select-all-history"
+                                                       title="Select all visible">
+                                            </th>
                                             <th>Sent At</th>
                                             <th>Alert #</th>
                                             <th>Symbol</th>
@@ -44,7 +77,7 @@
                                             <th class="text-right text-nowrap">Projected Gain</th>
                                             <th>Channel</th>
                                             <th>Status</th>
-                                            <th class="no-sort">Actions</th>
+                                            <th class="no-sort no-search">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -55,7 +88,19 @@
                                                 ENT_QUOTES | ENT_HTML5, 'UTF-8'
                                             );
                                         @endphp
+                                        @php
+                                            $isSplitWarning = SplitDetectionService::isAlertTargetStale(
+                                                $notif->alert_type,
+                                                (float) $notif->target_price,
+                                                (float) $notif->current_price
+                                            );
+                                        @endphp
                                         <tr>
+                                            <td>
+                                                <input type="checkbox"
+                                                       class="history-row-checkbox"
+                                                       value="{{ $notif->id }}">
+                                            </td>
                                             <td class="text-nowrap">
                                                 {{ $notif->sent_at ? $notif->sent_at->timezone(config('app.timezone'))->format('Y-m-d H:i') : '—' }}
                                             </td>
@@ -106,12 +151,18 @@
                                             </td>
                                             <td>{{ $notif->notification_channel }}</td>
                                             <td>
-                                                @if ($notif->status === 'SENT')
+                                                @if ($isSplitWarning)
+                                                    <span class="badge bg-warning text-dark"
+                                                          data-bs-toggle="tooltip"
+                                                          title="Alert target is suspiciously far from the trigger price — possible unapplied stock split">
+                                                        <i class="fa fa-fw fa-exclamation-triangle" aria-hidden="true"></i> Split Warning
+                                                    </span>
+                                                @elseif ($notif->status === 'SENT')
                                                     <span class="badge bg-success">SENT</span>
                                                 @else
                                                     <span class="badge bg-danger"
-                                                        data-bs-toggle="tooltip"
-                                                        title="{{ $notif->error_message }}">
+                                                          data-bs-toggle="tooltip"
+                                                          title="{{ $notif->error_message }}">
                                                         FAILED
                                                     </span>
                                                 @endif
@@ -146,16 +197,122 @@
 <script type="module">
 $(document).ready(function ()
 {
-    $('.alert-history-table.data-table').DataTable({
+    // Col 0: checkbox, 1: Sent At, 2: Alert #, 3: Symbol, 4: Type,
+    // 5: Target Price, 6: Price at Trigger, 7: Projected Gain, 8: Channel, 9: Status, 10: Actions
+    const table = $('.alert-history-table.data-table').DataTable({
         'pageLength': 100,
-        'order': [[ 0, 'desc' ]],
+        'order': [[ 1, 'desc' ]],
         'autoWidth': false,
+        'dom': '<"d-flex align-items-center gap-3 mb-2"<"history-bulk-slot">l<"ms-auto"f>>rtip',
         'columnDefs': [
-            { targets: 'no-sort', sortable: false },
+            { targets: 'no-sort',   sortable:   false },
+            { targets: 'no-search', searchable: false },
         ],
         'language': {
             'emptyTable': 'No notification history found.',
         },
+    });
+
+    // Move the bulk action bar into the DataTables header row (left of search)
+    $('#history-bulk-action-bar').appendTo('.history-bulk-slot').css('display', 'flex');
+
+    // ── Bulk selection ────────────────────────────────────────────────────────
+
+    const selectedIds = new Set();
+    const $selectAll  = $('#select-all-history');
+    const $countLabel = $('#history-bulk-selection-count');
+    const $deleteBtn  = $('#history-bulk-delete-btn');
+    const $clearBtn   = $('#history-bulk-clear');
+
+    function visibleCheckboxes()
+    {
+        return table.rows({ filter: 'applied' }).nodes().to$().find('.history-row-checkbox');
+    }
+
+    function updateBulkBar()
+    {
+        const n        = selectedIds.size;
+        const disabled = n === 0;
+        $countLabel.text(n + ' selected');
+        $deleteBtn.prop('disabled', disabled);
+        $clearBtn.prop('disabled', disabled);
+    }
+
+    function clearSelection()
+    {
+        selectedIds.clear();
+        $selectAll.prop('checked', false);
+        $('.history-row-checkbox').prop('checked', false);
+        updateBulkBar();
+    }
+
+    // Select-all checkbox in the header
+    $selectAll.on('change', function ()
+    {
+        const checked = this.checked;
+        visibleCheckboxes().each(function ()
+        {
+            this.checked = checked;
+            const id = parseInt(this.value, 10);
+            if (checked) {
+                selectedIds.add(id);
+            } else {
+                selectedIds.delete(id);
+            }
+        });
+        updateBulkBar();
+    });
+
+    // Individual row checkbox
+    $(document).on('change', '.history-row-checkbox', function ()
+    {
+        const id = parseInt(this.value, 10);
+        if (this.checked) {
+            selectedIds.add(id);
+        } else {
+            selectedIds.delete(id);
+            $selectAll.prop('checked', false);
+        }
+
+        const $visible = visibleCheckboxes();
+        if ($visible.length > 0 && $visible.filter(':checked').length === $visible.length) {
+            $selectAll.prop('checked', true);
+        }
+
+        updateBulkBar();
+    });
+
+    // Clear button
+    $clearBtn.on('click', clearSelection);
+
+    // Clear selection after DataTable redraws (search/filter/page change)
+    table.on('draw', function ()
+    {
+        clearSelection();
+    });
+
+    // Delete button
+    $deleteBtn.on('click', function ()
+    {
+        const ids = Array.from(selectedIds);
+        if (ids.length === 0) { return; }
+
+        if (!window.confirm(`Delete ${ids.length} notification record(s)? This cannot be undone.`)) {
+            return;
+        }
+
+        const $form = $('#history-bulk-action-form');
+        $form.find('.bulk-id-input').remove();
+        ids.forEach(function (id)
+        {
+            $('<input>').attr({
+                type:  'hidden',
+                class: 'bulk-id-input',
+                name:  'ids[]',
+                value: id,
+            }).appendTo($form);
+        });
+        $form.submit();
     });
 });
 </script>

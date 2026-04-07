@@ -16,6 +16,31 @@ class PriceAlertNotificationController extends MyFinance2Controller
     }
 
     /**
+     * Delete multiple notification records (bulk action).
+     *
+     * @param Request $request
+     *
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function bulkAction(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $action = $request->input('action');
+        $ids    = array_filter(array_map('intval', (array) $request->input('ids', [])));
+
+        if (empty($ids) || $action !== 'delete') {
+            return redirect()->route('myfinance2::price-alerts.history')
+                ->with('error', 'Invalid bulk action request.');
+        }
+
+        $affected = PriceAlertNotification::whereIn('id', $ids)
+            ->where('user_id', auth()->user()->id)
+            ->delete();
+
+        return redirect()->route('myfinance2::price-alerts.history')
+            ->with('success', "{$affected} notification record(s) deleted.");
+    }
+
+    /**
      * Delete a notification record.
      * Removing today's record allows the alert to re-trigger on the same day.
      *
