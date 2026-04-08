@@ -48,6 +48,10 @@ Route::group([
 
     Route::resource('orders', 'OrdersController');
 
+    Route::get('stock-splits', 'StockSplitsController@index')->name('stock-splits.index');
+    Route::get('stock-splits/create', 'StockSplitsController@create')->name('stock-splits.create');
+    Route::post('stock-splits', 'StockSplitsController@store')->name('stock-splits.store');
+
     Route::resource('currencies', 'CurrenciesController');
     Route::resource('accounts', 'AccountsController');
     Route::resource('ledger-transactions', 'LedgerTransactionsController');

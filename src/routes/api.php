@@ -10,5 +10,6 @@ Route::group([
     Route::get('get-cash-balances', 'AjaxController@getCashBalances');
     Route::get('get-currency-exchange-gain-estimate',
                     'AjaxController@getCurrencyExchangeGainEstimate');
+    Route::get('get-open-trades', 'AjaxController@getOpenTrades');
 });
 

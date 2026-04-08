@@ -62,6 +62,13 @@
         </a>
         <div class="dropdown-divider"></div>
 
+        <a class="dropdown-item
+            {{ Request::is('stock-splits') || Request::is('stock-splits/*') ? 'active' : null }}"
+           href="{{ url('/stock-splits') }}">
+            {!! trans('myfinance2::splits.titles.dashboard') !!}
+        </a>
+        <div class="dropdown-divider"></div>
+
         <a class="dropdown-item {{ Request::is('returns') ? 'active' : null }}"
            href="{{ url('/returns') }}">
             {!! trans('myfinance2::returns.titles.dashboard') !!}

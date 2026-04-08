@@ -8,6 +8,7 @@ use ovidiuro\myfinance2\App\Models\WatchlistSymbol;
 use ovidiuro\myfinance2\App\Models\Trade;
 use ovidiuro\myfinance2\App\Models\Order;
 use ovidiuro\myfinance2\App\Models\PriceAlert;
+use ovidiuro\myfinance2\App\Models\StockSplit;
 use ovidiuro\myfinance2\App\Services\Positions;
 
 use Illuminate\Support\Facades\Log;
@@ -51,6 +52,14 @@ class WatchlistSymbolsDashboard
             $activeAlertsBySymbol[$alert->symbol][] = $alert;
         }
 
+        $stockSplits = StockSplit::whereIn('symbol', $quoteSymbols)
+            ->orderBy('split_date', 'desc')
+            ->get();
+        $stockSplitsBySymbol = [];
+        foreach ($stockSplits as $split) {
+            $stockSplitsBySymbol[$split->symbol][] = $split;
+        }
+
         $items = $positionsData['quotes'];
         foreach ($items as $symbol => $quoteData) {
             if (empty($watchlistSymbolsDictionary[$symbol])) {
@@ -65,6 +74,7 @@ class WatchlistSymbolsDashboard
             $items[$symbol]['open_positions'] = [];
             $items[$symbol]['open_orders'] = $openOrdersBySymbol[$symbol] ?? [];
             $items[$symbol]['active_alerts'] = $activeAlertsBySymbol[$symbol] ?? [];
+            $items[$symbol]['stock_splits']  = $stockSplitsBySymbol[$symbol] ?? [];
             $items[$symbol]['base_value'] = null;
         }
         if (empty($positionsData['groupedItems'])) {

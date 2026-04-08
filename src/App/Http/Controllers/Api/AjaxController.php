@@ -200,6 +200,52 @@ class AjaxController extends MyFinance2Controller
     }
 
     /**
+     * Return all OPEN trades for a symbol (current user scope).
+     * Used by the Stock Splits create form to preview what will be updated.
+     *
+     * @param \Illuminate\Http\Request $request
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getOpenTrades(Request $request)
+    {
+        if (!$request->filled('symbol')) {
+            return response()->json(['message' => 'Missing parameter symbol!'], 422);
+        }
+
+        $symbol = strtoupper(trim($request->symbol));
+
+        $trades = Trade::where('symbol', $symbol)
+            ->where('status', 'OPEN')
+            ->with(['accountModel', 'tradeCurrencyModel'])
+            ->orderBy('timestamp', 'desc')
+            ->get();
+
+        $result = $trades->map(function ($trade)
+        {
+            $account      = $trade->accountModel?->name ?? '—';
+            $currency     = $trade->tradeCurrencyModel
+                ? strip_tags(html_entity_decode($trade->tradeCurrencyModel->display_code, ENT_HTML5, 'UTF-8'))
+                : '';
+
+            return [
+                'id'             => $trade->id,
+                'account'        => $account,
+                'date'           => $trade->timestamp?->format('Y-m-d') ?? '',
+                'action'         => $trade->action,
+                'quantity'       => (float) $trade->quantity,
+                'unit_price'     => (float) $trade->unit_price,
+                'trade_currency' => $currency,
+            ];
+        });
+
+        return response()->json([
+            'symbol' => $symbol,
+            'trades' => $result,
+        ]);
+    }
+
+    /**
      * @param \Illuminate\Http\Request $request
      *
      * @return \Illuminate\Http\JsonResponse

@@ -219,10 +219,8 @@
                         </div>
                     @endif
                 </td>
-                <td class="d-none d-xl-table-cell">
-                    <span class="small text-muted">
-                        {{ $item->notes ? \Illuminate\Support\Str::limit($item->notes, 60) : '—' }}
-                    </span>
+                <td class="d-none d-xl-table-cell" style="white-space: normal;">
+                    <span class="small text-muted">{{ $item->notes ?: '—' }}</span>
                 </td>
                 <td class="d-none d-xl-table-cell">{{ $item->created_at }}</td>
                 <td class="text-nowrap">

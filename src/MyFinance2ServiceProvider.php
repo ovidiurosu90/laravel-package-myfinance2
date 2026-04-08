@@ -54,6 +54,7 @@ class MyFinance2ServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(__DIR__ . '/config/accounts.php', 'accounts');
         $this->mergeConfigFrom(__DIR__ . '/config/orders.php', 'orders');
         $this->mergeConfigFrom(__DIR__ . '/config/alerts.php', 'alerts');
+        $this->mergeConfigFrom(__DIR__ . '/config/splits.php', 'splits');
         $this->loadMigrations();
 
         $this->loadRoutesFrom(__DIR__ . '/routes/web.php');
