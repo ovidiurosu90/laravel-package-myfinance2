@@ -2,12 +2,6 @@
     accept-charset="utf-8" class="mb-0 needs-validation" role="form">
     {{ method_field('POST') }}
     <div class="card-body">
-        <div class="alert alert-warning mb-3">
-            <i class="fa fa-fw fa-exclamation-triangle" aria-hidden="true"></i>
-            <strong>Irreversible action:</strong>
-            Recording a split will immediately update <strong>all your open trades and active alerts</strong>
-            for this symbol.
-        </div>
         @include('myfinance2::splits.forms.item-form')
     </div>
     <div class="card-footer">

@@ -207,7 +207,7 @@ class AjaxController extends MyFinance2Controller
      *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function getOpenTrades(Request $request)
+    public function getTrades(Request $request)
     {
         if (!$request->filled('symbol')) {
             return response()->json(['message' => 'Missing parameter symbol!'], 422);
@@ -216,7 +216,6 @@ class AjaxController extends MyFinance2Controller
         $symbol = strtoupper(trim($request->symbol));
 
         $trades = Trade::where('symbol', $symbol)
-            ->where('status', 'OPEN')
             ->with(['accountModel', 'tradeCurrencyModel'])
             ->orderBy('timestamp', 'desc')
             ->get();

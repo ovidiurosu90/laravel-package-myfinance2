@@ -56,7 +56,7 @@ $(document).ready(function ()
     // ── Ratio input → live preview update ──────────────────────────────────
     $('#ratio_numerator').on('input', function () { renderPreview(); });
 
-    // ── AJAX: fetch ALL open trades for a symbol ───────────────────────────
+    // ── AJAX: fetch all trades for a symbol ────────────────────────────────
     // Date filtering is done client-side in renderPreview()
     function fetchOpenTrades(symbol)
     {
@@ -67,7 +67,7 @@ $(document).ready(function ()
 
         $.ajax({
             type:    'GET',
-            url:     "{{ url('/get-open-trades') }}",
+            url:     "{{ url('/get-trades') }}",
             headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
             data:    { symbol: symbol },
             success: function (data)

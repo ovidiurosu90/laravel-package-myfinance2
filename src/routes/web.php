@@ -48,6 +48,14 @@ Route::group([
 
     Route::resource('orders', 'OrdersController');
 
+    #NOTE Stock split custom action routes must be before static routes to avoid ambiguity
+    Route::get('stock-splits/{id}/revert-preview',
+               'StockSplitsController@revertPreview')->name('stock-splits.revert-preview');
+    Route::post('stock-splits/{id}/revert',
+                'StockSplitsController@revert')->name('stock-splits.revert');
+    Route::post('stock-splits/{id}/reapply',
+                'StockSplitsController@reapply')->name('stock-splits.reapply');
+
     Route::get('stock-splits', 'StockSplitsController@index')->name('stock-splits.index');
     Route::get('stock-splits/create', 'StockSplitsController@create')->name('stock-splits.create');
     Route::post('stock-splits', 'StockSplitsController@store')->name('stock-splits.store');

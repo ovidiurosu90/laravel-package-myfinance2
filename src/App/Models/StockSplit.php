@@ -31,6 +31,7 @@ class StockSplit extends MyFinance2Model
         'created_at'       => 'datetime',
         'updated_at'       => 'datetime',
         'deleted_at'       => 'datetime',
+        'reverted_at'      => 'datetime',
     ];
 
     protected $fillable = [
@@ -46,5 +47,10 @@ class StockSplit extends MyFinance2Model
     public function getRatioLabel(): string
     {
         return $this->ratio_numerator . ':' . $this->ratio_denominator;
+    }
+
+    public function isReverted(): bool
+    {
+        return $this->reverted_at !== null;
     }
 }

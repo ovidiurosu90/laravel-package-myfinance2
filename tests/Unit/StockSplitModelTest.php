@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace ovidiuro\myfinance2\Tests\Unit;
 
+use Carbon\Carbon;
 use PHPUnit\Framework\TestCase;
 use ovidiuro\myfinance2\App\Models\StockSplit;
 
@@ -47,5 +48,33 @@ class StockSplitModelTest extends TestCase
     public function test_get_ratio_label_uses_actual_denominator(): void
     {
         $this->assertSame('4:1', $this->_makeSplit(4, 1)->getRatioLabel());
+    }
+
+    // -----------------------------------------------------------------------
+    // isReverted
+    // -----------------------------------------------------------------------
+
+    /**
+     * A split with no reverted_at is not reverted.
+     */
+    public function test_is_reverted_false_when_reverted_at_is_null(): void
+    {
+        $split = new StockSplit();
+        $split->setRawAttributes(['reverted_at' => null], true);
+        $this->assertFalse($split->isReverted());
+    }
+
+    /**
+     * A split with reverted_at set is considered reverted.
+     * Store a Carbon instance directly to bypass fromDateTime() → getConnection() → config().
+     */
+    public function test_is_reverted_true_when_reverted_at_is_set(): void
+    {
+        $split = new StockSplit();
+        $split->setRawAttributes(
+            array_merge($split->getAttributes(), ['reverted_at' => Carbon::now()]),
+            true
+        );
+        $this->assertTrue($split->isReverted());
     }
 }

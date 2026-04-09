@@ -101,7 +101,7 @@
             </tbody>
         </table>
         @else
-        <p class="none-msg">No open trades were found for {{ $split->symbol }} on or before {{ $split->split_date->format('Y-m-d') }}.</p>
+        <p class="none-msg">No trades were found for {{ $split->symbol }} on or before {{ $split->split_date->format('Y-m-d') }}.</p>
         @endif
 
         {{-- Adjusted alerts --}}

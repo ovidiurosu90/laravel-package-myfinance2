@@ -11,6 +11,10 @@ return [
     'flash-messages' => [
         'split-recorded'  => 'Split :ratio for :symbol recorded. :trades trade(s) updated, :alerts alert(s) adjusted.',
         'duplicate-split' => 'A split for :symbol on :date has already been recorded.',
+        'split-reverted'   => 'Split :ratio for :symbol reverted. :trades trade(s) restored, :alerts alert(s) restored.',
+        'already-reverted' => 'This split has already been reverted.',
+        'split-reapplied'  => 'Split :ratio for :symbol reapplied. :trades trade(s) updated, :alerts alert(s) adjusted.',
+        'not-reverted'     => 'This split has not been reverted.',
     ],
     'forms' => [
         'item-form' => [
