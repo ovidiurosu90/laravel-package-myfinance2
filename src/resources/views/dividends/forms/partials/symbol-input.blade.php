@@ -16,13 +16,11 @@
                 required maxlength="16"
                 oninput="this.value = this.value.toUpperCase()"
             />
-            <div class="input-group-append">
-                <span class="input-group-text" role="button">
-                    <span class="fas fa-sign-in" id="get-finance-data"
-                        data-bs-toggle="tooltip"
-                        title="{{ trans('myfinance2::dividends.tooltips.'
-                                        . 'get-finance-data') }}"
-                        ></span>
+            <div class="input-group-append" id="get-finance-data" role="button"
+                data-bs-toggle="tooltip"
+                title="{{ trans('myfinance2::dividends.tooltips.get-finance-data') }}">
+                <span class="input-group-text">
+                    <span class="fas fa-sign-in"></span>
                 </span>
             </div>
         </div>

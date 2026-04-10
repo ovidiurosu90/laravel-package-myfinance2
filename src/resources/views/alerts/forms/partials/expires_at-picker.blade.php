@@ -3,11 +3,17 @@
         {{ trans('myfinance2::alerts.forms.item-form.expires_at.label') }}
     </label>
     <div class="col-12">
-        <input type="datetime-local" name="expires_at" id="expires_at"
-            class="form-control"
-            value="{{ old('expires_at', !empty($expires_at)
-                ? \Carbon\Carbon::parse($expires_at)->format('Y-m-d\TH:i')
-                : '') }}">
+        <div class="input-group date" id="expires-at-picker"
+            data-td-target-input="nearest" data-td-target-toggle="nearest">
+            <input name="expires_at" type="text"
+                class="form-control datetimepicker-input"
+                data-td-target="#expires-at-picker"
+                value="{{ $expires_at }}" />
+            <span class="input-group-text" data-td-target="#expires-at-picker"
+                data-td-toggle="datetimepicker" role="button">
+                <span class="fas fa-calendar"></span>
+            </span>
+        </div>
     </div>
     @if ($errors->has('expires_at'))
         <div class="col-12">

@@ -43,7 +43,7 @@
                 <td class="text-nowrap text-right pr-2">
                     {!! $item->getFormattedFee() !!}
                 </td>
-                <td>{{ $item->description }}</td>
+                <td><div style="max-width: 300px">{{ $item->description }}</div></td>
                 <td>{{ $item->created_at }}</td>
                 <td>{{ $item->updated_at }}</td>
                 <td>

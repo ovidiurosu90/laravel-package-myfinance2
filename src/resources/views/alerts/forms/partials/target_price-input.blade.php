@@ -7,7 +7,7 @@
         <input type="number" step="any" name="target_price" id="target_price"
             class="form-control"
             placeholder="{{ trans('myfinance2::alerts.forms.item-form.target_price.placeholder') }}"
-            value="{{ old('target_price', $target_price) }}"
+            value="{{ old('target_price', !empty($target_price) ? $target_price + 0 : '') }}"
             required>
     </div>
     @if ($errors->has('target_price'))

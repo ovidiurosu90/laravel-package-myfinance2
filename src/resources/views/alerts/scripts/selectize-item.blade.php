@@ -56,5 +56,13 @@ $(document).ready(function ()
             }
         }
     });
+
+    var tradeCurrencyInitialValue = $tradeCurrencySelect[0].selectize.getValue();
+    if (tradeCurrencyInitialValue) {
+        var initialCurrency = tradeCurrenciesById[tradeCurrencyInitialValue];
+        if (initialCurrency) {
+            $('#trade_currency-label-tooltip').html(initialCurrency['display_code']);
+        }
+    }
 });
 </script>

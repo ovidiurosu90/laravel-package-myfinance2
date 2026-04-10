@@ -260,7 +260,7 @@ class AjaxController extends MyFinance2Controller
         }
         $timestamp = $request->has('timestamp') ? $request->timestamp : null;
 
-        $service = new CashBalancesUtils($request->account_id);
+        $service = new CashBalancesUtils((int) $request->account_id);
         $cashBalances = $service->getCashBalances($timestamp);
         if (is_null($cashBalances)) {
             return response()->json([
