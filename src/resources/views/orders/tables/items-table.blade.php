@@ -90,6 +90,7 @@
                                  ['id' => $item->id, 'trade_id' => $item->trade_id,
                                   'label' => $item->getShortLabel()])
                         @include('myfinance2::orders.forms.expire-sm', ['id' => $item->id])
+                        @include('myfinance2::orders.forms.expire-and-clone-sm', ['id' => $item->id])
                     @elseif ($item->status === 'FILLED' && !$item->trade_id)
                         @include('myfinance2::orders.forms.link-trade-sm',
                                  ['id' => $item->id, 'label' => $item->getShortLabel()])

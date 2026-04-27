@@ -168,10 +168,7 @@ class CashBalancesUtils
                 . ($ledgerTransactionDebit->fee != 0.0 ?
                     ' -' . round($ledgerTransactionDebit->fee, 2) : '')
                 . ' funding to '
-                . $ledgerTransactionDebit->creditAccountModel->name . '('
-                . $ledgerTransactionDebit->creditAccountModel->currency
-                    ->display_code
-                . ')'
+                . $ledgerTransactionDebit->creditAccountModel->name
             ;
 
             if ($ledgerTransactionDebit->timestamp >
@@ -206,10 +203,7 @@ class CashBalancesUtils
                 . ($ledgerTransactionCredit->fee != 0.0 ?
                     ' -' . round($ledgerTransactionCredit->fee, 2) : '')
                 . ' funding from '
-                . $ledgerTransactionCredit->debitAccountModel->name . '('
-                . $ledgerTransactionCredit->debitAccountModel->currency
-                    ->display_code
-                . ')'
+                . $ledgerTransactionCredit->debitAccountModel->name
             ;
 
             if ($ledgerTransactionCredit->timestamp >

@@ -44,7 +44,7 @@ $(document).ready(function()
                 }
 
                 if (s.suggested_qty !== null && !$quantityInput.val()) {
-                    $quantityInput.val(s.suggested_qty);
+                    $quantityInput.val(s.suggested_qty).trigger('input');
                 }
 
                 if (s.suggested_account_id && accountSelectize && !accountSelectize.getValue()) {

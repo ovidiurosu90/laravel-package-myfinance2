@@ -420,6 +420,17 @@ class MoversService
                 continue;
             }
 
+            // Guard: Yahoo pre-market split artifacts cause day_change to look like a massive move.
+            $currentPrice = (float) $quotes[$symbol]['price'];
+            $impliedPrevClose = $currentPrice - $dayChange;
+            if ($currentPrice > 0 && $impliedPrevClose > 0
+                && SplitDetectionService::isPriceSplitAnomaly($currentPrice, $impliedPrevClose)) {
+                Log::warning("MoversService: {$symbol} day_change={$dayChange} looks like a"
+                    . " split artifact (current={$currentPrice},"
+                    . " implied_prev={$impliedPrevClose}), skipping today movers");
+                continue;
+            }
+
             $eurRate = $this->_getEurRate($position['trade_currency'], $currentDate, $symbol);
             if ($eurRate === null) {
                 continue;

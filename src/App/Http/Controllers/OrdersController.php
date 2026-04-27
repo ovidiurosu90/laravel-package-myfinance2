@@ -91,6 +91,22 @@ class OrdersController extends MyFinance2Controller
             $data['description'] = 'Price Alert #' . (int) $alertId;
         }
 
+        // Clone prefill: override individual fields when passed explicitly as query params
+        $cloneFields = [
+            'account_id'        => fn($v) => is_numeric($v) ? (int) $v : null,
+            'trade_currency_id' => fn($v) => is_numeric($v) ? (int) $v : null,
+            'exchange_rate'     => fn($v) => $v,
+            'quantity'          => fn($v) => $v,
+            'limit_price'       => fn($v) => $v,
+            'description'       => fn($v) => $v,
+        ];
+        foreach ($cloneFields as $field => $cast) {
+            $value = $request->query($field);
+            if ($value !== null && $value !== '') {
+                $data[$field] = $cast($value);
+            }
+        }
+
         $data['projectedGain'] = null;
         $data['projectedGainPriceLabel'] = null;
         if ($symbolPrefill) {
@@ -139,8 +155,10 @@ class OrdersController extends MyFinance2Controller
         $service = new OrderFormFields($id);
         $data = $service->handle();
 
-        $data['projectedGain'] = $this->_buildProjectedGain($item);
-        $data['projectedGainPriceLabel'] = 'limit price';
+        $projectedGain = $this->_buildProjectedGain($item);
+
+        $data['projectedGain']           = $projectedGain;
+        $data['projectedGainPriceLabel'] = $projectedGain['price_label'] ?? 'limit price';
 
         return view('myfinance2::orders.crud.edit', $data);
     }
@@ -297,6 +315,41 @@ class OrdersController extends MyFinance2Controller
     }
 
     /**
+     * Expire the current PLACED order at its placed_at date, then redirect to
+     * the create form with all fields pre-filled so the user can clone it.
+     *
+     * @param int $id
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function expireAndClone(int $id)
+    {
+        $item = Order::findOrFail($id);
+
+        if ($item->status !== 'PLACED') {
+            return redirect()->route('myfinance2::orders.index')->with('error',
+                trans('myfinance2::orders.flash-messages.invalid-transition',
+                    ['id' => $id, 'status' => $item->status]));
+        }
+
+        $item->status     = 'EXPIRED';
+        $item->expired_at = ($item->placed_at ?? now())->endOfDay();
+        $item->save();
+
+        return redirect()->route('myfinance2::orders.create', [
+            'symbol'            => $item->symbol,
+            'action'            => $item->action,
+            'account_id'        => $item->account_id,
+            'trade_currency_id' => $item->trade_currency_id,
+            'exchange_rate'     => $item->exchange_rate,
+            'quantity'          => $item->quantity,
+            'limit_price'       => $item->limit_price,
+            'description'       => $item->description,
+        ])->with('success',
+            trans('myfinance2::orders.flash-messages.order-expired-and-cloned', ['id' => $item->id]));
+    }
+
+    /**
      * Cancel a non-terminal order (DRAFT or PLACED → CANCELLED).
      *
      * @param int $id
@@ -395,11 +448,33 @@ class OrdersController extends MyFinance2Controller
      */
     private function _buildProjectedGain(Order $order): ?array
     {
-        if ($order->action !== 'SELL' || (float) $order->limit_price <= 0) {
+        if ($order->action !== 'SELL') {
             return null;
         }
 
-        return $this->_computeProjectedGain($order->symbol, (float) $order->limit_price);
+        $limitPrice = (float) $order->limit_price;
+
+        if ($limitPrice > 0) {
+            $price      = $limitPrice;
+            $priceLabel = 'limit price';
+        } else {
+            $quotes = (new FinanceUtils())->getQuotes([$order->symbol], null, false);
+            $price  = is_array($quotes) ? (float) ($quotes[$order->symbol]['price'] ?? 0) : 0;
+            if ($price <= 0) {
+                return null;
+            }
+            $priceLabel = 'current market price';
+        }
+
+        $result = $this->_computeProjectedGain($order->symbol, $price, (float) $order->quantity);
+        if ($result === null) {
+            return null;
+        }
+
+        $result['price_label'] = $priceLabel;
+        $result['price']       = round($price, 4);
+
+        return $result;
     }
 
     /**
@@ -419,18 +494,26 @@ class OrdersController extends MyFinance2Controller
             return null;
         }
 
-        return $this->_computeProjectedGain($symbol, $currentPrice);
+        $result = $this->_computeProjectedGain($symbol, $currentPrice);
+        if ($result === null) {
+            return null;
+        }
+
+        $result['price'] = round($currentPrice, 4);
+
+        return $result;
     }
 
     /**
      * Shared projected gain computation from open BUY positions at a given sell price.
      *
-     * @param string $symbol
-     * @param float  $sellPrice
+     * @param string     $symbol
+     * @param float      $sellPrice
+     * @param float|null $sellQty   Quantity being sold; defaults to total open position qty.
      *
      * @return array|null
      */
-    private function _computeProjectedGain(string $symbol, float $sellPrice): ?array
+    private function _computeProjectedGain(string $symbol, float $sellPrice, ?float $sellQty = null): ?array
     {
         $openTrades = Trade::where('symbol', $symbol)
             ->where('status', 'OPEN')
@@ -441,11 +524,11 @@ class OrdersController extends MyFinance2Controller
             return null;
         }
 
-        $totalQty = 0.0;
+        $totalQty  = 0.0;
         $totalCost = 0.0;
         foreach ($openTrades as $trade) {
-            $qty = (float) $trade->quantity;
-            $totalQty += $qty;
+            $qty        = (float) $trade->quantity;
+            $totalQty  += $qty;
             $totalCost += $qty * (float) $trade->unit_price;
         }
 
@@ -453,16 +536,17 @@ class OrdersController extends MyFinance2Controller
             return null;
         }
 
+        $qty         = $sellQty ?? $totalQty;
         $avgCost     = $totalCost / $totalQty;
         $gainPerUnit = $sellPrice - $avgCost;
-        $totalGain   = $gainPerUnit * $totalQty;
+        $totalGain   = $gainPerUnit * $qty;
         $gainPct     = $avgCost > 0 ? ($gainPerUnit / $avgCost) * 100.0 : 0.0;
 
         return [
             'gain_value'   => round($totalGain, 2),
             'gain_pct'     => round($gainPct, 4),
             'avg_cost'     => $avgCost,
-            'total_qty'    => $totalQty,
+            'total_qty'    => $qty,
             'has_position' => true,
         ];
     }

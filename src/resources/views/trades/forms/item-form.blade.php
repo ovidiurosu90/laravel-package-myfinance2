@@ -41,3 +41,10 @@
     </div>
 </div>
 
+@if (!empty($showDisableAutoFxSection))
+<div id="disable-auto-fx-section" style="display:none;">
+    <hr class="my-2">
+    @include('myfinance2::trades.forms.partials.disable_auto_fx_rate-section')
+</div>
+@endif
+

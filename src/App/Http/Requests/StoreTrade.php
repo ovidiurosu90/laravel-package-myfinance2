@@ -62,8 +62,15 @@ class StoreTrade extends FormRequest
             ],
             'unit_price'        => 'required|numeric',
             'fee'               => 'required|numeric',
-            'description'       => 'nullable|string|max:512',
-            'is_transfer'       => 'nullable|boolean',
+            'description'          => 'nullable|string|max:512',
+            'is_transfer'          => 'nullable|boolean',
+            'disable_auto_fx_rate' => 'nullable|boolean',
+            'paired_account_id'    => [
+                Rule::requiredIf(fn () => (bool) $this->disable_auto_fx_rate),
+                'nullable',
+                'integer',
+                'exists:' . $accountsTableName . ',id',
+            ],
         ];
     }
 

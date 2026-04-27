@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Log;
 use ovidiuro\myfinance2\App\Models\Order;
 use ovidiuro\myfinance2\App\Models\Trade;
 use ovidiuro\myfinance2\App\Services\TradeFormFields;
+use ovidiuro\myfinance2\App\Services\DisableAutoFxLedgerService;
 use ovidiuro\myfinance2\App\Http\Requests\StoreTrade;
 use ovidiuro\myfinance2\App\Http\Requests\UpdateTrade;
 use ovidiuro\myfinance2\App\Http\Requests\CloseTrades;
@@ -59,6 +60,10 @@ class TradesController extends MyFinance2Controller
             : null;
         $data['autoFetchFinanceData'] = !empty($data['linkedOrder']);
 
+        $data['showDisableAutoFxSection'] = true;
+        $data['disable_auto_fx_rate'] = false;
+        $data['paired_account_id'] = null;
+
         return view('myfinance2::trades.crud.create', $data);
     }
 
@@ -80,6 +85,11 @@ class TradesController extends MyFinance2Controller
                 $order->trade_id = $item->id;
                 $order->save();
             }
+        }
+
+        if ($request->boolean('disable_auto_fx_rate') && $request->paired_account_id) {
+            $autoFxService = new DisableAutoFxLedgerService();
+            $autoFxService->createLedgerTransactions($data, (int) $request->paired_account_id);
         }
 
         return redirect()->route('myfinance2::trades.index')->with('success',

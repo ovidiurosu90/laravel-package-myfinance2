@@ -17,15 +17,19 @@
     <br />
     Average Cost: {!! $openPosition['average_unit_cost_in_trade_currency_formatted']
                    !!}
+    @if(($openPosition['average_unit_cost_in_trade_currency'] ?? 0) < 0)
+    <i class="fas fa-info-circle text-muted ms-1"
+       data-bs-toggle="tooltip"
+       title="Average cost is negative because your sell proceeds exceeded your total
+           buy cost for this position. Your remaining shares are effectively free —
+           you have already recouped more than your full investment."></i>
+    @endif
     @if($openPosition['average_unit_cost2_in_trade_currency_formatted'])
     <br />
-    Average Cost 2:
-    <span data-bs-toggle="tooltip"
-        title="Value without factoring any gains from
-            selling actions!"
-        style="font-style:italic">
-        {!! $openPosition['average_unit_cost2_in_trade_currency_formatted'] !!}
-    </span>
+    Average Cost 2: {!! $openPosition['average_unit_cost2_in_trade_currency_formatted'] !!}
+    <i class="fas fa-info-circle text-muted ms-1"
+       data-bs-toggle="tooltip"
+       title="Value without factoring any gains from selling actions!"></i>
     @endif
     <hr />
 

@@ -71,6 +71,18 @@ return [
                 'label'         => 'Description',
                 'placeholder'   => 'Input Description',
             ],
+            'disable_auto_fx_rate' => [
+                'label' => 'Auto FX',
+                'help'  => 'When enabled, proceeds stay in trade currency (no auto-conversion). '
+                         . 'Two ledger transactions (Debit + Credit) are created automatically '
+                         . 'to record the transfer to the paired account.',
+            ],
+            'paired_account' => [
+                'label'       => 'Paired Account',
+                'placeholder' => 'Select Paired Account',
+                'help'        => 'The account that holds the trade currency proceeds '
+                               . '(e.g. Degiro USD when selling a USD-denominated stock from a EUR account).',
+            ],
             'buttons' => [
                 'save-item' => [
                     'name'      => 'Save Trade',

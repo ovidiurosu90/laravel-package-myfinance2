@@ -188,18 +188,17 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                         Alert <i class="fa fa-fw fa-plus-circle" aria-hidden="true"></i>
                     </a>
                     @if (!empty($quoteData['active_alerts']))
-                        @php $activeAlertCount = count($quoteData['active_alerts']); @endphp
-                        <a href="{{ route('myfinance2::price-alerts.index') }}"
+                        @foreach ($quoteData['active_alerts'] as $activeAlert)
+                        <a href="{{ route('myfinance2::price-alerts.edit', $activeAlert->id) }}"
                             class="d-block text-center w-100"
                             data-bs-toggle="tooltip"
-                            title="{{ $activeAlertCount }} active {{ $activeAlertCount == 1 ? 'alert' : 'alerts' }} for {{ $symbol }}">
-                            @foreach ($quoteData['active_alerts'] as $activeAlert)
+                            title="Edit alert for {{ $symbol }}">
                             <span class="badge d-block w-100 {{ $activeAlert->getStatusBadgeClass() }}">
                                 {{ $activeAlert->alert_type === 'PRICE_ABOVE' ? '▲' : '▼' }}
                                 {!! $quoteData['tradeCurrencyModel']->display_code !!}{{ MoneyFormat::get_formatted_price((float) $activeAlert->target_price) }}
                             </span>
-                            @endforeach
                         </a>
+                        @endforeach
                     @endif
                 </td>
                 <td>

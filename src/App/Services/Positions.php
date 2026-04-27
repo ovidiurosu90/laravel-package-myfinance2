@@ -493,13 +493,12 @@ class Positions
                 $position['accountModel']->currency->display_code,
                 $position['overall_change_in_account_currency']);
 
+        $cost = $position['cost_in_account_currency'];
+
         $position['overall_change_in_percentage'] =
-            !$position['quantity']
+            !$position['quantity'] || $cost == 0
             ? 0
-            : -100
-              + $position['market_value_in_account_currency']
-              * 100
-              / $position['cost_in_account_currency'];
+            : ($position['market_value_in_account_currency'] - $cost) / abs($cost) * 100;
 
         $position['overall_change_in_percentage_formatted'] =
             !$position['quantity']

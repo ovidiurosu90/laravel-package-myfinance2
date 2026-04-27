@@ -93,15 +93,20 @@
                 </td>
                 <td class="text-right text-nowrap">
                     {!! $item['average_unit_cost_in_trade_currency_formatted'] !!}
+                    @if(($item['average_unit_cost_in_trade_currency'] ?? 0) < 0)
+                    <i class="fas fa-info-circle text-muted ms-1"
+                       data-bs-toggle="tooltip"
+                       title="Average cost is negative because your sell proceeds exceeded
+                           your total buy cost for this position. Your remaining shares are
+                           effectively free — you have already recouped more than your full
+                           investment."></i>
+                    @endif
                     @if($item['average_unit_cost2_in_trade_currency_formatted'])
                     <br />
-                    <span data-bs-toggle="tooltip"
-                        title="Value without factoring any gains from
-                            selling actions!"
-                        style="font-style:italic">
-                        {!! $item['average_unit_cost2_in_trade_currency_formatted']
-                         !!}
-                    </span>
+                    {!! $item['average_unit_cost2_in_trade_currency_formatted'] !!}
+                    <i class="fas fa-info-circle text-muted ms-1"
+                       data-bs-toggle="tooltip"
+                       title="Value without factoring any gains from selling actions!"></i>
                     @endif
                 </td>
                 <td class="text-right text-nowrap" data-bs-toggle="tooltip"

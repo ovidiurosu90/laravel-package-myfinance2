@@ -37,6 +37,8 @@ Route::group([
                 'OrdersController@fill')->name('orders.fill');
     Route::post('orders/{id}/expire',
                 'OrdersController@expire')->name('orders.expire');
+    Route::post('orders/{id}/expire-and-clone',
+                'OrdersController@expireAndClone')->name('orders.expire-and-clone');
     Route::post('orders/{id}/cancel',
                 'OrdersController@cancel')->name('orders.cancel');
     Route::post('orders/{id}/reopen',

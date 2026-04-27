@@ -46,6 +46,9 @@ class TradeFormFields extends MyFormFields
                                     ->get(),
             'tradeCurrencies' => Currency::where('is_trade_currency', 1)
                                     ->get(),
+            'ledgerAccounts'  => Account::with('currency')
+                                    ->where('is_ledger_account', 1)
+                                    ->get(),
         ];
     }
 
