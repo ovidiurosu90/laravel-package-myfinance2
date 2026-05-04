@@ -26,6 +26,7 @@
 @section('footer_scripts')
     @include('myfinance2::general.scripts.tooltips')
     @include('myfinance2::returns.scripts.year-selector')
+    @include('myfinance2::returns.scripts.toggles')
     @include('myfinance2::returns.scripts.currency-toggle')
     @if($showOverview ?? true)
         @include('myfinance2::returns.scripts.returns-overview-graph')

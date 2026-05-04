@@ -42,7 +42,9 @@ class ReturnsCurrencyConverter
         array $returnsData,
         array $targetCurrencies,
         int $year = null,
-        array $preloadedCurrencies = []
+        array $preloadedCurrencies = [],
+        bool $excludeCash = false,
+        bool $excludeDepositsWithdrawals = false
     ): array {
         $baseCurrency = $returnsData['baseCurrency'];
         $jan1 = $returnsData['jan1Date'] ?? null;
@@ -76,7 +78,9 @@ class ReturnsCurrencyConverter
                 $exchangeRates,
                 $eurusdRates,
                 $currencyModels,
-                $feesExclusions
+                $feesExclusions,
+                $excludeCash,
+                $excludeDepositsWithdrawals
             );
         }
 
@@ -210,7 +214,9 @@ class ReturnsCurrencyConverter
         array $exchangeRates,
         array $eurusdRates,
         array $currencyModels,
-        array $feesExclusions = []
+        array $feesExclusions = [],
+        bool $excludeCash = false,
+        bool $excludeDepositsWithdrawals = false
     ): array
     {
         $jan1ExchangeRate = $exchangeRates[$targetCurrency]['jan1'];
@@ -279,6 +285,18 @@ class ReturnsCurrencyConverter
             $converted['totalDeposits'] = $depositResult['total'];
         }
 
+        $transferDepositResult = $this->_convertDepositsOrWithdrawals(
+            $accountId,
+            'deposit',
+            $returnsData['transferDeposits'] ?? [],
+            $baseCurrency,
+            $targetCurrency,
+            $conversionPair,
+            $displayCode
+        );
+        $converted['transferDeposits'] = $transferDepositResult['items'];
+        $converted['totalTransferDeposits'] = $transferDepositResult['total'];
+
         $withdrawalResult = $this->_convertDepositsOrWithdrawals(
             $accountId,
             'withdrawal',
@@ -306,6 +324,18 @@ class ReturnsCurrencyConverter
             // Use calculated total
             $converted['totalWithdrawals'] = $withdrawalResult['total'];
         }
+
+        $transferWithdrawalResult = $this->_convertDepositsOrWithdrawals(
+            $accountId,
+            'withdrawal',
+            $returnsData['transferWithdrawals'] ?? [],
+            $baseCurrency,
+            $targetCurrency,
+            $conversionPair,
+            $displayCode
+        );
+        $converted['transferWithdrawals'] = $transferWithdrawalResult['items'];
+        $converted['totalTransferWithdrawals'] = $transferWithdrawalResult['total'];
 
         $dividendResult = $this->_convertDepositsOrWithdrawals(
             $accountId,
@@ -411,17 +441,35 @@ class ReturnsCurrencyConverter
         $converted['excludedTrades'] = $excludedResult['items'];
 
         // Calculate return using the final gross dividends value (which includes override if available)
-        // Return = Dividends + End value - Start value
-        //          - (Deposits - Deposit Fees) + (Withdrawals + Withdrawal Fees)
-        //          - Purchases (net, including fees) + Sales (net, including fees)
-        $depositsWithFees = $converted['totalDeposits']
-            - ($converted['totalDepositsFees'] ?? 0);
-        $withdrawalsWithFees = $converted['totalWithdrawals']
-            + ($converted['totalWithdrawalsFees'] ?? 0);
-        $actualReturn = $converted['totalGrossDividends'] + $converted['dec31Value']
-            - $converted['jan1Value'] - $depositsWithFees + $withdrawalsWithFees
+        // Default: Dividends + End value - Start value - Purchases (net) - TransferDeposits
+        //          + Sales (net) + TransferWithdrawals - Deposits + Withdrawals
+        // When $excludeDepositsWithdrawals=true, Deposits and Withdrawals are omitted from the formula.
+        // Start/end are positions-only when $excludeCash=true, total (positions+cash) otherwise.
+        // NOTE: The same formula also exists in Returns::_computeActualReturn() for the base currency —
+        // both places must be kept in sync.
+        $startValue = $excludeCash ? $converted['jan1PositionsValue'] : $converted['jan1Value'];
+        $endValue = $excludeCash ? $converted['dec31PositionsValue'] : $converted['dec31Value'];
+        $actualReturn = $converted['totalGrossDividends'] + $endValue
+            - $startValue
             - ($converted['totalPurchasesNet'] ?? $converted['totalPurchases'])
-            + ($converted['totalSalesNet'] ?? $converted['totalSales']);
+            - ($converted['totalTransferDeposits'] ?? 0.0)
+            + ($converted['totalSalesNet'] ?? $converted['totalSales'])
+            + ($converted['totalTransferWithdrawals'] ?? 0.0);
+
+        if (!$excludeDepositsWithdrawals) {
+            // Overridden values are already the correct formula amount; use as-is.
+            // Calculated values need fee adjustment:
+            //   Deposits:    net capital added    = amount − fees  (fee leaves portfolio, not deposited)
+            //   Withdrawals: total capital removed = amount + fees  (fee also leaves portfolio)
+            $depositsForFormula = isset($converted['totalDepositsOverride'])
+                ? $converted['totalDeposits']
+                : $converted['totalDeposits'] - ($converted['totalDepositsFees'] ?? 0.0);
+            $withdrawalsForFormula = isset($converted['totalWithdrawalsOverride'])
+                ? $converted['totalWithdrawals']
+                : $converted['totalWithdrawals'] + ($converted['totalWithdrawalsFees'] ?? 0.0);
+            $actualReturn -= $depositsForFormula;
+            $actualReturn += $withdrawalsForFormula;
+        }
 
         // Store the calculated return before applying override
         $converted['actualReturnCalculated'] = $actualReturn;

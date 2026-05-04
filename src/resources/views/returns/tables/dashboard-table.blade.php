@@ -29,11 +29,52 @@
                 </div>
                 <div style="flex: 1; text-align: center;">
                     <small style="color: #0c63e4;">
-                        {!! trans('myfinance2::returns.labels.formula-explanation') !!}
+                        @if($excludeDepositsWithdrawals ?? false)
+                            {!! trans('myfinance2::returns.labels.formula-explanation') !!}
+                        @else
+                            {!! trans('myfinance2::returns.labels.formula-explanation-with-dw') !!}
+                        @endif
+                        @php
+                            $formulaTooltipKey = ($excludeDepositsWithdrawals ?? false)
+                                ? 'myfinance2::returns.tooltips.formula-dw-off'
+                                : 'myfinance2::returns.tooltips.formula-dw-on';
+                        @endphp
+                        <i class="fa-solid fa-circle-info ms-1"
+                            style="cursor: pointer; color: #6c757d;"
+                            data-bs-toggle="tooltip"
+                            data-bs-placement="bottom"
+                            data-bs-html="true"
+                            data-bs-custom-class="big-tooltips3"
+                            data-bs-title="{{ trans($formulaTooltipKey) }}"></i>
                     </small>
                 </div>
             </div>
             <div class="d-flex align-items-stretch gap-3">
+                <span style="display: inline-block;"
+                    data-bs-toggle="tooltip"
+                    data-bs-placement="bottom"
+                    data-bs-html="true"
+                    data-bs-title="{{ trans('myfinance2::returns.tooltips.toggle-dw') }}">
+                    <input id="toggle-dw-select" type="checkbox"
+                        {{ !($excludeDepositsWithdrawals ?? false) ? 'checked' : '' }}
+                        data-bs-toggle="toggle"
+                        data-onlabel="D&amp;W: On"
+                        data-offlabel="D&amp;W: Off"
+                        data-onstyle="success"
+                        data-offstyle="secondary" />
+                </span>
+                <span style="display: inline-block;"
+                    data-bs-toggle="tooltip"
+                    data-bs-placement="bottom"
+                    data-bs-html="true"
+                    data-bs-title="{{ trans('myfinance2::returns.tooltips.toggle-cash') }}">
+                    <input id="toggle-cash-select" type="checkbox" {{ !($excludeCash ?? false) ? 'checked' : '' }}
+                        data-bs-toggle="toggle"
+                        data-onlabel="Cash: On"
+                        data-offlabel="Cash: Off"
+                        data-onstyle="success"
+                        data-offstyle="secondary" />
+                </span>
                 <input id="toggle-currency-select" type="checkbox" {{ $selectedCurrency === 'EUR' ? 'checked' : '' }}
                     data-bs-toggle="toggle"
                     data-onlabel="Euro (&euro;)"

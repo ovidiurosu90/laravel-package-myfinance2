@@ -165,18 +165,17 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                         Order <i class="fa fa-fw fa-plus-circle" aria-hidden="true"></i>
                     </a>
                     @if (!empty($quoteData['open_orders']))
-                        @php $openOrderCount = count($quoteData['open_orders']); @endphp
-                        <a href="{{ route('myfinance2::orders.index',
-                                         ['view' => 'active']) }}"
-                            class="d-block text-center"
+                        @foreach ($quoteData['open_orders'] as $openOrder)
+                        <a href="{{ route('myfinance2::orders.edit', $openOrder->id) }}"
+                            class="d-block text-center w-100"
                             data-bs-toggle="tooltip"
-                            title="{{ $openOrderCount }} open {{ $openOrderCount == 1 ? 'order' : 'orders' }} for {{ $symbol }}">
-                            @foreach ($quoteData['open_orders'] as $openOrder)
-                            <span class="badge {{ $openOrder->getStatusBadgeClass() }}">
+                            title="Edit order for {{ $symbol }}">
+                            <span class="badge d-block w-100 {{ $openOrder->getStatusBadgeClass() }}">
                                 {{ $openOrder->status }}
+                                {!! $openOrder->getFormattedLimitPrice() !!}
                             </span>
-                            @endforeach
                         </a>
+                        @endforeach
                     @endif
                 </td>
                 <td>

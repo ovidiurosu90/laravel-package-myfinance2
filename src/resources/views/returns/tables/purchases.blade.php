@@ -3,7 +3,12 @@
     $excludedPurchasesCount = collect($data['excludedTrades'])
         ->filter(function($trade) { return $trade['action'] === 'BUY'; })
         ->count();
-    $hasPurchasesToShow = count($data['purchases']['items']) > 0 || $excludedPurchasesCount > 0;
+    $transferDeposits = collect($data['transferDeposits']['items'] ?? []);
+    $hasPurchasesToShow = count($data['purchases']['items']) > 0
+        || $excludedPurchasesCount > 0
+        || $transferDeposits->count() > 0;
+    $transferDepositsEUR = $data['totalTransferDeposits']['EUR']['formatted'] ?? '';
+    $transferDepositsUSD = $data['totalTransferDeposits']['USD']['formatted'] ?? '';
 @endphp
 <tr>
     <td class="fw-bold">
@@ -12,40 +17,49 @@
             <button class="btn btn-sm btn-link p-0"
                 data-bs-toggle="collapse"
                 data-bs-target="#purchases-{{ $accountId }}">
-                @if(count($data['purchases']['items']) > 0 && $excludedPurchasesCount > 0)
-                    ({{ count($data['purchases']['items']) }} trades + {{ $excludedPurchasesCount }} excluded)
-                @elseif(count($data['purchases']['items']) > 0)
-                    ({{ count($data['purchases']['items']) }} trades)
-                @else
-                    ({{ $excludedPurchasesCount }} excluded)
-                @endif
+                @php
+                    $purchaseTradesLabel = count($data['purchases']['items']) . ' trades';
+                    $purchaseTransfersLabel = $transferDeposits->count() > 0
+                        ? $transferDeposits->count() . ' deposit transfer'
+                            . ($transferDeposits->count() > 1 ? 's' : '')
+                        : '';
+                    $purchaseExcludedLabel = $excludedPurchasesCount > 0
+                        ? $excludedPurchasesCount . ' excluded'
+                        : '';
+                    $purchaseLabels = array_filter([
+                        count($data['purchases']['items']) > 0 ? $purchaseTradesLabel : '',
+                        $purchaseTransfersLabel,
+                        $purchaseExcludedLabel,
+                    ]);
+                @endphp
+                ({{ implode(' + ', $purchaseLabels) }})
             </button>
         @endif
     </td>
     <td class="text-end fw-bold"
-        style="color: #6c757d; white-space: nowrap; width: 1%;">−</td>
+        style="white-space: nowrap; width: 1%;"><span class="text-danger">−</span></td>
     <td class="currency-value"
-        data-eur="{{ $data['purchases']['totals']['EUR']['principalAmountFormatted'] }}"
-        data-usd="{{ $data['purchases']['totals']['USD']['principalAmountFormatted'] }}"
+        data-eur="{{ $data['totalPurchases']['EUR']['formatted'] }}"
+        data-usd="{{ $data['totalPurchases']['USD']['formatted'] }}"
         data-eur-fees="{{ $data['purchases']['totals']['EUR']['feesFormatted'] }}"
         data-usd-fees="{{ $data['purchases']['totals']['USD']['feesFormatted'] }}"
         data-eur-fees-text="{{ $data['purchases']['totals']['EUR']['feesText'] }}"
         data-usd-fees-text="{{ $data['purchases']['totals']['USD']['feesText'] }}">
         @php
             $principalValue = $selectedCurrency === 'EUR'
-                ? $data['purchases']['totals']['EUR']['principalAmountFormatted']
-                : $data['purchases']['totals']['USD']['principalAmountFormatted'];
+                ? $data['totalPurchases']['EUR']['formatted']
+                : $data['totalPurchases']['USD']['formatted'];
         @endphp
         <div>
             {!! $principalValue !!}
             @if($selectedCurrency === 'EUR' && !empty($data['purchases']['totals']['EUR']['feesText']))
-                <span style="font-size: 0.85rem; color: #6c757d; margin-left: 0.25rem;" class="fees-text">
+                <small class="text-muted fees-text" style="margin-left: 0.5rem;">
                     {!! $data['purchases']['totals']['EUR']['feesText'] !!}
-                </span>
+                </small>
             @elseif($selectedCurrency === 'USD' && !empty($data['purchases']['totals']['USD']['feesText']))
-                <span style="font-size: 0.85rem; color: #6c757d; margin-left: 0.25rem;" class="fees-text">
+                <small class="text-muted fees-text" style="margin-left: 0.5rem;">
                     {!! $data['purchases']['totals']['USD']['feesText'] !!}
-                </span>
+                </small>
             @endif
         </div>
     </td>
@@ -227,6 +241,65 @@
                         </tr>
                     @endif
                 @endif
+                @if($transferDeposits->count() > 0)
+                    @php
+                        $transferTooltip = 'In-kind security transfer: securities entered this portfolio'
+                            . ' from another broker or account. Counted as a purchase in the'
+                            . ' return calculation (securities arrived without being bought on'
+                            . ' the open market).';
+                    @endphp
+                    <tr class="small text-muted border-top">
+                        <td colspan="7" class="py-2">
+                            <small><em>
+                                In-kind transfers (counted as purchases)
+                                <i class="fa-solid fa-circle-info ms-1"
+                                    style="font-size: 0.75rem; cursor: pointer;"
+                                    data-bs-toggle="tooltip"
+                                    data-bs-placement="top"
+                                    data-bs-custom-class="big-tooltips3"
+                                    data-bs-title="{{ $transferTooltip }}"></i>
+                            </em></small>
+                        </td>
+                    </tr>
+                    <tr class="small" style="background-color: transparent;">
+                        <th>Date</th>
+                        <th colspan="3">Description</th>
+                        <th class="text-end">Amount in {{ $selectedCurrency }}</th>
+                        <th colspan="2"></th>
+                    </tr>
+                    @foreach($transferDeposits as $transfer)
+                        @php
+                            $transferValue = $selectedCurrency === 'EUR'
+                                ? $transfer['EUR']['formatted']
+                                : $transfer['USD']['formatted'];
+                        @endphp
+                        <tr class="small" style="background-color: #e8f4f8;">
+                            <td class="text-nowrap">{{ $transfer['date'] }}</td>
+                            <td colspan="3" class="fst-italic">
+                                <i class="fa-solid fa-shuffle me-1 text-muted"
+                                    style="font-size: 0.75rem;"></i>
+                                {{ $transfer['description'] }}
+                            </td>
+                            <td class="text-end text-nowrap currency-value"
+                                data-eur="{{ $transfer['EUR']['formatted'] }}"
+                                data-usd="{{ $transfer['USD']['formatted'] }}">
+                                {!! $transferValue !!}
+                            </td>
+                            <td colspan="2"></td>
+                        </tr>
+                    @endforeach
+                    @if($transferDeposits->count() > 1)
+                        <tr class="small fw-bold" style="background-color: #d0eaf5;">
+                            <td colspan="4">Transfer total:</td>
+                            <td class="text-end currency-value"
+                                data-eur="{{ $transferDepositsEUR }}"
+                                data-usd="{{ $transferDepositsUSD }}">
+                                {!! $selectedCurrency === 'EUR' ? $transferDepositsEUR : $transferDepositsUSD !!}
+                            </td>
+                            <td colspan="2"></td>
+                        </tr>
+                    @endif
+                @endif
                 @php
                     $excludedPurchases = collect($data['excludedTrades'])
                         ->filter(function($trade) { return $trade['action'] === 'BUY'; });
@@ -244,7 +317,7 @@
                         </tr>
                     @endif
                     <tr class="small text-muted border-top">
-                        <td colspan="7" class="text-center py-2">
+                        <td colspan="7" class="py-2">
                             <small>
                                 <em>
                                     Excluded from purchases

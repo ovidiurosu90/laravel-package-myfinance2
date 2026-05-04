@@ -19,7 +19,7 @@ $(document).ready(function()
     var $limitPriceInput  = $('#limit_price');
     var $quantityInput    = $('#quantity-input');
     var $descriptionInput = $('#description');
-    var $suggestionBanner = $('#smart-prefill-suggestion');
+    var $orderBanner      = $('#order-summary-banner');
 
     var applySmartPrefill = function(symbol)
     {
@@ -34,6 +34,22 @@ $(document).ready(function()
             {
                 var s = data.suggestion;
 
+                var reasonText;
+                if (s.weak_signal) {
+                    reasonText = 'no strong buy signal — only ' + s.pct_below_high
+                        + '% below 52wk high, no open positions to sell';
+                } else if (s.action === 'BUY') {
+                    reasonText = '2.5% below current price, which is already '
+                        + s.pct_below_high + '% below 52wk high';
+                } else {
+                    reasonText = '2.5% above current price, which is already '
+                        + s.pct_above_low + '% above 52wk low';
+                }
+
+                $orderBanner
+                    .data('reason', reasonText)
+                    .data('weak-signal', s.weak_signal ? 1 : 0);
+
                 var actionSelectize = $('#action-select')[0].selectize;
                 if (actionSelectize && !actionSelectize.getValue()) {
                     actionSelectize.setValue(s.action);
@@ -45,6 +61,10 @@ $(document).ready(function()
 
                 if (s.suggested_qty !== null && !$quantityInput.val()) {
                     $quantityInput.val(s.suggested_qty).trigger('input');
+                }
+
+                if (!$descriptionInput.val()) {
+                    $descriptionInput.val(reasonText);
                 }
 
                 if (s.suggested_account_id && accountSelectize && !accountSelectize.getValue()) {
@@ -60,62 +80,10 @@ $(document).ready(function()
 
                 var $exchangeRateInput = $('#exchange_rate');
                 if (s.exchange_rate && !$exchangeRateInput.val()) {
-                    $exchangeRateInput.val(s.exchange_rate);
+                    $exchangeRateInput.val(s.exchange_rate).trigger('input');
                 }
 
-                var alertClass = s.weak_signal
-                    ? 'alert-warning'
-                    : (s.action === 'BUY' ? 'alert-success' : 'alert-danger');
-                $suggestionBanner
-                    .removeClass('alert-info alert-success alert-danger alert-warning')
-                    .addClass(alertClass);
-
-                var reasonText;
-                if (s.weak_signal) {
-                    reasonText = 'no strong buy signal — only ' + s.pct_below_high
-                        + '% below 52wk high, no open positions to sell';
-                } else if (s.action === 'BUY') {
-                    reasonText = '2.5% below current price, which is already '
-                        + s.pct_below_high + '% below 52wk high';
-                } else {
-                    reasonText = '2.5% above current price, which is already '
-                        + s.pct_above_low + '% above 52wk low';
-                }
-
-                if (!$descriptionInput.val()) {
-                    $descriptionInput.val(reasonText);
-                }
-
-                var partialSellNote = '';
-                if (s.is_partial_sell && s.suggested_qty !== null) {
-                    var openQtyStr = parseFloat(s.open_quantity.toFixed(8)).toString();
-                    partialSellNote = ' <span class="badge bg-warning text-dark ms-1">'
-                        + 'partial — ' + s.suggested_qty + ' of ' + openQtyStr + '</span>';
-                }
-
-                var qtyPart   = s.suggested_qty !== null ? s.suggested_qty + 'x ' : '';
-                var totalPart = '';
-                if (s.suggested_qty !== null) {
-                    var tradeTotal = s.suggested_qty * s.limit_price;
-                    totalPart = ' &asymp; ' + tradeTotal.toFixed(2) + ' ' + data.currency;
-                    if (s.account_currency && s.account_currency !== data.currency
-                        && s.exchange_rate
-                    ) {
-                        var accountTotal = (tradeTotal / s.exchange_rate).toFixed(2);
-                        totalPart += ' (~' + accountTotal + ' ' + s.account_currency + ')';
-                    }
-                }
-
-                $suggestionBanner.html(
-                    '<strong>' + s.action + '</strong>'
-                    + ' ' + qtyPart + symbol
-                    + ' @ ' + s.limit_price + ' ' + data.currency
-                    + totalPart
-                    + ' &mdash; <span class="badge bg-secondary me-1">reason</span>'
-                    + '<em>' + reasonText + '</em>'
-                    + partialSellNote
-                );
-                $suggestionBanner.show();
+                $orderBanner.trigger('banner-update');
             },
         });
     };

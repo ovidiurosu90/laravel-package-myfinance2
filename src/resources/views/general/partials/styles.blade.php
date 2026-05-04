@@ -209,6 +209,10 @@ table.data-table {
 .big-tooltips2 .tooltip-inner {
     min-width: 266px;
 }
+.big-tooltips3 .tooltip-inner {
+    min-width: 420px;
+    text-align: left;
+}
 .card-body.open-positions hr {
     margin-top: 0.5rem;
     margin-bottom: 0.5rem;

@@ -11,7 +11,7 @@
         @endif
     </td>
     <td class="text-end fw-bold"
-        style="color: #6c757d; white-space: nowrap; width: 1%;">+</td>
+        style="white-space: nowrap; width: 1%;"><span class="text-success">+</span></td>
     <td class="currency-value"
         data-eur="{{ $data['dividends']['totals']['EUR']['formatted'] }}"
         data-usd="{{ $data['dividends']['totals']['USD']['formatted'] }}"

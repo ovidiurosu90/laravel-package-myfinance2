@@ -49,10 +49,21 @@ class ReturnsOverview
      * ]
      *
      * @param int $userId User ID - used for cache key and to scope account data to this user
+     * @param bool $excludeCash Whether to exclude cash from start/end value in the return formula
      * @return array Returns overview data
      */
-    public function handle(int $userId): array
+    public function handle(
+        int $userId,
+        bool $excludeCash = false,
+        bool $excludeDepositsWithdrawals = false
+    ): array
     {
+        // Non-default variants are opt-in modes — skip caching so the cron
+        // and cache-clear logic only need to worry about the default key.
+        if ($excludeCash || $excludeDepositsWithdrawals) {
+            return $this->_calculateOverviewData($userId, $excludeCash, $excludeDepositsWithdrawals);
+        }
+
         $cacheKey = "returns:overview:{$userId}";
 
         return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($userId)
@@ -64,7 +75,11 @@ class ReturnsOverview
     /**
      * Calculate overview data for all years, scoped to a specific user
      */
-    private function _calculateOverviewData(int $userId): array
+    private function _calculateOverviewData(
+        int $userId,
+        bool $excludeCash = false,
+        bool $excludeDepositsWithdrawals = false
+    ): array
     {
         $currentYear = (int) date('Y');
         $minYear = ReturnsConstants::MIN_YEAR;
@@ -110,7 +125,7 @@ class ReturnsOverview
         // Collect data for each year
         for ($year = $minYear; $year <= $currentYear; $year++) {
             try {
-                $yearData = $this->_returnsService->handle($year, $userId);
+                $yearData = $this->_returnsService->handle($year, $userId, $excludeCash, $excludeDepositsWithdrawals);
                 $this->_processYearData($result, $yearData, $year);
             } catch (\Exception $e) {
                 Log::error("Failed to get returns for year {$year}: " . $e->getMessage());

@@ -4,16 +4,39 @@
         {{ trans('myfinance2::returns.labels.jan1-value') }}
     </td>
     @php
-        $jan1Value = $selectedCurrency === 'EUR'
-            ? $data['jan1Value']['EUR']['formatted']
+        $jan1DisplayValue = ($excludeCash ?? false)
+            ? ($selectedCurrency === 'EUR'
+                ? $data['jan1PositionsValue']['EUR']['formatted']
+                : $data['jan1PositionsValue']['USD']['formatted'])
+            : ($selectedCurrency === 'EUR'
+                ? $data['jan1Value']['EUR']['formatted']
+                : $data['jan1Value']['USD']['formatted']);
+        $jan1DisplayEur = ($excludeCash ?? false)
+            ? $data['jan1PositionsValue']['EUR']['formatted']
+            : $data['jan1Value']['EUR']['formatted'];
+        $jan1DisplayUsd = ($excludeCash ?? false)
+            ? $data['jan1PositionsValue']['USD']['formatted']
             : $data['jan1Value']['USD']['formatted'];
+        $jan1CashValue = $selectedCurrency === 'EUR'
+            ? $data['jan1CashValue']['EUR']['formatted']
+            : $data['jan1CashValue']['USD']['formatted'];
     @endphp
     <td class="text-end fw-bold"
-        style="color: #6c757d; white-space: nowrap; width: 1%;">−</td>
+        style="white-space: nowrap; width: 1%;"><span class="text-danger">−</span></td>
     <td class="currency-value"
-        data-eur="{{ $data['jan1Value']['EUR']['formatted'] }}"
-        data-usd="{{ $data['jan1Value']['USD']['formatted'] }}">
-        <span>{!! $jan1Value !!}</span>
+        data-eur="{{ $jan1DisplayEur }}"
+        data-usd="{{ $jan1DisplayUsd }}">
+        <span>{!! $jan1DisplayValue !!}</span>
+        @if($excludeCash ?? false)
+            <small class="text-muted" style="margin-left: 0.5rem;">
+                excluding cash of
+                <span class="currency-value"
+                    data-eur="{{ $data['jan1CashValue']['EUR']['formatted'] }}"
+                    data-usd="{{ $data['jan1CashValue']['USD']['formatted'] }}">
+                    <span>{!! $jan1CashValue !!}</span>
+                </span>
+            </small>
+        @endif
     </td>
 </tr>
 <tr class="table-light">
@@ -164,13 +187,22 @@
     </td>
 </tr>
 @endif
-@php
-    $jan1CashValue = $selectedCurrency === 'EUR'
-        ? $data['jan1CashValue']['EUR']['formatted']
-        : $data['jan1CashValue']['USD']['formatted'];
-@endphp
-<tr class="table-light">
-    <td style="padding-left: 2rem;"><small class="text-muted">Cash:</small></td>
+<tr class="table-light {{ ($excludeCash ?? false) ? 'opacity-50' : '' }}">
+    <td style="padding-left: 2rem;">
+        <small class="text-muted">
+            Cash
+            {{-- Show only in full-exclusion mode: the tooltip explains cash movements vs. in-kind transfers --}}
+            @if(($excludeDepositsWithdrawals ?? false) && ($excludeCash ?? false))
+                <i class="fa-solid fa-circle-info ms-1"
+                    style="font-size: 0.8rem; cursor: pointer; color: #6c757d;"
+                    data-bs-toggle="tooltip"
+                    data-bs-html="true"
+                    data-bs-custom-class="big-tooltips"
+                    data-bs-title="Cash movements (e.g. bank to broker cash account) are not counted towards the return.&lt;br&gt;In-kind security transfers are counted under Purchases &amp; Sales instead.">
+                </i>
+            @endif
+        </small>
+    </td>
     <td></td>
     <td><small class="text-muted currency-value"
         data-eur="{{ $data['jan1CashValue']['EUR']['formatted'] }}"

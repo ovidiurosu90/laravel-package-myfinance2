@@ -67,9 +67,15 @@ class Returns
      *
      * @param int $year The year to calculate returns for
      * @param int|null $userId Optional user ID to filter accounts (for CLI/cron context)
+     * @param bool $excludeCash Whether to exclude cash from start/end value in the return formula
      * @return array Returns data for all trading accounts
      */
-    public function handle(int $year, ?int $userId = null): array
+    public function handle(
+        int $year,
+        ?int $userId = null,
+        bool $excludeCash = false,
+        bool $excludeDepositsWithdrawals = false
+    ): array
     {
         // Get trading accounts, optionally filtered by user (for cron context where scope is disabled)
         $query = Account::with('currency')
@@ -99,7 +105,7 @@ class Returns
         $totalReturnUSD = 0;
 
         foreach ($accounts as $account) {
-            $baseReturns = $this->_calculateAccountReturns($account, $year);
+            $baseReturns = $this->_calculateAccountReturns($account, $year, $excludeCash, $excludeDepositsWithdrawals);
 
             $accountId = $account->id;
 
@@ -121,7 +127,9 @@ class Returns
                 $baseReturns,
                 ['EUR', 'USD'],
                 $year,
-                $this->_currencyCache
+                $this->_currencyCache,
+                $excludeCash,
+                $excludeDepositsWithdrawals
             );
 
             // Filter out accounts with no activity for the selected year
@@ -167,7 +175,12 @@ class Returns
     /**
      * Calculate returns for a single account
      */
-    private function _calculateAccountReturns(Account $account, int $year): array
+    private function _calculateAccountReturns(
+        Account $account,
+        int $year,
+        bool $excludeCash = false,
+        bool $excludeDepositsWithdrawals = false
+    ): array
     {
         $accountId = $account->id;
         $baseCurrency = $account->currency->iso_code;
@@ -194,12 +207,18 @@ class Returns
             $baseCurrency
         );
 
-        // Calculate actual return using the formula
-        $actualReturn = $this->_computeActualReturn(
-            $totals,
-            $portfolioValues['jan1']['total'],
-            $portfolioValues['dec31']['total']
-        );
+        // Calculate actual return using the formula.
+        // When $excludeCash is true, only positions values are used (cash excluded).
+        // When $excludeCash is false (default), total values (positions + cash) are used.
+        // NOTE: The same formula is re-applied in ReturnsCurrencyConverter::_convertToSingleCurrency()
+        // after currency conversion — both places must be kept in sync.
+        $startValue = $excludeCash
+            ? $portfolioValues['jan1']['positions']
+            : $portfolioValues['jan1']['total'];
+        $endValue = $excludeCash
+            ? $portfolioValues['dec31']['positions']
+            : $portfolioValues['dec31']['total'];
+        $actualReturn = $this->_computeActualReturn($totals, $startValue, $endValue, $excludeDepositsWithdrawals);
 
         // Create dividends summary
         $dividendsSummary = $this->_dividends->createDividendsSummaryByTransactionCurrency(
@@ -224,6 +243,8 @@ class Returns
             'dec31Date' => $portfolioValues['dec31']['date'],
             'deposits' => $transactions['deposits'],
             'withdrawals' => $transactions['withdrawals'],
+            'transferDeposits' => $transactions['transferDeposits'] ?? [],
+            'transferWithdrawals' => $transactions['transferWithdrawals'] ?? [],
             'dividends' => $transactions['dividendsList'],
             'dividendsSummary' => $dividendsSummary,
             'purchases' => $transactions['purchases'],
@@ -622,39 +643,32 @@ class Returns
         $deposits = $this->_deposits->getDeposits($accountId, $year, $account);
         $withdrawals = $this->_withdrawals->getWithdrawals($accountId, $year, $account);
 
-        // Inject transfer trades as synthetic deposits/withdrawals
+        // Build separate transfer arrays — kept out of deposits/withdrawals so they
+        // appear only under Purchases & Sales in the return calculation and display.
+        $transferDeposits = [];
+        $transferWithdrawals = [];
         foreach ($transferTrades as $transfer) {
             $amountInAccountCurrency = $transfer['principal_amount']
                 / $transfer['exchangeRate'];
-
+            $item = [
+                'date' => $transfer['date'],
+                'amount' => $amountInAccountCurrency,
+                'fee' => 0,
+                'description' => $transfer['description'] ?? 'In-kind transfer',
+                'isTransfer' => true,
+            ];
             if ($transfer['action'] === 'BUY') {
-                // Transfer BUY = shares arrived => treat as deposit
-                $deposits[] = [
-                    'date' => $transfer['date'],
-                    'amount' => $amountInAccountCurrency,
-                    'fee' => 0,
-                    'description' => $transfer['description']
-                        ?? 'In-kind transfer',
-                    'fromAccount' => 'Transfer',
-                    'isTransfer' => true,
-                ];
+                $transferDeposits[] = array_merge($item, ['fromAccount' => 'Transfer']);
             } elseif ($transfer['action'] === 'SELL') {
-                // Transfer SELL = shares left => treat as withdrawal
-                $withdrawals[] = [
-                    'date' => $transfer['date'],
-                    'amount' => $amountInAccountCurrency,
-                    'fee' => 0,
-                    'description' => $transfer['description']
-                        ?? 'In-kind transfer',
-                    'toAccount' => 'Transfer',
-                    'isTransfer' => true,
-                ];
+                $transferWithdrawals[] = array_merge($item, ['toAccount' => 'Transfer']);
             }
         }
 
         return [
             'deposits' => $deposits,
             'withdrawals' => $withdrawals,
+            'transferDeposits' => $transferDeposits,
+            'transferWithdrawals' => $transferWithdrawals,
             'dividendsList' => $this->_dividends->getDividends($accountId, $year, $account),
             'purchases' => $tradesData['purchases'],
             'sales' => $tradesData['sales'],
@@ -687,6 +701,11 @@ class Returns
             $totalDepositsFees += $deposit['fee'] ?? 0;
         }
 
+        $totalTransferDeposits = 0.0;
+        foreach ($transactions['transferDeposits'] ?? [] as $transfer) {
+            $totalTransferDeposits += $transfer['amount'];
+        }
+
         $depositsOverride = $this->_getDepositsOverride($accountId, $year);
         $depositsOverrideRaw = $depositsOverride;
         $totalDeposits = $totalDepositsCalculated;
@@ -704,6 +723,11 @@ class Returns
         foreach ($transactions['withdrawals'] as $withdrawal) {
             $totalWithdrawalsCalculated += $withdrawal['amount'];
             $totalWithdrawalsFees += $withdrawal['fee'] ?? 0;
+        }
+
+        $totalTransferWithdrawals = 0.0;
+        foreach ($transactions['transferWithdrawals'] ?? [] as $transfer) {
+            $totalTransferWithdrawals += $transfer['amount'];
         }
 
         $withdrawalsOverride = $this->_getWithdrawalsOverride($accountId, $year);
@@ -786,37 +810,61 @@ class Returns
             'totalSales' => $totalSales,
             'totalPurchasesNet' => $totalPurchasesNet,
             'totalSalesNet' => $totalSalesNet,
+            'totalTransferDeposits' => $totalTransferDeposits,
+            'totalTransferWithdrawals' => $totalTransferWithdrawals,
         ];
     }
 
     /**
      * Compute actual return using the formula
      *
-     * Formula: Gross Dividends + End value - Start value
-     *          - (Deposits - Deposit Fees) + (Withdrawals + Withdrawal Fees)
-     *          - Purchases (net) + Sales (net)
+     * Default formula (D&W included):
+     *   Dividends + End value - Start value - Purchases (net) + Sales (net)
+     *   - TransferDeposits + TransferWithdrawals - Deposits + Withdrawals
      *
-     * Deposits are reduced by fees (net deposit is less when fees apply).
-     * Withdrawals are increased by fees (total outflow includes fees).
-     * Purchases/Sales already use net totals which include their fees.
+     * When $excludeDepositsWithdrawals=true, Deposits and Withdrawals are omitted.
+     * Start/end values are either positions-only (exclude_cash=1) or total (positions + cash).
+     *
+     * NOTE: The same formula is re-applied in ReturnsCurrencyConverter::_convertToSingleCurrency()
+     * after currency conversion — both places must be kept in sync.
      *
      * @param array $totals Calculated totals
-     * @param float $jan1Value Start value
-     * @param float $dec31Value End value
+     * @param float $startValue Start value (positions only, or positions + cash)
+     * @param float $endValue End value (positions only, or positions + cash)
+     * @param bool $excludeDepositsWithdrawals Whether to exclude deposits & withdrawals
      * @return float Actual return
      */
-    private function _computeActualReturn(array $totals, float $jan1Value, float $dec31Value): float
+    private function _computeActualReturn(
+        array $totals,
+        float $startValue,
+        float $endValue,
+        bool $excludeDepositsWithdrawals = false
+    ): float
     {
-        $depositsWithFees = $totals['totalDeposits'] - ($totals['totalDepositsFees'] ?? 0);
-        $withdrawalsWithFees = $totals['totalWithdrawals'] + ($totals['totalWithdrawalsFees'] ?? 0);
-
-        return $totals['totalGrossDividends']
-            + $dec31Value
-            - $jan1Value
-            - $depositsWithFees
-            + $withdrawalsWithFees
+        $return = $totals['totalGrossDividends']
+            + $endValue
+            - $startValue
             - $totals['totalPurchasesNet']
-            + $totals['totalSalesNet'];
+            - ($totals['totalTransferDeposits'] ?? 0.0)
+            + $totals['totalSalesNet']
+            + ($totals['totalTransferWithdrawals'] ?? 0.0);
+
+        if (!$excludeDepositsWithdrawals) {
+            // Overridden values are already the correct formula amount; use as-is.
+            // Calculated values need fee adjustment:
+            //   Deposits:    net capital added   = amount − fees  (fee leaves portfolio, not deposited)
+            //   Withdrawals: total capital removed = amount + fees  (fee also leaves portfolio)
+            $depositsForFormula = $totals['totalDepositsOverride'] !== null
+                ? $totals['totalDeposits']
+                : $totals['totalDeposits'] - ($totals['totalDepositsFees'] ?? 0.0);
+            $withdrawalsForFormula = $totals['totalWithdrawalsOverride'] !== null
+                ? $totals['totalWithdrawals']
+                : $totals['totalWithdrawals'] + ($totals['totalWithdrawalsFees'] ?? 0.0);
+            $return -= $depositsForFormula;
+            $return += $withdrawalsForFormula;
+        }
+
+        return $return;
     }
 }
 

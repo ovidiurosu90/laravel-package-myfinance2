@@ -18,6 +18,34 @@
                 <i class="fa fa-chevron-down ms-2" id="returns-overview-chevron"></i>
             </span>
             <div class="d-flex align-items-center gap-2">
+                <span style="display: inline-block;"
+                    data-bs-toggle="tooltip"
+                    data-bs-placement="bottom"
+                    data-bs-html="true"
+                    data-bs-title="{{ trans('myfinance2::returns.tooltips.toggle-dw') }}">
+                    <input type="checkbox"
+                        {{ !($excludeDepositsWithdrawals ?? false) ? 'checked' : '' }}
+                        disabled
+                        data-bs-toggle="toggle"
+                        data-onlabel="D&amp;W: On"
+                        data-offlabel="D&amp;W: Off"
+                        data-onstyle="success"
+                        data-offstyle="secondary" />
+                </span>
+                <span style="display: inline-block;"
+                    data-bs-toggle="tooltip"
+                    data-bs-placement="bottom"
+                    data-bs-html="true"
+                    data-bs-title="{{ trans('myfinance2::returns.tooltips.toggle-cash') }}">
+                    <input type="checkbox"
+                        {{ !($excludeCash ?? false) ? 'checked' : '' }}
+                        disabled
+                        data-bs-toggle="toggle"
+                        data-onlabel="Cash: On"
+                        data-offlabel="Cash: Off"
+                        data-onstyle="success"
+                        data-offstyle="secondary" />
+                </span>
                 <input id="toggle-overview-currency" type="checkbox"
                     {{ $overviewCurrency === 'EUR' ? 'checked' : '' }}
                     data-bs-toggle="toggle"

@@ -55,6 +55,8 @@
 
 @section('footer_scripts')
     @include('myfinance2::general.scripts.tooltips')
+    @include('myfinance2::overview.scripts.other-accounts')
+    @include('myfinance2::overview.scripts.gains-per-year')
     @include('myfinance2::returns.scripts.returns-overview-graph')
 @endsection
 

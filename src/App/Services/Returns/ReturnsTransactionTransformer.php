@@ -207,7 +207,7 @@ class ReturnsTransactionTransformer
         }
 
         $feesFormatted = MoneyFormat::get_formatted_balance($symbol, abs($fees));
-        return "(including {$feesFormatted} in fees)";
+        return "including {$feesFormatted} in fees";
     }
 
     /**

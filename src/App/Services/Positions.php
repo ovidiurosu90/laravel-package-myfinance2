@@ -495,16 +495,19 @@ class Positions
 
         $cost = $position['cost_in_account_currency'];
 
+        // Percentage is undefined when cost <= 0 (sell proceeds exceeded total buy cost)
         $position['overall_change_in_percentage'] =
-            !$position['quantity'] || $cost == 0
-            ? 0
-            : ($position['market_value_in_account_currency'] - $cost) / abs($cost) * 100;
+            !$position['quantity'] || $cost <= 0
+            ? null
+            : ($position['market_value_in_account_currency'] - $cost) / $cost * 100;
 
         $position['overall_change_in_percentage_formatted'] =
             !$position['quantity']
             ? ''
-            : MoneyFormat::get_formatted_gain_percentage(
-                $position['overall_change_in_percentage']);
+            : ($position['overall_change_in_percentage'] === null
+                ? 'N/A'
+                : MoneyFormat::get_formatted_gain_percentage(
+                    $position['overall_change_in_percentage']));
     }
 
     public static function addCost(array &$position)

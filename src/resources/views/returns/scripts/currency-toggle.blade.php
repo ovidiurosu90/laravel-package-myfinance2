@@ -100,9 +100,8 @@ function updateFeesTextCell($td, cellData)
     if ($firstDiv.length > 0) {
         var completeHtml = cellData.value;
         if (cellData.feesText) {
-            completeHtml += '<span style="font-size: 0.85rem; color: #6c757d; ' +
-                'margin-left: 0.25rem;" class="fees-text">' +
-                cellData.feesText + '</span>';
+            completeHtml += '<small class="text-muted fees-text" style="margin-left: 0.5rem;">' +
+                cellData.feesText + '</small>';
         }
         $firstDiv.html(completeHtml);
     }
@@ -318,38 +317,31 @@ function applyInitialColoring(selectedCurrency)
 
 $(document).ready(function()
 {
-    // Initialize Bootstrap Toggle
     if ($.fn.bootstrapToggle) {
         $('#toggle-currency-select').bootstrapToggle();
     }
 
-    // Apply initial coloring
     var selectedCurrency = '{{ $selectedCurrency ?? "EUR" }}';
     applyInitialColoring(selectedCurrency);
 
-    // Trigger currency toggle if USD is selected
     if (selectedCurrency === 'USD' && $('#toggle-currency-select').is(':checked')) {
         $('#toggle-currency-select').click();
     }
 
-    // Handle currency toggle change
     $('#toggle-currency-select').change(function()
     {
         var isEUR = $(this).prop('checked');
         var currency = isEUR ? 'EUR' : 'USD';
 
-        // Update URL parameter
         var url = new URL(window.location);
         url.searchParams.set('currency_iso_code', currency);
         window.history.pushState({}, '', url);
 
-        // Update all currency cells
         $('.currency-value').each(function()
         {
             updateCurrencyCell($(this), isEUR);
         });
 
-        // Update table headers
         updateTableHeaders(currency);
     });
 });

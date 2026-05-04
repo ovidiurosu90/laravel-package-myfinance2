@@ -45,10 +45,16 @@ class ReturnsController extends MyFinance2Controller
             $currency = 'EUR';
         }
 
+        // Cash is included by default; pass exclude_cash=1 to exclude it
+        $excludeCash = request()->boolean('exclude_cash', false);
+
+        // Deposits & withdrawals are included by default; pass exclude_deposits_withdrawals=1 to exclude
+        $excludeDepositsWithdrawals = request()->boolean('exclude_deposits_withdrawals', false);
+
         $service = new Returns();
 
         // Calculate returns for the selected year
-        $serviceData = $service->handle($year);
+        $serviceData = $service->handle($year, null, $excludeCash, $excludeDepositsWithdrawals);
 
         // Extract metadata from service response
         $totalReturnEUR = $serviceData['totalReturnEUR'] ?? 0;
@@ -85,7 +91,7 @@ class ReturnsController extends MyFinance2Controller
         $skipOverview = request()->boolean('skip_overview', false);
         if (!$skipOverview) {
             $overviewService = new ReturnsOverview();
-            $overviewData = $overviewService->handle(Auth::user()->id);
+            $overviewData = $overviewService->handle(Auth::user()->id, $excludeCash, $excludeDepositsWithdrawals);
         }
 
         // Check for alerts (reuses the already-fetched serviceData)
@@ -95,6 +101,8 @@ class ReturnsController extends MyFinance2Controller
         // Prepare view data
         $viewData = [
             'returnsData' => $transformedReturnsData,
+            'excludeCash' => $excludeCash,
+            'excludeDepositsWithdrawals' => $excludeDepositsWithdrawals,
             'totalReturnEUR' => $totalReturnEUR,
             'totalReturnUSD' => $totalReturnUSD,
             'totalReturnEURFormatted' => $totalReturnEURFormatted,

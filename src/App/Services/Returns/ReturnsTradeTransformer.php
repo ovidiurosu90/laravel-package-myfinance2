@@ -160,7 +160,7 @@ class ReturnsTradeTransformer
         // For sales: fees are shown as negative (they reduce proceeds)
         $feesSign = ($type === 'purchase') ? '' : '-';
         $feesFormatted = MoneyFormat::get_formatted_balance($symbol, abs($fees));
-        $text = "(including {$feesSign}{$feesFormatted} in fees";
+        $text = "including {$feesSign}{$feesFormatted} in fees";
 
         if (abs($excludedFees) > ReturnsConstants::EPSILON) {
             $excludedFormatted = MoneyFormat::get_formatted_balance($symbol, abs($excludedFees));
@@ -170,7 +170,6 @@ class ReturnsTradeTransformer
             $text .= ", excluding {$sign}{$excludedFormatted} due to config";
         }
 
-        $text .= ")";
         return $text;
     }
 }

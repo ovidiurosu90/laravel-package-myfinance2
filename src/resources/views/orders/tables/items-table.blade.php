@@ -50,8 +50,8 @@
                 </td>
                 <td>{{ $item->action }}</td>
                 <td>
-                    <a href="{{ route('myfinance2::orders.index', ['view' => 'all',
-                                                                   'symbol' => $item->symbol]) }}">
+                    <a href="https://finance.yahoo.com/quote/{{ $item->symbol }}"
+                        target="_blank">
                         {{ $item->symbol }}
                     </a>
                 </td>

@@ -8,16 +8,39 @@
         @endif
     </td>
     @php
-        $dec31Value = $selectedCurrency === 'EUR'
-            ? $data['dec31Value']['EUR']['formatted']
+        $dec31DisplayValue = ($excludeCash ?? false)
+            ? ($selectedCurrency === 'EUR'
+                ? $data['dec31PositionsValue']['EUR']['formatted']
+                : $data['dec31PositionsValue']['USD']['formatted'])
+            : ($selectedCurrency === 'EUR'
+                ? $data['dec31Value']['EUR']['formatted']
+                : $data['dec31Value']['USD']['formatted']);
+        $dec31DisplayEur = ($excludeCash ?? false)
+            ? $data['dec31PositionsValue']['EUR']['formatted']
+            : $data['dec31Value']['EUR']['formatted'];
+        $dec31DisplayUsd = ($excludeCash ?? false)
+            ? $data['dec31PositionsValue']['USD']['formatted']
             : $data['dec31Value']['USD']['formatted'];
+        $dec31CashValue = $selectedCurrency === 'EUR'
+            ? $data['dec31CashValue']['EUR']['formatted']
+            : $data['dec31CashValue']['USD']['formatted'];
     @endphp
     <td class="text-end fw-bold"
-        style="color: #6c757d; white-space: nowrap; width: 1%;">+</td>
+        style="white-space: nowrap; width: 1%;"><span class="text-success">+</span></td>
     <td class="currency-value"
-        data-eur="{{ $data['dec31Value']['EUR']['formatted'] }}"
-        data-usd="{{ $data['dec31Value']['USD']['formatted'] }}">
-        <span>{!! $dec31Value !!}</span>
+        data-eur="{{ $dec31DisplayEur }}"
+        data-usd="{{ $dec31DisplayUsd }}">
+        <span>{!! $dec31DisplayValue !!}</span>
+        @if($excludeCash ?? false)
+            <small class="text-muted" style="margin-left: 0.5rem;">
+                excluding cash of
+                <span class="currency-value"
+                    data-eur="{{ $data['dec31CashValue']['EUR']['formatted'] }}"
+                    data-usd="{{ $data['dec31CashValue']['USD']['formatted'] }}">
+                    <span>{!! $dec31CashValue !!}</span>
+                </span>
+            </small>
+        @endif
     </td>
 </tr>
 <tr class="table-light">
@@ -168,13 +191,8 @@
     </td>
 </tr>
 @endif
-@php
-    $dec31CashValue = $selectedCurrency === 'EUR'
-        ? $data['dec31CashValue']['EUR']['formatted']
-        : $data['dec31CashValue']['USD']['formatted'];
-@endphp
-<tr class="table-light">
-    <td style="padding-left: 2rem;"><small class="text-muted">Cash:</small></td>
+<tr class="table-light {{ ($excludeCash ?? false) ? 'opacity-50' : '' }}">
+    <td style="padding-left: 2rem;"><small class="text-muted">Cash</small></td>
     <td></td>
     <td><small class="text-muted currency-value"
         data-eur="{{ $data['dec31CashValue']['EUR']['formatted'] }}"

@@ -15,7 +15,7 @@
                     <thead>
                         <tr>
                             <th scope="col">Account</th>
-                            <th scope="col" class="text-right"
+                            <th scope="col" class="text-right opacity-50"
                                 data-bs-toggle="tooltip"
                                 title="Total Cost in account currency">
                                 Cost
@@ -28,7 +28,7 @@
                                         in account currency">
                                 MValue
                             </th>
-                            <th scope="col" class="text-right"
+                            <th scope="col" class="text-right opacity-50"
                                 data-bs-toggle="tooltip"
                                 title="Total Overall Gain
                                         in account currency">
@@ -80,14 +80,14 @@
                                                             ->display_code
                                 !!})
                             </td>
-                            <td class="text-right text-nowrap">
+                            <td class="text-right text-nowrap opacity-50">
                                 {!! $totals['total_cost_formatted'] !!}
                             </td>
                             <td class="text-right text-nowrap table-info">
                                 {!! $totals['total_market_value_formatted']
                                 !!}
                             </td>
-                            <td class="text-right text-nowrap">
+                            <td class="text-right text-nowrap opacity-50">
                                 {!! $totals['total_change_formatted'] !!}
                             </td>
                             <td class="text-right text-nowrap table-info">

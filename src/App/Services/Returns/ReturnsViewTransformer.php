@@ -138,6 +138,14 @@ class ReturnsViewTransformer
                 $accountData['EUR']['withdrawals'] ?? [],
                 $accountData['USD']['withdrawals'] ?? []
             ),
+            'transferDeposits' => $this->_transactionTransformer->transformDeposits(
+                $accountData['EUR']['transferDeposits'] ?? [],
+                $accountData['USD']['transferDeposits'] ?? []
+            ),
+            'transferWithdrawals' => $this->_transactionTransformer->transformWithdrawals(
+                $accountData['EUR']['transferWithdrawals'] ?? [],
+                $accountData['USD']['transferWithdrawals'] ?? []
+            ),
             'purchases' => $this->_tradeTransformer->transformTrades(
                 $accountData['EUR']['purchases'] ?? [],
                 $accountData['USD']['purchases'] ?? [],
@@ -193,14 +201,18 @@ class ReturnsViewTransformer
                 $accountData['USD'] ?? []
             ),
             'totalPurchases' => $this->_valueTransformer->transformValue(
-                $accountData['EUR']['totalPurchases'] ?? 0,
-                $accountData['USD']['totalPurchases'] ?? 0,
+                ($accountData['EUR']['totalPurchases'] ?? 0)
+                    + ($accountData['EUR']['totalTransferDeposits'] ?? 0),
+                ($accountData['USD']['totalPurchases'] ?? 0)
+                    + ($accountData['USD']['totalTransferDeposits'] ?? 0),
                 '€',
                 '$'
             ),
             'totalSales' => $this->_valueTransformer->transformValue(
-                $accountData['EUR']['totalSales'] ?? 0,
-                $accountData['USD']['totalSales'] ?? 0,
+                ($accountData['EUR']['totalSales'] ?? 0)
+                    + ($accountData['EUR']['totalTransferWithdrawals'] ?? 0),
+                ($accountData['USD']['totalSales'] ?? 0)
+                    + ($accountData['USD']['totalTransferWithdrawals'] ?? 0),
                 '€',
                 '$'
             ),
@@ -213,6 +225,18 @@ class ReturnsViewTransformer
             'totalSalesNet' => $this->_valueTransformer->transformValue(
                 $accountData['EUR']['totalSalesNet'] ?? 0,
                 $accountData['USD']['totalSalesNet'] ?? 0,
+                '€',
+                '$'
+            ),
+            'totalTransferDeposits' => $this->_valueTransformer->transformValue(
+                $accountData['EUR']['totalTransferDeposits'] ?? 0,
+                $accountData['USD']['totalTransferDeposits'] ?? 0,
+                '€',
+                '$'
+            ),
+            'totalTransferWithdrawals' => $this->_valueTransformer->transformValue(
+                $accountData['EUR']['totalTransferWithdrawals'] ?? 0,
+                $accountData['USD']['totalTransferWithdrawals'] ?? 0,
                 '€',
                 '$'
             ),

@@ -3,9 +3,23 @@
     $hasDepositFees = ($data['deposits']['totals']['EUR']['fees'] ?? 0) > 0
         || ($data['deposits']['totals']['USD']['fees'] ?? 0) > 0;
 @endphp
-<tr>
+<tr class="{{ ($excludeDepositsWithdrawals ?? false) ? 'opacity-50' : '' }}">
     <td class="fw-bold">
         {{ trans('myfinance2::returns.labels.deposits') }}
+        {{-- Show only in full-exclusion mode: the tooltip explains cash movements vs. in-kind transfers --}}
+        @if(($excludeDepositsWithdrawals ?? false) && ($excludeCash ?? false))
+            @php
+                $depositsInfoTooltip = 'Cash movements (e.g. bank to broker cash account) are not counted'
+                    . ' towards the return.'
+                    . '<br>In-kind security transfers are counted under Purchases &amp; Sales instead.';
+            @endphp
+            <i class="fa-solid fa-circle-info ms-1"
+                style="font-size: 0.8rem; cursor: pointer; color: #6c757d;"
+                data-bs-toggle="tooltip"
+                data-bs-html="true"
+                data-bs-custom-class="big-tooltips"
+                data-bs-title="{{ $depositsInfoTooltip }}"></i>
+        @endif
         @if(count($data['deposits']['items']) > 0)
             <button class="btn btn-sm btn-link p-0"
                 data-bs-toggle="collapse"
@@ -43,7 +57,9 @@
                 : $data['deposits']['totals']['USD']['formatted']);
     @endphp
     <td class="text-end fw-bold"
-        style="color: #6c757d; white-space: nowrap; width: 1%;">−</td>
+        style="white-space: nowrap; width: 1%;">
+        @if(!($excludeDepositsWithdrawals ?? false))<span class="text-danger">–</span>@endif
+    </td>
     <td class="currency-value"
         data-eur="{{ $dataEur }}"
         data-usd="{{ $dataUsd }}"
@@ -102,16 +118,16 @@
                         ? ($data['deposits']['totals']['EUR']['feesText'] ?? '')
                         : ($data['deposits']['totals']['USD']['feesText'] ?? '');
                 @endphp
-                <span style="font-size: 0.85rem; color: #6c757d; margin-left: 0.25rem;"
-                    class="transaction-fees-text">
+                <small class="text-muted transaction-fees-text" style="margin-left: 0.5rem;">
                     {!! $currentFeesText !!}
-                </span>
+                </small>
             @endif
         </div>
     </td>
 </tr>
 @if(count($data['deposits']['items']) > 0)
-<tr class="collapse" id="deposits-{{ $accountId }}">
+<tr class="collapse {{ ($excludeDepositsWithdrawals ?? false) ? 'opacity-50' : '' }}"
+    id="deposits-{{ $accountId }}">
     <td colspan="3">
         <table class="table table-sm table-striped mb-0">
             <thead>

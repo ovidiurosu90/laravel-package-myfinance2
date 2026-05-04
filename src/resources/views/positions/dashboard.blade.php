@@ -30,6 +30,7 @@
 
 @section('footer_scripts')
     @include('myfinance2::general.scripts.confirm-modal', ['formTrigger' => 'confirm-delete-modal'])
+    @include('myfinance2::positions.scripts.movers')
     @include('myfinance2::positions.scripts.datatables')
     @include('myfinance2::general.scripts.tooltips')
     @include('myfinance2::positions.scripts.countdowns')
