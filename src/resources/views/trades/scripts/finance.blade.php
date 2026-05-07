@@ -14,21 +14,16 @@ $(document).ready(function()
         }
     });
 
-    var $symbolInput           = $('#symbol-input');
-    var $timestampPickerInput  = $('#timestamp-picker>input');
-    var $getFinanceData        = $('#get-finance-data');
-    var $fetchedSymbolName     = $('#fetched-symbol-name');
-    var $fetchedTradeCurrency  = $('#fetched-trade-currency');
-    var $fetchedUnitPrice      = $('#fetched-unit-price');
-    var $availableQuantity     = $('#available-quantity');
-
-    var $actionSelect          = $('#action-select');
-    var $accountSelect         = $('#account-select');
-
-    var $quantityInput         = $('#quantity-input');
-    var $editTradeForm         = $('#edit-trade-form');
-
-    var $isListedButton        = $('#is-listed');
+    var $symbolInput          = $('#symbol-input');
+    var $timestampPickerInput = $('#timestamp-picker>input');
+    var $getFinanceData       = $('#get-finance-data');
+    var $fetchedSymbolName    = $('#fetched-symbol-name');
+    var $fetchedTradeCurrency = $('#fetched-trade-currency');
+    var $fetchedUnitPrice     = $('#fetched-unit-price');
+    var $accountSelect        = $('#account-select');
+    var $quantityInput        = $('#quantity-input');
+    var $editTradeForm        = $('#edit-trade-form');
+    var $isListedButton       = $('#is-listed');
 
     $isListedButton.click(function()
     {
@@ -40,11 +35,11 @@ $(document).ready(function()
         if (text == 'Listed') { // was listed, we want UNLISTED
             $symbolInput.val(unlisted + '_' + symbol);
             $isListedButton.html('Unlisted');
-            $getFinanceData.parent().parent().toggle();
+            $getFinanceData.toggle();
         } else { // was unlisted, we want LISTED
             $symbolInput.val(symbol);
             $isListedButton.html('Listed');
-            $getFinanceData.parent().parent().toggle();
+            $getFinanceData.toggle();
         }
     });
 
@@ -82,13 +77,7 @@ $(document).ready(function()
                     data.quote_timestamp);
                 $fetchedUnitPrice.show();
 
-                if (data.available_quantity != null) {
-                    $availableQuantity.find('span').text(data.available_quantity);
-                    $availableQuantity.show();
-                    if ($actionSelect.val() == 'SELL') {
-                        $quantityInput.attr('max', data.available_quantity);
-                    }
-                }
+                window.handleAvailableQuantity(data.available_quantity);
                 // console.log(data);
             },
             error: function(jqXHR, textStatus, errorThrown)
@@ -108,9 +97,7 @@ $(document).ready(function()
                 $fetchedUnitPrice.find('span').attr('data-bs-original-title', '');
                 $fetchedUnitPrice.hide();
 
-                $availableQuantity.find('span').text('');
-                $availableQuantity.hide();
-                $quantityInput.removeAttr('max');
+                window.handleAvailableQuantity(null);
                 // console.log(jqXHR.responseJSON.message);
             }
         });

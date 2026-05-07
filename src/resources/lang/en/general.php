@@ -27,11 +27,22 @@ return [
         'clear-cache' => 'Clear Cache',
     ],
     'tooltips' => [
-        'create-item' => 'Create :type',
-        'save-item'   => 'Save :type',
-        'show-item'   => 'Show :type',
-        'edit-item'   => 'Edit :type',
-        'delete-item' => 'Delete :type',
+        'create-item'      => 'Create :type',
+        'save-item'        => 'Save :type',
+        'show-item'        => 'Show :type',
+        'edit-item'        => 'Edit :type',
+        'delete-item'      => 'Delete :type',
+        'get-finance-data' => 'Get Finance Data',
+    ],
+    'forms' => [
+        'symbol' => [
+            'label'       => 'Symbol',
+            'placeholder' => 'Input Symbol',
+        ],
+        'quantity' => [
+            'label'       => 'Quantity',
+            'placeholder' => 'Input Quantity',
+        ],
     ],
     'modals' => [
         'delete_modal_title'   => 'Delete :type with id :id',

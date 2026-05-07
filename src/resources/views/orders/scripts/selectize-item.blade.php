@@ -13,23 +13,6 @@ $(document).ready(function ()
         tradeCurrenciesById[tradeCurrencies[i]['id']] = tradeCurrencies[i];
     }
 
-    var $symbolSelect = $("#symbol-select").selectize({
-        placeholder: ' {{ trans('myfinance2::orders.forms.item-form.symbol.placeholder') }} ',
-        allowClear: true,
-        create: true,
-        highlight: true,
-        diacritics: true,
-    });
-
-    var symbolInitialValue = @json($symbol ?? '');
-    var symbolSelectize = $symbolSelect[0].selectize;
-    if (symbolSelectize && symbolInitialValue) {
-        if (!symbolSelectize.options[symbolInitialValue]) {
-            symbolSelectize.addOption({ value: symbolInitialValue, text: symbolInitialValue });
-        }
-        symbolSelectize.setValue(symbolInitialValue, true);
-    }
-
     var $actionSelect = $("#action-select").selectize({
         placeholder: ' {{ trans('myfinance2::orders.forms.item-form.action.placeholder') }} ',
         allowClear: true,

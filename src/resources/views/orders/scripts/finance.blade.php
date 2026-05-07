@@ -15,11 +15,12 @@ $(document).ready(function()
         }
     });
 
-    var $symbolSelect     = $('#symbol-select');
+    var $symbolInput      = $('#symbol-input');
     var $limitPriceInput  = $('#limit_price');
     var $quantityInput    = $('#quantity-input');
     var $descriptionInput = $('#description');
     var $orderBanner      = $('#order-summary-banner');
+    var $fetchedSymbolName = $('#fetched-symbol-name');
 
     var applySmartPrefill = function(symbol)
     {
@@ -33,6 +34,9 @@ $(document).ready(function()
             success: function(data)
             {
                 var s = data.suggestion;
+
+                $fetchedSymbolName.find('span').html(data.name);
+                $fetchedSymbolName.show();
 
                 var reasonText;
                 if (s.weak_signal) {
@@ -83,26 +87,20 @@ $(document).ready(function()
                     $exchangeRateInput.val(s.exchange_rate).trigger('input');
                 }
 
+                window.handleAvailableQuantity(data.available_quantity);
                 $orderBanner.trigger('banner-update');
             },
         });
     };
 
     if (symbolPrefill) {
-        var symbolSelectize = $symbolSelect[0].selectize;
-        if (symbolSelectize) {
-            if (!symbolSelectize.options[symbolPrefill]) {
-                symbolSelectize.addOption({ value: symbolPrefill, text: symbolPrefill });
-            }
-            symbolSelectize.setValue(symbolPrefill);
-        }
+        $symbolInput.val(symbolPrefill).trigger('input');
         applySmartPrefill(symbolPrefill);
     }
 
     $('#get-finance-data').on('click', function()
     {
-        var symbolSelectize = $symbolSelect[0].selectize;
-        var symbol = symbolSelectize ? symbolSelectize.getValue() : $symbolSelect.val();
+        var symbol = $symbolInput.val();
         if (symbol) {
             applySmartPrefill(symbol);
         }

@@ -16,7 +16,8 @@ class OrderSuggestion
      * @param array       $financeData     Result from FinanceUtils::getFinanceDataBySymbol()
      * @param float       $openQuantity    Net open quantity for the symbol (BUY - SELL)
      * @param float       $eurRate         EUR → trade_currency exchange rate (1.0 if EUR)
-     * @param string|null $accountCurrency Account's ISO currency code; null = unknown
+     * @param string|null $accountCurrency  Account's ISO currency code; null = unknown
+     * @param float|null  $availableQuantity Available qty to sell (from open trades); falls back to openQuantity
      *
      * @return array{
      *   action: string,
@@ -33,7 +34,8 @@ class OrderSuggestion
         array $financeData,
         float $openQuantity,
         float $eurRate,
-        ?string $accountCurrency
+        ?string $accountCurrency,
+        ?float $availableQuantity = null
     ): array
     {
         $price         = (float) $financeData['price'];
@@ -59,16 +61,18 @@ class OrderSuggestion
         $isPartialSell = false;
 
         if ($action === 'SELL') {
-            $suggestedQty = min($suggestedQty, $openQuantity);
+            $sellCap = $availableQuantity ?? $openQuantity;
 
-            $remainderQty   = $openQuantity - $suggestedQty;
+            $suggestedQty = min($suggestedQty, $sellCap);
+
+            $remainderQty   = $sellCap - $suggestedQty;
             $remainderValue = $remainderQty * $limitPrice;
 
             if ($remainderQty > 0 && $remainderValue < $targetInTrade) {
-                $suggestedQty = $openQuantity; // sell all — remainder too small
+                $suggestedQty = $sellCap; // sell all — remainder too small
             }
 
-            $isPartialSell = $suggestedQty < $openQuantity;
+            $isPartialSell = $suggestedQty < $sellCap;
         }
 
         return [

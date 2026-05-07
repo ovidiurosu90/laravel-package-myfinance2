@@ -105,7 +105,8 @@ class AjaxController extends MyFinance2Controller
             $financeData,
             $openQuantity,
             $eurRate,
-            $accountCurrency
+            $accountCurrency,
+            $availableQuantity
         );
         $suggestion['suggested_account_id'] = $suggestedAccountId;
         $suggestion['account_currency']     = $accountCurrency;

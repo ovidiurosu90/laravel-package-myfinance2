@@ -63,6 +63,7 @@
     @include('myfinance2::orders.scripts.selectize-item')
     @include('myfinance2::orders.scripts.placed-at-picker')
     @include('myfinance2::general.scripts.tooltips')
+    @include('myfinance2::general.scripts.available-quantity')
     @include('myfinance2::orders.scripts.banner')
     @include('myfinance2::orders.scripts.finance')
 @endsection

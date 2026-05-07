@@ -9,6 +9,7 @@ use Illuminate\Validation\Rule;
 
 use ovidiuro\myfinance2\App\Models\Account;
 use ovidiuro\myfinance2\App\Models\Currency;
+use ovidiuro\myfinance2\App\Rules\TradeQuantityIsAvailable;
 
 class StoreOrder extends FormRequest
 {
@@ -57,7 +58,12 @@ class StoreOrder extends FormRequest
             'trade_currency_id' => 'nullable|integer|exists:' .
                                         $currenciesTableName . ',id',
             'exchange_rate'     => 'nullable|numeric',
-            'quantity'          => 'nullable|numeric',
+            'quantity'          => array_merge(
+                ['nullable', 'numeric'],
+                ($this->action === 'SELL' && !empty($this->account_id) && !empty($this->symbol))
+                    ? [new TradeQuantityIsAvailable(null, null, 'SELL', (int) $this->account_id, $this->symbol)]
+                    : []
+            ),
             'limit_price'       => 'nullable|numeric',
             'trade_id'          => 'nullable|integer',
             'placed_at'         => 'nullable|date',

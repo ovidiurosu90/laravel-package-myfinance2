@@ -18,7 +18,7 @@ $(document).ready(function ()
         var qty      = parseFloat($('#quantity-input').val());
         var priceStr = $('#limit_price').val();
         var price    = parseFloat(priceStr);
-        var symbol   = $('#symbol-select').val() || '';
+        var symbol   = $('#symbol-input').val() || '';
 
         if (!action || isNaN(qty) || qty <= 0 || isNaN(price) || price <= 0) {
             $banner.hide();
