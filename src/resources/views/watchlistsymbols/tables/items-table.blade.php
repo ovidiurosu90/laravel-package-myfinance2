@@ -3,7 +3,8 @@
     .open-positions {
         padding: 0.35rem 0.6rem;
     }
-    .open-positions .trades td {
+    .open-positions .trades td,
+    .open-positions .metrics td {
         padding: 0.1rem 0.3rem;
     }
 </style>
@@ -14,10 +15,19 @@
             <tr role="row">
                 <th class="text-nowrap">Symbol</th>
                 <th class="text-right no-sort text-nowrap">Price</th>
-                <th class="text-right text-nowrap">Day change</th>
-                <th class="text-right no-sort text-nowrap">52-Wk range</th>
-                <th class="text-right text-nowrap">% Above low</th>
-                <th class="text-right text-nowrap">% Below high</th>
+                <th class="text-right text-nowrap">
+                    <span data-bs-toggle="tooltip"
+                          title="Price change today, in both currency and percentage.">1D</span>
+                </th>
+                <th class="text-right no-sort text-nowrap">52W Range</th>
+                <th class="text-right text-nowrap">
+                    <span data-bs-toggle="tooltip"
+                          title="How far the current price is above the 52-week low, as a percentage.">% Low</span>
+                </th>
+                <th class="text-right text-nowrap">
+                    <span data-bs-toggle="tooltip"
+                          title="How far the current price is below the 52-week high, as a percentage.">% High</span>
+                </th>
                 <th class="no-sort text-nowrap">Open Positions</th>
                 <th class="no-search no-sort">Orders</th>
                 <th class="no-search no-sort">Alerts</th>
@@ -80,7 +90,7 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                         @endif
                     </div>
                 </td>
-                <td class="text-right"
+                <td class="text-right text-nowrap"
                     data-order="{{ $quoteData['day_change_percentage'] }}">
                     <div>
                         {!! MoneyFormat
@@ -120,7 +130,7 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                         ) !!}
                     </div>
                 </td>
-                <td class="text-right"
+                <td class="text-right text-nowrap"
                     data-order="{{ $quoteData['fiftyTwoWeekLowChangePercent']
                                     * 100 }}">
                     {!! MoneyFormat
@@ -128,7 +138,7 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                         $quoteData['fiftyTwoWeekLowChangePercent'] * 100
                     ) !!}
                 </td>
-                <td class="text-right"
+                <td class="text-right text-nowrap"
                     data-order="{{ - $quoteData['fiftyTwoWeekHighChangePercent']
                                     * 100 }}">
                     {!! MoneyFormat

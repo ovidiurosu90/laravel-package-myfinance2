@@ -217,12 +217,21 @@ table.data-table {
     margin-top: 0.5rem;
     margin-bottom: 0.5rem;
 }
-.card-body.open-positions .trades {
+.card-body.open-positions .trades,
+.card-body.open-positions .metrics {
     font-size: 0.8rem;
 }
 .card-body.open-positions .trades td {
     padding-top: 0.1rem;
     padding-bottom: 0.1rem;
+}
+.card-body.open-positions .metrics tr.text-muted {
+    opacity: 0.6;
+}
+.card-body.open-positions .metrics td:nth-child(2),
+.card-body.open-positions .metrics td:nth-child(3) {
+    text-align: right;
+    white-space: nowrap;
 }
 
 .card-header .fa {

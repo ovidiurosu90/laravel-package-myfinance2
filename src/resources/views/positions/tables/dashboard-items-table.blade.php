@@ -9,23 +9,23 @@
                     title="Quote Price in Trade Currency">Quote Price</th>
                 <th class="text-nowrap no-sort">Market</th>
                 <th class="text-right text-nowrap" data-bs-toggle="tooltip"
-                    title="Cost in account currency">Cost</th>
+                    title="Current market value in account currency">MValue</th>
                 <th class="text-right text-nowrap" data-bs-toggle="tooltip"
-                    title="Current market value in account currency">MValue*</th>
+                    title="Cost Basis in account currency: actual purchase cost. For positions with past sells, a second row (italic) shows Effective Cost (net of sell proceeds).">Cost Basis</th>
                 <th class="no-sort text-right text-nowrap"
                     data-bs-toggle="tooltip"
-                    title="Average purchased unit cost in trade currency">Avg cost</th>
+                    title="Avg cost per share: actual average purchase price. For positions with past sells, a second row (italic) shows Effective Avg Cost (net of sell proceeds).">Avg Cost</th>
                 <th class="no-sort text-right text-nowrap"
                     data-bs-toggle="tooltip"
-                    title="Current unit price in trade currency">Price*</th>
+                    title="Current unit price in trade currency">Price</th>
                 <th class="text-right text-nowrap" data-bs-toggle="tooltip"
-                    title="Day gain in account currency">Day gain*</th>
+                    title="Day gain in account currency">Day Gain</th>
                 <th class="text-right text-nowrap" data-bs-toggle="tooltip"
-                    title="Day gain in percentage">Day gain (%)*</th>
+                    title="Day gain in percentage">Day Gain (%)</th>
                 <th class="text-right text-nowrap" data-bs-toggle="tooltip"
-                    title="Overall gain in account currency">Gain*</th>
+                    title="Unrealized gain on currently held shares in account currency. For positions with past sells, a second row (italic) shows Total Return including realized gains.">Gain</th>
                 <th class="text-right text-nowrap" data-bs-toggle="tooltip"
-                    title="Overall gain in percentage">Gain (%)*</th>
+                    title="Unrealized gain % on currently held shares. For positions with past sells, a second row (italic) shows Total Return % including realized gains.">Gain (%)</th>
             </tr>
         </thead>
         <tbody class="table-body">
@@ -73,46 +73,53 @@
                             : '' !!}
                     </div>
                 </td>
-                <td class="text-right text-nowrap">
-                    {!! $item['cost_in_account_currency_formatted'] !!}
-                    @if($item['cost2_in_account_currency_formatted'])
-                    <br />
-                    <span data-bs-toggle="tooltip"
-                        title="Value without factoring any gains from
-                                selling actions!"
-                        style="font-style:italic">
-                        {!! $item['cost2_in_account_currency_formatted'] !!}
-                    </span>
-                    @endif
-                </td>
                 <td class="text-right text-nowrap" data-bs-toggle="tooltip"
                     data-bs-custom-class="big-tooltips"
-                    title="Quote timestamp: {{ $item['quote_timestamp_formatted']
-                                            }}">
+                    title="Quote timestamp: {{ $item['quote_timestamp_formatted'] }}">
                     {!! $item['market_value_in_account_currency_formatted'] !!}
                 </td>
                 <td class="text-right text-nowrap">
-                    {!! $item['average_unit_cost_in_trade_currency_formatted'] !!}
+                    @if($item['cost2_in_account_currency_formatted'])
+                    {!! $item['cost2_in_account_currency_formatted'] !!}
+                    <br />
+                    <span class="fst-italic" style="opacity: 0.55"
+                          data-bs-toggle="tooltip"
+                          title="Effective Cost: net cash deployed (total amount invested minus proceeds collected from sales).{{ ($item['cost_in_account_currency'] ?? 0) < 0 ? ' Negative here: sell proceeds exceeded total buy cost, so remaining shares are effectively free.' : '' }}">
+                        {!! $item['cost_in_account_currency_formatted'] !!}
+                    </span>
+                    @else
+                    @if(($item['cost_in_account_currency'] ?? 0) < 0)
+                    <i class="fas fa-info-circle text-muted ms-1"
+                       data-bs-toggle="tooltip"
+                       title="Total cost is negative because your sell proceeds exceeded your total buy cost for this position. Your remaining shares are effectively free, as you have already recouped more than your full investment."></i>
+                    @endif
+                    {!! $item['cost_in_account_currency_formatted'] !!}
+                    @endif
+                </td>
+                <td class="text-right text-nowrap">
+                    @if($item['average_unit_cost2_in_trade_currency_formatted'])
+                    {!! $item['average_unit_cost2_in_trade_currency_formatted'] !!}
+                    <br />
+                    <span class="fst-italic" style="opacity: 0.55"
+                          data-bs-toggle="tooltip"
+                          title="Effective Avg Cost: per-share equivalent of net cash deployed, reduced by sell proceeds.{{ ($item['average_unit_cost_in_trade_currency'] ?? 0) < 0 ? ' Negative here: sell proceeds exceeded total buy cost, so remaining shares are effectively free.' : '' }}">
+                        {!! $item['average_unit_cost_in_trade_currency_formatted'] !!}
+                    </span>
+                    @else
                     @if(($item['average_unit_cost_in_trade_currency'] ?? 0) < 0)
                     <i class="fas fa-info-circle text-muted ms-1"
                        data-bs-toggle="tooltip"
                        title="Average cost is negative because your sell proceeds exceeded
                            your total buy cost for this position. Your remaining shares are
-                           effectively free — you have already recouped more than your full
+                           effectively free. You have already recouped more than your full
                            investment."></i>
                     @endif
-                    @if($item['average_unit_cost2_in_trade_currency_formatted'])
-                    <br />
-                    {!! $item['average_unit_cost2_in_trade_currency_formatted'] !!}
-                    <i class="fas fa-info-circle text-muted ms-1"
-                       data-bs-toggle="tooltip"
-                       title="Value without factoring any gains from selling actions!"></i>
+                    {!! $item['average_unit_cost_in_trade_currency_formatted'] !!}
                     @endif
                 </td>
                 <td class="text-right text-nowrap" data-bs-toggle="tooltip"
                     data-bs-custom-class="big-tooltips"
-                    title="Quote timestamp: {{ $item['quote_timestamp_formatted']
-                                            }}">
+                    title="Quote timestamp: {{ $item['quote_timestamp_formatted'] }}">
                     {!! $item['current_unit_price_in_trade_currency_formatted'] !!}
                     @if(!empty($item['pre_market_price']))
                     <br />
@@ -150,18 +157,19 @@
                     @endif
                 </td>
                 <td class="text-right text-nowrap"
-                    data-order="{{
-                        $item['overall_change_in_account_currency'] }}">
-                    {!! $item['overall_change_in_account_currency_formatted'] !!}
+                    data-order="{{ $item['overall_change2_in_account_currency_formatted']
+                        ? $item['overall_change2_in_account_currency']
+                        : $item['overall_change_in_account_currency'] }}">
                     @if($item['overall_change2_in_account_currency_formatted'])
+                    {!! $item['overall_change2_in_account_currency_formatted'] !!}
                     <br />
-                    <span data-bs-toggle="tooltip"
-                        title="Value without factoring any gains from
-                                selling actions!"
-                        style="font-style:italic">
-                        {!! $item['overall_change2_in_account_currency_formatted']
-                         !!}
+                    <span class="fst-italic" style="opacity: 0.55"
+                          data-bs-toggle="tooltip"
+                          title="Total return including gains already realized from past sales.">
+                        {!! $item['overall_change_in_account_currency_formatted'] !!}
                     </span>
+                    @else
+                    {!! $item['overall_change_in_account_currency_formatted'] !!}
                     @endif
                     @if(!empty($item['pre_market_price']))
                     <br />
@@ -173,17 +181,27 @@
                     @endif
                 </td>
                 <td class="text-right text-nowrap"
-                    data-order="{{
-                        $item['overall_change_in_percentage'] }}">
-                    {!! $item['overall_change_in_percentage_formatted'] !!}
+                    data-order="{{ $item['overall_change2_in_percentage'] ?? $item['overall_change_in_percentage'] }}">
                     @if($item['overall_change2_in_percentage_formatted'])
+                    {!! $item['overall_change2_in_percentage_formatted'] !!}
                     <br />
-                    <span data-bs-toggle="tooltip"
-                        title="Value without factoring any gains from
-                                selling actions!"
-                        style="font-style:italic">
-                        {!! $item['overall_change2_in_percentage_formatted'] !!}
+                    <span class="fst-italic" style="opacity: 0.55"
+                          data-bs-toggle="tooltip"
+                          title="Total return % including gains already realized from past sales.">
+                        {!! $item['overall_change_in_percentage_formatted'] !!}
+                        @if($item['overall_change_in_percentage'] === null && $item['quantity'])
+                        <i class="fas fa-info-circle ms-1"
+                           data-bs-toggle="tooltip"
+                           title="N/A: effective cost is negative (sell proceeds exceeded total buy cost), so a percentage cannot be meaningfully calculated."></i>
+                        @endif
                     </span>
+                    @else
+                    {!! $item['overall_change_in_percentage_formatted'] !!}
+                    @if($item['overall_change_in_percentage'] === null && $item['quantity'])
+                    <i class="fas fa-info-circle text-muted ms-1"
+                       data-bs-toggle="tooltip"
+                       title="N/A: effective cost is negative (sell proceeds exceeded total buy cost), so a percentage cannot be meaningfully calculated."></i>
+                    @endif
                     @endif
                     @if(!empty($item['pre_market_price']))
                     <br />
@@ -203,20 +221,20 @@
                 <td colspan="3"></td>
                 <td class="text-right">
                     <div class="font-weight-bold text-nowrap" data-bs-toggle="tooltip"
-                        title="Total Cost in account currency">
-                        Total Cost:
-                    </div>
-                    <div class="text-nowrap">
-                        {!! $accountData[$accountId]['total_cost_formatted'] !!}
-                    </div>
-                </td>
-                <td class="text-right">
-                    <div class="font-weight-bold text-nowrap" data-bs-toggle="tooltip"
                         title="Total Current Market Value in account currency">
                         Total MValue:
                     </div>
                     <div class="text-nowrap">
                         {!! $accountData[$accountId]['total_market_value_formatted'] !!}
+                    </div>
+                </td>
+                <td class="text-right">
+                    <div class="font-weight-bold text-nowrap" data-bs-toggle="tooltip"
+                        title="Total Cost in account currency">
+                        Total Cost:
+                    </div>
+                    <div class="text-nowrap">
+                        {!! $accountData[$accountId]['total_cost_formatted'] !!}
                     </div>
                 </td>
                 <td colspan="4"></td>
@@ -262,4 +280,3 @@
 
     <div class="clearfix mb-3"></div>
 </div>
-

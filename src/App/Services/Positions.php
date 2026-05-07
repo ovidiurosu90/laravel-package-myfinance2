@@ -557,6 +557,60 @@ class Positions
                 $position['cost2_in_trade_currency'] / $position['quantity']);
     }
 
+    public static function addRealizedGain(array &$position): void
+    {
+        // Realized gain = sell proceeds − avg cost × shares sold
+        // Equivalently: cost basis of held shares (cost2) − net deployed cost (cost)
+        // Must be called after addCost2() so cost2 is already scaled to current quantity
+        $hasCost2 = round($position['cost_in_account_currency'], 4) !=
+            round($position['cost2_in_account_currency'], 4);
+
+        $position['realized_gain_in_account_currency'] = $hasCost2
+            ? $position['cost2_in_account_currency'] - $position['cost_in_account_currency']
+            : 0;
+
+        $position['realized_gain_in_account_currency_formatted'] = !$hasCost2
+            ? ''
+            : MoneyFormat::get_formatted_gain(
+                $position['accountModel']->currency->display_code,
+                $position['realized_gain_in_account_currency']);
+
+        // Realized gain % = realized gain / cost basis of sold shares
+        // cost basis of sold shares = sold_qty × avg_cost = (quantity2 − quantity) × cost2 / quantity
+        $soldQty = $position['quantity2'] - $position['quantity'];
+        $costBasisOfSold = ($hasCost2 && $position['quantity'] > 0)
+            ? $soldQty * $position['cost2_in_account_currency'] / $position['quantity']
+            : 0;
+
+        $position['realized_gain_in_percentage'] = ($hasCost2 && $costBasisOfSold > 0)
+            ? $position['realized_gain_in_account_currency'] / $costBasisOfSold * 100
+            : null;
+
+        $position['realized_gain_in_percentage_formatted'] = (!$hasCost2 || $costBasisOfSold <= 0)
+            ? ''
+            : MoneyFormat::get_formatted_gain_percentage(
+                $position['realized_gain_in_percentage']);
+
+        // Recompute total gain % using total invested as denominator.
+        // addOverallChange() used effective cost (net deployed), which inflates the %
+        // dramatically when large sells have reduced net deployed capital to a small number.
+        // Total invested = cost2 (current shares) scaled back to all shares ever bought.
+        if ($hasCost2 && $position['quantity'] > 0) {
+            $totalInvested = $position['cost2_in_account_currency']
+                * $position['quantity2'] / $position['quantity'];
+
+            $position['overall_change_in_percentage'] = $totalInvested > 0
+                ? $position['overall_change_in_account_currency'] / $totalInvested * 100
+                : null;
+
+            $position['overall_change_in_percentage_formatted'] =
+                $position['overall_change_in_percentage'] === null
+                ? ($position['quantity'] ? 'N/A' : '')
+                : MoneyFormat::get_formatted_gain_percentage(
+                    $position['overall_change_in_percentage']);
+        }
+    }
+
     public static function addOverallChange2(array &$position)
     {
         $position['overall_change2_in_account_currency'] =
@@ -573,6 +627,13 @@ class Positions
             : MoneyFormat::get_formatted_gain(
                 $position['accountModel']->currency->display_code,
                 $position['overall_change2_in_account_currency']);
+
+        $position['overall_change2_in_percentage'] =
+            (!$position['quantity'] || !$hasCost2 || $position['cost2_in_account_currency'] <= 0)
+            ? null
+            : ($position['market_value_in_account_currency']
+                - $position['cost2_in_account_currency'])
+                / $position['cost2_in_account_currency'] * 100;
 
         $position['overall_change2_in_percentage_formatted'] =
             (!$position['quantity'] || !$hasCost2)
@@ -728,6 +789,7 @@ class Positions
                 self::addOverallChange($position);
                 self::addCost($position);
                 self::addCost2($position);
+                self::addRealizedGain($position);
                 self::addOverallChange2($position);
                 self::updateAccountDataTotal($accountData[$accountId], $position);
             }
