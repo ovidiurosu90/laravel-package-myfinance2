@@ -39,16 +39,16 @@
     <td class="text-end fw-bold"
         style="white-space: nowrap; width: 1%;"><span class="text-danger">−</span></td>
     <td class="currency-value"
-        data-eur="{{ $data['totalPurchases']['EUR']['formatted'] }}"
-        data-usd="{{ $data['totalPurchases']['USD']['formatted'] }}"
+        data-eur="{{ $data['totalPurchasesNet']['EUR']['formatted'] }}"
+        data-usd="{{ $data['totalPurchasesNet']['USD']['formatted'] }}"
         data-eur-fees="{{ $data['purchases']['totals']['EUR']['feesFormatted'] }}"
         data-usd-fees="{{ $data['purchases']['totals']['USD']['feesFormatted'] }}"
         data-eur-fees-text="{{ $data['purchases']['totals']['EUR']['feesText'] }}"
         data-usd-fees-text="{{ $data['purchases']['totals']['USD']['feesText'] }}">
         @php
             $principalValue = $selectedCurrency === 'EUR'
-                ? $data['totalPurchases']['EUR']['formatted']
-                : $data['totalPurchases']['USD']['formatted'];
+                ? $data['totalPurchasesNet']['EUR']['formatted']
+                : $data['totalPurchasesNet']['USD']['formatted'];
         @endphp
         <div>
             {!! $principalValue !!}
