@@ -123,21 +123,21 @@ return [
         // Keywords loaded from private package
     ],
 
-    // Dividend currency tax entity mappings
-    // For tax reporting purposes, some symbols may need to be grouped in a different currency bucket
-    // than their actual dividend currency. This is useful for tax entity classification exceptions.
+    // Maps stock symbols to their country of domicile (2-letter ISO country code)
+    // Country = incorporation/domicile, NOT the exchange country
+    // Example: VUSA.AS trades in Amsterdam but is Ireland-domiciled → 'IE'
     // Hierarchical structure: global mappings apply to all accounts,
     // by_account mappings apply only to specific accounts and take precedence
-    // Format: 'SYMBOL' => 'TAX_CURRENCY_ISO_CODE'
-    // Example: NXPI dividends are in USD, but for tax purposes should be grouped in EUR bucket
-    'dividend_currency_tax_mappings' => [
-        'global' => [
-            // Global mappings here (if any)
-        ],
-        'by_account' => [
-            // Account-specific mappings loaded from private package
-        ],
+    // Actual symbol mappings are defined in the private config override (trades-private.php)
+    'dividend_country_mappings' => [
+        'global' => [],
+        'by_account' => [],
     ],
+
+    // Countries where the dividend 'fee' field represents withholding tax (bronbelasting)
+    // Fees on stocks from countries NOT in this list (e.g. KY, GB, IE) are ADR/custody costs
+    // and must NOT be included in the Dutch tax summary totals
+    'dividend_withholding_tax_countries' => ['NL', 'US'],
 
     // Total gross dividends overrides for tax reporting
     // Used to match official annual statements when calculated values differ due to rounding or data issues

@@ -155,55 +155,45 @@
             </tbody>
         </table>
 
-        {{-- Dividends Summary by Dividend Currency --}}
-        @if(!empty($data['dividendsSummaryByTransactionCurrency']))
-        <div style="margin-top: 1.5rem;">
-            <strong style="font-size: 0.95rem;">
-                Dividends Summary by Dividend Currency:
-            </strong>
-            <table class="table table-sm table-striped mb-0" style="margin-top: 0.75rem;">
-                <thead>
-                    <tr class="small">
-                        <th style="width: 15%;">Dividend Currency</th>
-                        <th class="text-end" style="width: 42.5%;">Gross Amount</th>
-                        <th class="text-end" style="width: 42.5%;">Fee / Tax</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($data['dividendsSummaryByTransactionCurrency']['groups'] as $summary)
-                    <tr class="small">
-                        <td class="fw-bold">{{ $summary['isoCode'] }} {!! $summary['currencyCode'] !!}</td>
-                        <td class="text-end text-nowrap">
-                            {!! $summary['totalGrossFormatted'] !!}
-                        </td>
-                        <td class="text-end text-nowrap text-danger">
-                            @if($summary['totalFee'] > 0)
-                                {!! $summary['totalFeeFormatted'] !!}
-                            @endif
-                        </td>
-                    </tr>
-                    @endforeach
-                </tbody>
-            </table>
+        <div class="row g-3" style="margin-top: 1rem;">
+            {{-- Dividends Summary by Dividend Currency --}}
+            @if(!empty($data['dividendsSummaryByTransactionCurrency']['groups']))
+            <div class="col-12 col-lg-4">
+                <strong style="font-size: 0.95rem;">
+                    Dividends Summary by Dividend Currency
+                </strong>
+                <table class="table table-sm table-striped mb-0" style="margin-top: 0.75rem;">
+                    <thead>
+                        <tr class="small">
+                            <th style="width: 15%;">Currency</th>
+                            <th class="text-end" style="width: 42.5%;">Gross Amount</th>
+                            <th class="text-end" style="width: 42.5%;">Fee / Tax</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($data['dividendsSummaryByTransactionCurrency']['groups'] as $summary)
+                        <tr class="small">
+                            <td class="fw-bold">{{ $summary['isoCode'] }} {!! $summary['currencyCode'] !!}</td>
+                            <td class="text-end text-nowrap">
+                                {!! $summary['totalGrossFormatted'] !!}
+                            </td>
+                            <td class="text-end text-nowrap text-danger">
+                                @if($summary['totalFee'] > 0)
+                                    {!! $summary['totalFeeFormatted'] !!}
+                                @endif
+                            </td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
 
-            {{-- Note about remapped symbols --}}
-            @if(!empty($data['dividendsSummaryByTransactionCurrency']['remapped']))
-            <div style="margin-top: 1rem; padding: 0.75rem; background-color: #f8f9fa; border-left: 3px solid #17a2b8;">
-                <small style="color: #495057;">
-                    <strong>Note:</strong> The following symbols have been remapped for
-                    tax reporting purposes:
-                    <br>
-                    @foreach($data['dividendsSummaryByTransactionCurrency']['remapped'] as $remapped)
-                        • <strong>{{ $remapped['symbol'] }}</strong>
-                        ({{ $remapped['originalCurrency'] }} →
-                        {{ $remapped['taxCurrency'] }}):
-                        {!! $remapped['totalGrossFormatted'] !!}<br>
-                    @endforeach
-                </small>
             </div>
             @endif
+
+            @if(!empty($data['dividendsSummaryByCountry']['byCountry']))
+                @include('myfinance2::returns.tables.dividends-country-summary')
+            @endif
         </div>
-        @endif
     </td>
 </tr>
 @endif

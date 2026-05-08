@@ -266,7 +266,9 @@ class ReturnsViewTransformer
             // Exclude original data to keep response lean
             'excludedTrades' => $accountData['EUR']['excludedTrades'] ?? [],
             'dividendsSummaryByTransactionCurrency' =>
-                $accountData['EUR']['dividendsSummaryByTransactionCurrency'] ?? null,
+                $accountData['dividendsSummary'] ?? null,
+            'dividendsSummaryByCountry' =>
+                $accountData['dividendsSummaryByCountry'] ?? null,
         ];
     }
 

@@ -28,6 +28,11 @@ class ReturnsCurrencyConverter
         $this->_formatter = $formatter ?? new ReturnsCurrencyFormatter();
     }
 
+    public function getEurusdRateForDate(int $accountId, \DateTimeInterface $date): float
+    {
+        return $this->_quoteProvider->getExchangeRate($accountId, 'EUR', 'USD', $date);
+    }
+
     /**
      * Convert returns data to multiple currencies in a single pass (optimized version)
      *

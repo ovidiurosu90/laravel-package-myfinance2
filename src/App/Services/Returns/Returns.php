@@ -220,11 +220,18 @@ class Returns
             : $portfolioValues['dec31']['total'];
         $actualReturn = $this->_computeActualReturn($totals, $startValue, $endValue, $excludeDepositsWithdrawals);
 
-        // Create dividends summary
+        // Create dividends summary by transaction currency
         $dividendsSummary = $this->_dividends->createDividendsSummaryByTransactionCurrency(
             $transactions['dividendsList'],
-            $baseCurrency,
-            $accountId
+            $account->currency->display_code
+        );
+
+        // Create Dutch tax return dividend summary by country of domicile
+        $eurusdRate = $this->_currencyConverter->getEurusdRateForDate($accountId, $dec31);
+        $dividendsSummaryByCountry = $this->_dividends->getDividendSummaryByCountry(
+            $transactions['dividendsList'],
+            $accountId,
+            $eurusdRate
         );
 
         // Build result array with all data and formatting
@@ -247,6 +254,7 @@ class Returns
             'transferWithdrawals' => $transactions['transferWithdrawals'] ?? [],
             'dividends' => $transactions['dividendsList'],
             'dividendsSummary' => $dividendsSummary,
+            'dividendsSummaryByCountry' => $dividendsSummaryByCountry,
             'purchases' => $transactions['purchases'],
             'sales' => $transactions['sales'],
             'excludedTrades' => $transactions['excludedTrades'],
@@ -506,6 +514,7 @@ class Returns
             'withdrawals' => [],
             'dividends' => [],
             'dividendsSummary' => null,
+            'dividendsSummaryByCountry' => null,
             'purchases' => [],
             'sales' => [],
             'excludedTrades' => [],

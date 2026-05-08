@@ -126,50 +126,161 @@ class ReturnsDividends
         return null;
     }
 
+    public function getDividendSummaryByCountry(
+        array $dividends,
+        int $accountId,
+        float $eurusdRate
+    ): array
+    {
+        $config = $this->_loadDividendCountryConfig($accountId);
+        $byCountry = [];
+        $unmappedSymbols = [];
+
+        foreach ($dividends as $dividend) {
+            $country = $this->_getSymbolCountry($dividend['symbol'], $config);
+            if ($country === null) {
+                if (!in_array($dividend['symbol'], $unmappedSymbols)) {
+                    $unmappedSymbols[] = $dividend['symbol'];
+                }
+                continue;
+            }
+
+            $grossInEur = $this->_computeGrossEur($dividend, $eurusdRate);
+            $taxInEur   = $this->_computeTaxEur($dividend, $country, $config['withholdingCountries'], $eurusdRate);
+
+            if (!isset($byCountry[$country])) {
+                $byCountry[$country] = ['country' => $country, 'gross' => 0.0, 'tax' => 0.0, 'symbols' => []];
+            }
+            $byCountry[$country]['gross'] += $grossInEur;
+            $byCountry[$country]['tax']   += $taxInEur;
+            if (!in_array($dividend['symbol'], $byCountry[$country]['symbols'])) {
+                $byCountry[$country]['symbols'][] = $dividend['symbol'];
+            }
+        }
+
+        ksort($byCountry);
+
+        return $this->_buildCountrySummaryResult($byCountry, $unmappedSymbols);
+    }
+
+    private function _loadDividendCountryConfig(int $accountId): array
+    {
+        $allMappings = config(
+            'trades.dividend_country_mappings',
+            ['global' => [], 'by_account' => []]
+        );
+        return [
+            'globalMappings'      => $allMappings['global'] ?? [],
+            'accountMappings'     => $allMappings['by_account'][$accountId] ?? [],
+            'withholdingCountries' => config('trades.dividend_withholding_tax_countries', ['NL', 'US']),
+        ];
+    }
+
+    private function _getSymbolCountry(string $symbol, array $config): ?string
+    {
+        return $config['accountMappings'][$symbol] ?? $config['globalMappings'][$symbol] ?? null;
+    }
+
+    private function _computeGrossEur(array $dividend, float $eurusdRate): float
+    {
+        $exchangeRate = (float)($dividend['exchangeRate'] ?: 1);
+        $grossInAccountCurrency = $dividend['amount'] / $exchangeRate;
+        if ($dividend['accountCurrencyIsoCode'] === 'USD') {
+            return $eurusdRate > 0 ? $grossInAccountCurrency / $eurusdRate : 0.0;
+        }
+        return $grossInAccountCurrency;
+    }
+
+    private function _computeTaxEur(
+        array $dividend,
+        string $country,
+        array $withholdingCountries,
+        float $eurusdRate
+    ): float
+    {
+        if (!in_array($country, $withholdingCountries) || $dividend['fee'] <= 0) {
+            return 0.0;
+        }
+        if ($dividend['accountCurrencyIsoCode'] === 'USD') {
+            return $eurusdRate > 0 ? $dividend['fee'] / $eurusdRate : 0.0;
+        }
+        return (float)$dividend['fee'];
+    }
+
+    private function _buildCountrySummaryResult(array $byCountry, array $unmappedSymbols): array
+    {
+        $formattedByCountry = [];
+        $totalGross = 0.0;
+        $totalTax   = 0.0;
+
+        foreach ($byCountry as $country => $data) {
+            $gross = $data['gross'];
+            $tax   = $data['tax'];
+            $net   = $gross - $tax;
+            $totalGross += $gross;
+            $totalTax   += $tax;
+
+            $symbols = $data['symbols'] ?? [];
+            sort($symbols);
+            $formattedByCountry[] = [
+                'country'        => $country,
+                'gross'          => $gross,
+                'tax'            => $tax,
+                'net'            => $net,
+                'grossFormatted' => MoneyFormat::get_formatted_balance('€', $gross),
+                'taxFormatted'   => $tax > 0 ? MoneyFormat::get_formatted_balance('€', $tax) : '',
+                'netFormatted'   => MoneyFormat::get_formatted_balance('€', $net),
+                'symbols'        => $symbols,
+            ];
+        }
+
+        $totalNet         = $totalGross - $totalTax;
+        $dutchDividendTax = $byCountry['NL']['tax'] ?? 0.0;
+
+        $foreignTaxByCountry = [];
+        foreach ($byCountry as $country => $data) {
+            if ($country !== 'NL' && $data['tax'] > 0) {
+                $foreignTaxByCountry[] = [
+                    'country'        => $country,
+                    'tax'            => $data['tax'],
+                    'gross'          => $data['gross'],
+                    'taxFormatted'   => MoneyFormat::get_formatted_balance('€', $data['tax']),
+                    'grossFormatted' => MoneyFormat::get_formatted_balance('€', $data['gross']),
+                ];
+            }
+        }
+
+        return [
+            'byCountry' => $formattedByCountry,
+            'totals'    => [
+                'gross'          => $totalGross,
+                'tax'            => $totalTax,
+                'net'            => $totalNet,
+                'grossFormatted' => MoneyFormat::get_formatted_balance('€', $totalGross),
+                'taxFormatted'   => MoneyFormat::get_formatted_balance('€', $totalTax),
+                'netFormatted'   => MoneyFormat::get_formatted_balance('€', $totalNet),
+            ],
+            'dutchDividendTax'          => $dutchDividendTax,
+            'dutchDividendTaxFormatted' => MoneyFormat::get_formatted_balance('€', $dutchDividendTax),
+            'totalGross'                => $totalGross,
+            'foreignTaxByCountry'       => $foreignTaxByCountry,
+            'unmappedSymbols'           => $unmappedSymbols,
+        ];
+    }
+
     /**
      * Create a summary of dividends grouped by their dividend currency (with tax mapping support)
      * Returns an array sorted by currency code with totals for gross amount and fees
      */
     public function createDividendsSummaryByTransactionCurrency(
         array $dividends,
-        string $accountCurrencyCode,
-        int $accountId
+        string $accountCurrencyCode
     ): array {
         $summary = [];
-        $remappedSymbols = [];
-
-        // Get tax mappings from config (hierarchical: by_account takes precedence over global)
-        $allTaxMappings = config('trades.dividend_currency_tax_mappings', []);
-        $globalMappings = $allTaxMappings['global'] ?? [];
-        $accountSpecificMappings = $allTaxMappings['by_account'][$accountId] ?? [];
-        // Merge with account-specific mappings taking precedence
-        $taxMappings = array_merge($globalMappings, $accountSpecificMappings);
-
-        // First pass: create mapping of ISO codes to currency display codes from all dividends
-        $isoCodesToDisplayCodes = [];
-        foreach ($dividends as $dividend) {
-            $isoCodesToDisplayCodes[$dividend['dividendCurrencyIsoCode']] = $dividend['dividendCurrencyCode'];
-        }
 
         foreach ($dividends as $dividend) {
-            $symbol = $dividend['symbol'];
-            // Check if this symbol should be remapped to a different currency bucket for tax purposes
-            $taxCurrency = $taxMappings[$symbol] ?? null;
-            $currencyIsoCode = $taxCurrency ?? $dividend['dividendCurrencyIsoCode'];
-            // Use the correct currency code for the bucket's ISO code, not the dividend's original code
-            $currencyCode = $isoCodesToDisplayCodes[$currencyIsoCode] ?? $dividend['dividendCurrencyCode'];
-
-            // Track remapped symbols
-            if ($taxCurrency && $taxCurrency !== $dividend['dividendCurrencyIsoCode']) {
-                if (!isset($remappedSymbols[$symbol])) {
-                    $remappedSymbols[$symbol] = [
-                        'original_currency' => $dividend['dividendCurrencyIsoCode'],
-                        'tax_currency' => $taxCurrency,
-                        'totalGross' => 0,
-                    ];
-                }
-                $remappedSymbols[$symbol]['totalGross'] += $dividend['amount'];
-            }
+            $currencyIsoCode = $dividend['dividendCurrencyIsoCode'];
+            $currencyCode = $dividend['dividendCurrencyCode'];
 
             if (!isset($summary[$currencyIsoCode])) {
                 $summary[$currencyIsoCode] = [
@@ -200,38 +311,7 @@ class ReturnsDividends
         // Sort by currency code
         ksort($summary);
 
-        // Prepare remapped symbols info for display
-        $remappedInfo = [];
-        if (!empty($dividends) && !empty($remappedSymbols)) {
-            foreach ($remappedSymbols as $symbol => $data) {
-                // Find a dividend entry to get the currency code for formatting
-                $dividendForFormatting = null;
-                foreach ($dividends as $div) {
-                    if ($div['symbol'] === $symbol) {
-                        $dividendForFormatting = $div;
-                        break;
-                    }
-                }
-
-                if ($dividendForFormatting) {
-                    $remappedInfo[] = [
-                        'symbol' => $symbol,
-                        'originalCurrency' => $data['original_currency'],
-                        'taxCurrency' => $data['tax_currency'],
-                        'totalGross' => $data['totalGross'],
-                        'totalGrossFormatted' => MoneyFormat::get_formatted_balance(
-                            $dividendForFormatting['dividendCurrencyCode'],
-                            $data['totalGross']
-                        ),
-                    ];
-                }
-            }
-        }
-
-        return [
-            'groups' => array_values($summary),
-            'remapped' => $remappedInfo,
-        ];
+        return ['groups' => array_values($summary)];
     }
 }
 
