@@ -111,6 +111,73 @@ $(document).ready(function()
         $element.html(percentage);
     }
 
+    const metricColors = {
+        @foreach($ChartsBuilder::getAccountMetrics() as $metric => $properties)
+        '{{ $metric }}': '{{ $properties["line_color"] }}',
+        @endforeach
+    };
+
+    function computePercentageRangeMinMax(numeratorKey, denominatorKey, currency)
+    {
+        const numArray = userOverviewData[numeratorKey + '_' + currency] || [];
+        const denArray = userOverviewData[denominatorKey + '_' + currency] || [];
+        const denByDate = {};
+        denArray.forEach((d) => { denByDate[d.time] = d.value; });
+        let min = null;
+        let max = null;
+        numArray.forEach((d) =>
+        {
+            const den = denByDate[d.time];
+            if (den && den !== 0) {
+                const pct = (d.value / den) * 100;
+                if (min === null || pct < min) min = pct;
+                if (max === null || pct > max) max = pct;
+            }
+        });
+        return { min, max };
+    }
+
+    function computeDirectRangeMinMax(key, currency)
+    {
+        const arr = userOverviewData[key + '_' + currency] || [];
+        let min = null;
+        let max = null;
+        arr.forEach((d) =>
+        {
+            if (min === null || d.value < min) min = d.value;
+            if (max === null || d.value > max) max = d.value;
+        });
+        return { min, max };
+    }
+
+    function renderRangeBar(elementId, min, max, current, currentLabel, labelColor)
+    {
+        if (min === null || max === null || current === null) return;
+        const range = max - min;
+        const position = range === 0
+            ? 50 : Math.max(0, Math.min(100, ((current - min) / range) * 100));
+        const fmt = (v) => (Math.round(v * 100) / 100) + '%';
+        $('#' + elementId).html(
+            '<div style="padding-top:20px;">'
+            + '<div style="display:flex;align-items:center;gap:4px;font-size:0.72rem;'
+            + 'color:#000;">'
+            + '<span style="white-space:nowrap;">' + fmt(min) + '</span>'
+            + '<div style="flex:1;position:relative;height:5px;background:#e0e0e0;'
+            + 'border-radius:3px;min-width:40px;">'
+            + '<span style="position:absolute;left:' + position
+            + '%;transform:translateX(-50%);bottom:calc(100% + 5px);font-size:0.875rem;'
+            + 'white-space:nowrap;color:' + labelColor + ';">'
+            + currentLabel + '</span>'
+            + '<div style="position:absolute;width:8px;height:8px;background:#555;'
+            + 'border-radius:1px;top:-1.5px;transform:translateX(-50%);left:'
+            + position + '%;"></div>'
+            + '</div>'
+            + '<span style="white-space:nowrap;">' + fmt(max) + '</span>'
+            + '</div>'
+            + '</div>'
+        );
+    }
+
     function setStatus()
     {
         const currency = $element.data('currency_iso_code');
@@ -143,6 +210,32 @@ $(document).ready(function()
             '{{ $properties["line_color"] }}', statusData);
         @endif
         @endforeach
+
+        $('#mvalue-status-percentage').html('');
+        $('#change-status-percentage').html('');
+        $('#cash-status-percentage').html('');
+
+        const mvalueRange = computePercentageRangeMinMax('mvalue', 'cost', currency);
+        const mvaluePct = statusData.cost !== 0
+            ? (statusData.mvalue / statusData.cost) * 100 : null;
+        const mvaluePctLabel = mvaluePct !== null
+            ? '+' + (Math.round(mvaluePct * 100) / 100) + '%' : null;
+        renderRangeBar('mvalue-range-bar', mvalueRange.min, mvalueRange.max, mvaluePct,
+            mvaluePctLabel, metricColors.mvalue);
+
+        const changeRange = computeDirectRangeMinMax('changePercentage', currency);
+        const changePctLabel = statusData.changePercentage !== null
+            ? (Math.round(statusData.changePercentage * 100) / 100) + '%' : null;
+        renderRangeBar('change-range-bar', changeRange.min, changeRange.max,
+            statusData.changePercentage, changePctLabel, metricColors.change);
+
+        const cashRange = computePercentageRangeMinMax('cash', 'cost', currency);
+        const cashPct = statusData.cost !== 0
+            ? (statusData.cash / statusData.cost) * 100 : null;
+        const cashPctLabel = cashPct !== null
+            ? (Math.round(cashPct * 100) / 100) + '%' : null;
+        renderRangeBar('cash-range-bar', cashRange.min, cashRange.max, cashPct,
+            cashPctLabel, metricColors.cash);
     }
 
     // Display currency exchange rate if data exists

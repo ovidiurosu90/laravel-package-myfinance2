@@ -29,13 +29,13 @@
         </tr>
         <tr>
             <td></td>
-            <td><span id="currency_exchange-status-time"></span>&nbsp;&nbsp;<span id="eurusd-signal"></span></td>
-            <td><span id="cost-status-percentage"></span></td>
-            <td><span id="mvalue-status-percentage"></span></td>
-            <td><span id="change-status-percentage"></span></td>
-            <td><span id="cash-status-percentage"></span></td>
+            <td class="align-top"><span id="currency_exchange-status-time"></span>&nbsp;&nbsp;<span id="eurusd-signal"></span></td>
+            <td class="align-top"><span id="cost-status-percentage"></span></td>
+            <td><div id="mvalue-range-bar" class="px-1"></div></td>
+            <td><div id="change-range-bar" class="px-3"></div></td>
+            <td><div id="cash-range-bar" class="px-1"></div></td>
         </tr>
     </table>
-    <div id="chart-userOverview" data-currency_iso_code="{{ $currency }}"></div>
+    <div id="chart-userOverview" class="mt-3" data-currency_iso_code="{{ $currency }}"></div>
 </div>
 
