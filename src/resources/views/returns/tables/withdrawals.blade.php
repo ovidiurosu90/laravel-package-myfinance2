@@ -21,7 +21,7 @@
                 data-bs-title="{{ $withdrawalsInfoTooltip }}"></i>
         @endif
         @if(count($data['withdrawals']['items']) > 0)
-            <button class="btn btn-sm btn-link p-0"
+            <button class="btn btn-sm btn-link p-0" style="user-select: text"
                 data-bs-toggle="collapse"
                 data-bs-target="#withdrawals-{{ $accountId }}">
                 ({{ count($data['withdrawals']['items']) }} transactions)

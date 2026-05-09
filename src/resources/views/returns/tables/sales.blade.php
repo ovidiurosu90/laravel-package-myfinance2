@@ -14,7 +14,7 @@
     <td class="fw-bold">
         {{ trans('myfinance2::returns.labels.stock-sales') }}
         @if($hasSalesToShow)
-            <button class="btn btn-sm btn-link p-0"
+            <button class="btn btn-sm btn-link p-0" style="user-select: text"
                 data-bs-toggle="collapse"
                 data-bs-target="#sales-{{ $accountId }}">
                 @php

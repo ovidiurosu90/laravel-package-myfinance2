@@ -2,20 +2,6 @@
 {{-- Included from dividends.blade.php inside a Bootstrap row --}}
 @php $cs = $data['dividendsSummaryByCountry']; @endphp
 
-{{-- Warning: symbols with no country mapping (full-width col) --}}
-@if(!empty($cs['unmappedSymbols']))
-<div class="col-12">
-    <div style="padding: 0.75rem; background-color: #fff3cd; border-left: 3px solid #ffc107;">
-        <small style="color: #856404;">
-            <strong>Warning:</strong>
-            The following symbols have no country mapping and are excluded from the tax summary:
-            <strong>{{ implode(', ', $cs['unmappedSymbols']) }}</strong>.
-            Add them to <code>dividend_country_mappings</code> in
-            <code>src/config/trades-private.php</code> (private config).
-        </small>
-    </div>
-</div>
-@endif
 
 {{-- Section A: Full country breakdown --}}
 <div class="col-12 col-lg-4">

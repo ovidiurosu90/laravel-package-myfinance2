@@ -14,7 +14,7 @@
     <td class="fw-bold">
         {{ trans('myfinance2::returns.labels.stock-purchases') }}
         @if($hasPurchasesToShow)
-            <button class="btn btn-sm btn-link p-0"
+            <button class="btn btn-sm btn-link p-0" style="user-select: text"
                 data-bs-toggle="collapse"
                 data-bs-target="#purchases-{{ $accountId }}">
                 @php

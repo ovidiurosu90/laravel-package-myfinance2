@@ -21,7 +21,7 @@
                 data-bs-title="{{ $depositsInfoTooltip }}"></i>
         @endif
         @if(count($data['deposits']['items']) > 0)
-            <button class="btn btn-sm btn-link p-0"
+            <button class="btn btn-sm btn-link p-0" style="user-select: text"
                 data-bs-toggle="collapse"
                 data-bs-target="#deposits-{{ $accountId }}">
                 ({{ count($data['deposits']['items']) }} transactions)

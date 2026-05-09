@@ -217,14 +217,18 @@ class ReturnsViewTransformer
                 '$'
             ),
             'totalPurchasesNet' => $this->_valueTransformer->transformValue(
-                $accountData['EUR']['totalPurchasesNet'] ?? 0,
-                $accountData['USD']['totalPurchasesNet'] ?? 0,
+                ($accountData['EUR']['totalPurchasesNet'] ?? 0)
+                    + ($accountData['EUR']['totalTransferDeposits'] ?? 0),
+                ($accountData['USD']['totalPurchasesNet'] ?? 0)
+                    + ($accountData['USD']['totalTransferDeposits'] ?? 0),
                 '€',
                 '$'
             ),
             'totalSalesNet' => $this->_valueTransformer->transformValue(
-                $accountData['EUR']['totalSalesNet'] ?? 0,
-                $accountData['USD']['totalSalesNet'] ?? 0,
+                ($accountData['EUR']['totalSalesNet'] ?? 0)
+                    + ($accountData['EUR']['totalTransferWithdrawals'] ?? 0),
+                ($accountData['USD']['totalSalesNet'] ?? 0)
+                    + ($accountData['USD']['totalTransferWithdrawals'] ?? 0),
                 '€',
                 '$'
             ),

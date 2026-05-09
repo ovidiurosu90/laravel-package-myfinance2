@@ -48,7 +48,7 @@
                 <button class="btn btn-sm btn-link p-0"
                     data-bs-toggle="collapse"
                     data-bs-target="#jan1-positions-{{ $accountId }}"
-                    style="padding: 0 !important; margin: 0 !important; text-decoration: none;">
+                    style="padding: 0 !important; margin: 0 !important; text-decoration: none; user-select: text">
                     {{ count($data['jan1PositionDetails']) }}
                 </button>
                 )

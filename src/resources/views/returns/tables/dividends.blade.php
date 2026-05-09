@@ -3,10 +3,16 @@
     <td class="fw-bold">
         {{ trans('myfinance2::returns.labels.gross-dividends') }}
         @if(count($data['dividends']['items']) > 0)
-            <button class="btn btn-sm btn-link p-0"
+            <button class="btn btn-sm btn-link p-0" style="user-select: text"
                 data-bs-toggle="collapse"
                 data-bs-target="#dividends-{{ $accountId }}">
-                ({{ count($data['dividends']['items']) }} transactions)
+                @php
+                    $dividendLabels = array_filter([
+                        count($data['dividends']['items']) . ' transactions',
+                        !empty($data['dividendsSummaryByCountry']['byCountry']) ? 'Dutch Tax Return' : '',
+                    ]);
+                @endphp
+                ({{ implode(' + ', $dividendLabels) }})
             </button>
         @endif
     </td>
@@ -186,6 +192,22 @@
                         @endforeach
                     </tbody>
                 </table>
+
+                @if(!empty($data['dividendsSummaryByCountry']['unmappedSymbols']))
+                <div style="margin-top: 0.75rem; padding: 0.75rem;
+                    background-color: #fff3cd; border-left: 3px solid #ffc107;">
+                    <small style="color: #856404;">
+                        <strong>Warning:</strong>
+                        The following symbols have no country mapping and are excluded from
+                        the tax summary:
+                        <strong>
+                            {{ implode(', ', $data['dividendsSummaryByCountry']['unmappedSymbols']) }}
+                        </strong>.
+                        Add them to <code>dividend_country_mappings</code> in
+                        <code>src/config/trades-private.php</code> (private config).
+                    </small>
+                </div>
+                @endif
 
             </div>
             @endif
