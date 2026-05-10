@@ -294,5 +294,27 @@ class MoneyFormat
         $numDecimals = self::get_quantity_decimals($floatValue);
         return number_format($floatValue, $numDecimals);
     }
+
+    public static function get_partial_gain_tooltip(
+        int $quantitySold,
+        int $remainingQuantity,
+        float $avgCostPerShare,
+        string $currencyDisplayCode
+    ): string
+    {
+        $currency = strip_tags($currencyDisplayCode);
+        return '<b>Partial position:</b> '
+            . $quantitySold . ' shares sold, '
+            . $remainingQuantity . ' still held.'
+            . '<br><br><b>Cost basis methods:</b>'
+            . '<br>&bull; <b>FIFO</b>: sells oldest shares first.'
+            . '<br>&bull; <b>LIFO</b>: sells newest shares first.'
+            . '<br>&bull; <b>Average Cost</b> &#10003; (chosen):'
+            . ' pools all purchases into a weighted average,'
+            . ' smoothing cost differences across buys.'
+            . '<br><br>Cost basis used: <b>'
+            . number_format($avgCostPerShare, 2) . ' ' . $currency
+            . '/share</b>.';
+    }
 }
 

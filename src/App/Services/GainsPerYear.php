@@ -117,6 +117,16 @@ class GainsPerYear
                         }
                     }
 
+                    $sellsPerYear[$currentYear][$accountId][$symbol]
+                        ['avg_cost_per_share'] = $previousPricePerShare;
+                    $sellsPerYear[$currentYear][$accountId][$symbol]
+                        ['quantity_sold'] =
+                            ($sellsPerYear[$currentYear][$accountId][$symbol]
+                                ['quantity_sold'] ?? 0) + $currentQuantity;
+                    $sellsPerYear[$currentYear][$accountId][$symbol]
+                        ['remaining_quantity'] =
+                            $groupedItems[$accountId][$symbol]['quantity'];
+
                     break;
                 default:
                     LOG::warning("Unknown trade action " . $trade->action);

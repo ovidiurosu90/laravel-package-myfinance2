@@ -100,6 +100,17 @@
                                                 . 'account_currency'
                                             ],
                                             'dividend' => 0,
+                                            'avg_cost_per_share' =>
+                                                $totals[
+                                                    'avg_cost_per_share'
+                                                ] ?? null,
+                                            'quantity_sold' =>
+                                                $totals['quantity_sold']
+                                                    ?? null,
+                                            'remaining_quantity' =>
+                                                $totals[
+                                                    'remaining_quantity'
+                                                ] ?? 0,
                                         ];
                                 }
                             }
@@ -502,6 +513,17 @@
                                         : $row['dividend'];
                                     $symTotalEur =
                                         $symGainEur + $symDivEur;
+                                    $isPartialRow =
+                                        ($row['remaining_quantity'] ?? 0)
+                                            > 0;
+                                    $partialTooltipRow = $isPartialRow
+                                        ? MoneyFormat::get_partial_gain_tooltip(
+                                            $row['quantity_sold'],
+                                            $row['remaining_quantity'],
+                                            $row['avg_cost_per_share'],
+                                            $displayCode
+                                        )
+                                        : '';
                                 @endphp
                         <tr class="gpy-account-child"
                             data-gpy-parent-account="{{ $year }}-{{ $accId }}"
@@ -528,6 +550,17 @@
                                                 . strip_tags($displayCode),
                                             ]
                                         ) }}">
+                                    </i>
+                                @endif
+                                @if($isPartialRow)
+                                    <i class="fa-solid fa-circle-half-stroke ms-1"
+                                        style="font-size: 0.75rem;
+                                               color: #6c757d;"
+                                        data-bs-toggle="tooltip"
+                                        data-bs-placement="top"
+                                        data-bs-custom-class="big-tooltips4"
+                                        data-bs-html="true"
+                                        data-bs-title="{{ $partialTooltipRow }}">
                                     </i>
                                 @endif
                             </td>

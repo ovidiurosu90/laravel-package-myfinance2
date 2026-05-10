@@ -1,3 +1,5 @@
+@use('ovidiuro\myfinance2\App\Services\MoneyFormat')
+
 <div class="col ps-1">
     <div class="card">
         <div class="card-header">
@@ -57,6 +59,15 @@
                                             'reason' => $annotation,
                                         ];
                                     }
+                                    $isPartial = ($totals['remaining_quantity'] ?? 0) > 0;
+                                    $partialTooltip = $isPartial
+                                        ? MoneyFormat::get_partial_gain_tooltip(
+                                            $totals['quantity_sold'],
+                                            $totals['remaining_quantity'],
+                                            $totals['avg_cost_per_share'],
+                                            $totals['accountModel']->currency->display_code
+                                        )
+                                        : '';
                                 @endphp
                         <tr>
                             <td scope="row">
@@ -71,6 +82,15 @@
                                         style="font-size: 0.75rem; color: #6c757d;"
                                         data-bs-toggle="tooltip"
                                         title="{{ $annotation }}"></i>
+                                @endif
+                                @if($isPartial)
+                                    <i class="fa-solid fa-circle-half-stroke ms-1"
+                                        style="font-size: 0.75rem; color: #6c757d;"
+                                        data-bs-toggle="tooltip"
+                                        data-bs-placement="top"
+                                        data-bs-custom-class="big-tooltips4"
+                                        data-bs-html="true"
+                                        data-bs-title="{{ $partialTooltip }}"></i>
                                 @endif
                             </td>
                             <td class="text-right">
