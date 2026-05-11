@@ -150,13 +150,26 @@ $(document).ready(function()
         return { min, max };
     }
 
-    function renderRangeBar(elementId, min, max, current, currentLabel, labelColor)
+    function renderRangeBar(elementId, min, max, current, currentLabel, labelColor,
+        minMaxFormatter, thresholds)
     {
         if (min === null || max === null || current === null) return;
         const range = max - min;
         const position = range === 0
             ? 50 : Math.max(0, Math.min(100, ((current - min) / range) * 100));
-        const fmt = (v) => (Math.round(v * 100) / 100) + '%';
+        const fmt = minMaxFormatter !== undefined
+            ? minMaxFormatter : (v) => (Math.round(v * 100) / 100) + '%';
+        let thresholdHtml = '';
+        if (thresholds && range !== 0) {
+            thresholds.forEach((t) =>
+            {
+                const pos = Math.max(0, Math.min(100, ((t.value - min) / range) * 100));
+                thresholdHtml += '<div style="position:absolute;width:2px;height:11px;'
+                    + 'background:' + t.color + ';top:-3px;left:' + pos
+                    + '%;transform:translateX(-50%);border-radius:1px;opacity:0.85;">'
+                    + '</div>';
+            });
+        }
         $('#' + elementId).html(
             '<div style="padding-top:20px;">'
             + '<div style="display:flex;align-items:center;gap:4px;font-size:0.72rem;'
@@ -168,6 +181,7 @@ $(document).ready(function()
             + '%;transform:translateX(-50%);bottom:calc(100% + 5px);font-size:0.875rem;'
             + 'white-space:nowrap;color:' + labelColor + ';">'
             + currentLabel + '</span>'
+            + thresholdHtml
             + '<div style="position:absolute;width:8px;height:8px;background:#555;'
             + 'border-radius:1px;top:-1.5px;transform:translateX(-50%);left:'
             + position + '%;"></div>'
@@ -215,6 +229,8 @@ $(document).ready(function()
         $('#change-status-percentage').html('');
         $('#cash-status-percentage').html('');
 
+        renderRangeBar('cost-range-bar', 0, 100, 50, '-100%', metricColors.cost, () => '');
+
         const mvalueRange = computePercentageRangeMinMax('mvalue', 'cost', currency);
         const mvaluePct = statusData.cost !== 0
             ? (statusData.mvalue / statusData.cost) * 100 : null;
@@ -242,9 +258,7 @@ $(document).ready(function()
     if (currencyExchangeData && currencyExchangeData.length > 0) {
         const currencyExchangeLast = currencyExchangeData[currencyExchangeData.length - 1];
         var $currencyExchangeElement = $('#currency_exchange-status');
-        $currencyExchangeElement.html("EURUSD " + currencyExchangeLast.value);
-        $currencyExchangeElement.attr('title', currencyExchangeLast.time);
-        $('#currency_exchange-status-time').html(currencyExchangeLast.time);
+        $currencyExchangeElement.html("EURUSD " + currencyExchangeLast.time);
 
         const eurusdRate = parseFloat(currencyExchangeLast.value);
         const buyUsdAbove = {{ config('trades.eurusd_thresholds.buy_usd_above') }};
@@ -254,6 +268,23 @@ $(document).ready(function()
         } else if (eurusdRate < sellUsdBelow) {
             $('#eurusd-signal').html('<span class="badge bg-danger">sell $</span>');
         }
+
+        // Render EURUSD all-time range bar with buy/sell threshold markers
+        let eurusdMin = null;
+        let eurusdMax = null;
+        currencyExchangeData.forEach((d) =>
+        {
+            const v = parseFloat(d.value);
+            if (eurusdMin === null || v < eurusdMin) eurusdMin = v;
+            if (eurusdMax === null || v > eurusdMax) eurusdMax = v;
+        });
+        const eurusdFmt = (v) => (Math.round(v * 10000) / 10000).toFixed(4);
+        const eurusdThresholds = [
+            { value: buyUsdAbove, color: '#198754' },
+            { value: sellUsdBelow, color: '#dc3545' },
+        ];
+        renderRangeBar('eurusd-range-bar', eurusdMin, eurusdMax,
+            eurusdRate, eurusdFmt(eurusdRate), '#555', eurusdFmt, eurusdThresholds);
     }
 
     // Create formatter instances for all series
@@ -317,6 +348,36 @@ $(document).ready(function()
 
     // Update status display with metric values
     setStatus();
+
+    // Zoom chart to the last N days (0 = fit all)
+    function zoomChart(days)
+    {
+        const timeScale = userOverviewChart.timeScale();
+        if (days === 0) {
+            timeScale.fitContent();
+            return;
+        }
+        const currency = $element.data('currency_iso_code');
+        const allData = userOverviewData['cost_' + currency] || [];
+        if (allData.length === 0) return;
+        const lastEntry = allData[allData.length - 1];
+        const toDate = new Date(lastEntry.time + 'T00:00:00');
+        const fromDate = new Date(toDate);
+        fromDate.setDate(fromDate.getDate() - days);
+        timeScale.setVisibleRange({
+            from: fromDate.toISOString().split('T')[0],
+            to: toDate.toISOString().split('T')[0],
+        });
+    }
+
+    zoomChart(365);
+
+    $('.zoom-btn').on('click', function()
+    {
+        $('.zoom-btn').removeClass('active');
+        $(this).addClass('active');
+        zoomChart(parseInt($(this).data('days')));
+    });
 
     // Helper: Update chart and UI when currency changes
     function updateChartForCurrency(newCurrency)
