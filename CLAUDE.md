@@ -63,6 +63,8 @@ Frontend assets are built from the main **laravel-admin** project using `yarn in
 - Keep file sizes manageable (ideally under 500 lines of code)
 - Avoid hardcoding or introducing any user or account data in this repository (including comments). This repository is publicly available
 - **Opening braces for all functions/methods (not only constructors) for all languages on next line (Allman style)**, not same line
+- **Never use `number_format()` directly**; always route numeric formatting through `MoneyFormat::` methods. Exception: URL/query-string parameters that must not have thousands separators (use `number_format($v, $decimals, '.', '')` there only)
+- **Punctuation**: avoid em dashes (`—`) and en dashes (`–`) in generated text; use proper English punctuation instead (commas, semicolons, colons, or rewrite the sentence)
 
 **PHP:**
 - PHP 8.1+ strict types

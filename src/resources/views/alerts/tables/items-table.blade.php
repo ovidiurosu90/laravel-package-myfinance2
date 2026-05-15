@@ -124,20 +124,17 @@
                             $deltaSign = $delta >= 0 ? '+' : '−';
                         @endphp
                         <div class="text-nowrap">
-                            {{ MoneyFormat::get_formatted_price($cp) }} {!! $currencyCode !!}
-                            → {{ MoneyFormat::get_formatted_price((float) $item->target_price) }}
-                            {!! $currencyCode !!}
+                            {!! MoneyFormat::get_formatted_price_display($currencyCode, $cp, true) !!}
+                            → {!! MoneyFormat::get_formatted_price_display($currencyCode, (float) $item->target_price, true) !!}
                         </div>
                         <div class="text-muted small text-nowrap">
-                            delta: {{ $deltaSign }}{{ MoneyFormat::get_formatted_price(abs($delta)) }}
-                            {!! $currencyCode !!}
-                            ({{ $deltaSign }}{{ number_format(abs($deltaPct), 2) }}%)
+                            delta: {{ $deltaSign }}{!! MoneyFormat::get_formatted_price_display($currencyCode, abs($delta), true) !!}
+                            ({{ $deltaSign }}{{ MoneyFormat::get_formatted_pct(abs($deltaPct)) }}%)
                         </div>
                     @else
                         <div class="text-nowrap">
                             <span class="text-muted">—</span>
-                            → {{ MoneyFormat::get_formatted_price((float) $item->target_price) }}
-                            {!! $currencyCode !!}
+                            → {!! MoneyFormat::get_formatted_price_display($currencyCode, (float) $item->target_price, true) !!}
                         </div>
                     @endif
                 </td>
@@ -157,15 +154,13 @@
                             $gainClass = $gain['gain_value'] >= 0 ? 'text-success' : 'text-danger';
                             $gainSign  = $gain['gain_value'] >= 0 ? '+' : '';
                             $isLoss    = $gain['gain_value'] < 0;
-                            $fmtAvg    = MoneyFormat::get_formatted_price($gain['avg_cost']);
                             $fmtQty    = MoneyFormat::get_formatted_quantity_plain($gain['total_qty']);
                         @endphp
                         <span class="{{ $gainClass }} text-nowrap">
-                            {{ $gainSign }}{{ number_format($gain['gain_value'], 2) }}
-                            {!! $currencyCode !!}
+                            {{ $gainSign }}{!! MoneyFormat::get_formatted_price_display($currencyCode, $gain['gain_value']) !!}
                         </span>
                         <div class="{{ $gainClass }} small text-nowrap">
-                            {{ $gainSign }}{{ number_format($gain['gain_pct'], 2) }}%
+                            {{ $gainSign }}{{ MoneyFormat::get_formatted_pct($gain['gain_pct']) }}%
                             @if ($isLoss)
                                 <span data-bs-toggle="tooltip"
                                       data-bs-placement="top"
@@ -173,7 +168,7 @@
                             @endif
                         </div>
                         <div class="text-muted small text-nowrap">
-                            {{ $fmtQty }}x @ avg {{ $fmtAvg }} {!! $currencyCode !!}
+                            {{ $fmtQty }}x @ avg {!! MoneyFormat::get_formatted_price_display($currencyCode, $gain['avg_cost'], true) !!}
                         </div>
                     @else
                         <span class="text-muted">—</span>
@@ -194,10 +189,10 @@
                                 data-bs-placement="top"
                                 data-bs-custom-class="big-tooltips"
                                 data-bs-html="true"
-                                data-bs-title="Price: {{ MoneyFormat::get_formatted_price_plain($notif['current_price']) }}
+                                data-bs-title="Price: {{ MoneyFormat::get_formatted_price_plain($notif['current_price'], true) }}
                                     @if ($notif['projected_gain_eur'] !== null)
-                                        <br>Gain: {{ number_format($notif['projected_gain_eur'], 2) }} EUR
-                                        ({{ number_format($notif['projected_gain_pct'], 2) }}%)
+                                        <br>Gain: {{ MoneyFormat::get_formatted_price($notif['projected_gain_eur']) }} EUR
+                                        ({{ MoneyFormat::get_formatted_pct($notif['projected_gain_pct']) }}%)
                                     @endif">
                                 {{ \Carbon\Carbon::parse($notif['sent_at'])->timezone(config('app.timezone'))->format('Y-m-d H:i') }}
                             </div>

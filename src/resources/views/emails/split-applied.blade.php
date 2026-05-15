@@ -1,3 +1,4 @@
+@use('ovidiuro\myfinance2\App\Services\MoneyFormat')
 <!DOCTYPE html>
 <html>
 <head>
@@ -92,9 +93,9 @@
                     <td class="num">{{ $t['old_quantity'] }}</td>
                     <td class="num arrow">&rarr;</td>
                     <td class="num new-val">{{ $t['new_quantity'] }}</td>
-                    <td class="num">{{ number_format($t['old_price'], 2) }}</td>
+                    <td class="num">{{ MoneyFormat::get_formatted_price($t['old_price'], true) }}</td>
                     <td class="num arrow">&rarr;</td>
-                    <td class="num new-val">{{ number_format($t['new_price'], 2) }}</td>
+                    <td class="num new-val">{{ MoneyFormat::get_formatted_price($t['new_price'], true) }}</td>
                     <td>{{ $t['currency'] }}</td>
                 </tr>
                 @endforeach
@@ -126,9 +127,9 @@
                 <tr>
                     <td>{{ $a['id'] }}</td>
                     <td><span class="badge {{ $badgeClass }}">{!! $typeLabel !!}</span></td>
-                    <td class="num">{{ number_format($a['old_target_price'], 4) }}</td>
+                    <td class="num">{{ MoneyFormat::get_formatted_price($a['old_target_price'], true) }}</td>
                     <td class="num arrow">&rarr;</td>
-                    <td class="num new-val">{{ number_format($a['new_target_price'], 4) }}</td>
+                    <td class="num new-val">{{ MoneyFormat::get_formatted_price($a['new_target_price'], true) }}</td>
                 </tr>
                 @endforeach
             </tbody>

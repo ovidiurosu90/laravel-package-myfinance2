@@ -22,6 +22,25 @@ $(document).ready(function()
     var $orderBanner      = $('#order-summary-banner');
     var $fetchedSymbolName = $('#fetched-symbol-name');
 
+    var fetchedPrice = null;
+    var fetchedSuggestion = null;
+    var lastAutoDescription = null;
+
+    var buildReasonText = function(s, limitPrice)
+    {
+        if (s.weak_signal) {
+            return null;
+        }
+        if (s.action === 'BUY') {
+            var pct = ((fetchedPrice - limitPrice) / fetchedPrice * 100).toFixed(1);
+            return pct + '% below current price, which is already '
+                + s.pct_below_high + '% below 52wk high';
+        }
+        var pct = ((limitPrice - fetchedPrice) / fetchedPrice * 100).toFixed(1);
+        return pct + '% above current price, which is already '
+            + s.pct_above_low + '% above 52wk low';
+    };
+
     var applySmartPrefill = function(symbol)
     {
         var accountSelectize = $('#account-select')[0].selectize;
@@ -34,6 +53,8 @@ $(document).ready(function()
             success: function(data)
             {
                 var s = data.suggestion;
+                fetchedPrice = data.price;
+                fetchedSuggestion = s;
 
                 $fetchedSymbolName.find('span').html(data.name);
                 $fetchedSymbolName.show();
@@ -49,6 +70,7 @@ $(document).ready(function()
                     reasonText = '2.5% above current price, which is already '
                         + s.pct_above_low + '% above 52wk low';
                 }
+                lastAutoDescription = reasonText;
 
                 $orderBanner
                     .data('reason', reasonText)
@@ -92,6 +114,24 @@ $(document).ready(function()
             },
         });
     };
+
+    $limitPriceInput.on('input', function()
+    {
+        if (!fetchedPrice || !fetchedSuggestion) return;
+
+        var limitPrice = parseFloat($(this).val());
+        if (isNaN(limitPrice) || limitPrice <= 0) return;
+
+        var newText = buildReasonText(fetchedSuggestion, limitPrice);
+        if (!newText) return;
+
+        $orderBanner.data('reason', newText).trigger('banner-update');
+
+        if ($descriptionInput.val() === lastAutoDescription) {
+            $descriptionInput.val(newText);
+            lastAutoDescription = newText;
+        }
+    });
 
     if (symbolPrefill) {
         $symbolInput.val(symbolPrefill).trigger('input');

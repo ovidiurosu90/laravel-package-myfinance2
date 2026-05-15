@@ -111,6 +111,17 @@ $(document).ready(function()
         $element.html(percentage);
     }
 
+    function formatStatusCurrency(value, currencyCode)
+    {
+        const decimals = Math.abs(value) >= 1000 ? 0 : 2;
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: currencyCode,
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals,
+        }).format(value);
+    }
+
     const metricColors = {
         @foreach($ChartsBuilder::getAccountMetrics() as $metric => $properties)
         '{{ $metric }}': '{{ $properties["line_color"] }}',
@@ -213,10 +224,8 @@ $(document).ready(function()
 
         @foreach($ChartsBuilder::getAccountMetrics() as $metric => $properties)
         @if($metric !== 'changePercentage')
-        const {{ $metric }}Value = new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: $element.data('currency_iso_code'),
-        }).format(statusData.{{ $metric }});
+        const {{ $metric }}Value = formatStatusCurrency(statusData.{{ $metric }},
+            $element.data('currency_iso_code'));
 
         displayMetricStatus('{{ $metric }}',
             {{ $metric }}Value, '{{ $properties["line_color"] }}');

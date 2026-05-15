@@ -25,8 +25,8 @@ class ReturnsValuation
     private ReturnsConfigHelper $configHelper;
 
     public function __construct(
-        ReturnsQuoteProvider $quoteProvider = null,
-        ReturnsConfigHelper $configHelper = null
+        ?ReturnsQuoteProvider $quoteProvider = null,
+        ?ReturnsConfigHelper $configHelper = null
     )
     {
         $this->quoteProvider = $quoteProvider ?? new ReturnsQuoteProvider();
@@ -335,7 +335,7 @@ class ReturnsValuation
             $marketValue
         );
 
-        $priceFormatted = MoneyFormat::get_formatted_price_plain($position['price']);
+        $priceFormatted = MoneyFormat::get_formatted_price_plain($position['price'], true);
         $configPriceFormatted = MoneyFormat::get_formatted_number_plain($position['price'], 4);
         $apiPriceFormatted = !empty($stat['api_price'])
             ? MoneyFormat::get_formatted_number_plain($stat['api_price'], 4)

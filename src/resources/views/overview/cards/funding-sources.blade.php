@@ -30,14 +30,14 @@
                             $tooltip = '';
                             if ($data['conversion_pair']) {
                                 $tooltip = 'EURUSD: '
-                                    . number_format(
-                                        $data['eurusd_rate'], 4
+                                    . MoneyFormat::get_formatted_rate_plain(
+                                        $data['eurusd_rate']
                                     )
                                     . '<br>'
                                     . $data['conversion_pair']
                                     . ': '
-                                    . number_format(
-                                        $data['exchange_rate'], 4
+                                    . MoneyFormat::get_formatted_rate_plain(
+                                        $data['exchange_rate']
                                     );
                             }
                             $transferredKeyword =

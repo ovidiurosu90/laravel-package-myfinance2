@@ -64,5 +64,34 @@ $(document).ready(function ()
             $('#trade_currency-label-tooltip').html(initialCurrency['display_code']);
         }
     }
+
+    // Keep the notes percentage in sync when target_price changes.
+    // Works for existing notes of the form "X% below NY high of PRICE CURRENCY [on DATE]".
+    var $notesTextarea    = $('#notes');
+    var $targetPriceInput = $('#target_price');
+    var autoNotes         = $notesTextarea.val();
+    var parsedHighValue   = null;
+
+    (function()
+    {
+        var match = autoNotes.match(/^(\d+\.?\d*)% below \d+Y high of ([\d,]+\.?\d*)/);
+        if (match) {
+            parsedHighValue = parseFloat(match[2].replace(/,/g, ''));
+        }
+    })();
+
+    $targetPriceInput.on('input', function()
+    {
+        if (!parsedHighValue) return;
+        if ($notesTextarea.val() !== autoNotes) return;
+
+        var targetPrice = parseFloat($(this).val());
+        if (isNaN(targetPrice) || targetPrice <= 0) return;
+
+        var pct      = ((parsedHighValue - targetPrice) / parsedHighValue * 100).toFixed(1);
+        var newNotes = autoNotes.replace(/^\d+\.?\d*/, pct);
+        $notesTextarea.val(newNotes);
+        autoNotes = newNotes;
+    });
 });
 </script>

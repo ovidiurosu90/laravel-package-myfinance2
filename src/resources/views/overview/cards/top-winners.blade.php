@@ -32,7 +32,7 @@
                             $tooltipLines = [];
                             foreach ($perYear as $y => $amt) {
                                 $tooltipLines[] = $y . ': '
-                                    . number_format($amt, 2)
+                                    . MoneyFormat::get_formatted_price($amt)
                                     . ' &euro;';
                             }
                             $tooltip = implode(
@@ -55,8 +55,8 @@
                                             'myfinance2::overview'
                                             . '.tooltips'
                                             . '.transferred-year',
-                                            ['amount' => number_format(
-                                                $acc['transferred_eur'], 2
+                                            ['amount' => MoneyFormat::get_formatted_price(
+                                                $acc['transferred_eur']
                                             ) . ' &euro;']
                                         ) }}">
                                     </i>
@@ -110,7 +110,7 @@
                             $tooltipLines = [];
                             foreach ($perYear as $y => $amt) {
                                 $tooltipLines[] = $y . ': '
-                                    . number_format($amt, 2)
+                                    . MoneyFormat::get_formatted_price($amt)
                                     . ' &euro;';
                             }
                             $tooltip = implode(
@@ -133,8 +133,8 @@
                                             'myfinance2::overview'
                                             . '.tooltips'
                                             . '.transferred-year',
-                                            ['amount' => number_format(
-                                                $sym['transferred_eur'], 2
+                                            ['amount' => MoneyFormat::get_formatted_price(
+                                                $sym['transferred_eur']
                                             ) . ' &euro;']
                                         ) }}">
                                     </i>

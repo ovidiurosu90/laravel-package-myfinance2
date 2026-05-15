@@ -54,21 +54,23 @@ trait FinanceApiCronQuotesTrait
             $fetchedSymbols[] = $quote->getSymbol();
         }
 
-        $message = 'END app:finance-api-cron refreshQuotes() => '
-                   . count($symbols) . ' symbols, '
-                   . count($fetchedSymbols) . ' fetched!';
-
-        $obsoleteSymbols = config('general.obsolete_symbols');
+        $skipped = array_values(array_filter($symbols, fn(string $s) => FinanceAPI::isSkippedSymbol($s)));
         $unableToFetch = array_diff(
             array_map('strtoupper', $symbols),
             array_map('strtoupper', $fetchedSymbols),
-            $obsoleteSymbols
+            array_map('strtoupper', $skipped)
         );
-        if (!empty($unableToFetch) && count($unableToFetch)) {
-            $message .= ' Unable to fetch: '
-                . implode(', ', array_diff($symbols, $fetchedSymbols));
+
+        $message = 'END app:finance-api-cron refreshQuotes() => '
+                   . count($symbols) . ' symbols, '
+                   . count($fetchedSymbols) . ' fetched';
+        if (!empty($skipped)) {
+            $message .= ', skipped: ' . implode(', ', $skipped);
         }
         Log::info($message);
+        if (!empty($unableToFetch)) {
+            Log::warning('refreshQuotes() unable to fetch: ' . implode(', ', $unableToFetch));
+        }
     }
 
     public function refreshExchangeRates(): void
@@ -98,22 +100,18 @@ trait FinanceApiCronQuotesTrait
             $fetchedSymbols[] = $quote->getSymbol();
         }
 
-        $message = 'END app:finance-api-cron refreshExchangeRates() => '
-                   . count($symbols) . ' symbols, '
-                   . count($fetchedSymbols) . ' fetched!';
-
-        $obsoleteSymbols = config('general.obsolete_symbols');
         $unableToFetch = array_diff(
             array_map('strtoupper', $symbols),
-            array_map('strtoupper', $fetchedSymbols),
-            $obsoleteSymbols
+            array_map('strtoupper', $fetchedSymbols)
         );
 
-        if (!empty($unableToFetch) && count($unableToFetch)) {
-            $message .= ' Unable to fetch: '
-                . implode(', ', array_diff($symbols, $fetchedSymbols));
-        }
+        $message = 'END app:finance-api-cron refreshExchangeRates() => '
+                   . count($symbols) . ' symbols, '
+                   . count($fetchedSymbols) . ' fetched';
         Log::info($message);
+        if (!empty($unableToFetch)) {
+            Log::warning('refreshExchangeRates() unable to fetch: ' . implode(', ', $unableToFetch));
+        }
     }
 
     public function fetchHistorical(string $start, string $end): void

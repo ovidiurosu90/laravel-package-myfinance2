@@ -1,3 +1,4 @@
+@use('ovidiuro\myfinance2\App\Services\MoneyFormat')
 <style>
     #transaction-parent-select ~ .selectize-control .selectize-input {
         display: flex;
@@ -26,7 +27,7 @@
             <option @if ($rootTransaction->id == $parent_id) selected @endif
                 value="{{ $rootTransaction->id }}">
                 {{ $rootTransaction->type }}
-                {{ number_format($rootTransaction->amount, 2) }}
+                {{ MoneyFormat::get_formatted_price($rootTransaction->amount) }}
                 {!! $rootTransaction->type == 'DEBIT'
                     ? $rootTransaction->debitAccountModel->currency->display_code
                     : $rootTransaction->creditAccountModel->currency->display_code

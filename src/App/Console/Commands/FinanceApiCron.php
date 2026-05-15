@@ -17,6 +17,7 @@ use ovidiuro\myfinance2\App\Models\Scopes\AssignedToUserScope;
  * - Historical data fetching (FinanceApiCronQuotesTrait)
  * - Account overview and charts (FinanceApiCronChartsTrait)
  * - Returns calculation (FinanceApiCronReturnsTrait)
+ * - Symbol performance pre-computation (FinanceApiCronSymbolPerformanceTrait)
  */
 class FinanceApiCron extends Command
 {
@@ -25,6 +26,7 @@ class FinanceApiCron extends Command
     use FinanceApiCronReturnsTrait;
     use FinanceApiCronMoversTrait;
     use FinanceApiCronAlertsTrait;
+    use FinanceApiCronSymbolPerformanceTrait;
 
     /**
      * The name and signature of the console command.
@@ -35,6 +37,7 @@ class FinanceApiCron extends Command
         {--historical}
         {--historical-account-overview}
         {--refresh-returns}
+        {--refresh-symbol-performance}
         {--force}
         {--start=}
         {--end=}
@@ -58,7 +61,8 @@ class FinanceApiCron extends Command
         // --refresh-returns processes all years (2016–now) and can take several minutes;
         // use a long lock TTL so a second invocation cannot start while the first is still running.
         $refreshReturns = $this->option('refresh-returns');
-        $lockTtl = $refreshReturns ? 480 : 55; // 8 min for returns refresh, 55s for minutely cron
+        $refreshSymbolPerformance = $this->option('refresh-symbol-performance');
+        $lockTtl = ($refreshReturns || $refreshSymbolPerformance) ? 480 : 55;
         $lock = Cache::lock('finance-api-cron', $lockTtl);
 
         if (!$lock->get()) {
@@ -92,6 +96,11 @@ class FinanceApiCron extends Command
 
             if ($refreshReturns) {
                 $this->refreshReturns();
+                return Command::SUCCESS;
+            }
+
+            if ($refreshSymbolPerformance) {
+                $this->refreshSymbolPerformance();
                 return Command::SUCCESS;
             }
 

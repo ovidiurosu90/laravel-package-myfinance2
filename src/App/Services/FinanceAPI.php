@@ -20,6 +20,9 @@ class FinanceAPI
         = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
         . '(KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36';
 
+    private const SECTOR_CACHE_KEY_PREFIX = 'SECTOR_';
+    private const SECTOR_CACHE_TTL = 604800; // 7 days
+
     public function __construct()
     {
         // Deal with '429 Too Many Requests' errors, use curl_impersonate
@@ -36,6 +39,22 @@ class FinanceAPI
     public static function isUnlisted(string $symbol): bool
     {
         return UnlistedSymbol::isUnlisted($symbol);
+    }
+
+    /**
+     * Returns true for symbols that should be skipped in all API fetch operations:
+     * unlisted symbols, obsolete symbols (acquired/merged), and delisted symbols.
+     * Single source of truth — replaces the repeated pattern of checking both
+     * general.obsolete_symbols and trades.delisted_symbols at every callsite.
+     */
+    public static function isSkippedSymbol(string $symbol): bool
+    {
+        if (self::isUnlisted($symbol)) {
+            return true;
+        }
+        $obsolete = config('general.obsolete_symbols', []);
+        $delisted = config('trades.delisted_symbols', []);
+        return in_array($symbol, $obsolete, true) || in_array($symbol, $delisted, true);
     }
 
     /**
@@ -530,6 +549,76 @@ class FinanceAPI
         }
 
         return null;
+    }
+
+    public function getCachedSector(string $symbol): ?string
+    {
+        $cached = Cache::get(self::SECTOR_CACHE_KEY_PREFIX . $symbol);
+        return (is_string($cached) && $cached !== '') ? $cached : null;
+    }
+
+    public function fetchAndCacheSector(string $symbol): ?string
+    {
+        // Crypto pairs (e.g. BTC-EUR, ETH-USD) carry no sector in Yahoo Finance
+        if (self::_isCryptoSymbol($symbol)) {
+            Cache::put(self::SECTOR_CACHE_KEY_PREFIX . $symbol, 'Crypto', self::SECTOR_CACHE_TTL);
+            return 'Crypto';
+        }
+
+        try {
+            $result = $this->getClient()->getStockSummary($symbol, ['assetProfile', 'fundProfile', 'quoteType']);
+
+            // Stocks/equities: use sector from assetProfile
+            $sector = $result[0]['assetProfile']['sector'] ?? null;
+            if (is_string($sector) && $sector !== '') {
+                Cache::put(self::SECTOR_CACHE_KEY_PREFIX . $symbol, $sector, self::SECTOR_CACHE_TTL);
+                return $sector;
+            }
+
+            // US ETFs/funds: use Morningstar category from fundProfile
+            $category = $result[0]['fundProfile']['categoryName'] ?? null;
+            if (is_string($category) && $category !== '') {
+                $category = self::_normalizeFundCategory($category);
+                Cache::put(self::SECTOR_CACHE_KEY_PREFIX . $symbol, $category, self::SECTOR_CACHE_TTL);
+                return $category;
+            }
+
+            // UCITS ETFs and other non-equity instruments: fall back to instrument type
+            $label = match($result[0]['quoteType']['quoteType'] ?? null) {
+                'ETF'        => 'Equity ETF',
+                'MUTUALFUND' => 'Fund',
+                'INDEX'      => 'Index',
+                default      => null,
+            };
+            if ($label !== null) {
+                Cache::put(self::SECTOR_CACHE_KEY_PREFIX . $symbol, $label, self::SECTOR_CACHE_TTL);
+                return $label;
+            }
+
+            return null;
+        } catch (\Exception $e) {
+            Log::warning("Could not fetch sector for {$symbol}: " . $e->getMessage());
+            return null;
+        }
+    }
+
+    private static function _normalizeFundCategory(string $category): string
+    {
+        // Morningstar equity style-box categories (e.g. "Large Blend", "Foreign Large Blend",
+        // "Global Large-Stock Blend") → unified label so ETFs of similar scope group together
+        if (preg_match('/\b(Blend|Growth|Value)\s*$/', $category)) {
+            return 'Equity ETF';
+        }
+        return $category;
+    }
+
+    private static function _isCryptoSymbol(string $symbol): bool
+    {
+        $parts = explode('-', $symbol);
+        if (count($parts) !== 2) {
+            return false;
+        }
+        return in_array(strtoupper($parts[1]), ['EUR', 'USD', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD'], true);
     }
 }
 

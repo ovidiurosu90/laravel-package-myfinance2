@@ -34,12 +34,12 @@ class ReturnsValueTransformer
             'EUR' => [
                 'value' => $eurValue,
                 'formatted' => MoneyFormat::get_formatted_balance($eurSymbol, $eurValue),
-                'plain' => number_format(abs($eurValue), 2) . ' ' . $eurSymbol,
+                'plain' => MoneyFormat::get_formatted_price_display($eurSymbol, abs($eurValue)),
             ],
             'USD' => [
                 'value' => $usdValue,
                 'formatted' => MoneyFormat::get_formatted_balance($usdSymbol, $usdValue),
-                'plain' => number_format(abs($usdValue), 2) . ' ' . $usdSymbol,
+                'plain' => MoneyFormat::get_formatted_price_display($usdSymbol, abs($usdValue)),
             ],
         ];
     }

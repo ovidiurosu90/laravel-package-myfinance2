@@ -62,14 +62,14 @@
                             $tooltip = '';
                             if (!empty($totals['conversion_pair'])) {
                                 $tooltip = 'EURUSD: '
-                                    . number_format(
-                                        $totals['eurusd_rate'], 4
+                                    . MoneyFormat::get_formatted_rate_plain(
+                                        $totals['eurusd_rate']
                                     )
                                     . '<br>'
                                     . $totals['conversion_pair']
                                     . ': '
-                                    . number_format(
-                                        $totals['exchange_rate'], 4
+                                    . MoneyFormat::get_formatted_rate_plain(
+                                        $totals['exchange_rate']
                                     );
                             }
                         @endphp

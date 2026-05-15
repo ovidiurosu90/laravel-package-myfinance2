@@ -261,8 +261,8 @@
                                             'myfinance2::overview'
                                             . '.tooltips'
                                             . '.transferred-year',
-                                            ['amount' => number_format(
-                                                $annotatedEurTotal, 2
+                                            ['amount' => MoneyFormat::get_formatted_price(
+                                                $annotatedEurTotal
                                             ) . ' &euro;']
                                         ) }}">
                                     </i>
@@ -324,14 +324,14 @@
                                     $rateData['conversion_pair']
                                 )) {
                                     $accTooltip = 'EURUSD: '
-                                        . number_format(
-                                            $rateData['eurusd_rate'], 4
+                                        . MoneyFormat::get_formatted_rate_plain(
+                                            $rateData['eurusd_rate']
                                         )
                                         . '<br>'
                                         . $rateData['conversion_pair']
                                         . ': '
-                                        . number_format(
-                                            $rateData['exchange_rate'], 4
+                                        . MoneyFormat::get_formatted_rate_plain(
+                                            $rateData['exchange_rate']
                                         );
                                 }
                             @endphp
@@ -368,8 +368,8 @@
                                                 'myfinance2::overview'
                                                 . '.tooltips'
                                                 . '.transferred-account-eur',
-                                                ['amount' => number_format(
-                                                    $accAnnotation['gain'], 2
+                                                ['amount' => MoneyFormat::get_formatted_price(
+                                                    $accAnnotation['gain']
                                                 ) . ' '
                                                 . strip_tags(
                                                     $accAnnotation[
@@ -382,9 +382,8 @@
                                                 . '.tooltips'
                                                 . '.transferred-account',
                                                 [
-                                                    'amount' => number_format(
-                                                        $accAnnotation['gain'],
-                                                        2
+                                                    'amount' => MoneyFormat::get_formatted_price(
+                                                        $accAnnotation['gain']
                                                     ) . ' '
                                                     . strip_tags(
                                                         $accAnnotation[
@@ -392,10 +391,10 @@
                                                         ]
                                                     ),
                                                     'amount_eur' =>
-                                                        number_format(
+                                                        MoneyFormat::get_formatted_price(
                                                             $accAnnotation[
                                                                 'gain_eur'
-                                                            ], 2
+                                                            ]
                                                         ) . ' &euro;',
                                                 ]
                                             );
@@ -544,8 +543,8 @@
                                             . '.transferred-symbol',
                                             [
                                                 'annotation' => $annotation,
-                                                'amount' => number_format(
-                                                    $row['gain'], 2
+                                                'amount' => MoneyFormat::get_formatted_price(
+                                                    $row['gain']
                                                 ) . ' '
                                                 . strip_tags($displayCode),
                                             ]

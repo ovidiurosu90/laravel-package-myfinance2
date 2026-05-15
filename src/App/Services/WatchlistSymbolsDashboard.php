@@ -10,6 +10,8 @@ use ovidiuro\myfinance2\App\Models\Order;
 use ovidiuro\myfinance2\App\Models\PriceAlert;
 use ovidiuro\myfinance2\App\Models\StockSplit;
 use ovidiuro\myfinance2\App\Services\Positions;
+use ovidiuro\myfinance2\App\Services\SymbolPerformanceService;
+use ovidiuro\myfinance2\App\Services\FinanceUtils;
 
 use Illuminate\Support\Facades\Log;
 
@@ -18,7 +20,11 @@ class WatchlistSymbolsDashboard
     /**
      * Execute the job.
      *
-     * @return array (item1, item2, ...)
+     * Returns an array of symbol => quoteData where each item includes:
+     *   - 'is_on_watchlist' (bool) — false for traded symbols not on the watchlist
+     *   - 'performance'     (array) — from SymbolPerformanceService
+     *
+     * @return array (symbol => quoteData)
      */
     public function handle(): array
     {
@@ -62,15 +68,16 @@ class WatchlistSymbolsDashboard
 
         $items = $positionsData['quotes'];
         foreach ($items as $symbol => $quoteData) {
-            if (empty($watchlistSymbolsDictionary[$symbol])) {
-                // We have a trade for a symbol that is not in the watchlist
-                $watchlistSymbolsDictionary[$symbol] =
-                    $this->createWatchlistSymbol($symbol);
-
+            $isOnWatchlist = isset($watchlistSymbolsDictionary[$symbol]);
+            if (!$isOnWatchlist) {
+                $placeholder = new WatchlistSymbol();
+                $placeholder->symbol = $symbol;
+                $watchlistSymbolsDictionary[$symbol] = $placeholder;
             }
             $items[$symbol]['tradeCurrencyModel'] =
                 $currencyUtilsService->getCurrencyByIsoCode($quoteData['currency']);
             $items[$symbol]['item'] = $watchlistSymbolsDictionary[$symbol];
+            $items[$symbol]['is_on_watchlist'] = $isOnWatchlist;
             $items[$symbol]['open_positions'] = [];
             $items[$symbol]['open_orders'] = $openOrdersBySymbol[$symbol] ?? [];
             $items[$symbol]['active_alerts'] = $activeAlertsBySymbol[$symbol] ?? [];
@@ -78,7 +85,7 @@ class WatchlistSymbolsDashboard
             $items[$symbol]['base_value'] = null;
         }
         if (empty($positionsData['groupedItems'])) {
-            return $items;
+            return $this->_attachPerformance($items, $watchlistSymbolsDictionary, $currencyUtilsService);
         }
 
         $averageUnitCosts = [];
@@ -97,17 +104,56 @@ class WatchlistSymbolsDashboard
             $items[$symbol]['base_value'] = array_sum($costs) / count($costs);
         }
 
-        // LOG::debug('WatchlistSymbols handle items: '); LOG::debug($items);
+        return $this->_attachPerformance($items, $watchlistSymbolsDictionary, $currencyUtilsService);
+    }
+
+    private function _attachPerformance(
+        array $items,
+        array $watchlistSymbolsDictionary,
+        CurrencyUtils $currencyUtilsService
+    ): array
+    {
+        $userId = auth()->id();
+        $performanceBySymbol = (new SymbolPerformanceService())->handle($userId);
+
+        foreach ($items as $symbol => $quoteData) {
+            $perf = $performanceBySymbol[$symbol] ?? ['has_data' => false];
+            $perf['sector'] = (new FinanceAPI())->getCachedSector($symbol);
+            $items[$symbol]['performance'] = $perf;
+        }
+
+        // Add fully-exited symbols that have performance data but no open position
+        // and are not on the watchlist (those are already included via extraSymbols).
+        $exitedSymbols = array_diff(
+            array_keys($performanceBySymbol),
+            array_keys($items),
+            array_keys($watchlistSymbolsDictionary)
+        );
+
+        if (!empty($exitedSymbols)) {
+            $quotes = (new FinanceUtils())->getQuotes(array_values($exitedSymbols)) ?? [];
+            foreach ($exitedSymbols as $symbol) {
+                if (empty($quotes[$symbol])) {
+                    continue;
+                }
+                $placeholder = new WatchlistSymbol();
+                $placeholder->symbol = $symbol;
+                $items[$symbol] = $quotes[$symbol];
+                $items[$symbol]['tradeCurrencyModel'] =
+                    $currencyUtilsService->getCurrencyByIsoCode($quotes[$symbol]['currency']);
+                $items[$symbol]['item']            = $placeholder;
+                $items[$symbol]['is_on_watchlist'] = false;
+                $items[$symbol]['open_positions']  = [];
+                $items[$symbol]['open_orders']     = [];
+                $items[$symbol]['active_alerts']   = [];
+                $items[$symbol]['stock_splits']    = [];
+                $items[$symbol]['base_value']      = null;
+                $perf = $performanceBySymbol[$symbol];
+                $perf['sector'] = (new FinanceAPI())->getCachedSector($symbol);
+                $items[$symbol]['performance']     = $perf;
+            }
+        }
+
         return $items;
     }
-
-    public function createWatchlistSymbol(string $symbol): WatchlistSymbol
-    {
-        return WatchlistSymbol::create([
-            'symbol' => $symbol,
-            'description' => 'Automatically created due to existing trades!',
-        ]);
-    }
-
 }
-

@@ -208,9 +208,10 @@ $(document).ready(function()
     // Currency formatter - matches the format used in the returns table below
     function formatCurrency(value, currency)
     {
+        const decimals = Math.abs(value) >= 1000 ? 0 : 2;
         const formatted = new Intl.NumberFormat('en-US', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals,
         }).format(value);
 
         const symbol = currency === 'EUR' ? '€' : '$';
@@ -220,9 +221,10 @@ $(document).ready(function()
     // Currency formatter with sign for cumulative total display
     function formatCurrencyWithSign(value, currency)
     {
+        const decimals = Math.abs(value) >= 1000 ? 0 : 2;
         const formatted = new Intl.NumberFormat('en-US', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals,
         }).format(Math.abs(value));
 
         const symbol = currency === 'EUR' ? '€' : '$';
@@ -379,10 +381,7 @@ $(document).ready(function()
 
         if (virtualTotal !== 0) {
             const symbol = currency === 'EUR' ? '€' : '$';
-            const formatted = new Intl.NumberFormat('en-US', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-            }).format(virtualTotal);
+            const formatted = formatCurrency(virtualTotal, currency).replace(/ [€$]$/, '');
             const tooltipText = 'Includes ' + formatted
                 + ' ' + symbol
                 + ' from transferred positions';

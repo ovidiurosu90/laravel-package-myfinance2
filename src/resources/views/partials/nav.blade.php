@@ -1,4 +1,5 @@
 @use('ovidiuro\myfinance2\App\Models\PriceAlert')
+@use('ovidiuro\myfinance2\App\Models\Order')
 @role(['admin', 'financeadmin'])
 <li class="nav-item dropdown">
     <a class="nav-link dropdown-toggle" href="#"
@@ -38,6 +39,10 @@
         <a class="dropdown-item {{ Request::is('orders') || Request::is('orders/*') ? 'active' : null }}"
            href="{{ url('/orders') }}">
             {!! trans('myfinance2::orders.titles.dashboard') !!}
+            @php $activeOrdersCount = Order::whereIn('status', ['DRAFT', 'PLACED'])->count(); @endphp
+            @if ($activeOrdersCount > 0)
+                <span class="badge bg-success ms-1">{{ $activeOrdersCount }}</span>
+            @endif
         </a>
         <div class="dropdown-divider"></div>
 

@@ -8,6 +8,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 
+use ovidiuro\myfinance2\App\Services\MoneyFormat;
 use ovidiuro\myfinance2\Mail\Concerns\HasAppLabel;
 
 class PriceAlertCreated extends Mailable
@@ -53,7 +54,7 @@ class PriceAlertCreated extends Mailable
             $typeLabel = $first->alert_type === 'PRICE_ABOVE' ? '▲ Above' : '▼ Below';
             $currency  = $first->tradeCurrencyModel?->iso_code ?? '';
             $subject   = "{$label} Alert created — {$first->symbol} {$typeLabel}"
-                . ' ' . number_format((float) $first->target_price, 2) . ($currency ? " {$currency}" : '');
+                . ' ' . MoneyFormat::get_formatted_price((float) $first->target_price, true) . ($currency ? " {$currency}" : '');
         }
 
         return $this->subject($subject)

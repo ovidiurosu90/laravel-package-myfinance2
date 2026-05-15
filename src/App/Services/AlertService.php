@@ -272,7 +272,7 @@ class AlertService
             $lookbackLabel       = $lookbackYears . 'Y';
 
             $notes = round($threshold, 1) . '% below ' . $lookbackLabel . ' high of '
-                . MoneyFormat::get_formatted_price($highValue);
+                . MoneyFormat::get_formatted_price($highValue, true);
             if ($currencyDisplayCode) {
                 $notes .= ' ' . $currencyDisplayCode;
             }
@@ -348,7 +348,6 @@ class AlertService
 
         $avgCost = $position['avg_cost'];
         $totalQty = $position['total_qty'];
-        $targetPrice = (float) $alert->target_price;
 
         $gainPerUnit = $currentPrice - $avgCost;
         $totalGain = $gainPerUnit * $totalQty;

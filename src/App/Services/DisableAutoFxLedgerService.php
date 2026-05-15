@@ -7,6 +7,7 @@ namespace ovidiuro\myfinance2\App\Services;
 use ovidiuro\myfinance2\App\Models\LedgerTransaction;
 use ovidiuro\myfinance2\App\Models\Account;
 use ovidiuro\myfinance2\App\Models\Currency;
+use ovidiuro\myfinance2\App\Services\MoneyFormat;
 
 class DisableAutoFxLedgerService
 {
@@ -60,9 +61,9 @@ class DisableAutoFxLedgerService
 
         $action = $this->getActionVerb($tradeData['action']);
         $symbol = $tradeData['symbol'];
-        $proceeds = number_format($tradeAmount, 2);
-        $converted = number_format($accountAmount, 2);
-        $fee = number_format(abs((float) $tradeData['fee']), 2);
+        $proceeds = MoneyFormat::get_formatted_price($tradeAmount);
+        $converted = MoneyFormat::get_formatted_price($accountAmount);
+        $fee = MoneyFormat::get_formatted_price(abs((float) $tradeData['fee']));
         $tradeIso = $tradeCurrency->iso_code;
         $accountIso = $account->currency->iso_code;
 

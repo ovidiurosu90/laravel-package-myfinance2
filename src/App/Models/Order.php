@@ -122,7 +122,7 @@ class Order extends MyFinance2Model
         $parts[] = $this->symbol;
 
         if (!empty($this->limit_price) && !empty($this->tradeCurrencyModel)) {
-            $price    = MoneyFormat::get_formatted_price_plain($this->limit_price);
+            $price    = MoneyFormat::get_formatted_price_plain($this->limit_price, true);
             $currency = html_entity_decode(
                 $this->tradeCurrencyModel->display_code, ENT_HTML5, 'UTF-8'
             );
@@ -130,14 +130,14 @@ class Order extends MyFinance2Model
 
             if (!empty($this->quantity)) {
                 $principal = (float) $this->quantity * (float) $this->limit_price;
-                $parts[]   = '≈ ' . number_format($principal, 2) . ' ' . $currency;
+                $parts[]   = '≈ ' . MoneyFormat::get_formatted_price($principal) . ' ' . $currency;
 
                 $rate = (float) $this->exchange_rate;
                 if ($rate > 0 && $rate !== 1.0 && !empty($this->accountModel)) {
                     $accountCurrency = html_entity_decode(
                         $this->accountModel->currency->display_code, ENT_HTML5, 'UTF-8'
                     );
-                    $parts[] = '(~' . number_format($principal / $rate, 2)
+                    $parts[] = '(~' . MoneyFormat::get_formatted_price($principal / $rate)
                         . ' ' . $accountCurrency . ')';
                 }
             }

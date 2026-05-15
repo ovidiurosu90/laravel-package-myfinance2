@@ -1,3 +1,4 @@
+@use('ovidiuro\myfinance2\App\Services\MoneyFormat')
 <div class="col-sm-8 mb-3 d-flex pe-1">
     <div class="card">
         <div class="card-header">
@@ -146,9 +147,9 @@
                                 <h4>
                                     <strong>EURUSD exchange</strong>:
                                     <span class="badge badge-light">
-                                    {{ @number_format(
+                                    {{ MoneyFormat::get_formatted_rate_plain(
                                         abs($currencyBalances['USD']
-                                        / $currencyBalances['EUR']), 4) }}</span>
+                                        / $currencyBalances['EUR'])) }}</span>
                                 </h4>
                             </td>
                         </tr>

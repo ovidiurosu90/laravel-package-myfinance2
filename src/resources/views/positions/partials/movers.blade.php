@@ -1,3 +1,4 @@
+@use('ovidiuro\myfinance2\App\Services\MoneyFormat')
 @php
     $moverColumns = [
         ['key' => 'today',   'label' => 'Today'],
@@ -58,8 +59,8 @@
                     @if($i > 0)<span class="text-muted">·</span>@endif
                     <span class="text-muted text-nowrap">{{ $item['label'] }}</span>
                     <span class="{{ $item['color'] }} text-nowrap fw-semibold">
-                        {{ $item['sign'] }}{{ number_format(abs($item['eur']), 0, '.', ',') }}&nbsp;&euro;
-                        <small>({{ $item['sign'] }}{{ number_format(abs($item['pct']), 2) }}%)</small>
+                        {{ $item['sign'] }}{!! MoneyFormat::get_formatted_price_display('&euro;', abs($item['eur'])) !!}
+                        <small>({{ $item['sign'] }}{{ MoneyFormat::get_formatted_pct(abs($item['pct'])) }}%)</small>
                     </span>
                 @endforeach
             </div>
@@ -119,8 +120,8 @@
                                     <small class="text-muted text-uppercase fw-semibold"
                                         style="font-size: 0.7rem; letter-spacing: 0.05em;">Portfolio</small>
                                     <span class="fw-semibold">
-                                        {{ $ptSign }}{{ number_format(abs($ptEur), 0, '.', ',') }}&nbsp;&euro;
-                                        <small>({{ $ptSign }}{{ number_format(abs($ptPct), 2) }}%)</small>
+                                        {{ $ptSign }}{!! MoneyFormat::get_formatted_price_display('&euro;', abs($ptEur)) !!}
+                                        <small>({{ $ptSign }}{{ MoneyFormat::get_formatted_pct(abs($ptPct)) }}%)</small>
                                     </span>
                                 </div>
                                 @endif
@@ -258,7 +259,7 @@
                         <strong>%</strong> &mdash; each position&rsquo;s &euro; gain/loss as a
                         share of today&rsquo;s total portfolio market value
                         @if($totalPortfolioEur !== null)
-                            (&euro;{{ number_format($totalPortfolioEur, 0, '.', ',') }})
+                            ({!! MoneyFormat::get_formatted_price_display('&euro;', $totalPortfolioEur) !!})
                         @endif
                         &mdash; a weight, not a return rate
                     </li>

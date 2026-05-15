@@ -39,10 +39,13 @@ class OrdersController extends MyFinance2Controller
             ->orderBy('timestamp', 'desc')
             ->get();
 
+        $currentPrices = $this->_buildCurrentPrices($items);
+
         return view('myfinance2::orders.crud.dashboard', [
-            'items'  => $items,
-            'view'   => $view,
-            'trades' => $trades,
+            'items'         => $items,
+            'view'          => $view,
+            'trades'        => $trades,
+            'currentPrices' => $currentPrices,
         ]);
     }
 
@@ -436,6 +439,41 @@ class OrdersController extends MyFinance2Controller
 
         return redirect()->route('myfinance2::orders.index')->with('success',
             trans('myfinance2::orders.flash-messages.trade-unlinked', ['id' => $item->id]));
+    }
+
+    /**
+     * Build a map of symbol => current market price for non-terminal orders.
+     *
+     * @param \Illuminate\Support\Collection $orders
+     *
+     * @return array symbol => float
+     */
+    private function _buildCurrentPrices(\Illuminate\Support\Collection $orders): array
+    {
+        $symbols = $orders->whereIn('status', ['DRAFT', 'PLACED'])
+            ->pluck('symbol')
+            ->unique()
+            ->values()
+            ->toArray();
+
+        if (empty($symbols)) {
+            return [];
+        }
+
+        $quotes = (new FinanceUtils())->getQuotes($symbols, null, false);
+
+        if (!is_array($quotes)) {
+            return [];
+        }
+
+        $prices = [];
+        foreach ($symbols as $symbol) {
+            if (isset($quotes[$symbol]['price'])) {
+                $prices[$symbol] = (float) $quotes[$symbol]['price'];
+            }
+        }
+
+        return $prices;
     }
 
     /**

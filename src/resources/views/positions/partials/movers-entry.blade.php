@@ -1,10 +1,9 @@
+@use('ovidiuro\myfinance2\App\Services\MoneyFormat')
 @php
     $isLoss = $mover['gain_eur'] < 0;
     $colorClass = $isLoss ? 'text-danger' : 'text-success';
     $gainSign = $isLoss ? '- ' : '+ ';
-    $gainAbs = number_format(abs($mover['gain_eur']), 2);
     $pctSign = $mover['gain_percentage'] < 0 ? '- ' : '+ ';
-    $pctAbs = number_format(abs($mover['gain_percentage']), 2);
 @endphp
 <div class="d-flex justify-content-between align-items-start mb-2">
     <div>
@@ -20,8 +19,8 @@
     </div>
     <div class="text-end ms-2">
         <div class="{{ $colorClass }} fw-semibold" style="white-space: nowrap;">
-            {{ $gainSign }}{{ $gainAbs }} &euro;
+            {{ $gainSign }}{!! MoneyFormat::get_formatted_price_display('&euro;', abs($mover['gain_eur'])) !!}
         </div>
-        <small class="{{ $colorClass }}">{{ $pctSign }}{{ $pctAbs }} %</small>
+        <small class="{{ $colorClass }}">{{ $pctSign }}{{ MoneyFormat::get_formatted_pct(abs($mover['gain_percentage'])) }} %</small>
     </div>
 </div>

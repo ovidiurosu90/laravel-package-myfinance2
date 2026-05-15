@@ -66,7 +66,7 @@ class PriceAlertTriggered extends Mailable
         $pauseAlertUrl  = route('myfinance2::price-alerts.pause', $alert->id);
 
         $label          = $this->_appLabel();
-        $formattedPrice = MoneyFormat::get_formatted_price((float) $alert->target_price);
+        $formattedPrice = MoneyFormat::get_formatted_price((float) $alert->target_price, true);
         $currencyLabel  = html_entity_decode(strip_tags($currencyDisplayCode), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $subject = $this->_isSplitWarning
             ? "{$label} ⚠️ Alert for {$alert->symbol} may be stale (possible split)"

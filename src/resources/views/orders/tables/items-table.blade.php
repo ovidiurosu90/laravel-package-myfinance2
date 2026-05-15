@@ -1,3 +1,4 @@
+@use('ovidiuro\myfinance2\App\Services\MoneyFormat')
 <div class="table-responsive">
     <table class="table table-sm table-striped data-table order-items-table">
         <thead class="thead">
@@ -9,7 +10,7 @@
                 <th>Action</th>
                 <th>Symbol</th>
                 <th>Qty</th>
-                <th class="text-right text-nowrap">Limit Price</th>
+                <th class="text-right text-nowrap no-search">Current → Limit Price</th>
                 <th class="text-right text-nowrap">P Amount</th>
                 <th class="d-none d-xl-table-cell text-nowrap">L Trade</th>
                 <th class="d-none d-xl-table-cell">Description</th>
@@ -56,8 +57,31 @@
                     </a>
                 </td>
                 <td>{{ $item->getCleanQuantity() ?: '—' }}</td>
-                <td class="text-right text-nowrap">
-                    {!! $item->getFormattedLimitPrice() !!}
+                @php
+                    $cp           = $currentPrices[$item->symbol] ?? null;
+                    $currencyCode = $item->tradeCurrencyModel ? $item->tradeCurrencyModel->display_code : '';
+                @endphp
+                <td class="text-right text-nowrap"
+                    data-order="{{ $cp !== null && $item->limit_price
+                        ? (float) $item->limit_price - $cp
+                        : -999999 }}">
+                    @if ($cp !== null && $item->limit_price && $currencyCode)
+                        @php
+                            $delta     = (float) $item->limit_price - $cp;
+                            $deltaPct  = $cp > 0 ? ($delta / $cp) * 100 : 0;
+                            $deltaSign = $delta >= 0 ? '+' : '−';
+                        @endphp
+                        <div class="text-nowrap">
+                            {!! MoneyFormat::get_formatted_price_display($currencyCode, $cp, true) !!}
+                            → {!! $item->getFormattedLimitPrice() !!}
+                        </div>
+                        <div class="text-muted small text-nowrap">
+                            delta: {{ $deltaSign }}{!! MoneyFormat::get_formatted_price_display($currencyCode, abs($delta), true) !!}
+                            ({{ $deltaSign }}{{ MoneyFormat::get_formatted_pct(abs($deltaPct)) }}%)
+                        </div>
+                    @else
+                        {!! $item->getFormattedLimitPrice() !!}
+                    @endif
                     @if ($item->exchange_rate && $item->exchange_rate != 1)
                         <div class="text-nowrap text-muted small">
                             FX {{ $item->exchange_rate + 0 }}
@@ -129,7 +153,7 @@
                 <th>Action</th>
                 <th>Symbol</th>
                 <th>Qty</th>
-                <th class="text-right text-nowrap">Limit Price</th>
+                <th class="text-right text-nowrap no-search">Current → Limit Price</th>
                 <th class="text-right text-nowrap">P Amount</th>
                 <th class="d-none d-xl-table-cell text-nowrap">L Trade</th>
                 <th class="d-none d-xl-table-cell">Description</th>

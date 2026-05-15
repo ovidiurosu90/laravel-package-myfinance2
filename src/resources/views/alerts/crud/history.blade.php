@@ -127,22 +127,20 @@
                                                 </span>
                                             </td>
                                             <td class="text-right text-nowrap">
-                                                {{ MoneyFormat::get_formatted_price((float) $notif->target_price) }}
-                                                {{ $currencyCode }}
+                                                {!! MoneyFormat::get_formatted_price_display($currencyCode, (float) $notif->target_price, true) !!}
                                             </td>
                                             <td class="text-right text-nowrap">
-                                                {{ MoneyFormat::get_formatted_price((float) $notif->current_price) }}
-                                                {{ $currencyCode }}
+                                                {!! MoneyFormat::get_formatted_price_display($currencyCode, (float) $notif->current_price, true) !!}
                                             </td>
                                             <td class="text-right text-nowrap"
                                                 data-order="{{ $notif->projected_gain_eur ?? -999999 }}">
                                                 @if ($notif->projected_gain_eur !== null)
                                                     @php $gainClass = $notif->projected_gain_eur >= 0 ? 'text-success' : 'text-danger'; @endphp
                                                     <span class="{{ $gainClass }}">
-                                                        {{ $notif->projected_gain_eur >= 0 ? '+' : '' }}{{ number_format($notif->projected_gain_eur, 2) }} &euro;
+                                                        {{ $notif->projected_gain_eur >= 0 ? '+' : '' }}{!! MoneyFormat::get_formatted_price_display('&euro;', $notif->projected_gain_eur) !!}
                                                     </span>
                                                     <div class="{{ $gainClass }} small">
-                                                        {{ $notif->projected_gain_pct >= 0 ? '+' : '' }}{{ number_format($notif->projected_gain_pct, 2) }}%
+                                                        {{ $notif->projected_gain_pct >= 0 ? '+' : '' }}{{ MoneyFormat::get_formatted_pct($notif->projected_gain_pct) }}%
                                                         @if ($notif->projected_gain_eur < 0) ⚠️ @endif
                                                     </div>
                                                 @else

@@ -204,6 +204,19 @@ HISTORICAL_END=$(date +%Y-%m-%d --date '-1 day')
 # Run the job 250s after reboot
 @reboot sleep 250 && su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; export LD_PRELOAD=/usr/local/lib/libcurl-impersonate-chrome.so; export CURL_IMPERSONATE=chrome116; cd [USER_HOME]/Repositories/laravel-admin/ && cpulimit -l 50 -- php artisan app:finance-api-cron --refresh-returns >> [USER_HOME]/Repositories/laravel-admin/storage/logs/finance-api-cron.log 2>&1"
 #############
+
+#############
+# Purpose: Pre-caches watchlist symbol performance tags (gains, windows, metrics) for all users
+# - Clears and rebuilds the 2-hour performance cache for every user
+# - Ensures /watchlist-symbols page loads instantly without on-the-fly gain computation
+# - Cache TTL: 2 hours; cron re-warms it hourly
+
+# Run the job every hour at minute 54 (staggered from --refresh-returns at :24)
+54 * * * * su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; export LD_PRELOAD=/usr/local/lib/libcurl-impersonate-chrome.so; export CURL_IMPERSONATE=chrome116; cd [USER_HOME]/Repositories/laravel-admin/ && cpulimit -l 50 -- php artisan app:finance-api-cron --refresh-symbol-performance >> [USER_HOME]/Repositories/laravel-admin/storage/logs/finance-api-cron.log 2>&1"
+
+# Run the job 400s after reboot (after stats-cron at 350s)
+@reboot sleep 400 && su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; export LD_PRELOAD=/usr/local/lib/libcurl-impersonate-chrome.so; export CURL_IMPERSONATE=chrome116; cd [USER_HOME]/Repositories/laravel-admin/ && cpulimit -l 50 -- php artisan app:finance-api-cron --refresh-symbol-performance >> [USER_HOME]/Repositories/laravel-admin/storage/logs/finance-api-cron.log 2>&1"
+#############
 ```
 
 

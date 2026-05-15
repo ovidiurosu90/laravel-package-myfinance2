@@ -55,8 +55,8 @@
                 The price alert for <strong>{{ $alert->symbol }}</strong> may be stale due to a possible stock split.
             </p>
             <p>
-                Current price: <strong>{{ MoneyFormat::get_formatted_price($currentPrice) }} {!! html_entity_decode($currencyDisplayCode, ENT_HTML5, 'UTF-8') !!}</strong><br>
-                Alert target: <strong>{{ MoneyFormat::get_formatted_price($alert->target_price) }} {!! html_entity_decode($currencyDisplayCode, ENT_HTML5, 'UTF-8') !!}</strong>
+                Current price: <strong>{{ MoneyFormat::get_formatted_price($currentPrice, true) }} {!! html_entity_decode($currencyDisplayCode, ENT_HTML5, 'UTF-8') !!}</strong><br>
+                Alert target: <strong>{{ MoneyFormat::get_formatted_price($alert->target_price, true) }} {!! html_entity_decode($currencyDisplayCode, ENT_HTML5, 'UTF-8') !!}</strong>
             </p>
             <p>Please review and update your alert. You can re-run the suggestion engine to get a fresh target price using split-adjusted data.</p>
         </div>
@@ -76,9 +76,9 @@
             </div>
             <div style="font-size:14px;margin-bottom:12px;">
                 Current price of
-                <strong>{{ MoneyFormat::get_formatted_price($currentPrice) }} {!! $currencyHtml !!}</strong>
+                <strong>{{ MoneyFormat::get_formatted_price($currentPrice, true) }} {!! $currencyHtml !!}</strong>
                 is {{ $directionText }} the alert target of
-                <strong>{{ MoneyFormat::get_formatted_price((float) $alert->target_price) }} {!! $currencyHtml !!}</strong>
+                <strong>{{ MoneyFormat::get_formatted_price((float) $alert->target_price, true) }} {!! $currencyHtml !!}</strong>
             </div>
 
             @if (!empty($alert->notes))
@@ -104,18 +104,18 @@
                 </tr>
                 <tr>
                     <td>{{ MoneyFormat::get_formatted_quantity_plain($projectedGain['total_qty']) }}</td>
-                    <td>{{ MoneyFormat::get_formatted_price($projectedGain['avg_cost']) }}
+                    <td>{{ MoneyFormat::get_formatted_price($projectedGain['avg_cost'], true) }}
                         {!! html_entity_decode($currencyDisplayCode, ENT_HTML5, 'UTF-8') !!}</td>
-                    <td>{{ MoneyFormat::get_formatted_price($alert->target_price) }}
+                    <td>{{ MoneyFormat::get_formatted_price($alert->target_price, true) }}
                         {!! html_entity_decode($currencyDisplayCode, ENT_HTML5, 'UTF-8') !!}</td>
                     <td class="{{ $isLoss ? 'gain-negative' : 'gain-positive' }}">
                         <strong>
-                            {{ $projectedGain['gain_value'] >= 0 ? '+' : '' }}{{ number_format($projectedGain['gain_value'], 2) }}
+                            {{ $projectedGain['gain_value'] >= 0 ? '+' : '' }}{{ MoneyFormat::get_formatted_price($projectedGain['gain_value']) }}
                             {!! html_entity_decode($currencyDisplayCode, ENT_HTML5, 'UTF-8') !!}
-                            ({{ $projectedGain['gain_pct'] >= 0 ? '+' : '' }}{{ number_format($projectedGain['gain_pct'], 2) }}%)
+                            ({{ $projectedGain['gain_pct'] >= 0 ? '+' : '' }}{{ MoneyFormat::get_formatted_pct($projectedGain['gain_pct']) }}%)
                         </strong>
                         @if ($projectedGain['gain_eur'] !== null && $projectedGain['trade_currency'] !== 'EUR')
-                        <br>≈ {{ $projectedGain['gain_eur'] >= 0 ? '+' : '' }}{{ number_format($projectedGain['gain_eur'], 2) }} &euro;
+                        <br>≈ {{ $projectedGain['gain_eur'] >= 0 ? '+' : '' }}{{ MoneyFormat::get_formatted_price($projectedGain['gain_eur']) }} &euro;
                         @endif
                     </td>
                 </tr>

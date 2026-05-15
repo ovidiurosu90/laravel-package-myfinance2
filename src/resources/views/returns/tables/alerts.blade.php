@@ -1,3 +1,4 @@
+@use('ovidiuro\myfinance2\App\Services\MoneyFormat')
 {{-- Returns Alerts --}}
 @if(!empty($alerts))
 <div class="card mb-4 border-warning">
@@ -48,7 +49,7 @@
                                             <strong class="text-danger">{{ $trade['sell_id'] }}</strong>
                                         @endif
                                     </td>
-                                    <td class="text-end">{{ number_format($trade['sell_quantity']) }}</td>
+                                    <td class="text-end">{{ MoneyFormat::get_formatted_quantity_plain($trade['sell_quantity']) }}</td>
                                     <td class="text-end">
                                         @if($trade['buy_excluded'])
                                             <span class="text-muted">{{ $trade['buy_id'] }}</span>
@@ -56,7 +57,7 @@
                                             <strong class="text-danger">{{ $trade['buy_id'] }}</strong>
                                         @endif
                                     </td>
-                                    <td class="text-end">{{ number_format($trade['buy_quantity']) }}</td>
+                                    <td class="text-end">{{ MoneyFormat::get_formatted_quantity_plain($trade['buy_quantity']) }}</td>
                                     <td>
                                         @if($trade['sell_excluded'] && $trade['buy_excluded'])
                                             <span class="badge bg-success">Excluded</span>

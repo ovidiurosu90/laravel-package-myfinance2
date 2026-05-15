@@ -88,7 +88,7 @@
                     </td>
                     <td><span class="badge {{ $badgeClass }}">{{ $typeLabel }}</span></td>
                     <td class="num">
-                        {{ MoneyFormat::get_formatted_price((float) $alert->target_price) }}
+                        {{ MoneyFormat::get_formatted_price((float) $alert->target_price, true) }}
                         @if ($currency) {{ $currency }} @endif
                     </td>
                     <td>

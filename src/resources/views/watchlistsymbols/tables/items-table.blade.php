@@ -3,14 +3,36 @@
     .open-positions {
         padding: 0.35rem 0.6rem;
     }
+    .open-positions .card-title {
+        margin-bottom: 0.5rem;
+    }
     .open-positions .trades td,
     .open-positions .metrics td {
         padding: 0.1rem 0.3rem;
     }
+    @media (min-width: 1400px) {
+        .open-positions-cards {
+            max-width: 550px;
+        }
+    }
+    .watchlist-symbol-items-table .symbol-perf-windows {
+        --bs-table-bg: transparent;
+    }
+    .watchlist-symbol-items-table tbody tr.dt-row-hover > td {
+        --bs-table-color-state: var(--bs-table-hover-color);
+        --bs-table-bg-state: var(--bs-table-hover-bg);
+    }
+    .performance-row > td {
+        border-top: none !important;
+    }
+
 </style>
+@php
+    $watchlistItems    = array_filter($items, fn($q) => $q['is_on_watchlist']);
+    $nonWatchlistItems = array_filter($items, fn($q) => !$q['is_on_watchlist']);
+@endphp
 <div class="table-responsive">
-    <table class="table table-sm data-table watchlist-symbol-items-table
-                  table-hover">
+    <table class="table table-sm data-table watchlist-symbol-items-table">
         <thead class="thead">
             <tr role="row">
                 <th class="text-nowrap">Symbol</th>
@@ -36,10 +58,10 @@
             </tr>
         </thead>
         <tbody class="table-body">
-        @if(count($items) > 0)
-            @foreach($items as $symbol => $quoteData)
-            <tr {!! count($quoteData['open_positions']) > 0
-                        ? 'class="table-info"' : '' !!}>
+        @if(count($watchlistItems) > 0)
+            @foreach($watchlistItems as $symbol => $quoteData)
+            @php $hasPerfRow = !empty($quoteData['performance']['has_data']) || !empty($quoteData['performance']['sector']); @endphp
+            <tr data-symbol="{{ $symbol }}"@if(count($quoteData['open_positions']) > 0) class="table-info"@endif>
                 <td>
                     <div data-bs-toggle="tooltip" data-bs-placement="top"
                         data-bs-custom-class="big-tooltips" data-bs-html="true"
@@ -55,10 +77,6 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                             {{ $symbol }}
                         </a>
                     </div>
-                    @if (count($quoteData['open_positions']) > 0)
-                        <i class="fa fa-briefcase" aria-hidden="true"
-                            data-bs-toggle="tooltip" title="Has Open Positions"></i>
-                    @endif
                 </td>
                 <td class="text-right">
                     <div data-bs-toggle="tooltip"
@@ -147,26 +165,21 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                         count($quoteData['open_positions']) > 0
                     ) !!}
                 </td>
-                <td>
+                <td{!! $hasPerfRow ? ' rowspan="2"' : '' !!}>
                 @if(!empty($quoteData['open_positions']))
-                    @foreach($quoteData['open_positions'] as $key => $openPosition)
-                    <div class="row">
-                        <div class="col-sm">
-                            <div class="card">
-                                <div class="card-body open-positions">
-                                    @include('myfinance2::watchlistsymbols.'
-                                        . 'tables.open-positions-card')
-                                </div>
+                    <div class="d-flex open-positions-cards gap-2">
+                    @foreach($quoteData['open_positions'] as $openPosition)
+                        <div class="card">
+                            <div class="card-body open-positions">
+                                @include('myfinance2::watchlistsymbols.'
+                                    . 'tables.open-positions-card')
                             </div>
                         </div>
-                    </div>
-                    @if (array_key_last($quoteData['open_positions']) != $key)
-                    <div class="clearfix mb-1"></div>
-                    @endif
                     @endforeach
+                    </div>
                 @endif
                 </td>
-                <td>
+                <td{!! $hasPerfRow ? ' rowspan="2"' : '' !!}>
                     <a class="btn btn-sm btn-outline-success w-100 mb-1"
                         href="{{ route('myfinance2::orders.create',
                                        ['symbol' => $symbol]) }}"
@@ -188,7 +201,7 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                         @endforeach
                     @endif
                 </td>
-                <td>
+                <td{!! $hasPerfRow ? ' rowspan="2"' : '' !!}>
                     <a class="btn btn-sm btn-warning w-100 mb-1"
                         href="{{ route('myfinance2::price-alerts.create',
                                        ['symbol' => $symbol, 'source' => 'watchlist']) }}"
@@ -204,13 +217,17 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                             title="Edit alert for {{ $symbol }}">
                             <span class="badge d-block w-100 {{ $activeAlert->getStatusBadgeClass() }}">
                                 {{ $activeAlert->alert_type === 'PRICE_ABOVE' ? '▲' : '▼' }}
-                                {!! $quoteData['tradeCurrencyModel']->display_code !!}{{ MoneyFormat::get_formatted_price((float) $activeAlert->target_price) }}
+                                {!! MoneyFormat::get_formatted_price_display(
+                                    $quoteData['tradeCurrencyModel']->display_code,
+                                    (float) $activeAlert->target_price,
+                                    true
+                                ) !!}
                             </span>
                         </a>
                         @endforeach
                     @endif
                 </td>
-                <td>
+                <td{!! $hasPerfRow ? ' rowspan="2"' : '' !!}>
                     <a class="btn btn-sm btn-outline-secondary w-100"
                         href="{{ route('myfinance2::watchlist-symbols.edit',
                                        $quoteData['item']->id) }}"
@@ -220,12 +237,20 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                         {!! trans('myfinance2::general.buttons.edit') !!}
                     </a>
                 </td>
-                <td>
+                <td{!! $hasPerfRow ? ' rowspan="2"' : '' !!}>
                     @include('myfinance2::watchlistsymbols.forms.delete-sm', [
                         'type' => 'Watchlist Symbol',
                         'id' => $quoteData['item']->id])
                 </td>
             </tr>
+            @if ($hasPerfRow)
+            <tr class="performance-row{{ count($quoteData['open_positions']) > 0 ? ' table-info' : '' }}" data-symbol="{{ $symbol }}">
+                <td colspan="6" class="pt-1 pb-2">
+                    @include('myfinance2::general.partials.symbol-performance',
+                        ['symbolPerf' => $quoteData['performance']])
+                </td>
+            </tr>
+            @endif
             @endforeach
         @endif
         </tbody>
@@ -233,3 +258,118 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
     <div class="clearfix mb-3"></div>
 </div>
 
+{{-- ── Non-watchlist traded symbols (collapsed) ── --}}
+@if (count($nonWatchlistItems) > 0)
+<div class="card mt-4">
+    <div class="card-header">
+        <button class="btn btn-link text-decoration-none p-0 fw-semibold"
+                type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#non-watchlist-symbols"
+                aria-expanded="false"
+                aria-controls="non-watchlist-symbols">
+            Traded symbols not on watchlist
+            <span class="badge bg-secondary ms-1">{{ count($nonWatchlistItems) }}</span>
+            <i class="fa fa-chevron-down ms-1 small" aria-hidden="true"></i>
+        </button>
+    </div>
+    <div class="collapse" id="non-watchlist-symbols">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="thead">
+                        <tr>
+                            <th class="text-nowrap">Symbol</th>
+                            <th class="text-right no-sort text-nowrap">Price</th>
+                            <th class="text-right text-nowrap">1D</th>
+                            <th class="text-right no-sort text-nowrap">52W Range</th>
+                            <th class="text-right text-nowrap">% Low</th>
+                            <th class="text-right text-nowrap">% High</th>
+                            <th class="no-sort text-nowrap">Open Positions</th>
+                            <th class="no-sort"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach($nonWatchlistItems as $symbol => $quoteData)
+                    <tr data-symbol="{{ $symbol }}-nw"@if(count($quoteData['open_positions']) > 0) class="table-info"@endif>
+                        <td>
+                            <a href="https://finance.yahoo.com/quote/{{ $symbol }}"
+                                target="_blank">{{ $symbol }}</a>
+                        </td>
+                        <td class="text-right">
+                            {!! MoneyFormat::get_formatted_balance(
+                                $quoteData['tradeCurrencyModel']->display_code,
+                                $quoteData['price']
+                            ) !!}
+                        </td>
+                        <td class="text-right text-nowrap">
+                            {!! MoneyFormat::get_formatted_balance_percentage(
+                                $quoteData['day_change_percentage']
+                            ) !!}
+                        </td>
+                        <td class="text-right">
+                            <div class="text-nowrap">
+                                {!! MoneyFormat::get_formatted_balance(
+                                    $quoteData['tradeCurrencyModel']->display_code,
+                                    $quoteData['fiftyTwoWeekLow']
+                                ) !!}
+                            </div>
+                            <div class="text-nowrap">
+                                {!! MoneyFormat::get_formatted_balance(
+                                    $quoteData['tradeCurrencyModel']->display_code,
+                                    $quoteData['fiftyTwoWeekHigh']
+                                ) !!}
+                            </div>
+                        </td>
+                        <td class="text-right text-nowrap">
+                            {!! MoneyFormat::get_formatted_52wk_low_percentage(
+                                $quoteData['fiftyTwoWeekLowChangePercent'] * 100
+                            ) !!}
+                        </td>
+                        <td class="text-right text-nowrap">
+                            {!! MoneyFormat::get_formatted_52wk_high_percentage(
+                                - $quoteData['fiftyTwoWeekHighChangePercent'] * 100,
+                                count($quoteData['open_positions']) > 0
+                            ) !!}
+                        </td>
+                        <td>
+                        @if(!empty($quoteData['open_positions']))
+                            <div class="d-flex flex-wrap flex-md-nowrap gap-2">
+                            @foreach($quoteData['open_positions'] as $openPosition)
+                                <div class="card">
+                                    <div class="card-body open-positions">
+                                        @include('myfinance2::watchlistsymbols.'
+                                            . 'tables.open-positions-card')
+                                    </div>
+                                </div>
+                            @endforeach
+                            </div>
+                        @endif
+                        </td>
+                        <td class="text-end">
+                            <a class="btn btn-sm btn-outline-primary"
+                                href="{{ route('myfinance2::watchlist-symbols.create',
+                                               ['symbol' => $symbol]) }}"
+                                data-bs-toggle="tooltip"
+                                title="Add {{ $symbol }} to watchlist">
+                                Add to watchlist
+                                <i class="fa fa-fw fa-plus-circle" aria-hidden="true"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    @if (!empty($quoteData['performance']['has_data']) || !empty($quoteData['performance']['sector']))
+                    <tr class="performance-row-nw">
+                        <td colspan="8" class="pt-1 pb-2">
+                            @include('myfinance2::general.partials.symbol-performance',
+                                ['symbolPerf' => $quoteData['performance']])
+                        </td>
+                    </tr>
+                    @endif
+                    @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+@endif

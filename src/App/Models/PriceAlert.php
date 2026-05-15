@@ -100,7 +100,7 @@ class PriceAlert extends MyFinance2Model
     public function getFormattedTargetPrice(): string
     {
         if (empty($this->tradeCurrencyModel)) {
-            return number_format((float) $this->target_price, 4);
+            return MoneyFormat::get_formatted_price((float) $this->target_price, true);
         }
 
         return MoneyFormat::get_formatted_balance(

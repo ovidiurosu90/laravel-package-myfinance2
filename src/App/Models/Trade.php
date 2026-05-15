@@ -92,7 +92,7 @@ class Trade extends MyFinance2Model
         $parts = [$this->action, $this->getCleanQuantity() . 'x', $this->symbol];
 
         if (!empty($this->tradeCurrencyModel)) {
-            $price    = MoneyFormat::get_formatted_price_plain($this->unit_price);
+            $price    = MoneyFormat::get_formatted_price_plain($this->unit_price, true);
             $currency = html_entity_decode(
                 $this->tradeCurrencyModel->display_code, ENT_HTML5, 'UTF-8'
             );

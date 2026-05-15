@@ -74,6 +74,21 @@ $(document).ready(function ()
             accountCurrency.iso_code == tradeCurrency.iso_code
         ) {
             $exchangeRateInput.val(1);
+        } else if (accountCurrency && tradeCurrency) {
+            var symbol = $('#symbol-input').val();
+            if (symbol && accountId) {
+                $.ajax({
+                    type: 'GET',
+                    url: "{{ url('/get-finance-data') }}",
+                    data: { symbol: symbol, account_id: accountId },
+                    success: function(data)
+                    {
+                        if (data.suggestion && data.suggestion.exchange_rate) {
+                            $exchangeRateInput.val(data.suggestion.exchange_rate);
+                        }
+                    }
+                });
+            }
         }
 
         if (tradeCurrency) {

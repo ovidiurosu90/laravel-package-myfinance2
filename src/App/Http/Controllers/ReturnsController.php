@@ -69,8 +69,8 @@ class ReturnsController extends MyFinance2Controller
         // This allows JavaScript to reconstruct the sign and color properly on currency toggle
         $eurAbsValue = abs($totalReturnEUR);
         $usdAbsValue = abs($totalReturnUSD);
-        $totalReturnEURFormatted = number_format($eurAbsValue, 2) . ' €';
-        $totalReturnUSDFormatted = number_format($usdAbsValue, 2) . ' $';
+        $totalReturnEURFormatted = MoneyFormat::get_formatted_price_display('€', $eurAbsValue);
+        $totalReturnUSDFormatted = MoneyFormat::get_formatted_price_display('$', $usdAbsValue);
 
         // Remove metadata from returnsData (keep only account data)
         $returnsData = array_filter(

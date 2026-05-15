@@ -1,12 +1,13 @@
+@use('ovidiuro\myfinance2\App\Services\MoneyFormat')
 <div class="card-title">
     Account: {{ $openPosition['accountModel']->name }}
     ({!! $openPosition['accountModel']->currency->display_code !!})
 </div>
 <div class="card-text">
-    <div class="d-flex flex-wrap gap-4 align-items-start">
+    <div class="d-flex flex-wrap gap-2 align-items-start">
         <div>
-            <div class="fw-semibold text-muted small mb-2">Overview</div>
-            <table class="metrics table table-borderless table-sm">
+            <div class="fw-semibold text-muted small mb-1">Overview</div>
+            <table class="metrics table table-borderless table-sm mb-0">
                 <tbody>
                 <tr>
                     <td>Quantity</td>
@@ -112,14 +113,14 @@
                     </td>
                     <td>
                         @if($openPosition['overall_change2_in_account_currency_formatted'])
-                            {!! $openPosition['overall_change2_in_percentage_formatted'] !!}
+                            ({!! $openPosition['overall_change2_in_percentage_formatted'] !!})
                         @else
                             @if($openPosition['overall_change_in_percentage'] === null && $openPosition['quantity'])
                             <i class="fas fa-info-circle text-muted me-1"
                                data-bs-toggle="tooltip"
                                title="Not applicable. Total cost is negative (sell proceeds exceeded buy cost), so a percentage cannot be meaningfully calculated."></i>
                             @endif
-                            {!! $openPosition['overall_change_in_percentage_formatted'] !!}
+                            ({!! $openPosition['overall_change_in_percentage_formatted'] !!})
                         @endif
                     </td>
                 </tr>
@@ -130,7 +131,7 @@
                               title="Profit locked in from shares already sold, calculated using the average cost method.">Realized Gain</span>
                     </td>
                     <td>{!! $openPosition['realized_gain_in_account_currency_formatted'] !!}</td>
-                    <td>{!! $openPosition['realized_gain_in_percentage_formatted'] !!}</td>
+                    <td>({!! $openPosition['realized_gain_in_percentage_formatted'] !!})</td>
                 </tr>
                 <tr class="fst-italic" style="opacity: 0.55">
                     <td class="ps-3">
@@ -144,7 +145,7 @@
                            data-bs-toggle="tooltip"
                            title="Not applicable. Total cost is negative (sell proceeds exceeded buy cost), so a percentage cannot be meaningfully calculated."></i>
                         @endif
-                        {!! $openPosition['overall_change_in_percentage_formatted'] !!}
+                        ({!! $openPosition['overall_change_in_percentage_formatted'] !!})
                     </td>
                 </tr>
                 @endif
@@ -153,7 +154,7 @@
         </div>
 
         <div>
-            <div class="fw-semibold text-muted small mb-2">Trades</div>
+            <div class="fw-semibold text-muted small mb-1">Trades</div>
             @php
                 $symbolSplits = $quoteData['stock_splits'] ?? [];
                 $timeline = [];
@@ -173,7 +174,7 @@
                 }
                 usort($timeline, fn ($a, $b) => $b['date'] <=> $a['date']);
             @endphp
-            <table class="trades table table-borderless table-sm">
+            <table class="trades table table-borderless table-sm mb-0">
             @foreach ($timeline as $event)
                 @if ($event['type'] === 'split')
                     @php $splitItem = $event['data']; @endphp
@@ -198,9 +199,12 @@
                                 ? (int)$trade->quantity
                                 : round($trade->quantity, 4) }}x
                         </td>
-                        <td class="text-end">
-                            {{ round($trade->unit_price, 2) }}
-                            {!! $trade->tradeCurrencyModel->display_code !!}
+                        <td class="text-end text-nowrap">
+                            {!! MoneyFormat::get_formatted_price_display(
+                                $trade->tradeCurrencyModel->display_code,
+                                (float) $trade->unit_price,
+                                true
+                            ) !!}
                         </td>
                     </tr>
                 @endif
