@@ -1,10 +1,18 @@
 @php use ovidiuro\myfinance2\App\Services\MoneyFormat; @endphp
 @php use ovidiuro\myfinance2\App\Services\SymbolPerformanceTooltips; @endphp
+@once
+<style>
+    .symbol-performance { font-size: 0.75rem; }
+    .symbol-performance .badge { font-size: inherit; }
+</style>
+@endonce
 {{--
     Reusable symbol performance partial.
     Required variable: $symbolPerf  (array from SymbolPerformanceService::handle())
+    Optional variable: $technicalIndicators (array from TechnicalIndicatorsService)
 --}}
-@if (!empty($symbolPerf['has_data']) || !empty($symbolPerf['sector']))
+@php $technicalIndicators = $technicalIndicators ?? null; @endphp
+@if (!empty($symbolPerf['has_data']) || !empty($symbolPerf['sector']) || !empty($technicalIndicators))
 <div class="symbol-performance mt-2">
 
     {{-- ── Primary tags rows ── --}}
@@ -17,7 +25,7 @@
     {{-- Open position row (solid border) --}}
     @if ($openWin)
     <div class="d-flex flex-wrap gap-1 align-items-center mb-1">
-        <small class="text-muted me-1">Current:</small>
+        <span class="text-muted me-1">Current:</span>
         <span class="badge bg-transparent border border-primary"
               data-bs-toggle="tooltip"
               title="{{ $tt['open_cost'] }}">
@@ -77,7 +85,7 @@
     {{-- Overall row (dotted border) — shown when there are multiple windows or no open position --}}
     @if (!$openWin || $symbolPerf['window_count'] > 1)
     <div class="d-flex flex-wrap gap-1 align-items-center mb-1">
-        <small class="text-muted me-1">Overall:</small>
+        <span class="text-muted me-1">Overall:</span>
         <span class="badge bg-transparent border border-primary"
               style="border-style: dotted !important;"
               data-bs-toggle="tooltip"
@@ -147,8 +155,7 @@
     @if (!empty($symbolPerf['has_data']))
     {{-- ── Per-window detail ── --}}
     @if ($symbolPerf['window_count'] > 0)
-    <table class="table table-borderless table-sm symbol-perf-windows mb-1"
-           style="font-size: 0.78rem;">
+    <table class="table table-borderless table-sm symbol-perf-windows mb-1">
         <tbody>
         @foreach ($symbolPerf['windows'] as $win)
         @php $winTt = $tt['windows'][$win['index']]; @endphp
@@ -225,7 +232,7 @@
 
     {{-- ── Extended metrics ── --}}
     {{-- Removed metrics ("Invested:", "By year:") are documented in SymbolPerformanceService::_buildSymbolResult(). --}}
-    <div class="d-flex flex-wrap gap-2 symbol-perf-metrics" style="font-size: 0.78rem;">
+    <div class="d-flex flex-wrap gap-2 symbol-perf-metrics">
 
         @if ($symbolPerf['sector'])
         <span>
@@ -266,6 +273,13 @@
         @endif {{-- has_data --}}
 
     </div>
+
+    @if (!empty($technicalIndicators))
+    <div class="d-flex flex-wrap gap-2 symbol-perf-metrics">
+        @include('myfinance2::watchlistsymbols.tables.partials.technical-indicators',
+            ['indicators' => $technicalIndicators])
+    </div>
+    @endif
 
     @if (!empty($symbolPerf['has_data']))
     {{-- ── Warnings / flags ── --}}

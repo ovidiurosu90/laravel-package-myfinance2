@@ -66,12 +66,41 @@
                 <th class="no-search no-sort">Alerts</th>
                 <th class="no-search no-sort">Actions</th>
                 <th class="no-search no-sort"></th>
+                <th class="no-search no-sort"></th>
+                <th class="no-search no-sort"></th>
             </tr>
         </thead>
         <tbody class="table-body">
         @if(count($watchlistItems) > 0)
             @foreach($watchlistItems as $symbol => $quoteData)
-            @php $hasPerfRow = !empty($quoteData['performance']['has_data']) || !empty($quoteData['performance']['sector']); @endphp
+            @php
+                $techInd = $quoteData['technical_indicators'] ?? null;
+                $hasTechInd = !empty($techInd) && (
+                    $techInd['rsi'] !== null || $techInd['analyst_target_price'] !== null
+                    || $techInd['ma50'] !== null || $techInd['ma200'] !== null
+                );
+                $hasPerfRow = !empty($quoteData['performance']['has_data'])
+                    || !empty($quoteData['performance']['sector'])
+                    || $hasTechInd;
+                $openWinPerf = null;
+                if (!empty($quoteData['performance']['has_data'])) {
+                    foreach ($quoteData['performance']['windows'] as $w) {
+                        if ($w['is_open']) { $openWinPerf = $w; break; }
+                    }
+                }
+                // Overall row exists when there is no open window, or there are multiple windows.
+                // Otherwise (single open window only) fall back to the current window.
+                $gainYSource = (!empty($quoteData['performance']['has_data'])
+                    && ($openWinPerf === null || ($quoteData['performance']['window_count'] ?? 0) > 1))
+                    ? $quoteData['performance']
+                    : $openWinPerf;
+                $overallGainYOrder = $gainYSource !== null
+                    ? round($gainYSource['annualized_gain_eur'] ?? -9999999, 2)
+                    : -9999999;
+                $overallGainYPctOrder = $gainYSource !== null
+                    ? round($gainYSource['annualized_percentage_gain'] ?? -9999999, 4)
+                    : -9999999;
+            @endphp
             <tr data-symbol="{{ $symbol }}"@if(count($quoteData['open_positions']) > 0) class="table-info"@endif>
                 <td>
                     <div data-bs-toggle="tooltip" data-bs-placement="top"
@@ -253,12 +282,17 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                         'type' => 'Watchlist Symbol',
                         'id' => $quoteData['item']->id])
                 </td>
+                <td data-order="{{ $overallGainYOrder }}"></td>
+                <td data-order="{{ $overallGainYPctOrder }}"></td>
             </tr>
             @if ($hasPerfRow)
             <tr class="performance-row{{ count($quoteData['open_positions']) > 0 ? ' table-info' : '' }}" data-symbol="{{ $symbol }}">
                 <td colspan="6" class="pt-1 pb-2">
-                    @include('myfinance2::general.partials.symbol-performance',
-                        ['symbolPerf' => $quoteData['performance'], 'tradeCurrencyCode' => $quoteData['tradeCurrencyModel']->iso_code])
+                    @include('myfinance2::general.partials.symbol-performance', [
+                        'symbolPerf'           => $quoteData['performance'],
+                        'tradeCurrencyCode'    => $quoteData['tradeCurrencyModel']->iso_code,
+                        'technicalIndicators'  => $hasTechInd ? $techInd : null,
+                    ])
                 </td>
             </tr>
             @endif
@@ -274,6 +308,8 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                 <th class="text-right text-nowrap">% Low</th>
                 <th class="text-right text-nowrap">% High</th>
                 <th class="no-sort text-nowrap">Open Positions</th>
+                <th class="no-search no-sort"></th>
+                <th class="no-search no-sort"></th>
                 <th class="no-search no-sort"></th>
                 <th class="no-search no-sort"></th>
                 <th class="no-search no-sort"></th>
@@ -306,7 +342,16 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
     </tbody>
     <tbody id="non-watchlist-symbols" class="collapse">
     @foreach($nonWatchlistItems as $symbol => $quoteData)
-    @php $hasNwPerfRow = !empty($quoteData['performance']['has_data']) || !empty($quoteData['performance']['sector']); @endphp
+    @php
+        $nwTechInd = $quoteData['technical_indicators'] ?? null;
+        $hasNwTechInd = !empty($nwTechInd) && (
+            $nwTechInd['rsi'] !== null || $nwTechInd['analyst_target_price'] !== null
+            || $nwTechInd['ma50'] !== null || $nwTechInd['ma200'] !== null
+        );
+        $hasNwPerfRow = !empty($quoteData['performance']['has_data'])
+            || !empty($quoteData['performance']['sector'])
+            || $hasNwTechInd;
+    @endphp
     <tr data-symbol="{{ $symbol }}-nw"@if(count($quoteData['open_positions']) > 0) class="table-info"@endif>
         <td>
             <a href="https://finance.yahoo.com/quote/{{ $symbol }}"
@@ -363,7 +408,7 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
         </td>
         <td{!! $hasNwPerfRow ? ' rowspan="2"' : '' !!}></td>
         <td{!! $hasNwPerfRow ? ' rowspan="2"' : '' !!}></td>
-        <td{!! $hasNwPerfRow ? ' rowspan="2"' : '' !!} colspan="2" class="text-end">
+        <td{!! $hasNwPerfRow ? ' rowspan="2"' : '' !!} colspan="4" class="text-end">
             <a class="btn btn-sm btn-outline-primary"
                 href="{{ route('myfinance2::watchlist-symbols.create',
                                ['symbol' => $symbol]) }}"
@@ -377,8 +422,11 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
     @if ($hasNwPerfRow)
     <tr class="performance-row-nw">
         <td colspan="6" class="pt-1 pb-2">
-            @include('myfinance2::general.partials.symbol-performance',
-                ['symbolPerf' => $quoteData['performance'], 'tradeCurrencyCode' => $quoteData['tradeCurrencyModel']->iso_code])
+            @include('myfinance2::general.partials.symbol-performance', [
+                'symbolPerf'          => $quoteData['performance'],
+                'tradeCurrencyCode'   => $quoteData['tradeCurrencyModel']->iso_code,
+                'technicalIndicators' => $hasNwTechInd ? $nwTechInd : null,
+            ])
         </td>
     </tr>
     @endif

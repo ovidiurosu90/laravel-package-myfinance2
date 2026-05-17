@@ -17,14 +17,12 @@ $(document).ready(function()
         perfRows[sym] = $(this).detach();
     });
 
-    // Sorting by performance tags (total gain, % gain, holding period) is not wired yet.
-    // To implement: add hidden <th>/<td rowspan="2"> columns to the main data row carrying
-    // the numeric values, then add { targets: N, visible: false, searchable: false } entries
-    // here. Deferred until the performance section is stable and the displayed metrics are final.
     const openPositionsWidth = '550px';
     const columnDefs = [
         { targets: 'no-sort', sortable: false },
         { targets: 'no-search', searchable: false },
+        { targets: 11, visible: false, searchable: false, type: 'num' },
+        { targets: 12, visible: false, searchable: false, type: 'num' },
     ];
     if (isWide) {
         columnDefs.push({ targets: 6, width: openPositionsWidth });
@@ -74,6 +72,66 @@ $(document).ready(function()
                     rowPairs.set(perfRows[sym][0], this);
                 }
             });
+        }
+    });
+
+    // ── Overall gain/y sort controls (€ and %) ──
+    const GAIN_Y_EUR_COL = 11;
+    const GAIN_Y_PCT_COL = 12;
+    let pinnedGainYCol = null;
+    let pinnedGainYDir = null;
+    let reorderingForGainY = false;
+
+    function makeGainYSelect(id)
+    {
+        return $('<select>', { class: 'form-select form-select-sm', id, style: 'width: auto' })
+            .append('<option value="">off</option>')
+            .append('<option value="desc">best → worst</option>')
+            .append('<option value="asc">worst → best</option>');
+    }
+    const $gainYEurSelect = makeGainYSelect('gain-y-eur-sort-dir');
+    const $gainYPctSelect = makeGainYSelect('gain-y-pct-sort-dir');
+
+    $('<div>', { class: 'd-flex align-items-center gap-1 ms-3' })
+        .append($('<label>', { for: 'gain-y-eur-sort-dir', class: 'mb-0 text-nowrap' }).text('Gain/y €:'))
+        .append($gainYEurSelect)
+        .append($('<label>', { for: 'gain-y-pct-sort-dir', class: 'mb-0 text-nowrap ms-2' }).text('Gain/y %:'))
+        .append($gainYPctSelect)
+        .insertAfter($(dt.table().container()).find('.dt-length'));
+
+    function applyGainYSort(col, dir)
+    {
+        pinnedGainYCol = dir ? col : null;
+        pinnedGainYDir = dir || null;
+        const current = dt.order();
+        const filtered = current.filter(o => o[0] !== GAIN_Y_EUR_COL && o[0] !== GAIN_Y_PCT_COL);
+        const newOrder = pinnedGainYCol
+            ? [[pinnedGainYCol, pinnedGainYDir], ...filtered]
+            : (filtered.length ? filtered : [[5, 'desc']]);
+        dt.order(newOrder).draw(false);
+    }
+
+    $gainYEurSelect.on('change', function()
+    {
+        $gainYPctSelect.val('');
+        applyGainYSort(GAIN_Y_EUR_COL, $(this).val() || null);
+    });
+
+    $gainYPctSelect.on('change', function()
+    {
+        $gainYEurSelect.val('');
+        applyGainYSort(GAIN_Y_PCT_COL, $(this).val() || null);
+    });
+
+    $(dt.table().node()).on('order.dt', function()
+    {
+        if (!pinnedGainYCol || reorderingForGainY) return;
+        const current = dt.order();
+        if (!current.length || current[0][0] !== pinnedGainYCol) {
+            const filtered = current.filter(o => o[0] !== GAIN_Y_EUR_COL && o[0] !== GAIN_Y_PCT_COL);
+            reorderingForGainY = true;
+            dt.order([[pinnedGainYCol, pinnedGainYDir], ...filtered]).draw(false);
+            reorderingForGainY = false;
         }
     });
 

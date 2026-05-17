@@ -11,6 +11,7 @@ use ovidiuro\myfinance2\App\Models\PriceAlert;
 use ovidiuro\myfinance2\App\Models\StockSplit;
 use ovidiuro\myfinance2\App\Services\Positions;
 use ovidiuro\myfinance2\App\Services\SymbolPerformanceService;
+use ovidiuro\myfinance2\App\Services\TechnicalIndicatorsService;
 use ovidiuro\myfinance2\App\Services\FinanceUtils;
 
 use Illuminate\Support\Facades\Log;
@@ -101,9 +102,10 @@ class WatchlistSymbolsDashboard
         }
 
         if (empty($positionsData['groupedItems'])) {
-            return $this->_attachPerformance(
+            $items = $this->_attachPerformance(
                 $items, $watchlistSymbolsDictionary, $currencyUtilsService, $liveEurRates
             );
+            return (new TechnicalIndicatorsService())->attachIndicators($items);
         }
 
         $averageUnitCosts = [];
@@ -122,9 +124,11 @@ class WatchlistSymbolsDashboard
             $items[$symbol]['base_value'] = array_sum($costs) / count($costs);
         }
 
-        return $this->_attachPerformance(
+        $items = $this->_attachPerformance(
             $items, $watchlistSymbolsDictionary, $currencyUtilsService, $liveEurRates
         );
+
+        return (new TechnicalIndicatorsService())->attachIndicators($items);
     }
 
     private function _attachPerformance(

@@ -360,6 +360,10 @@ class FinanceUtils
                 'fiftyTwoWeekLowChangePercent'  =>
                     $quote->getFiftyTwoWeekLowChangePercent(),
 
+                'fiftyDayAverage'                    => $quote->getFiftyDayAverage(),
+                'fiftyDayAverageChangePercent'       => $quote->getFiftyDayAverageChangePercent(),
+                'twoHundredDayAverage'               => $quote->getTwoHundredDayAverage(),
+                'twoHundredDayAverageChangePercent'  => $quote->getTwoHundredDayAverageChangePercent(),
                 'marketUtils' => new MarketUtils($quote),
             ];
 
