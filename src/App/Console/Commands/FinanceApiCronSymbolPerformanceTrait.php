@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace ovidiuro\myfinance2\App\Console\Commands;
 
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -53,6 +54,9 @@ trait FinanceApiCronSymbolPerformanceTrait
         }
     }
 
+    private const SECTOR_REFRESH_GUARD_PREFIX = 'SECTOR_DAILY_';
+    private const SECTOR_REFRESH_GUARD_TTL   = 86400; // 1 day
+
     private function refreshSymbolSectors(): void
     {
         Log::info('START refreshSymbolSectors()');
@@ -69,15 +73,25 @@ trait FinanceApiCronSymbolPerformanceTrait
 
         $financeApi = new FinanceAPI();
         $fetched = 0;
+        $skipped = 0;
 
         foreach ($symbols as $symbol) {
+            if (Cache::has(self::SECTOR_REFRESH_GUARD_PREFIX . $symbol)) {
+                $skipped++;
+                continue;
+            }
             $sector = $financeApi->fetchAndCacheSector($symbol);
             Log::info("Sector for {$symbol}: " . ($sector ?? 'n/a'));
             if ($sector !== null) {
+                Cache::put(self::SECTOR_REFRESH_GUARD_PREFIX . $symbol, true, self::SECTOR_REFRESH_GUARD_TTL);
                 $fetched++;
             }
         }
 
-        Log::info("END refreshSymbolSectors() => {$fetched}/" . count($symbols) . " sectors fetched");
+        $summary = "{$fetched}/" . count($symbols) . " sectors fetched";
+        if ($skipped > 0) {
+            $summary .= ", {$skipped} skipped (cache fresh < 1d)";
+        }
+        Log::info("END refreshSymbolSectors() => {$summary}");
     }
 }

@@ -15,6 +15,32 @@ $(document).ready(function()
         $('#fill-link-form select[name="trade_id"]').val('').trigger('change');
     });
 
+    // Expire order modal: set form actions and price alert suggestion based on order data
+    document.getElementById('expire-order-modal').addEventListener('shown.bs.modal', (e) =>
+    {
+        var orderId = $(e.relatedTarget).data('order-id');
+        var symbol = $(e.relatedTarget).data('order-symbol');
+        var action = $(e.relatedTarget).data('order-action');
+        var price = $(e.relatedTarget).data('order-price');
+        var currencyId = $(e.relatedTarget).data('order-currency') || '';
+
+        var baseUrl = '{{ url('/orders') }}/' + orderId + '/expire';
+        var alertType = (action === 'SELL') ? 'PRICE_ABOVE' : 'PRICE_BELOW';
+        var direction = (action === 'SELL')
+            ? 'alert when ' + symbol + ' goes above ' + price + ' (PRICE_ABOVE)'
+            : 'alert when ' + symbol + ' drops below ' + price + ' (PRICE_BELOW)';
+
+        $('#expire-order-id-display').text('#' + orderId);
+        $('#expire-alert-suggestion').text(
+            'For a ' + action + ' order: ' + direction + '.'
+        );
+        $('#expire-only-form').attr('action', baseUrl);
+        $('#expire-with-alert-form').attr('action', baseUrl);
+        $('#expire-alert-type-input').val(alertType);
+        $('#expire-target-price-input').val(price);
+        $('#expire-trade-currency-input').val(currencyId);
+    });
+
     // Link trade modal: set form action URL dynamically based on order id
     document.getElementById('link-trade-modal').addEventListener('shown.bs.modal', (e) =>
     {

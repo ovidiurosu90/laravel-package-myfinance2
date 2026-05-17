@@ -66,19 +66,34 @@ class PriceAlertController extends MyFinance2Controller
         $service = new AlertFormFields();
         $data = $service->handle();
 
-        $symbolPrefill = $request->query('symbol');
-        $sourcePrefill = $request->query('source');
+        $symbolPrefill          = $request->query('symbol');
+        $sourcePrefill          = $request->query('source');
+        $alertTypePrefill       = $request->query('alert_type');
+        $targetPricePrefill     = $request->query('target_price');
+        $tradeCurrencyIdPrefill = $request->query('trade_currency_id');
 
         if ($symbolPrefill) {
             $data['symbol'] = $symbolPrefill;
 
-            $alertTypePrefill = $this->_getAlertTypePrefillFromPosition($symbolPrefill);
-            if ($alertTypePrefill !== null) {
-                $data['alert_type'] = $alertTypePrefill;
+            $positionAlertType = $this->_getAlertTypePrefillFromPosition($symbolPrefill);
+            if ($positionAlertType !== null) {
+                $data['alert_type'] = $positionAlertType;
             }
         }
 
-        if ($sourcePrefill && in_array($sourcePrefill, ['manual', 'watchlist', 'suggestion_high'], true)) {
+        if ($alertTypePrefill && in_array($alertTypePrefill, ['PRICE_ABOVE', 'PRICE_BELOW'], true)) {
+            $data['alert_type'] = $alertTypePrefill;
+        }
+
+        if ($targetPricePrefill !== null && is_numeric($targetPricePrefill)) {
+            $data['target_price'] = $targetPricePrefill;
+        }
+
+        if ($tradeCurrencyIdPrefill !== null && ctype_digit((string) $tradeCurrencyIdPrefill)) {
+            $data['trade_currency_id'] = (int) $tradeCurrencyIdPrefill;
+        }
+
+        if ($sourcePrefill && in_array($sourcePrefill, ['manual', 'watchlist', 'suggestion_high', 'order'], true)) {
             $data['source'] = $sourcePrefill;
         }
 

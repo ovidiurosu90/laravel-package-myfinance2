@@ -7,7 +7,8 @@
             data-td-target-input="nearest" data-td-target-toggle="nearest">
             <input name="timestamp" type="text"
                 class="form-control datetimepicker-input"
-                data-td-target="#timestamp-picker" value="{{ $timestamp }}" required />
+                data-td-target="#timestamp-picker"
+                value="{{ old('timestamp', $timestamp ?: now()->format('Y-m-d H:i:s')) }}" required />
             <span class="input-group-text" data-td-target="#timestamp-picker"
                 data-td-toggle="datetimepicker" role="button">
                 <span class="fas fa-calendar"></span>

@@ -123,7 +123,7 @@
                 <th class="d-none d-xl-table-cell">Description</th>
                 <th class="d-none d-xl-table-cell">Created</th>
                 <th class="d-none d-xl-table-cell">Updated</th>
-                <th class="no-search no-sort">Actions</th>
+                <th class="no-search no-sort"></th>
                 <th class="no-search no-sort"></th>
                 <th class="no-search no-sort"></th>
             </tr>

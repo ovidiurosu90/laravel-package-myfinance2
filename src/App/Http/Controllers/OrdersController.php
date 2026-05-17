@@ -313,6 +313,22 @@ class OrdersController extends MyFinance2Controller
         $item->trade_id   = null;
         $item->save();
 
+        if (request()->boolean('create_alert')) {
+            $alertType = request('alert_type');
+            $targetPrice = request('target_price');
+            $tradeCurrencyId = request('trade_currency_id');
+
+            return redirect()
+                ->route('myfinance2::price-alerts.create', array_filter([
+                    'symbol'            => $item->symbol,
+                    'alert_type'        => $alertType,
+                    'target_price'      => $targetPrice,
+                    'trade_currency_id' => $tradeCurrencyId,
+                    'source'            => 'order',
+                ]))
+                ->with('success', trans('myfinance2::orders.flash-messages.order-expired', ['id' => $item->id]));
+        }
+
         return redirect()->route('myfinance2::orders.index', ['view' => 'all'])->with('success',
             trans('myfinance2::orders.flash-messages.order-expired', ['id' => $item->id]));
     }

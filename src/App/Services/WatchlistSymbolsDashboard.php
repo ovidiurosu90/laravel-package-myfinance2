@@ -84,8 +84,26 @@ class WatchlistSymbolsDashboard
             $items[$symbol]['stock_splits']  = $stockSplitsBySymbol[$symbol] ?? [];
             $items[$symbol]['base_value'] = null;
         }
+        // Build live EUR rates from the already-fetched exchange rate data so that
+        // applyLivePrices() uses the same rate source as the open positions card.
+        $liveEurRates = ['EUR' => 1.0];
+        foreach ($positionsData['exchangeRateData'] ?? [] as $data) {
+            if (($data['account_currency'] ?? null) === 'EUR'
+                && !empty($data['exchange_rate'])
+                && $data['exchange_rate'] > 0
+            ) {
+                $liveEurRates[$data['trade_currency']] = 1.0 / (float) $data['exchange_rate'];
+            }
+        }
+        if (isset($liveEurRates['GBP'])) {
+            $liveEurRates['GBp'] = $liveEurRates['GBP'] / 100.0;
+            $liveEurRates['GBX'] = $liveEurRates['GBP'] / 100.0;
+        }
+
         if (empty($positionsData['groupedItems'])) {
-            return $this->_attachPerformance($items, $watchlistSymbolsDictionary, $currencyUtilsService);
+            return $this->_attachPerformance(
+                $items, $watchlistSymbolsDictionary, $currencyUtilsService, $liveEurRates
+            );
         }
 
         $averageUnitCosts = [];
@@ -104,17 +122,34 @@ class WatchlistSymbolsDashboard
             $items[$symbol]['base_value'] = array_sum($costs) / count($costs);
         }
 
-        return $this->_attachPerformance($items, $watchlistSymbolsDictionary, $currencyUtilsService);
+        return $this->_attachPerformance(
+            $items, $watchlistSymbolsDictionary, $currencyUtilsService, $liveEurRates
+        );
     }
 
     private function _attachPerformance(
         array $items,
         array $watchlistSymbolsDictionary,
-        CurrencyUtils $currencyUtilsService
+        CurrencyUtils $currencyUtilsService,
+        array $liveEurRates = []
     ): array
     {
         $userId = auth()->id();
-        $performanceBySymbol = (new SymbolPerformanceService())->handle($userId);
+        $performanceService = new SymbolPerformanceService();
+        $performanceBySymbol = $performanceService->handle($userId);
+
+        $liveQuotes = [];
+        foreach ($items as $symbol => $quoteData) {
+            if (!empty($quoteData['price']) && !empty($quoteData['currency'])) {
+                $liveQuotes[$symbol] = [
+                    'price'    => (float) $quoteData['price'],
+                    'currency' => $quoteData['currency'],
+                ];
+            }
+        }
+        if (!empty($liveQuotes)) {
+            $performanceService->applyLivePrices($performanceBySymbol, $liveQuotes, $liveEurRates);
+        }
 
         foreach ($items as $symbol => $quoteData) {
             $perf = $performanceBySymbol[$symbol] ?? ['has_data' => false];

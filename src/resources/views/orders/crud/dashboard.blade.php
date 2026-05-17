@@ -26,6 +26,7 @@
 
         @include('myfinance2::orders.modals.fill-order-modal')
         @include('myfinance2::orders.modals.link-trade-modal')
+        @include('myfinance2::orders.modals.expire-order-modal')
 
     </div>
 

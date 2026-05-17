@@ -37,6 +37,28 @@ $(document).ready(function()
         'order': [[ 5, 'desc' ]],
         'autoWidth': false,
         'columnDefs': columnDefs,
+        initComplete: function ()
+        {
+            this.api()
+                .columns()
+                .every(function () {
+                    let column = this;
+                    if (column.footer().textContent == '') {
+                        return;
+                    }
+
+                    let title = column.footer().textContent;
+                    let input = document.createElement('input');
+                    input.placeholder = title;
+                    column.footer().replaceChildren(input);
+
+                    input.addEventListener('keyup', () => {
+                        if (column.search() !== input.value) {
+                            column.search(input.value, true, false).draw();
+                        }
+                    });
+                });
+        },
         drawCallback: function()
         {
             rowPairs.clear();
@@ -54,6 +76,16 @@ $(document).ready(function()
             });
         }
     });
+
+    const nonWatchlistTemplate = document.getElementById('non-watchlist-template');
+    if (nonWatchlistTemplate) {
+        const $content = $(nonWatchlistTemplate.content.cloneNode(true));
+        if (!isWide) {
+            $content.find('.open-positions-cards').addClass('flex-wrap');
+        }
+        $content.appendTo('.watchlist-symbol-items-table');
+        nonWatchlistTemplate.remove();
+    }
 
     let resizeTimer;
     $(window).on('resize', function()

@@ -19,6 +19,7 @@ class SymbolPerformanceService
     private const CACHE_TTL = 7200; // 2 hours
     private const CACHE_KEY_PREFIX = 'symbol_performance_v2_u';
     private const FLOAT_EPSILON = 0.0001;
+    private const MIN_ANNUALIZED_DAYS = 30;
 
     private array $_eurRates = [];
 
@@ -34,6 +35,131 @@ class SymbolPerformanceService
     public static function clearCache(int $userId): void
     {
         Cache::forget(self::CACHE_KEY_PREFIX . $userId);
+    }
+
+    /**
+     * Patches open-window unrealized gains in a cached result using live quote prices,
+     * then recomputes all derived metrics so the performance row matches the live positions card.
+     *
+     * @param array $result      The array returned by handle() — modified in place.
+     * @param array $liveQuotes  Map of symbol => ['price' => float, 'currency' => string].
+     */
+    public function applyLivePrices(array &$result, array $liveQuotes, array $liveEurRates = []): void
+    {
+        $currencies = array_unique(array_column($liveQuotes, 'currency'));
+        $missing = array_values(array_filter($currencies, fn($c) => !isset($liveEurRates[$c])));
+        $dbRates = !empty($missing) ? $this->_loadEurRatesForCurrencies($missing) : [];
+        $eurRates = array_merge($dbRates, $liveEurRates);
+
+        foreach ($liveQuotes as $symbol => $quote) {
+            if (empty($result[$symbol]['has_data'])) {
+                continue;
+            }
+
+            $eurRate = $eurRates[$quote['currency']] ?? 1.0;
+            $priceEur = $quote['price'] * $eurRate;
+            $changed = false;
+
+            $windows = &$result[$symbol]['windows'];
+            foreach ($windows as &$window) {
+                if (!$window['is_open'] || $window['remaining_qty'] <= self::FLOAT_EPSILON) {
+                    continue;
+                }
+                $newUnrealized = ($priceEur * $window['remaining_qty']) - $window['remaining_cost_eur'];
+                if (abs($newUnrealized - $window['unrealized_gain_eur']) < self::FLOAT_EPSILON) {
+                    continue;
+                }
+                $window['unrealized_gain_eur'] = $newUnrealized;
+                $window['total_gain_eur'] = $window['realized_gain_eur']
+                    + $window['unrealized_gain_eur']
+                    + $window['dividends_eur'];
+                $window['percentage_gain'] = ($window['invested_eur'] > self::FLOAT_EPSILON)
+                    ? ($window['total_gain_eur'] / $window['invested_eur']) * 100.0
+                    : null;
+                $durationYears = $window['duration_days'] / 365.25;
+                $tooShort = $window['duration_days'] < self::MIN_ANNUALIZED_DAYS;
+                $window['annualized_gain_short_window'] = $tooShort;
+                $window['annualized_percentage_gain'] = (
+                    !$tooShort && $window['percentage_gain'] !== null && $durationYears > self::FLOAT_EPSILON
+                )
+                    ? $window['percentage_gain'] / $durationYears
+                    : null;
+                $window['annualized_gain_eur'] = (!$tooShort && $durationYears > self::FLOAT_EPSILON)
+                    ? $window['total_gain_eur'] / $durationYears
+                    : null;
+                $changed = true;
+            }
+            unset($window);
+
+            if (!$changed) {
+                continue;
+            }
+
+            $totalGainEur     = array_sum(array_column($windows, 'total_gain_eur'));
+            $totalInvestedEur = $result[$symbol]['total_invested_eur'];
+            $totalFeesEur     = $result[$symbol]['fees_eur'];
+            $totalDividendsEur = $result[$symbol]['total_dividends_eur'];
+            $totalDays        = $result[$symbol]['total_days'];
+            $totalYears       = $totalDays / 365.25;
+
+            $percentageGain = ($totalInvestedEur > self::FLOAT_EPSILON)
+                ? ($totalGainEur / $totalInvestedEur) * 100.0
+                : null;
+            $tradeGainEur = $totalGainEur - $totalDividendsEur;
+
+            $result[$symbol]['total_gain_eur']             = $totalGainEur;
+            $result[$symbol]['percentage_gain']            = $percentageGain;
+            $tooShortSymbol = $totalDays < self::MIN_ANNUALIZED_DAYS;
+            $result[$symbol]['annualized_gain_short_window'] = $tooShortSymbol;
+            $result[$symbol]['annualized_gain_eur']          = (!$tooShortSymbol && $totalYears > self::FLOAT_EPSILON)
+                ? $totalGainEur / $totalYears : null;
+            $result[$symbol]['annualized_percentage_gain']   = (
+                !$tooShortSymbol && $percentageGain !== null && $totalYears > self::FLOAT_EPSILON
+            )
+                ? $percentageGain / $totalYears : null;
+            $result[$symbol]['fees_pct_of_gain']           = ($totalGainEur > self::FLOAT_EPSILON)
+                ? ($totalFeesEur / $totalGainEur) * 100.0 : null;
+            $result[$symbol]['dividend_split_pct']         = ($totalGainEur > self::FLOAT_EPSILON)
+                ? ($totalDividendsEur / $totalGainEur) * 100.0 : null;
+            $result[$symbol]['trade_split_pct']            = ($totalGainEur > self::FLOAT_EPSILON)
+                ? ($tradeGainEur / $totalGainEur) * 100.0 : null;
+        }
+    }
+
+    private function _loadEurRatesForCurrencies(array $currencies): array
+    {
+        $eurRates = ['EUR' => 1.0];
+        $penceRequested = in_array('GBp', $currencies) || in_array('GBX', $currencies);
+        $needed = array_filter($currencies, fn($c) => !in_array($c, ['EUR', 'GBp', 'GBX']));
+
+        if (!empty($needed)) {
+            $pairs = array_map(fn($c) => "EUR{$c}=X", $needed);
+            $stats = StatHistorical::withoutGlobalScope(AssignedToUserScope::class)
+                ->whereIn('symbol', $pairs)
+                ->orderBy('date', 'desc')
+                ->get()
+                ->unique('symbol');
+            foreach ($stats as $stat) {
+                $currency = substr($stat->symbol, 3, 3);
+                $eurRates[$currency] = ($stat->unit_price > 0) ? 1.0 / (float) $stat->unit_price : 1.0;
+            }
+        }
+
+        if ($penceRequested) {
+            if (!isset($eurRates['GBP'])) {
+                $gbpStat = StatHistorical::withoutGlobalScope(AssignedToUserScope::class)
+                    ->where('symbol', 'EURGBP=X')
+                    ->orderBy('date', 'desc')
+                    ->first();
+                $eurRates['GBP'] = ($gbpStat && $gbpStat->unit_price > 0)
+                    ? 1.0 / (float) $gbpStat->unit_price
+                    : 1.0;
+            }
+            $eurRates['GBp'] = $eurRates['GBP'] / 100.0;
+            $eurRates['GBX'] = $eurRates['GBP'] / 100.0;
+        }
+
+        return $eurRates;
     }
 
     private function _compute(int $userId): array
@@ -109,27 +235,26 @@ class SymbolPerformanceService
             ->values()
             ->all();
 
-        if (empty($currencies)) {
-            return;
+        if (!empty($currencies)) {
+            $pairs = array_map(fn($c) => "EUR{$c}=X", $currencies);
+            $stats = StatHistorical::withoutGlobalScope(AssignedToUserScope::class)
+                ->whereIn('symbol', $pairs)
+                ->orderBy('date', 'desc')
+                ->get()
+                ->groupBy('symbol')
+                ->map(fn($items) => $items->first());
+
+            foreach ($currencies as $currency) {
+                $stat = $stats->get("EUR{$currency}=X");
+                $this->_eurRates[$currency] = ($stat && $stat->unit_price > 0)
+                    ? 1.0 / (float) $stat->unit_price
+                    : 1.0;
+            }
         }
 
-        $pairs = array_map(fn($c) => "EUR{$c}=X", $currencies);
-        $stats = StatHistorical::withoutGlobalScope(AssignedToUserScope::class)
-            ->whereIn('symbol', $pairs)
-            ->orderBy('date', 'desc')
-            ->get()
-            ->groupBy('symbol')
-            ->map(fn($items) => $items->first());
-
-        foreach ($currencies as $currency) {
-            $stat = $stats->get("EUR{$currency}=X");
-            $this->_eurRates[$currency] = ($stat && $stat->unit_price > 0)
-                ? 1.0 / (float) $stat->unit_price
-                : 1.0;
-        }
-
-        // GBp (pence) is used by Yahoo Finance for London-listed symbols.
-        // Load EURGBP=X explicitly if not already covered by account currencies.
+        // GBp/GBX (pence) is used by Yahoo Finance for London-listed symbols.
+        // Must be set even when all accounts are EUR, so it can't be inside the
+        // early-return block above.
         if (!isset($this->_eurRates['GBP'])) {
             $gbpStat = StatHistorical::withoutGlobalScope(AssignedToUserScope::class)
                 ->where('symbol', 'EURGBP=X')
@@ -140,6 +265,7 @@ class SymbolPerformanceService
                 : 1.0;
         }
         $this->_eurRates['GBp'] = $this->_eurRates['GBP'] / 100.0;
+        $this->_eurRates['GBX'] = $this->_eurRates['GBP'] / 100.0;
     }
 
     private function _loadLatestPrices(array $symbols): array
@@ -216,6 +342,16 @@ class SymbolPerformanceService
             $feesEur = 0.0;
             $realizedGainsPerYear = [];
             foreach ($window['trades'] as $trade) {
+                // In an open window, skip all CLOSED trades. CLOSED BUY/SELL pairs
+                // represent lots that have been fully exited (e.g. via closeSymbol)
+                // and net to zero effect on current holdings. Skipping both sides
+                // keeps the cost basis and remaining qty in sync with the Positions
+                // overview, which only counts OPEN-status trades.
+                // For closed windows every trade counts — no filter applied.
+                if ($window['is_open'] && $trade->status === 'CLOSED') {
+                    continue;
+                }
+
                 $accountCurrency = $trade->accountModel->currency->iso_code;
                 $eurRate = $this->_eurRates[$accountCurrency] ?? 1.0;
                 $exchangeRate = (float) $trade->exchange_rate;
@@ -305,6 +441,14 @@ class SymbolPerformanceService
             }
         }
 
+        // If the dividend falls in the gap between the last closed window and the open window
+        // (e.g. received after the sell date but before buying back in), prefer the closed window.
+        if ($openIdx !== null && $lastClosedIdx !== null
+            && $date < $windows[$openIdx]['start_date']
+        ) {
+            return $lastClosedIdx;
+        }
+
         // Fall back to the open window if present, then the most recent closed window,
         // then the very first window as a last resort (dividend predates all windows).
         return $openIdx ?? $lastClosedIdx ?? array_key_first($windows);
@@ -392,10 +536,15 @@ class SymbolPerformanceService
             $window['status'] = $window['is_open'] ? 'Open' : 'Closed';
 
             $durationYears = $window['duration_days'] / 365.25;
+            $tooShort = $window['duration_days'] < self::MIN_ANNUALIZED_DAYS;
+            $window['annualized_gain_short_window'] = $tooShort;
             $window['annualized_percentage_gain'] = (
-                $window['percentage_gain'] !== null && $durationYears > self::FLOAT_EPSILON
+                !$tooShort && $window['percentage_gain'] !== null && $durationYears > self::FLOAT_EPSILON
             )
                 ? $window['percentage_gain'] / $durationYears
+                : null;
+            $window['annualized_gain_eur'] = (!$tooShort && $durationYears > self::FLOAT_EPSILON)
+                ? $window['total_gain_eur'] / $durationYears
                 : null;
         }
         unset($window);
@@ -461,6 +610,15 @@ class SymbolPerformanceService
 
         $hasOpenWindow = count(array_filter($windows, fn($w) => $w['is_open'])) > 0;
         $totalDays = (int) array_sum(array_column($windows, 'duration_days'));
+
+        $totalYears = $totalDays / 365.25;
+        $tooShort = $totalDays < self::MIN_ANNUALIZED_DAYS;
+        $annualizedGainEur = (!$tooShort && $totalYears > self::FLOAT_EPSILON)
+            ? $totalGainEur / $totalYears
+            : null;
+        $annualizedPercentageGain = (!$tooShort && $percentageGain !== null && $totalYears > self::FLOAT_EPSILON)
+            ? $percentageGain / $totalYears
+            : null;
         if ($windowCount === 1) {
             $holdingPeriodDisplay = $windows[0]['period_display']
                 . ($windows[0]['is_open'] ? ' (open)' : '');
@@ -502,6 +660,9 @@ class SymbolPerformanceService
             'total_gain_eur'              => $totalGainEur,
             'total_invested_eur'          => $totalInvestedEur,
             'percentage_gain'             => $percentageGain,
+            'annualized_gain_eur'              => $annualizedGainEur,
+            'annualized_percentage_gain'       => $annualizedPercentageGain,
+            'annualized_gain_short_window'     => $tooShort,
             'holding_period_display'      => $holdingPeriodDisplay,
             'total_days'                  => $totalDays,
             'total_dividends_eur'         => $totalDividendsEur,

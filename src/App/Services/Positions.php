@@ -815,10 +815,11 @@ class Positions
         //            . print_r($tradeAccountsWithoutOpenPositions, true));
 
         return [
-            'groupedItems' => $positions,
-            'accountData'  => $accountData,
-            'quotes'       => $quotes,
-            'symbols'      => $quoteSymbols,
+            'groupedItems'     => $positions,
+            'accountData'      => $accountData,
+            'quotes'           => $quotes,
+            'symbols'          => $quoteSymbols,
+            'exchangeRateData' => $exchangeRateData,
             'tradeAccountsWithoutOpenPositions' =>
                 $tradeAccountsWithoutOpenPositions,
         ];

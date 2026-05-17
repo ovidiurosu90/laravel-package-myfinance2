@@ -10,7 +10,7 @@
     <div class="col-12">
         <div class="input-group">
             <input type="text" id="symbol-input" name="symbol" class="form-control"
-                value="{{ $symbol }}"
+                value="{{ old('symbol', request()->input('symbol', $symbol)) }}"
                 placeholder="{{ trans('myfinance2::watchlistsymbols.forms.item-form.'
                                       . 'symbol.placeholder') }}"
                 required maxlength="16"

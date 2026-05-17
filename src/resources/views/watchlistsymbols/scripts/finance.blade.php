@@ -70,6 +70,10 @@ $(document).ready(function()
         });
     });
 
+    if ($symbolInput.val()) {
+        $getFinanceData.trigger('click');
+    }
+
 });
 </script>
 

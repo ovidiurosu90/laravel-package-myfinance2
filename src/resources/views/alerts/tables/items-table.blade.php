@@ -128,7 +128,7 @@
                             → {!! MoneyFormat::get_formatted_price_display($currencyCode, (float) $item->target_price, true) !!}
                         </div>
                         <div class="text-muted small text-nowrap">
-                            delta: {{ $deltaSign }}{!! MoneyFormat::get_formatted_price_display($currencyCode, abs($delta), true) !!}
+                            delta: {{ $deltaSign }}{!! MoneyFormat::get_formatted_monetary_display($currencyCode, abs($delta)) !!}
                             ({{ $deltaSign }}{{ MoneyFormat::get_formatted_pct(abs($deltaPct)) }}%)
                         </div>
                     @else
