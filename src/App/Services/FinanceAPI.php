@@ -142,12 +142,13 @@ class FinanceAPI
             $client = $this->getClient();
 
             try {
-                $quotes = $client->getQuotes($symbols);
-                $this->cacheQuotes($quotes, $persistStats);
+                $apiQuotes = $client->getQuotes($missingCachedSymbols);
+                $this->cacheQuotes($apiQuotes, $persistStats);
+                $quotes = array_merge($quotes, $apiQuotes);
             } catch (\Exception $e) {
                 Log::warning(
                     "Couldn't get quotes for symbols "
-                    . join(', ', $symbols)
+                    . join(', ', $missingCachedSymbols)
                     . ". Exception message: " . $e->getMessage()
                 );
             }
