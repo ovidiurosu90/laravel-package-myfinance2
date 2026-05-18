@@ -51,6 +51,9 @@
                     </div>
                     @endif
 
+                    <div id="open-alerts-banner-wrapper" class="mx-3 mt-3">
+                        @include('myfinance2::orders.partials.open-alerts-banner')
+                    </div>
                     @include('myfinance2::orders.forms.create-item-form')
                 </div>
             </div>
@@ -66,4 +69,7 @@
     @include('myfinance2::general.scripts.available-quantity')
     @include('myfinance2::orders.scripts.banner')
     @include('myfinance2::orders.scripts.finance')
+    @include('myfinance2::orders.scripts.open-alerts-banner', [
+        'openAlertsFetchUrl' => route('myfinance2::orders.open-alerts-for-symbol'),
+    ])
 @endsection

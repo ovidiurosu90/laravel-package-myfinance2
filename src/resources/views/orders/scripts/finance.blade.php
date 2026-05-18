@@ -62,7 +62,7 @@ $(document).ready(function()
                 var reasonText;
                 if (s.weak_signal) {
                     reasonText = 'no strong buy signal — only ' + s.pct_below_high
-                        + '% below 52wk high, no open positions to sell';
+                        + '% below 52wk high';
                 } else if (s.action === 'BUY') {
                     reasonText = '2.5% below current price, which is already '
                         + s.pct_below_high + '% below 52wk high';

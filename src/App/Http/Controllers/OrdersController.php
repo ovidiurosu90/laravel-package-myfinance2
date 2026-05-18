@@ -7,6 +7,7 @@ namespace ovidiuro\myfinance2\App\Http\Controllers;
 use Illuminate\Http\Request;
 
 use ovidiuro\myfinance2\App\Models\Order;
+use ovidiuro\myfinance2\App\Models\PriceAlert;
 use ovidiuro\myfinance2\App\Models\Trade;
 use ovidiuro\myfinance2\App\Services\FinanceUtils;
 use ovidiuro\myfinance2\App\Services\OrderFormFields;
@@ -117,6 +118,9 @@ class OrdersController extends MyFinance2Controller
             $data['projectedGainPriceLabel'] = 'current market price';
         }
 
+        $data['openAlerts']   = $symbolPrefill ? $this->_buildOpenAlertsForSymbol($symbolPrefill) : collect();
+        $data['bannerSymbol'] = $symbolPrefill ?? '';
+
         return view('myfinance2::orders.crud.create', $data);
     }
 
@@ -132,9 +136,15 @@ class OrdersController extends MyFinance2Controller
         $data = $request->fillData();
         $item = Order::create($data);
 
-        return redirect()->route('myfinance2::orders.index')->with('success',
-            trans('myfinance2::general.flash-messages.item-created',
-                ['type' => 'Order', 'id' => $item->id]));
+        $alertCreated = $this->_createOrderAlert($item);
+
+        $message = trans('myfinance2::general.flash-messages.item-created', ['type' => 'Order', 'id' => $item->id]);
+        if ($alertCreated) {
+            $alertType = $item->action === 'BUY' ? 'price below' : 'price above';
+            $message .= ". A {$alertType} alert was also created (expires in 5 days).";
+        }
+
+        return redirect()->route('myfinance2::orders.index')->with('success', $message);
     }
 
     /**
@@ -162,6 +172,8 @@ class OrdersController extends MyFinance2Controller
 
         $data['projectedGain']           = $projectedGain;
         $data['projectedGainPriceLabel'] = $projectedGain['price_label'] ?? 'limit price';
+        $data['openAlerts']              = $this->_buildOpenAlertsForSymbol($item->symbol);
+        $data['bannerSymbol']            = $item->symbol;
 
         return view('myfinance2::orders.crud.edit', $data);
     }
@@ -603,5 +615,78 @@ class OrdersController extends MyFinance2Controller
             'total_qty'    => $qty,
             'has_position' => true,
         ];
+    }
+
+    /**
+     * Return the rendered open-alerts banner HTML for a given symbol (used by the edit form via AJAX).
+     *
+     * @param Request $request
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function openAlertsForSymbol(Request $request)
+    {
+        $symbol = strtoupper(trim((string) $request->query('symbol', '')));
+
+        if (empty($symbol)) {
+            return response('', 204);
+        }
+
+        $openAlerts = $this->_buildOpenAlertsForSymbol($symbol);
+
+        return response()->view('myfinance2::orders.partials.open-alerts-banner', [
+            'openAlerts'   => $openAlerts,
+            'bannerSymbol' => $symbol,
+        ]);
+    }
+
+    /**
+     * Fetch active, non-expired price alerts for a given symbol.
+     *
+     * @param string $symbol
+     *
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    private function _buildOpenAlertsForSymbol(string $symbol): \Illuminate\Database\Eloquent\Collection
+    {
+        return PriceAlert::where('symbol', $symbol)
+            ->where('status', 'ACTIVE')
+            ->where(function ($q) {
+                $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+            })
+            ->with('tradeCurrencyModel')
+            ->orderBy('alert_type')
+            ->get();
+    }
+
+    /**
+     * Create a short-lived price alert when an order is stored.
+     * BUY orders get a PRICE_BELOW alert, SELL orders get a PRICE_ABOVE alert,
+     * so the user is notified if the market moves favourably before the order fills.
+     *
+     * @param Order $item
+     *
+     * @return bool True if an alert was created.
+     */
+    private function _createOrderAlert(Order $item): bool
+    {
+        if (!$item->limit_price || !in_array($item->status, ['DRAFT', 'PLACED'], true)) {
+            return false;
+        }
+
+        $alertType = $item->action === 'BUY' ? 'PRICE_BELOW' : 'PRICE_ABOVE';
+
+        PriceAlert::create([
+            'symbol'               => $item->symbol,
+            'alert_type'           => $alertType,
+            'target_price'         => $item->limit_price,
+            'trade_currency_id'    => $item->trade_currency_id,
+            'status'               => 'ACTIVE',
+            'source'               => 'order',
+            'notification_channel' => 'email',
+            'expires_at'           => now()->addDays(5),
+        ]);
+
+        return true;
     }
 }

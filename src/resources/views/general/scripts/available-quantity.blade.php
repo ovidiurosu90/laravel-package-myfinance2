@@ -21,13 +21,4 @@ window.handleAvailableQuantity = function(qty)
     }
 };
 
-$(document).ready(function()
-{
-    $('#account-select').on('change', function()
-    {
-        if ($('#symbol-input').val()) {
-            $('#get-finance-data').trigger('click');
-        }
-    });
-});
 </script>

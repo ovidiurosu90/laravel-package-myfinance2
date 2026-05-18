@@ -47,6 +47,8 @@ Route::group([
                 'OrdersController@linkTrade')->name('orders.link-trade');
     Route::post('orders/{id}/unlink-trade',
                 'OrdersController@unlinkTrade')->name('orders.unlink-trade');
+    Route::get('orders/open-alerts-for-symbol',
+               'OrdersController@openAlertsForSymbol')->name('orders.open-alerts-for-symbol');
 
     Route::resource('orders', 'OrdersController');
 
