@@ -21,12 +21,8 @@
                 </tr>
                 <tr>
                     <td>
-                        @if($openPosition['cost2_in_account_currency_formatted'])
-                            <span data-bs-toggle="tooltip"
-                                  title="Actual purchase cost of your currently held shares, based on the weighted average of all purchase prices.">Cost Basis</span>
-                        @else
-                            Cost
-                        @endif
+                        <span data-bs-toggle="tooltip"
+                              title="Actual purchase cost of your currently held shares, in account currency.">Cost Basis</span>
                     </td>
                     <td>
                         @if($openPosition['cost2_in_account_currency_formatted'])
@@ -62,7 +58,7 @@
                 <tr>
                     <td>
                         <span data-bs-toggle="tooltip"
-                              title="Average price paid per share across all purchases.">Avg Cost</span>
+                              title="Average price paid per share across all purchases, in trade currency.">Avg Cost</span>
                     </td>
                     <td>
                         @if($openPosition['average_unit_cost2_in_trade_currency_formatted'])

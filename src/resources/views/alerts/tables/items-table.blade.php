@@ -56,7 +56,10 @@
                 <th>Type</th>
                 <th class="text-right text-nowrap no-search">Current → Target Price</th>
                 <th class="text-right text-nowrap">Projected Gain</th>
-                <th class="text-center text-nowrap">Triggers</th>
+                <th class="text-center text-nowrap">
+                    <span data-bs-toggle="tooltip"
+                          title="Number of times this alert has fired and sent a notification">Triggers</span>
+                </th>
                 <th class="d-none d-xl-table-cell">Notes</th>
                 <th class="d-none d-xl-table-cell">Created</th>
                 <th class="no-search no-sort">Actions</th>
@@ -68,9 +71,10 @@
         @if ($items->count() > 0)
             @foreach ($items as $item)
             @php
-                $gain = $projectedGains[$item->id] ?? null;
-                $cp   = $currentPrices[$item->symbol] ?? null;
+                $gain         = $projectedGains[$item->id] ?? null;
+                $cp           = $currentPrices[$item->symbol] ?? null;
                 $currencyCode = $item->tradeCurrencyModel ? $item->tradeCurrencyModel->display_code : '';
+                $qt           = $quoteTimestamps[$item->symbol] ?? null;
             @endphp
             <tr>
                 <td>
@@ -149,7 +153,9 @@
                             $deltaSign = $delta >= 0 ? '+' : '−';
                         @endphp
                         <div class="text-nowrap">
-                            {!! MoneyFormat::get_formatted_price_display($currencyCode, $cp, true) !!}
+                            <span @if($qt) data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips" title="Quote timestamp: {{ $qt }}" @endif>
+                                {!! MoneyFormat::get_formatted_price_display($currencyCode, $cp, true) !!}
+                            </span>
                             → {!! MoneyFormat::get_formatted_price_display($currencyCode, (float) $item->target_price, true) !!}
                         </div>
                         <div class="text-muted small text-nowrap">
@@ -200,15 +206,20 @@
                     @endif
                 </td>
                 <td class="text-center">
-                    {{ $item->trigger_count }}
-                    @if (!empty($recentNotifications[$item->id]))
-                        @php $notifCount = count($recentNotifications[$item->id]); @endphp
+                    @php
+                        $alertNotifs  = $recentNotifications[$item->id] ?? null;
+                        $notifTotal   = $alertNotifs['total'] ?? 0;
+                        $recentNotifs = $alertNotifs['recent'] ?? [];
+                        $displayCount = max($item->trigger_count, $notifTotal);
+                    @endphp
+                    @if ($displayCount > 0)
+                        <span class="fw-semibold">{{ $displayCount }}</span><span class="text-muted small"> triggered</span>@if (!empty($recentNotifs)), <span class="text-muted text-nowrap" style="font-size:10px">last:</span>@endif
+                    @else
+                        <span class="text-muted small">never triggered</span>
+                    @endif
+                    @if (!empty($recentNotifs))
                         <div class="mt-1">
-                            <div class="text-muted text-nowrap"
-                                 style="font-size:10px;font-weight:700;text-transform:uppercase">
-                                {{ $notifCount === 1 ? 'Last triggered:' : "Last {$notifCount} triggers:" }}
-                            </div>
-                            @foreach ($recentNotifications[$item->id] as $notif)
+                            @foreach ($recentNotifs as $notif)
                             <div class="text-muted small text-nowrap"
                                 data-bs-toggle="tooltip"
                                 data-bs-placement="top"
@@ -224,17 +235,19 @@
                             @endforeach
                             <div class="mt-1">
                                 <a href="{{ route('myfinance2::price-alerts.history', ['alert_id' => $item->id]) }}"
-                                   class="small text-muted">view all →</a>
+                                   class="small text-muted">view history →</a>
                             </div>
                         </div>
-                    @elseif ($item->last_triggered_at)
+                    @elseif ($displayCount > 0)
                         <div class="mt-1">
-                            <div class="text-muted text-nowrap"
-                                 style="font-size:10px;font-weight:700;text-transform:uppercase">
-                                Last triggered:
-                            </div>
+                            @if ($item->last_triggered_at)
                             <div class="text-muted small text-nowrap">
                                 {{ $item->last_triggered_at->timezone(config('app.timezone'))->format('Y-m-d H:i') }}
+                            </div>
+                            @endif
+                            <div class="mt-1">
+                                <a href="{{ route('myfinance2::price-alerts.history', ['alert_id' => $item->id]) }}"
+                                   class="small text-muted">view history →</a>
                             </div>
                         </div>
                     @endif

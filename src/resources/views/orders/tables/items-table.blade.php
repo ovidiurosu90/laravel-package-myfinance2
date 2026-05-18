@@ -3,16 +3,20 @@
     <table class="table table-sm table-striped data-table order-items-table">
         <thead class="thead">
             <tr role="row">
-                <th>Id</th>
-                <th>Placed At</th>
-                <th>Account</th>
                 <th>Status</th>
-                <th>Action</th>
+                <th>Id</th>
                 <th>Symbol</th>
-                <th>Qty</th>
+                <th>Account</th>
+                <th>Action</th>
                 <th class="text-right text-nowrap no-search">Current → Limit Price</th>
-                <th class="text-right text-nowrap">P Amount</th>
-                <th class="d-none d-xl-table-cell text-nowrap">L Trade</th>
+                <th class="text-right text-nowrap">Projected Gain</th>
+                <th class="d-none d-xl-table-cell text-nowrap">
+                    <span data-bs-toggle="tooltip" title="Linked trade for this order">Trade</span>
+                </th>
+                <th class="text-right text-nowrap">
+                    <span data-bs-toggle="tooltip"
+                          title="Principal Amount: total estimated value of this order (quantity × limit price)">P Amount</span>
+                </th>
                 <th class="d-none d-xl-table-cell">Description</th>
                 <th class="d-none d-xl-table-cell">Created</th>
                 <th class="no-search no-sort">Actions</th>
@@ -23,19 +27,33 @@
         <tbody class="table-body">
         @if ($items->count() > 0)
             @foreach ($items as $item)
+            @php
+                $cp           = $currentPrices[$item->symbol] ?? null;
+                $currencyCode = $item->tradeCurrencyModel ? $item->tradeCurrencyModel->display_code : '';
+                $gain         = $projectedGains[$item->id] ?? null;
+                $qt           = $quoteTimestamps[$item->symbol] ?? null;
+            @endphp
             <tr>
-                <td>
-                    {{ $item->id }}
-                    @if ($item->trade_id)
-                        <a href="{{ route('myfinance2::trades.edit', $item->trade_id) }}"
-                            class="badge bg-secondary text-decoration-none d-block mt-1"
-                            data-bs-toggle="tooltip"
-                            title="L Trade #{{ $item->trade_id }}">
-                            #{{ $item->trade_id }}
-                        </a>
+                <td data-order="{{ $item->placed_at ? $item->placed_at->timestamp : 0 }}">
+                    <span class="badge {{ $item->getStatusBadgeClass() }}">
+                        {{ $item->status }}
+                    </span>
+                    @if ($item->placed_at)
+                        <div class="text-muted small text-nowrap">
+                            {{ $item->placed_at->format('Y-m-d H:i') }}
+                        </div>
                     @endif
                 </td>
-                <td class="text-nowrap">{{ $item->placed_at ? $item->placed_at->format('Y-m-d H:i:s') : '—' }}</td>
+                <td>{{ $item->id }}</td>
+                <td>
+                    <a href="https://finance.yahoo.com/quote/{{ $item->symbol }}"
+                        target="_blank">
+                        {{ $item->symbol }}
+                    </a>
+                    @if ($item->getCleanQuantity())
+                        <div class="text-muted small">x {{ $item->getCleanQuantity() }}</div>
+                    @endif
+                </td>
                 <td class="text-nowrap">
                     @if ($item->accountModel)
                         {{ $item->accountModel->name }}
@@ -44,23 +62,7 @@
                         <span class="text-muted">—</span>
                     @endif
                 </td>
-                <td>
-                    <span class="badge {{ $item->getStatusBadgeClass() }}">
-                        {{ $item->status }}
-                    </span>
-                </td>
                 <td>{{ $item->action }}</td>
-                <td>
-                    <a href="https://finance.yahoo.com/quote/{{ $item->symbol }}"
-                        target="_blank">
-                        {{ $item->symbol }}
-                    </a>
-                </td>
-                <td>{{ $item->getCleanQuantity() ?: '—' }}</td>
-                @php
-                    $cp           = $currentPrices[$item->symbol] ?? null;
-                    $currencyCode = $item->tradeCurrencyModel ? $item->tradeCurrencyModel->display_code : '';
-                @endphp
                 <td class="text-right text-nowrap"
                     data-order="{{ $cp !== null && $item->limit_price
                         ? (float) $item->limit_price - $cp
@@ -72,11 +74,13 @@
                             $deltaSign = $delta >= 0 ? '+' : '−';
                         @endphp
                         <div class="text-nowrap">
-                            {!! MoneyFormat::get_formatted_price_display($currencyCode, $cp, true) !!}
+                            <span @if($qt) data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips" title="Quote timestamp: {{ $qt }}" @endif>
+                                {!! MoneyFormat::get_formatted_price_display($currencyCode, $cp, true) !!}
+                            </span>
                             → {!! $item->getFormattedLimitPrice() !!}
                         </div>
                         <div class="text-muted small text-nowrap">
-                            delta: {{ $deltaSign }}{!! MoneyFormat::get_formatted_price_display($currencyCode, abs($delta), true) !!}
+                            delta: {{ $deltaSign }}{!! MoneyFormat::get_formatted_price_display($currencyCode, abs($delta)) !!}
                             ({{ $deltaSign }}{{ MoneyFormat::get_formatted_pct(abs($deltaPct)) }}%)
                         </div>
                     @else
@@ -88,14 +92,38 @@
                         </div>
                     @endif
                 </td>
-                <td class="text-right text-nowrap">
-                    {!! $item->getFormattedPrincipleAmount() !!}
+                <td class="text-right text-nowrap"
+                    data-order="{{ $gain ? $gain['gain_value'] : -999999 }}">
+                    @if ($gain)
+                        @php
+                            $gainClass = $gain['gain_value'] >= 0 ? 'text-success' : 'text-danger';
+                            $gainSign  = $gain['gain_value'] >= 0 ? '+' : '';
+                            $isLoss    = $gain['gain_value'] < 0;
+                            $fmtQty    = MoneyFormat::get_formatted_quantity_plain($gain['total_qty']);
+                        @endphp
+                        <span class="{{ $gainClass }} text-nowrap">
+                            {{ $gainSign }}{!! MoneyFormat::get_formatted_price_display($currencyCode, $gain['gain_value']) !!}
+                        </span>
+                        <div class="{{ $gainClass }} small text-nowrap">
+                            {{ $gainSign }}{{ MoneyFormat::get_formatted_pct($gain['gain_pct']) }}%
+                            @if ($isLoss)
+                                <span data-bs-toggle="tooltip"
+                                      data-bs-placement="top"
+                                      title="Limit price is below your average cost; selling at limit would realize a loss">⚠️</span>
+                            @endif
+                        </div>
+                        <div class="text-muted small text-nowrap">
+                            {{ $fmtQty }}x @ avg {!! MoneyFormat::get_formatted_price_display($currencyCode, $gain['avg_cost'], true) !!}
+                        </div>
+                    @else
+                        <span class="text-muted">—</span>
+                    @endif
                 </td>
                 <td class="d-none d-xl-table-cell">
                     @if ($item->trade_id)
                         <a href="{{ route('myfinance2::trades.edit', $item->trade_id) }}"
                             data-bs-toggle="tooltip"
-                            title="L Trade #{{ $item->trade_id }}">
+                            title="Trade #{{ $item->trade_id }}">
                             #{{ $item->trade_id }}
                         </a>
                         @include('myfinance2::orders.forms.unlink-trade-sm',
@@ -103,6 +131,9 @@
                     @else
                         <span class="text-muted">—</span>
                     @endif
+                </td>
+                <td class="text-right text-nowrap">
+                    {!! $item->getFormattedPrincipleAmount() !!}
                 </td>
                 <td class="d-none d-xl-table-cell">{{ $item->description }}</td>
                 <td class="d-none d-xl-table-cell">{{ $item->created_at }}</td>
@@ -146,19 +177,18 @@
         </tbody>
         <tfoot class="tfoot">
             <tr role="row">
-                <th>Id</th>
-                <th>Placed At</th>
-                <th>Account</th>
                 <th>Status</th>
-                <th>Action</th>
+                <th>Id</th>
                 <th>Symbol</th>
-                <th>Qty</th>
-                <th class="text-right text-nowrap no-search">Current → Limit Price</th>
+                <th>Account</th>
+                <th>Action</th>
+                <th class="text-right text-nowrap no-search"></th>
+                <th class="text-right text-nowrap">Projected Gain</th>
+                <th class="d-none d-xl-table-cell text-nowrap">Trade</th>
                 <th class="text-right text-nowrap">P Amount</th>
-                <th class="d-none d-xl-table-cell text-nowrap">L Trade</th>
                 <th class="d-none d-xl-table-cell">Description</th>
                 <th class="d-none d-xl-table-cell">Created</th>
-                <th class="no-search no-sort">Actions</th>
+                <th class="no-search no-sort"></th>
                 <th class="no-search no-sort"></th>
                 <th class="no-search no-sort"></th>
             </tr>

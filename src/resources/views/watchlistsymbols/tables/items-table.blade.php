@@ -50,7 +50,7 @@
                 <th class="text-right no-sort text-nowrap">Price</th>
                 <th class="text-right text-nowrap">
                     <span data-bs-toggle="tooltip"
-                          title="Price change today, in both currency and percentage.">1D</span>
+                          title="Price change today, in both currency and percentage.">Day Chg</span>
                 </th>
                 <th class="text-right no-sort text-nowrap">52W Range</th>
                 <th class="text-right text-nowrap">
@@ -119,7 +119,7 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                     </div>
                 </td>
                 <td class="text-right">
-                    <div data-bs-toggle="tooltip"
+                    <span data-bs-toggle="tooltip"
                         data-bs-custom-class="big-tooltips"
                         title="Quote timestamp: {{ $quoteData['quote_timestamp']
                             ->format(trans('myfinance2::general.datetime-format'))
@@ -129,7 +129,7 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                             $quoteData['tradeCurrencyModel']->display_code,
                             $quoteData['price']
                         ) !!}
-                    </div>
+                    </span><br>
                     <div class="chart-symbol"
                         data-symbol="{{ $symbol }}"
                         data-symbol_name="{{ $quoteData['name'] }}"
@@ -303,7 +303,7 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
             <tr role="row">
                 <th class="text-nowrap">Symbol</th>
                 <th class="text-right no-sort text-nowrap">Price</th>
-                <th class="text-right text-nowrap">1D</th>
+                <th class="text-right text-nowrap">Day Chg</th>
                 <th class="text-right no-sort text-nowrap">52W Range</th>
                 <th class="text-right text-nowrap">% Low</th>
                 <th class="text-right text-nowrap">% High</th>

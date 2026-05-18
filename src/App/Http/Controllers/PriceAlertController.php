@@ -42,6 +42,7 @@ class PriceAlertController extends MyFinance2Controller
         $projectedGains      = $this->_buildProjectedGains($items);
         $recentNotifications = $this->_buildRecentNotifications($items);
         $currentPrices       = $this->_buildCurrentPrices($items);
+        $quoteTimestamps     = $this->_buildQuoteTimestamps($items);
         $accountNames        = $this->_buildAccountNames($items);
 
         return view('myfinance2::alerts.crud.dashboard', [
@@ -50,6 +51,7 @@ class PriceAlertController extends MyFinance2Controller
             'projectedGains'      => $projectedGains,
             'recentNotifications' => $recentNotifications,
             'currentPrices'       => $currentPrices,
+            'quoteTimestamps'     => $quoteTimestamps,
             'accountNames'        => $accountNames,
         ]);
     }
@@ -445,6 +447,13 @@ class PriceAlertController extends MyFinance2Controller
         return $prices;
     }
 
+    private function _buildQuoteTimestamps(\Illuminate\Support\Collection $alerts): array
+    {
+        $symbols = $alerts->pluck('symbol')->unique()->values()->toArray();
+
+        return (new FinanceUtils())->buildQuoteTimestamps($symbols);
+    }
+
     /**
      * Build a map of symbol => account names for open BUY positions.
      *
@@ -535,13 +544,20 @@ class PriceAlertController extends MyFinance2Controller
         }
 
         $alertIds = $alerts->pluck('id')->toArray();
-        $notifications = PriceAlertNotification::whereIn('price_alert_id', $alertIds)
+        $grouped = PriceAlertNotification::whereIn('price_alert_id', $alertIds)
             ->where('status', 'SENT')
             ->orderBy('sent_at', 'desc')
             ->get()
-            ->groupBy('price_alert_id')
-            ->map(fn ($group) => $group->take(3));
+            ->groupBy('price_alert_id');
 
-        return $notifications->toArray();
+        $result = [];
+        foreach ($grouped as $alertId => $group) {
+            $result[$alertId] = [
+                'total'  => $group->count(),
+                'recent' => $group->take(3)->values()->toArray(),
+            ];
+        }
+
+        return $result;
     }
 }

@@ -19,9 +19,10 @@
                 <th>Symbol</th>
                 <th>Quantity</th>
                 <th class="text-right text-nowrap">Unit Price</th>
-                <th class="text-right text-nowrap"
-                    data-bs-toggle="tooltip"
-                    title="Principle Amount = Quantity * Unit Price">P Amount</th>
+                <th class="text-right text-nowrap">
+                    <span data-bs-toggle="tooltip"
+                          title="Principle Amount = Quantity * Unit Price">P Amount</span>
+                </th>
                 <th class="text-right text-nowrap">Fee</th>
                 <th class="d-none d-xl-table-cell">Description</th>
                 <th class="d-none d-xl-table-cell">Created</th>
@@ -116,9 +117,10 @@
                 <th>Symbol</th>
                 <th>Quantity</th>
                 <th class="text-right text-nowrap">Unit Price</th>
-                <th class="text-right text-nowrap"
-                    data-bs-toggle="tooltip"
-                    title="Principle Amount = Quantity * Unit Price">P Amount</th>
+                <th class="text-right text-nowrap">
+                    <span data-bs-toggle="tooltip"
+                          title="Principle Amount = Quantity * Unit Price">P Amount</span>
+                </th>
                 <th class="text-right text-nowrap">Fee</th>
                 <th class="d-none d-xl-table-cell">Description</th>
                 <th class="d-none d-xl-table-cell">Created</th>

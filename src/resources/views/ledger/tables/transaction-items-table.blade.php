@@ -12,7 +12,7 @@
         <thead class="thead">
             <tr role="row">
                 <th>Id</th>
-                <th class="text-nowrap" title="Parent Id">P Id</th>
+                <th class="text-nowrap"><span title="Parent Id">P Id</span></th>
                 <th>Timestamp</th>
                 <th>Type</th>
                 <th class="text-nowrap">Debit Acc</th>

@@ -516,6 +516,38 @@ class FinanceUtils
         return $offset;
     }
 
+    /**
+     * Build a map of symbol => formatted quote timestamp string for the given symbols.
+     *
+     * @param array $symbols
+     *
+     * @return array symbol => string
+     */
+    public function buildQuoteTimestamps(array $symbols): array
+    {
+        if (empty($symbols)) {
+            return [];
+        }
+
+        $quotes = $this->getQuotes($symbols, null, false);
+
+        if (!is_array($quotes)) {
+            return [];
+        }
+
+        $timestamps = [];
+        foreach ($symbols as $symbol) {
+            $ts = $quotes[$symbol]['quote_timestamp'] ?? null;
+            if ($ts instanceof \DateTime) {
+                $timestamps[$symbol] = $ts->format(
+                    trans('myfinance2::general.datetime-format')
+                );
+            }
+        }
+
+        return $timestamps;
+    }
+
     public static function fixTimezone(Quote $quote, \DateTime $timestamp): void
     {
         $timestamp->setTimezone(new \DateTimeZone('Europe/Amsterdam'));

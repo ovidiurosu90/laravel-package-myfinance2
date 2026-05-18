@@ -5,27 +5,37 @@
         <thead class="thead">
             <tr role="row">
                 <th class="text-nowrap">Symbol</th>
-                <th class="text-nowrap no-search no-sort" data-bs-toggle="tooltip"
-                    title="Quote Price in Trade Currency">Quote Price</th>
+                <th class="text-right text-nowrap no-sort no-search">
+                    <span data-bs-toggle="tooltip"
+                          title="Current unit price in trade currency, with historical chart">Price</span>
+                </th>
                 <th class="text-nowrap no-sort">Market</th>
-                <th class="text-right text-nowrap" data-bs-toggle="tooltip"
-                    title="Current market value in account currency">MValue</th>
-                <th class="text-right text-nowrap" data-bs-toggle="tooltip"
-                    title="Cost Basis in account currency: actual purchase cost. For positions with past sells, a second row (italic) shows Effective Cost (net of sell proceeds).">Cost Basis</th>
-                <th class="no-sort text-right text-nowrap"
-                    data-bs-toggle="tooltip"
-                    title="Avg cost per share: actual average purchase price. For positions with past sells, a second row (italic) shows Effective Avg Cost (net of sell proceeds).">Avg Cost</th>
-                <th class="no-sort text-right text-nowrap"
-                    data-bs-toggle="tooltip"
-                    title="Current unit price in trade currency">Price</th>
-                <th class="text-right text-nowrap" data-bs-toggle="tooltip"
-                    title="Day gain in account currency">Day Gain</th>
-                <th class="text-right text-nowrap" data-bs-toggle="tooltip"
-                    title="Day gain in percentage">Day Gain (%)</th>
-                <th class="text-right text-nowrap" data-bs-toggle="tooltip"
-                    title="Unrealized gain on currently held shares in account currency. For positions with past sells, a second row (italic) shows Total Return including realized gains.">Gain</th>
-                <th class="text-right text-nowrap" data-bs-toggle="tooltip"
-                    title="Unrealized gain % on currently held shares. For positions with past sells, a second row (italic) shows Total Return % including realized gains.">Gain (%)</th>
+                <th class="text-right text-nowrap">
+                    <span data-bs-toggle="tooltip"
+                          title="Current market value in account currency">MValue</span>
+                </th>
+                <th class="text-right text-nowrap">
+                    <span data-bs-toggle="tooltip"
+                          title="Actual purchase cost of your currently held shares, in account currency. For positions with past sells, a second row (italic) shows Effective Cost (net of sell proceeds).">Cost Basis</span>
+                </th>
+                <th class="no-sort text-right text-nowrap">
+                    <span data-bs-toggle="tooltip"
+                          title="Average price paid per share across all purchases, in trade currency. For positions with past sells, a second row (italic) shows Effective Avg Cost (net of sell proceeds).">Avg Cost</span>
+                </th>
+                <th class="text-right text-nowrap">
+                    <span data-bs-toggle="tooltip" title="Day gain in account currency">Day Gain</span>
+                </th>
+                <th class="text-right text-nowrap">
+                    <span data-bs-toggle="tooltip" title="Day gain in percentage">Day Gain (%)</span>
+                </th>
+                <th class="text-right text-nowrap">
+                    <span data-bs-toggle="tooltip"
+                          title="Unrealized gain on currently held shares in account currency. For positions with past sells, a second row (italic) shows Total Return including realized gains.">Gain</span>
+                </th>
+                <th class="text-right text-nowrap">
+                    <span data-bs-toggle="tooltip"
+                          title="Unrealized gain % on currently held shares. For positions with past sells, a second row (italic) shows Total Return % including realized gains.">Gain (%)</span>
+                </th>
             </tr>
         </thead>
         <tbody class="table-body">
@@ -55,17 +65,29 @@
                     </div>
                     @endif
                 </td>
-                <td class="chart-symbol text-nowrap"
-                    data-account_id="{{ $accountId }}"
-                    data-symbol="{{ $item['symbol'] }}"
-                    data-symbol_name="{{ $item['symbol_name'] }}"
-                    data-base_value="{{
-                        $item['average_unit_cost_in_trade_currency']
-                    }}"
-                    data-trade_currency_formatted="{!!
-                        $item['tradeCurrencyModel']->display_code
-                    !!}"
-                    style="position: relative"></td>
+                <td class="text-right text-nowrap no-sort no-search">
+                    <span data-bs-toggle="tooltip"
+                          data-bs-custom-class="big-tooltips"
+                          title="Quote timestamp: {{ $item['quote_timestamp_formatted'] }}">
+                        {!! $item['current_unit_price_in_trade_currency_formatted'] !!}
+                    </span><br>
+                    <div class="chart-symbol"
+                        data-account_id="{{ $accountId }}"
+                        data-symbol="{{ $item['symbol'] }}"
+                        data-symbol_name="{{ $item['symbol_name'] }}"
+                        data-base_value="{{ $item['average_unit_cost_in_trade_currency'] }}"
+                        data-trade_currency_formatted="{!!
+                            $item['tradeCurrencyModel']->display_code
+                        !!}"
+                        style="position: relative; float: right;"></div>
+                    <div class="clearfix"></div>
+                    @if(!empty($item['pre_market_price']))
+                    <span class="badge rounded-pill bg-info">pre-market</span>
+                    @endif
+                    @if(!empty($item['post_market_price']))
+                    <span class="badge rounded-pill bg-info">post-market</span>
+                    @endif
+                </td>
                 <td class="text-nowrap">
                     <div class="row m-0">
                         {!! !empty($item['marketUtils'])
@@ -73,10 +95,12 @@
                             : '' !!}
                     </div>
                 </td>
-                <td class="text-right text-nowrap" data-bs-toggle="tooltip"
-                    data-bs-custom-class="big-tooltips"
-                    title="Quote timestamp: {{ $item['quote_timestamp_formatted'] }}">
-                    {!! $item['market_value_in_account_currency_formatted'] !!}
+                <td class="text-right text-nowrap">
+                    <span data-bs-toggle="tooltip"
+                          data-bs-custom-class="big-tooltips"
+                          title="Quote timestamp: {{ $item['quote_timestamp_formatted'] }}">
+                        {!! $item['market_value_in_account_currency_formatted'] !!}
+                    </span>
                 </td>
                 <td class="text-right text-nowrap">
                     @if($item['cost2_in_account_currency_formatted'])
@@ -115,19 +139,6 @@
                            investment."></i>
                     @endif
                     {!! $item['average_unit_cost_in_trade_currency_formatted'] !!}
-                    @endif
-                </td>
-                <td class="text-right text-nowrap" data-bs-toggle="tooltip"
-                    data-bs-custom-class="big-tooltips"
-                    title="Quote timestamp: {{ $item['quote_timestamp_formatted'] }}">
-                    {!! $item['current_unit_price_in_trade_currency_formatted'] !!}
-                    @if(!empty($item['pre_market_price']))
-                    <br />
-                    <span class="badge rounded-pill bg-info">pre-market</span>
-                    @endif
-                    @if(!empty($item['post_market_price']))
-                    <br />
-                    <span class="badge rounded-pill bg-info">post-market</span>
                     @endif
                 </td>
                 <td class="text-right text-nowrap"
@@ -220,28 +231,28 @@
             <tr>
                 <td colspan="3"></td>
                 <td class="text-right">
-                    <div class="font-weight-bold text-nowrap" data-bs-toggle="tooltip"
-                        title="Total Current Market Value in account currency">
-                        Total MValue:
+                    <div class="font-weight-bold text-nowrap">
+                        <span data-bs-toggle="tooltip"
+                              title="Total Current Market Value in account currency">Total MValue:</span>
                     </div>
                     <div class="text-nowrap">
                         {!! $accountData[$accountId]['total_market_value_formatted'] !!}
                     </div>
                 </td>
                 <td class="text-right">
-                    <div class="font-weight-bold text-nowrap" data-bs-toggle="tooltip"
-                        title="Total Cost in account currency">
-                        Total Cost:
+                    <div class="font-weight-bold text-nowrap">
+                        <span data-bs-toggle="tooltip"
+                              title="Total Cost in account currency">Total Cost:</span>
                     </div>
                     <div class="text-nowrap">
                         {!! $accountData[$accountId]['total_cost_formatted'] !!}
                     </div>
                 </td>
-                <td colspan="4"></td>
+                <td colspan="3"></td>
                 <td class="text-right">
-                    <div class="font-weight-bold text-nowrap" data-bs-toggle="tooltip"
-                        title="Total Overall Gain in account currency">
-                        Total Gain:
+                    <div class="font-weight-bold text-nowrap">
+                        <span data-bs-toggle="tooltip"
+                              title="Total Overall Gain in account currency">Total Gain:</span>
                     </div>
                     <div class="text-nowrap">
                         {!! $accountData[$accountId]['total_change_formatted'] !!}
@@ -252,22 +263,22 @@
             <tr>
                 <td colspan="4"></td>
                 <td class="text-right">
-                    <div class="font-weight-bold text-nowrap" data-bs-toggle="tooltip"
-                        title="Total Cash & Cash Alternatives in Account Currency">
-                        Total Cash:
+                    <div class="font-weight-bold text-nowrap">
+                        <span data-bs-toggle="tooltip"
+                              title="Total Cash & Cash Alternatives in Account Currency">Total Cash:</span>
                     </div>
                     <div class="text-nowrap">
                         {!! $accountData[$accountId]['cashBalanceUtils']
                                 ->getFormattedAmount() !!}
                     </div>
                 </td>
-                <td colspan="6" class="text-left align-text-top">
+                <td colspan="5" class="text-left align-text-top">
                     {!! $accountData[$accountId]['cashBalanceUtils']
                             ->getFormattedDetails() !!}
                 </td>
             </tr>
             <tr>
-                <td colspan="11" class="position-relative">
+                <td colspan="10" class="position-relative">
                     <div class="chart-accountOverview"
                         data-account_id="{{ $accountId }}"
                         data-account_currency_iso_code="{{

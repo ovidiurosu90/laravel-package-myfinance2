@@ -103,8 +103,8 @@ $(document).ready(function()
 
         symbolSeries.setData(symbolData[symbol]);
 
-        const toolTipWidth = 80;
-        const toolTipHeight = 80;
+        const toolTipWidth = 116;
+        const toolTipHeight = 116;
         const toolTipMargin = 15;
 
         // Create and style the tooltip html element
@@ -161,9 +161,10 @@ $(document).ready(function()
                     left = param.point.x - toolTipMargin - toolTipWidth;
                 }
 
-                var top = param.point.y + toolTipMargin;
-                if (top > chartElement.clientHeight - toolTipHeight) {
-                    top = param.point.y - toolTipHeight - toolTipMargin;
+                var top = param.point.y - toolTipHeight - toolTipMargin;
+                var absoluteTop = chartElement.getBoundingClientRect().top + top;
+                if (absoluteTop < 0) {
+                    top = param.point.y + toolTipMargin;
                 }
                 toolTip.style.left = left + 'px';
                 toolTip.style.top = top + 'px';

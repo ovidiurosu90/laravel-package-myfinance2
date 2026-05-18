@@ -40,13 +40,17 @@ class OrdersController extends MyFinance2Controller
             ->orderBy('timestamp', 'desc')
             ->get();
 
-        $currentPrices = $this->_buildCurrentPrices($items);
+        $currentPrices   = $this->_buildCurrentPrices($items);
+        $projectedGains  = $this->_buildProjectedGains($items);
+        $quoteTimestamps = $this->_buildQuoteTimestamps($items);
 
         return view('myfinance2::orders.crud.dashboard', [
-            'items'         => $items,
-            'view'          => $view,
-            'trades'        => $trades,
-            'currentPrices' => $currentPrices,
+            'items'           => $items,
+            'view'            => $view,
+            'trades'          => $trades,
+            'currentPrices'   => $currentPrices,
+            'projectedGains'  => $projectedGains,
+            'quoteTimestamps' => $quoteTimestamps,
         ]);
     }
 
@@ -467,6 +471,35 @@ class OrdersController extends MyFinance2Controller
 
         return redirect()->route('myfinance2::orders.index')->with('success',
             trans('myfinance2::orders.flash-messages.trade-unlinked', ['id' => $item->id]));
+    }
+
+    /**
+     * Build projected gains map keyed by order ID.
+     * Only computed for SELL orders in DRAFT/PLACED status with a limit price set.
+     *
+     * @param \Illuminate\Support\Collection $orders
+     *
+     * @return array order_id => array|null
+     */
+    private function _buildProjectedGains(\Illuminate\Support\Collection $orders): array
+    {
+        $projectedGains = [];
+        foreach ($orders as $order) {
+            $projectedGains[$order->id] = $this->_buildProjectedGain($order);
+        }
+
+        return $projectedGains;
+    }
+
+    private function _buildQuoteTimestamps(\Illuminate\Support\Collection $orders): array
+    {
+        $symbols = $orders->whereIn('status', ['DRAFT', 'PLACED'])
+            ->pluck('symbol')
+            ->unique()
+            ->values()
+            ->toArray();
+
+        return (new FinanceUtils())->buildQuoteTimestamps($symbols);
     }
 
     /**
