@@ -23,6 +23,8 @@
         </div>
     </div>
     <div class="card-body p-0">
-        @include('myfinance2::orders.tables.items-table')
+        <div class="p-3">
+            @include('myfinance2::orders.tables.items-table')
+        </div>
     </div>
 </div>

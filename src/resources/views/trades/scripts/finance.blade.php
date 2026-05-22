@@ -1,113 +1,114 @@
 <script type="module">
 $(document).ready(function()
 {
-    var tradeCurrencies = {!! json_encode($tradeCurrencies) !!};
-    var tradeCurrenciesByIsoCode = {};
-    for (let i in tradeCurrencies) {
-        tradeCurrenciesByIsoCode[tradeCurrencies[i]['iso_code']] =
-            tradeCurrencies[i];
-    }
-
-    $.ajaxSetup({
-        headers: {
-            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-        }
-    });
+    @include('myfinance2::general.scripts.partials.finance-utils')
 
     var $symbolInput          = $('#symbol-input');
-    var $timestampPickerInput = $('#timestamp-picker>input');
     var $getFinanceData       = $('#get-finance-data');
-    var $fetchedSymbolName    = $('#fetched-symbol-name');
+    var $isListedButton       = $('#is-listed');
+    var $timestampPickerInput = $('#timestamp-picker>input');
+    var $accountSelect        = $('#account-select');
+    var $editTradeForm        = $('#edit-trade-form');
     var $fetchedTradeCurrency = $('#fetched-trade-currency');
     var $fetchedUnitPrice     = $('#fetched-unit-price');
-    var $accountSelect        = $('#account-select');
-    var $quantityInput        = $('#quantity-input');
-    var $editTradeForm        = $('#edit-trade-form');
-    var $isListedButton       = $('#is-listed');
+    var $unitPriceInput       = $('#unit_price');
+    var $descriptionInput     = $('#description');
+
+    var lastAutoDescription = null;
+    var fetchCounter        = 0;
 
     $isListedButton.click(function()
     {
         var unlisted = '{{ config('trades.unlisted') }}';
-        var symbol = $symbolInput.val().replace(unlisted + '_', '');
-        symbol = symbol.replace(unlisted, '');
-
-        var text = $isListedButton.html();
-        if (text == 'Listed') { // was listed, we want UNLISTED
+        var symbol   = $symbolInput.val().replace(unlisted + '_', '').replace(unlisted, '');
+        if ($isListedButton.html() === 'Listed') {
             $symbolInput.val(unlisted + '_' + symbol);
             $isListedButton.html('Unlisted');
-            $getFinanceData.toggle();
-        } else { // was unlisted, we want LISTED
+        } else {
             $symbolInput.val(symbol);
             $isListedButton.html('Listed');
-            $getFinanceData.toggle();
         }
+        $getFinanceData.toggle();
     });
 
-    $getFinanceData.click(function()
+    var applySmartPrefill = function(symbol)
     {
+        var myFetch = ++fetchCounter;
         $.ajax({
             type: 'GET',
             url:  "{{ url('/get-finance-data') }}",
             data: {
-                symbol: $symbolInput.val(),
-                timestamp: $timestampPickerInput.val(),
-
-                // Used for SELL
-                trade_id: $editTradeForm.find('[name="id"]').val(),
+                symbol:     symbol,
+                timestamp:  $timestampPickerInput.val(),
+                trade_id:   $editTradeForm.find('[name="id"]').val(),
                 account_id: $accountSelect.val()
             },
-            success: function(data, textStatus, jqXHR)
+            success: function(data)
             {
-                $getFinanceData.addClass('text-success');
-                $getFinanceData.removeClass('text-danger');
-                $getFinanceData.attr('data-bs-original-title', 'Get Finance Data');
+                if (myFetch !== fetchCounter) return;
+                $getFinanceData.addClass('text-success').removeClass('text-danger')
+                    .attr('data-bs-original-title', 'Get Finance Data');
 
-                $fetchedSymbolName.find('span').html(data.name);
-                $fetchedSymbolName.show();
+                storeFetchedData(data);
 
-                $fetchedTradeCurrency.find('span').text(data.currency);
-                $fetchedTradeCurrency.show();
+                $fetchedTradeCurrency.find('span').text(data.currency).end().show();
+                setFetchedTradeCurrency(data);
 
-                var $select = $('#trade_currency-select').selectize();
-                var selectize = $select[0].selectize;
-                selectize.setValue(tradeCurrenciesByIsoCode[data.currency]['id']);
+                $fetchedUnitPrice.find('span').text(data.price)
+                    .attr('data-bs-original-title', data.quote_timestamp).end().show();
 
-                $fetchedUnitPrice.find('span').text(data.price);
-                $fetchedUnitPrice.find('span').attr('data-bs-original-title',
-                    data.quote_timestamp);
-                $fetchedUnitPrice.show();
+                $unitPriceInput.val(data.price);
+
+                var currentUnitPrice  = parseFloat($unitPriceInput.val());
+                var prevAutoDesc      = lastAutoDescription;
+                var descIsAuto        = !$descriptionInput.val()
+                    || $descriptionInput.val() === prevAutoDesc;
+                if (descIsAuto && !isNaN(currentUnitPrice) && fetchedHigh && fetchedLow) {
+                    var noteText = buildNoteText(currentUnitPrice, fetchedPrice,
+                        fetchedHigh, fetchedLow, fetchedCurrencySymbol);
+                    if (noteText) {
+                        $descriptionInput.val(noteText);
+                        lastAutoDescription = noteText;
+                    }
+                }
 
                 window.handleAvailableQuantity(data.available_quantity);
-                // console.log(data);
             },
-            error: function(jqXHR, textStatus, errorThrown)
+            error: function(jqXHR)
             {
-                $getFinanceData.addClass('text-danger');
-                $getFinanceData.removeClass('text-success');
-                $getFinanceData.attr('data-bs-original-title',
-                    jqXHR.responseJSON.message);
+                if (myFetch !== fetchCounter) return;
+                $getFinanceData.addClass('text-danger').removeClass('text-success')
+                    .attr('data-bs-original-title', jqXHR.responseJSON.message);
 
-                $fetchedSymbolName.find('span').text('');
-                $fetchedSymbolName.hide();
-
-                $fetchedTradeCurrency.find('span').text('');
-                $fetchedTradeCurrency.hide();
-
-                $fetchedUnitPrice.find('span').text('');
-                $fetchedUnitPrice.find('span').attr('data-bs-original-title', '');
-                $fetchedUnitPrice.hide();
+                $('#fetched-symbol-name').find('span').text('').end().hide();
+                $fetchedTradeCurrency.find('span').text('').end().hide();
+                $fetchedUnitPrice.find('span').text('')
+                    .attr('data-bs-original-title', '').end().hide();
 
                 window.handleAvailableQuantity(null);
-                // console.log(jqXHR.responseJSON.message);
             }
         });
+    };
+
+    $unitPriceInput.on('input', function()
+    {
+        if (!fetchedPrice || !fetchedHigh || !fetchedLow) return;
+
+        var unitPrice = parseFloat($(this).val());
+        if (isNaN(unitPrice) || unitPrice <= 0) return;
+
+        var noteText = buildNoteText(unitPrice, fetchedPrice,
+            fetchedHigh, fetchedLow, fetchedCurrencySymbol);
+        if (!noteText) return;
+
+        if ($descriptionInput.val() === lastAutoDescription || !$descriptionInput.val()) {
+            $descriptionInput.val(noteText);
+            lastAutoDescription = noteText;
+        }
     });
 
-    @if (!empty($autoFetchFinanceData))
-    if ($symbolInput.val()) {
-        $getFinanceData.click();
-    }
-    @endif
+    @include('myfinance2::general.scripts.partials.finance-symbol-triggers', [
+        'fetchGuard' => '!$getFinanceData.is(":hidden")'
+    ])
 });
 </script>
-

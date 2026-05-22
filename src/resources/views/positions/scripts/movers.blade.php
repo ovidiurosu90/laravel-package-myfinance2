@@ -1,28 +1,28 @@
 <script type="module">
-    const moversEl = document.getElementById('biggest-movers');
-    const moversTitleEl = document.getElementById('biggest-movers-title');
-    const iconEl = moversTitleEl?.querySelector('i');
-    const summaryEl = document.getElementById('movers-summary');
+    $(document).ready(function () {
+        const $movers = $('#biggest-movers');
+        const $moversTitleEl = $('#biggest-movers-title');
+        const $iconEl = $moversTitleEl.find('i');
+        const $summary = $('#movers-summary');
 
-    // Restore saved state (default: collapsed)
-    if (localStorage.getItem('movers-collapsed') === 'expanded') {
-        summaryEl?.classList.add('d-none');
-        window.bootstrap?.Collapse.getOrCreateInstance(moversEl, { toggle: false }).show();
-    }
+        // Register listeners first so show.bs.collapse can drive summary visibility
+        $movers
+            .on('show.bs.collapse', function () {
+                localStorage.setItem('movers-collapsed', 'expanded');
+                $iconEl.removeClass('fa-chevron-right').addClass('fa-chevron-down');
+                $moversTitleEl.attr('title', 'Collapse').attr('aria-expanded', 'true');
+                $summary.addClass('d-none');
+            })
+            .on('hide.bs.collapse', function () {
+                localStorage.setItem('movers-collapsed', 'collapsed');
+                $iconEl.removeClass('fa-chevron-down').addClass('fa-chevron-right');
+                $moversTitleEl.attr('title', 'Expand').attr('aria-expanded', 'false');
+                $summary.removeClass('d-none');
+            });
 
-    moversEl?.addEventListener('show.bs.collapse', () => {
-        localStorage.setItem('movers-collapsed', 'expanded');
-        iconEl?.classList.replace('fa-chevron-right', 'fa-chevron-down');
-        moversTitleEl?.setAttribute('title', 'Collapse');
-        moversTitleEl?.setAttribute('aria-expanded', 'true');
-        summaryEl?.classList.add('d-none');
-    });
-
-    moversEl?.addEventListener('hide.bs.collapse', () => {
-        localStorage.setItem('movers-collapsed', 'collapsed');
-        iconEl?.classList.replace('fa-chevron-down', 'fa-chevron-right');
-        moversTitleEl?.setAttribute('title', 'Expand');
-        moversTitleEl?.setAttribute('aria-expanded', 'false');
-        summaryEl?.classList.remove('d-none');
+        // Restore saved state — listeners already registered so show.bs.collapse is caught
+        if (localStorage.getItem('movers-collapsed') === 'expanded') {
+            window.bootstrap?.Collapse.getOrCreateInstance($movers[0], { toggle: false }).show();
+        }
     });
 </script>

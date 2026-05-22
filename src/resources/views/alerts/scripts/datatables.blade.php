@@ -8,37 +8,13 @@ $(document).ready(function()
     const table = $('.alert-items-table.data-table').DataTable({
         'pageLength': 100,
         'order': [[ 3, 'asc' ]],
-        'dom': '<"d-flex align-items-center gap-3 mb-2"<"alert-bulk-slot">l<"ms-auto"f>>rtip',
+        'autoWidth': false,
+        'dom': '<"d-flex align-items-center gap-3 mb-2"<"alert-bulk-slot">l<"ms-auto"f>>r<"table-responsive"t>ip',
         'columnDefs': [
             { targets: 'no-sort', sortable: false },
             { targets: 'no-search', searchable: false }
         ],
-        initComplete: function ()
-        {
-            this.api()
-                .columns()
-                .every(function ()
-                {
-                    let column = this;
-                    if (column.footer().innerText == '') {
-                        return;
-                    }
-
-                    let title = column.footer().textContent;
-
-                    let input = document.createElement('input');
-                    input.placeholder = title;
-                    input.style.width = '100%';
-                    column.footer().replaceChildren(input);
-
-                    input.addEventListener('keyup', () =>
-                    {
-                        if (column.search() !== this.value) {
-                            column.search(input.value, true, false).draw();
-                        }
-                    });
-                });
-        }
+        initComplete: @include('myfinance2::general.scripts.partials.datatable-footer-search')
     });
 
     // Move the bulk action bar into the DataTables header row (left of search)
@@ -98,7 +74,64 @@ $(document).ready(function()
         }
     }
 
+    function applySymbolGrouping()
+    {
+        // Clean ALL rows (including hidden) to avoid stale decorations after view switches
+        table.rows().nodes().toArray().forEach(function (row)
+        {
+            $(row).removeClass('alert-group-a alert-group-b');
+            $(row).find('.symbol-dup-badge, .type-dup-warning').remove();
+        });
+
+        const rows = table.rows({ filter: 'applied' }).nodes().toArray();
+
+        const symbolRows = {};
+        rows.forEach(function (row)
+        {
+            const sym = $(row).data('symbol');
+            if (!symbolRows[sym]) { symbolRows[sym] = []; }
+            symbolRows[sym].push(row);
+        });
+
+        let groupIdx = 0;
+        Object.values(symbolRows).forEach(function (symRows)
+        {
+            if (symRows.length <= 1) { return; }
+
+            const groupClass = (groupIdx % 2 === 0) ? 'alert-group-a' : 'alert-group-b';
+            groupIdx++;
+
+            const typeCounts = {};
+            symRows.forEach(function (row)
+            {
+                const type = $(row).data('alert-type');
+                typeCounts[type] = (typeCounts[type] || 0) + 1;
+            });
+
+            symRows.forEach(function (row)
+            {
+                $(row).addClass(groupClass);
+
+                $(row).find('td').eq(3)
+                    .append('<span class="badge bg-secondary ms-1 symbol-dup-badge">' + symRows.length + '×</span>');
+
+                const type = $(row).data('alert-type');
+                if (typeCounts[type] > 1) {
+                    const $warning = $(
+                        '<span class="type-dup-warning text-warning me-1"'
+                        + ' data-bs-toggle="tooltip"'
+                        + ' title="Duplicate: another ' + type + ' alert exists for this symbol">'
+                        + '<i class="fa fa-exclamation-triangle fa-fw" aria-hidden="true"></i></span>'
+                    );
+                    $(row).find('td').eq(5).prepend($warning);
+                    $warning.tooltip();
+                }
+            });
+        });
+    }
+
     applyViewFilter('{{ $view }}', false);
+    applySymbolGrouping();
 
     $('#alerts-view-toggle button').on('click', function ()
     {
@@ -151,6 +184,7 @@ $(document).ready(function()
     table.on('draw', function ()
     {
         $selectAll.prop('checked', false);
+        applySymbolGrouping();
     });
 
     // ── Bulk action buttons ──────────────────────────────────────────────────

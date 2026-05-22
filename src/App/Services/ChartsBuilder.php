@@ -138,18 +138,26 @@ class ChartsBuilder
             'cash' => [
                 'line_color' => 'rgba(255, 192, 0, 1)',
                 'title' => 'Cash',
+                'line_style' => 0,
+                'border_style' => 'solid',
             ],
             'change' => [
                 'line_color' => 'rgba(67, 83, 254, 1)',
                 'title' => 'Change',
+                'line_style' => 0,
+                'border_style' => 'solid',
             ],
             'cost' => [
                 'line_color' => 'rgba(38, 166, 154, 1)',
                 'title' => 'Cost',
+                'line_style' => 0,
+                'border_style' => 'solid',
             ],
             'mvalue' => [
                 'line_color' => 'rgba(239, 83, 80, 1)',
-                'title' => 'Market Value',
+                'title' => 'MValue',
+                'line_style' => 0,
+                'border_style' => 'solid',
             ],
             // changePercentage is a derived metric showing (change / cost) * 100
             // It uses a different scale (0-100% range) than the currency-based metrics,
@@ -158,6 +166,8 @@ class ChartsBuilder
             'changePercentage' => [
                 'line_color' => 'rgba(156, 39, 176, 1)',
                 'title' => 'Change %',
+                'line_style' => 1,
+                'border_style' => 'dotted',
             ],
         ];
     }

@@ -20,9 +20,12 @@ function createPercentageFormatter()
 function createCurrencyFormatter(locale = 'de-DE')
 {
     return (price, currency) => {
+        const decimals = Math.abs(price) >= 1000 ? 0 : 2;
         return new Intl.NumberFormat(locale, {
             style: 'currency',
             currency: currency,
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals,
         }).format(price);
     };
 }

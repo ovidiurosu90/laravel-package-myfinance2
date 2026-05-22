@@ -1,6 +1,5 @@
 @use('ovidiuro\myfinance2\App\Services\MoneyFormat')
-<div class="table-responsive">
-    <table class="table table-sm table-striped data-table order-items-table">
+<table class="table table-sm table-striped data-table order-items-table">
         <thead class="thead">
             <tr role="row">
                 <th>Status</th>
@@ -18,7 +17,7 @@
                           title="Principal Amount: total estimated value of this order (quantity × limit price)">P Amount</span>
                 </th>
                 <th class="d-none d-xl-table-cell">Description</th>
-                <th class="d-none d-xl-table-cell">Created</th>
+                <th class="d-none show-1350">Created</th>
                 <th class="no-search no-sort">Actions</th>
                 <th class="no-search no-sort"></th>
                 <th class="no-search no-sort"></th>
@@ -62,7 +61,27 @@
                         <span class="text-muted">—</span>
                     @endif
                 </td>
-                <td>{{ $item->action }}</td>
+                <td>
+                    {{ $item->action }}
+                    @if (!empty($activeAlerts[$item->symbol]))
+                        @foreach ($activeAlerts[$item->symbol] as $activeAlert)
+                        <a href="{{ route('myfinance2::price-alerts.edit', $activeAlert->id) }}"
+                            class="d-block mt-1"
+                            data-bs-toggle="tooltip"
+                            title="Edit alert for {{ $item->symbol }}">
+                            <span class="badge d-block w-100 text-center
+                                {{ $activeAlert->getAlertTypeBadgeClass() }}">
+                                {{ $activeAlert->alert_type === 'PRICE_ABOVE' ? '▲ Above' : '▼ Below' }}
+                                <br>{!! MoneyFormat::get_formatted_price_display(
+                                    $activeAlert->tradeCurrencyModel?->display_code ?? $currencyCode,
+                                    (float) $activeAlert->target_price,
+                                    true
+                                ) !!}
+                            </span>
+                        </a>
+                        @endforeach
+                    @endif
+                </td>
                 <td class="text-right text-nowrap"
                     data-order="{{ $cp !== null && $item->limit_price
                         ? (float) $item->limit_price - $cp
@@ -136,7 +155,7 @@
                     {!! $item->getFormattedPrincipleAmount() !!}
                 </td>
                 <td class="d-none d-xl-table-cell">{{ $item->description }}</td>
-                <td class="d-none d-xl-table-cell">{{ $item->created_at }}</td>
+                <td class="d-none show-1350">{{ $item->created_at }}</td>
                 <td class="text-nowrap">
                     @if ($item->status === 'DRAFT')
                         @include('myfinance2::orders.forms.place-sm', ['id' => $item->id])
@@ -187,12 +206,11 @@
                 <th class="d-none d-xl-table-cell text-nowrap">Trade</th>
                 <th class="text-right text-nowrap">P Amount</th>
                 <th class="d-none d-xl-table-cell">Description</th>
-                <th class="d-none d-xl-table-cell">Created</th>
+                <th class="d-none show-1350">Created</th>
                 <th class="no-search no-sort"></th>
                 <th class="no-search no-sort"></th>
                 <th class="no-search no-sort"></th>
             </tr>
         </tfoot>
     </table>
-    <div class="clearfix mb-3"></div>
-</div>
+<div class="clearfix mb-3"></div>

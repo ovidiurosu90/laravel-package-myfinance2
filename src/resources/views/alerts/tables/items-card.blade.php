@@ -1,3 +1,7 @@
+<style>
+tr.alert-group-a td:first-child { border-left: 3px solid #0d6efd !important; }
+tr.alert-group-b td:first-child { border-left: 3px solid #198754 !important; }
+</style>
 <div class="card card-default">
     <div class="card-header">
         <div class="float-right d-flex align-items-center gap-2">

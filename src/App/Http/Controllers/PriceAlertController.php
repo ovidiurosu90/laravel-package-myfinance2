@@ -427,24 +427,7 @@ class PriceAlertController extends MyFinance2Controller
     {
         $symbols = $alerts->pluck('symbol')->unique()->values()->toArray();
 
-        if (empty($symbols)) {
-            return [];
-        }
-
-        $quotes = (new FinanceUtils())->getQuotes($symbols, null, false);
-
-        if (!is_array($quotes)) {
-            return [];
-        }
-
-        $prices = [];
-        foreach ($symbols as $symbol) {
-            if (isset($quotes[$symbol]['price'])) {
-                $prices[$symbol] = (float) $quotes[$symbol]['price'];
-            }
-        }
-
-        return $prices;
+        return (new FinanceUtils())->getPricesBySymbol($symbols);
     }
 
     private function _buildQuoteTimestamps(\Illuminate\Support\Collection $alerts): array

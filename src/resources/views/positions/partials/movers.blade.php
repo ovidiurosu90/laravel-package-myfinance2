@@ -32,9 +32,9 @@
         if ($ptEur !== null && $ptPct !== null) {
             $summaryItems[] = [
                 'label'   => $col['key'] === 'today' ? 'Today'
-                    : ($col['key'] === 'weekly'  ? '1W'
-                    : ($col['key'] === 'monthly' ? '1M'
-                    : ($col['key'] === 'yearly'  ? '1Y' : 'All'))),
+                    : ($col['key'] === 'weekly'  ? '1 Week'
+                    : ($col['key'] === 'monthly' ? '1 Month'
+                    : ($col['key'] === 'yearly'  ? '1 Year' : 'All-time'))),
                 'eur'     => $ptEur,
                 'pct'     => $ptPct,
                 'color'   => $ptEur >= 0 ? 'text-success' : 'text-danger',
@@ -53,8 +53,8 @@
             </span>
             @if($hasSummary)
             <div id="movers-summary"
-                class="d-flex align-items-center gap-2 flex-grow-1 overflow-hidden"
-                style="font-size: 0.8rem;">
+                class="align-items-center gap-2 flex-grow-1 overflow-hidden justify-content-end"
+                style="display: flex;">
                 @foreach($summaryItems as $i => $item)
                     @if($i > 0)<span class="text-muted">·</span>@endif
                     <span class="text-muted text-nowrap">{{ $item['label'] }}</span>
@@ -117,7 +117,7 @@
                                 <div class="d-flex justify-content-between align-items-baseline
                                     border rounded px-2 py-1 mb-3 {{ $ptColorClass }}"
                                     style="font-size: 0.82rem;">
-                                    <small class="text-muted text-uppercase fw-semibold"
+                                    <small class="text-muted fw-semibold"
                                         style="font-size: 0.7rem; letter-spacing: 0.05em;">Portfolio</small>
                                     <span class="fw-semibold">
                                         {{ $ptSign }}{!! MoneyFormat::get_formatted_price_display('&euro;', abs($ptEur)) !!}

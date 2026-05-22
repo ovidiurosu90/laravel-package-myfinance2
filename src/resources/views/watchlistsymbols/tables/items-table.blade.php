@@ -252,12 +252,12 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                     @if (!empty($quoteData['active_alerts']))
                         @foreach ($quoteData['active_alerts'] as $activeAlert)
                         <a href="{{ route('myfinance2::price-alerts.edit', $activeAlert->id) }}"
-                            class="d-block text-center w-100"
+                            class="d-block mt-1"
                             data-bs-toggle="tooltip"
                             title="Edit alert for {{ $symbol }}">
-                            <span class="badge d-block w-100 {{ $activeAlert->getStatusBadgeClass() }}">
-                                {{ $activeAlert->alert_type === 'PRICE_ABOVE' ? '▲' : '▼' }}
-                                {!! MoneyFormat::get_formatted_price_display(
+                            <span class="badge d-block w-100 text-center {{ $activeAlert->getAlertTypeBadgeClass() }}">
+                                {{ $activeAlert->alert_type === 'PRICE_ABOVE' ? '▲ Above' : '▼ Below' }}
+                                <br>{!! MoneyFormat::get_formatted_price_display(
                                     $quoteData['tradeCurrencyModel']->display_code,
                                     (float) $activeAlert->target_price,
                                     true

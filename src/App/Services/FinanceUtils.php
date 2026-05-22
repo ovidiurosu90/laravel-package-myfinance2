@@ -548,6 +548,36 @@ class FinanceUtils
         return $timestamps;
     }
 
+    /**
+     * Fetch current market prices for the given symbols.
+     * Returns a map of symbol => float price (symbols with no quote are omitted).
+     *
+     * @param string[] $symbols
+     *
+     * @return array<string, float>
+     */
+    public function getPricesBySymbol(array $symbols): array
+    {
+        if (empty($symbols)) {
+            return [];
+        }
+
+        $quotes = $this->getQuotes($symbols, null, false);
+
+        if (!is_array($quotes)) {
+            return [];
+        }
+
+        $prices = [];
+        foreach ($symbols as $symbol) {
+            if (isset($quotes[$symbol]['price'])) {
+                $prices[$symbol] = (float) $quotes[$symbol]['price'];
+            }
+        }
+
+        return $prices;
+    }
+
     public static function fixTimezone(Quote $quote, \DateTime $timestamp): void
     {
         $timestamp->setTimezone(new \DateTimeZone('Europe/Amsterdam'));

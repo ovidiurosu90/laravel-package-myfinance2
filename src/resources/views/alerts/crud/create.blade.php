@@ -27,6 +27,7 @@
 @endsection
 @section('footer_scripts')
     @include('myfinance2::alerts.scripts.selectize-item')
+    @include('myfinance2::alerts.scripts.finance')
     @include('myfinance2::alerts.scripts.expires-at-picker')
     @include('myfinance2::general.scripts.tooltips')
 @endsection

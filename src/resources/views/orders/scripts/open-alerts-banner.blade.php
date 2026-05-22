@@ -3,7 +3,6 @@ $(document).ready(function ()
 {
     var $wrapper = $('#open-alerts-banner-wrapper');
     var fetchUrl = @json($openAlertsFetchUrl);
-    var debounceTimer = null;
 
     function refreshOnSymbolChange()
     {
@@ -27,10 +26,9 @@ $(document).ready(function ()
         });
     }
 
-    $('#symbol-input').on('input', function ()
-    {
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(refreshOnSymbolChange, 600);
-    });
+    $('#symbol-input').on('blur', function () { refreshOnSymbolChange(); });
+    $('#get-finance-data').on('click', function () { refreshOnSymbolChange(); });
+
+    if ($('#symbol-input').val()) { refreshOnSymbolChange(); }
 });
 </script>

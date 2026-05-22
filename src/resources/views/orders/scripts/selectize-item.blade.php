@@ -42,9 +42,6 @@ $(document).ready(function ()
         onChange: function(value)
         {
             currencyChange();
-            if (value && $('#symbol-input').val()) {
-                $('#get-finance-data').trigger('click');
-            }
         }
     });
     var accountSelectize = $accountSelect[0].selectize;

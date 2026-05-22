@@ -33,7 +33,7 @@ $(document).ready(function()
     const userOverviewChart = LightweightCharts.createChart(
         chartElement,
         {
-            width: chartElement.clientWidth, // - 14,
+            width: chartElement.clientWidth,
             height: 250,
             layout: {
                 attributionLogo: false,
@@ -175,9 +175,11 @@ $(document).ready(function()
             thresholds.forEach((t) =>
             {
                 const pos = Math.max(0, Math.min(100, ((t.value - min) / range) * 100));
-                thresholdHtml += '<div style="position:absolute;width:2px;height:11px;'
-                    + 'background:' + t.color + ';top:-3px;left:' + pos
-                    + '%;transform:translateX(-50%);border-radius:1px;opacity:0.85;">'
+                thresholdHtml += '<div data-tooltip="' + (t.title || '') + '" style="position:absolute;'
+                    + 'width:12px;height:11px;background:transparent;top:-3px;left:' + pos
+                    + '%;transform:translateX(-50%);display:flex;justify-content:center;">'
+                    + '<div style="width:2px;height:100%;background:' + t.color
+                    + ';border-radius:1px;opacity:0.85;"></div>'
                     + '</div>';
             });
         }
@@ -252,7 +254,7 @@ $(document).ready(function()
         const changePctLabel = statusData.changePercentage !== null
             ? (Math.round(statusData.changePercentage * 100) / 100) + '%' : null;
         renderRangeBar('change-range-bar', changeRange.min, changeRange.max,
-            statusData.changePercentage, changePctLabel, metricColors.change);
+            statusData.changePercentage, changePctLabel, metricColors.changePercentage);
 
         const cashRange = computePercentageRangeMinMax('cash', 'cost', currency);
         const cashPct = statusData.cost !== 0
@@ -261,6 +263,32 @@ $(document).ready(function()
             ? (Math.round(cashPct * 100) / 100) + '%' : null;
         renderRangeBar('cash-range-bar', cashRange.min, cashRange.max, cashPct,
             cashPctLabel, metricColors.cash);
+
+        // Populate collapsed header summary
+        const uosCost = document.getElementById('uos-cost');
+        if (uosCost) {
+            uosCost.innerHTML = '<span style="color:' + metricColors.cost + '">-'
+                + formatStatusCurrency(statusData.cost, currency) + ' cost</span>';
+        }
+        const uosMvalue = document.getElementById('uos-mvalue');
+        if (uosMvalue) {
+            uosMvalue.innerHTML = '<span style="color:' + metricColors.mvalue + '">+'
+                + formatStatusCurrency(statusData.mvalue, currency) + ' mvalue</span>';
+        }
+        const uosChange = document.getElementById('uos-change');
+        if (uosChange) {
+            const changePct = statusData.changePercentage !== null
+                ? ' <span style="color:' + metricColors.changePercentage + '">('
+                    + (Math.round(statusData.changePercentage * 100) / 100) + '%)</span>'
+                : '';
+            uosChange.innerHTML = '<span style="color:' + metricColors.change + '">'
+                + formatStatusCurrency(statusData.change, currency) + ' change</span>' + changePct;
+        }
+        const uosCash = document.getElementById('uos-cash');
+        if (uosCash) {
+            uosCash.innerHTML = '<span style="color:' + metricColors.cash + '">'
+                + formatStatusCurrency(statusData.cash, currency) + ' cash</span>';
+        }
     }
 
     // Display currency exchange rate if data exists
@@ -288,12 +316,32 @@ $(document).ready(function()
             if (eurusdMax === null || v > eurusdMax) eurusdMax = v;
         });
         const eurusdFmt = (v) => (Math.round(v * 10000) / 10000).toFixed(4);
+        $('#uos-eurusd').text('EURUSD ' + eurusdFmt(eurusdRate));
         const eurusdThresholds = [
-            { value: buyUsdAbove, color: '#198754' },
-            { value: sellUsdBelow, color: '#dc3545' },
+            { value: buyUsdAbove, color: '#198754',
+                title: 'Buy USD above ' + eurusdFmt(buyUsdAbove) },
+            { value: sellUsdBelow, color: '#dc3545',
+                title: 'Sell USD below ' + eurusdFmt(sellUsdBelow) },
         ];
         renderRangeBar('eurusd-range-bar', eurusdMin, eurusdMax,
             eurusdRate, eurusdFmt(eurusdRate), '#555', eurusdFmt, eurusdThresholds);
+        document.querySelectorAll('#eurusd-range-bar [data-tooltip]').forEach((el) =>
+        {
+            const text = el.getAttribute('data-tooltip');
+            let tip = null;
+            el.addEventListener('mouseenter', () =>
+            {
+                tip = document.createElement('div');
+                tip.textContent = text;
+                tip.style.cssText = 'position:fixed;background:#000;color:#fff;padding:4px 8px;'
+                    + 'border-radius:4px;font-size:0.75rem;z-index:9999;pointer-events:none;';
+                document.body.appendChild(tip);
+                const r = el.getBoundingClientRect();
+                tip.style.left = (r.left + r.width / 2 - tip.offsetWidth / 2) + 'px';
+                tip.style.top = (r.top - tip.offsetHeight - 5) + 'px';
+            });
+            el.addEventListener('mouseleave', () => { if (tip) { tip.remove(); tip = null; } });
+        });
     }
 
     // Create formatter instances for all series
@@ -309,7 +357,7 @@ $(document).ready(function()
         lineColor: '{{ $properties['line_color'] }}',
         topLineColor: '{{ $properties['line_color'] }}',
         bottomLineColor: '{{ $properties['line_color'] }}',
-        title: '{{ $properties['title'] }}',
+        lineStyle: {{ $properties['line_style'] }},
         priceScaleId: 'left',
         priceFormat: {
             type: 'custom',
@@ -325,7 +373,7 @@ $(document).ready(function()
         lineColor: '{{ $properties['line_color'] }}',
         topLineColor: '{{ $properties['line_color'] }}',
         bottomLineColor: '{{ $properties['line_color'] }}',
-        title: '{{ $properties['title'] }}',
+        lineStyle: {{ $properties['line_style'] }},
         priceFormat: {
             type: 'custom',
             minMove: 0.01,
@@ -358,6 +406,22 @@ $(document).ready(function()
     // Update status display with metric values
     setStatus();
 
+    // Legend toggle: click a badge to show/hide its series
+    const seriesVisible = {
+        @foreach($ChartsBuilder::getAccountMetrics() as $metric => $properties)
+        '{{ $metric }}': true,
+        @endforeach
+    };
+
+    @foreach($ChartsBuilder::getAccountMetrics() as $metric => $properties)
+    $('#legend-{{ $metric }}').on('click', function()
+    {
+        seriesVisible['{{ $metric }}'] = !seriesVisible['{{ $metric }}'];
+        series_{{ $metric }}.applyOptions({ visible: seriesVisible['{{ $metric }}'] });
+        $(this).css('opacity', seriesVisible['{{ $metric }}'] ? '1' : '0.3');
+    });
+    @endforeach
+
     // Zoom chart to the last N days (0 = fit all)
     function zoomChart(days)
     {
@@ -370,8 +434,10 @@ $(document).ready(function()
         const allData = userOverviewData['cost_' + currency] || [];
         if (allData.length === 0) return;
         const lastEntry = allData[allData.length - 1];
-        const toDate = new Date(lastEntry.time + 'T00:00:00');
-        const fromDate = new Date(toDate);
+        const lastDate = new Date(lastEntry.time + 'T00:00:00');
+        const toDate = new Date(lastDate);
+        toDate.setDate(toDate.getDate() + 5);
+        const fromDate = new Date(lastDate);
         fromDate.setDate(fromDate.getDate() - days);
         timeScale.setVisibleRange({
             from: fromDate.toISOString().split('T')[0],
@@ -380,6 +446,14 @@ $(document).ready(function()
     }
 
     zoomChart(365);
+
+    requestAnimationFrame(() =>
+    {
+        $('#legend-changePercentage').css('margin-left',
+            (userOverviewChart.priceScale('left').width() - 2) + 'px');
+        $('#legend-right-badges').css('margin-right',
+            userOverviewChart.priceScale('right').width() + 'px');
+    });
 
     $('.zoom-btn').on('click', function()
     {
@@ -412,6 +486,16 @@ $(document).ready(function()
     {
         const newCurrency = $(this).is(':checked') ? 'EUR' : 'USD';
         updateChartForCurrency(newCurrency);
+    });
+
+    $('#user-overview').on('shown.bs.collapse', function()
+    {
+        userOverviewChart.resize(chartElement.clientWidth, 250);
+    });
+
+    $(window).on('resize', function()
+    {
+        userOverviewChart.resize(chartElement.clientWidth, 250);
     });
 
 }); // end document.ready()

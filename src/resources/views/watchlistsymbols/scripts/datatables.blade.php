@@ -35,28 +35,7 @@ $(document).ready(function()
         'order': [[ 5, 'desc' ]],
         'autoWidth': false,
         'columnDefs': columnDefs,
-        initComplete: function ()
-        {
-            this.api()
-                .columns()
-                .every(function () {
-                    let column = this;
-                    if (column.footer().textContent == '') {
-                        return;
-                    }
-
-                    let title = column.footer().textContent;
-                    let input = document.createElement('input');
-                    input.placeholder = title;
-                    column.footer().replaceChildren(input);
-
-                    input.addEventListener('keyup', () => {
-                        if (column.search() !== input.value) {
-                            column.search(input.value, true, false).draw();
-                        }
-                    });
-                });
-        },
+        initComplete: @include('myfinance2::general.scripts.partials.datatable-footer-search'),
         drawCallback: function()
         {
             rowPairs.clear();

@@ -43,6 +43,7 @@ class OrdersController extends MyFinance2Controller
         $currentPrices   = $this->_buildCurrentPrices($items);
         $projectedGains  = $this->_buildProjectedGains($items);
         $quoteTimestamps = $this->_buildQuoteTimestamps($items);
+        $activeAlerts    = $this->_buildActiveAlertsBySymbol($items);
 
         return view('myfinance2::orders.crud.dashboard', [
             'items'           => $items,
@@ -51,6 +52,7 @@ class OrdersController extends MyFinance2Controller
             'currentPrices'   => $currentPrices,
             'projectedGains'  => $projectedGains,
             'quoteTimestamps' => $quoteTimestamps,
+            'activeAlerts'    => $activeAlerts,
         ]);
     }
 
@@ -474,6 +476,20 @@ class OrdersController extends MyFinance2Controller
     }
 
     /**
+     * Build a map of symbol => active PriceAlert[] for all order symbols.
+     *
+     * @param \Illuminate\Support\Collection $orders
+     *
+     * @return array symbol => PriceAlert[]
+     */
+    private function _buildActiveAlertsBySymbol(\Illuminate\Support\Collection $orders): array
+    {
+        $symbols = $orders->pluck('symbol')->unique()->values()->toArray();
+
+        return PriceAlert::activeBySymbols($symbols);
+    }
+
+    /**
      * Build projected gains map keyed by order ID.
      * Only computed for SELL orders in DRAFT/PLACED status with a limit price set.
      *
@@ -517,24 +533,7 @@ class OrdersController extends MyFinance2Controller
             ->values()
             ->toArray();
 
-        if (empty($symbols)) {
-            return [];
-        }
-
-        $quotes = (new FinanceUtils())->getQuotes($symbols, null, false);
-
-        if (!is_array($quotes)) {
-            return [];
-        }
-
-        $prices = [];
-        foreach ($symbols as $symbol) {
-            if (isset($quotes[$symbol]['price'])) {
-                $prices[$symbol] = (float) $quotes[$symbol]['price'];
-            }
-        }
-
-        return $prices;
+        return (new FinanceUtils())->getPricesBySymbol($symbols);
     }
 
     /**

@@ -1,50 +1,23 @@
 <script type="module">
 $(document).ready(function()
 {
-    var tradeCurrencies = {!! json_encode($tradeCurrencies) !!};
-    var tradeCurrenciesByIsoCode = {};
-    for (let i in tradeCurrencies) {
-        tradeCurrenciesByIsoCode[tradeCurrencies[i]['iso_code']] = tradeCurrencies[i];
-    }
-
-    var symbolPrefill = @json($symbolPrefill ?? null);
-
-    $.ajaxSetup({
-        headers: {
-            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-        }
-    });
+    @include('myfinance2::general.scripts.partials.finance-utils')
 
     var $symbolInput      = $('#symbol-input');
     var $limitPriceInput  = $('#limit_price');
     var $quantityInput    = $('#quantity-input');
     var $descriptionInput = $('#description');
     var $orderBanner      = $('#order-summary-banner');
-    var $fetchedSymbolName = $('#fetched-symbol-name');
 
-    var fetchedPrice = null;
-    var fetchedSuggestion = null;
+    var fetchedSuggestion   = null;
     var lastAutoDescription = null;
-
-    var buildReasonText = function(s, limitPrice)
-    {
-        if (s.weak_signal) {
-            return null;
-        }
-        if (s.action === 'BUY') {
-            var pct = ((fetchedPrice - limitPrice) / fetchedPrice * 100).toFixed(1);
-            return pct + '% below current price, which is already '
-                + s.pct_below_high + '% below 52wk high';
-        }
-        var pct = ((limitPrice - fetchedPrice) / fetchedPrice * 100).toFixed(1);
-        return pct + '% above current price, which is already '
-            + s.pct_above_low + '% above 52wk low';
-    };
+    var fetchCounter        = 0;
 
     var applySmartPrefill = function(symbol)
     {
         var accountSelectize = $('#account-select')[0].selectize;
         var accountId = accountSelectize ? accountSelectize.getValue() : '';
+        var myFetch = ++fetchCounter;
 
         $.ajax({
             type: 'GET',
@@ -52,61 +25,53 @@ $(document).ready(function()
             data: { symbol: symbol, timestamp: null, account_id: accountId || null },
             success: function(data)
             {
+                if (myFetch !== fetchCounter) return;
                 var s = data.suggestion;
-                fetchedPrice = data.price;
                 fetchedSuggestion = s;
-
-                $fetchedSymbolName.find('span').html(data.name);
-                $fetchedSymbolName.show();
-
-                var reasonText;
-                if (s.weak_signal) {
-                    reasonText = 'no strong buy signal — only ' + s.pct_below_high
-                        + '% below 52wk high';
-                } else if (s.action === 'BUY') {
-                    reasonText = '2.5% below current price, which is already '
-                        + s.pct_below_high + '% below 52wk high';
-                } else {
-                    reasonText = '2.5% above current price, which is already '
-                        + s.pct_above_low + '% above 52wk low';
-                }
-                lastAutoDescription = reasonText;
-
-                $orderBanner
-                    .data('reason', reasonText)
-                    .data('weak-signal', s.weak_signal ? 1 : 0);
+                storeFetchedData(data);
 
                 var actionSelectize = $('#action-select')[0].selectize;
                 if (actionSelectize && !actionSelectize.getValue()) {
                     actionSelectize.setValue(s.action);
                 }
 
-                if (!$limitPriceInput.val()) {
-                    $limitPriceInput.val(s.limit_price).trigger('input');
-                }
+                $limitPriceInput.val(s.limit_price);
 
                 if (s.suggested_qty !== null && !$quantityInput.val()) {
-                    $quantityInput.val(s.suggested_qty).trigger('input');
+                    $quantityInput.val(s.suggested_qty);
                 }
 
-                if (!$descriptionInput.val()) {
-                    $descriptionInput.val(reasonText);
+                setFetchedTradeCurrency(data);
+
+                var $exchangeRateInput = $('#exchange_rate');
+                if (s.exchange_rate && !$exchangeRateInput.val()) {
+                    $exchangeRateInput.val(s.exchange_rate);
                 }
 
                 if (s.suggested_account_id && accountSelectize && !accountSelectize.getValue()) {
                     accountSelectize.setValue(s.suggested_account_id);
                 }
 
-                if (tradeCurrenciesByIsoCode[data.currency]) {
-                    var tcSelectize = $('#trade_currency-select')[0].selectize;
-                    if (tcSelectize && !tcSelectize.getValue()) {
-                        tcSelectize.setValue(tradeCurrenciesByIsoCode[data.currency]['id']);
-                    }
-                }
+                var currentLimitPrice = parseFloat($limitPriceInput.val());
+                var noteText = (!isNaN(currentLimitPrice) && fetchedHigh && fetchedLow)
+                    ? buildNoteText(currentLimitPrice, fetchedPrice,
+                        fetchedHigh, fetchedLow, fetchedCurrencySymbol)
+                    : null;
+                var reasonText = (s.weak_signal && noteText)
+                    ? 'weak signal; ' + noteText
+                    : noteText;
 
-                var $exchangeRateInput = $('#exchange_rate');
-                if (s.exchange_rate && !$exchangeRateInput.val()) {
-                    $exchangeRateInput.val(s.exchange_rate).trigger('input');
+                var prevAutoDescription = lastAutoDescription;
+                lastAutoDescription = reasonText;
+
+                $orderBanner
+                    .data('reason', reasonText)
+                    .data('weak-signal', s.weak_signal ? 1 : 0);
+
+                if ((!$descriptionInput.val() || $descriptionInput.val() === prevAutoDescription)
+                    && reasonText)
+                {
+                    $descriptionInput.val(reasonText);
                 }
 
                 window.handleAvailableQuantity(data.available_quantity);
@@ -117,13 +82,18 @@ $(document).ready(function()
 
     $limitPriceInput.on('input', function()
     {
-        if (!fetchedPrice || !fetchedSuggestion) return;
+        if (!fetchedPrice || !fetchedHigh || !fetchedLow) return;
 
         var limitPrice = parseFloat($(this).val());
         if (isNaN(limitPrice) || limitPrice <= 0) return;
 
-        var newText = buildReasonText(fetchedSuggestion, limitPrice);
+        var newText = buildNoteText(limitPrice, fetchedPrice,
+            fetchedHigh, fetchedLow, fetchedCurrencySymbol);
         if (!newText) return;
+
+        if (fetchedSuggestion && fetchedSuggestion.weak_signal) {
+            newText = 'weak signal; ' + newText;
+        }
 
         $orderBanner.data('reason', newText).trigger('banner-update');
 
@@ -133,17 +103,6 @@ $(document).ready(function()
         }
     });
 
-    if (symbolPrefill) {
-        $symbolInput.val(symbolPrefill).trigger('input');
-        applySmartPrefill(symbolPrefill);
-    }
-
-    $('#get-finance-data').on('click', function()
-    {
-        var symbol = $symbolInput.val();
-        if (symbol) {
-            applySmartPrefill(symbol);
-        }
-    });
+    @include('myfinance2::general.scripts.partials.finance-symbol-triggers')
 });
 </script>

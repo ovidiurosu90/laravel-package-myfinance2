@@ -42,8 +42,7 @@
     </form>
 </div>
 
-<div class="table-responsive">
-    <table class="table table-sm table-striped data-table alert-items-table">
+<table class="table table-sm table-striped data-table alert-items-table">
         <thead class="thead">
             <tr role="row">
                 <th class="no-sort no-search" style="width: 1px;">
@@ -76,7 +75,7 @@
                 $currencyCode = $item->tradeCurrencyModel ? $item->tradeCurrencyModel->display_code : '';
                 $qt           = $quoteTimestamps[$item->symbol] ?? null;
             @endphp
-            <tr>
+            <tr data-symbol="{{ $item->symbol }}" data-alert-type="{{ $item->alert_type }}">
                 <td>
                     <input type="checkbox"
                            class="alert-row-checkbox"
@@ -311,5 +310,4 @@
             </tr>
         </tfoot>
     </table>
-    <div class="clearfix mb-3"></div>
-</div>
+<div class="clearfix mb-3"></div>

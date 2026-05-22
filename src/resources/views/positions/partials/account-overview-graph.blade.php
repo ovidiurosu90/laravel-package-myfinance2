@@ -1,59 +1,57 @@
 @inject('ChartsBuilder', 'ovidiuro\myfinance2\App\Services\ChartsBuilder')
-@php $currency = !empty(app('request')->input('currency_iso_code'))
-    ? app('request')->input('currency_iso_code') : 'EUR' @endphp
 
-<div class="position-relative">
-    <table style="width:100%">
+<table style="width:100%">
         <tr>
-            <td class="pr-3">
-                <input id="toggle-currency-select" type="checkbox"
-                    {{ $currency == 'EUR' ? 'checked' : '' }}
-                    data-bs-toggle="toggle"
-                    data-onlabel="Euro (&euro;)" data-offlabel="US Dollar (&dollar;)" />
-            </td>
-            <td class="pt-1 fs-5 px-2">
-                <span id="currency_exchange-status"></span>&nbsp;<span id="eurusd-signal"></span>
+            <td class="pr-3"></td>
+            <td class="pr-2 pt-1 fs-5 fw-bold text-center">
+                -<span id="cost-status-{{ $accountId }}"></span>
             </td>
             <td class="pr-2 pt-1 fs-5 fw-bold text-center">
-                -<span id="cost-status"></span>
-            </td>
-            <td class="pr-2 pt-1 fs-5 fw-bold text-center">
-                +<span id="mvalue-status"></span>
+                +<span id="mvalue-status-{{ $accountId }}"></span>
             </td>
             <td class="pt-1 fs-5 fw-bold text-center">=</td>
             <td class="pr-5 pt-1 fs-5 fw-bold text-center">
-                <span id="change-status"></span>
+                <span id="change-status-{{ $accountId }}"></span>
             </td>
             <td class="pt-1 fs-5 fw-bold text-center">
-                <span id="cash-status"></span>
+                <span id="cash-status-{{ $accountId }}"></span>
             </td>
         </tr>
         <tr>
             <td class="pr-3 pt-1 align-bottom">
                 <div class="btn-group w-100" role="group"
                     style="font-size:0.6rem;line-height:1.2;">
-                    <button type="button" class="btn btn-outline-secondary zoom-btn flex-fill py-0 px-0" data-days="30">1M</button>
-                    <button type="button" class="btn btn-outline-secondary zoom-btn flex-fill py-0 px-0" data-days="182">6M</button>
-                    <button type="button" class="btn btn-outline-secondary zoom-btn active flex-fill py-0 px-0" data-days="365">1Y</button>
-                    <button type="button" class="btn btn-outline-secondary zoom-btn flex-fill py-0 px-0" data-days="0">ALL</button>
+                    <button type="button"
+                        class="btn btn-outline-secondary zoom-btn-account flex-fill py-0 px-0"
+                        data-account_id="{{ $accountId }}" data-days="30">1M</button>
+                    <button type="button"
+                        class="btn btn-outline-secondary zoom-btn-account flex-fill py-0 px-0"
+                        data-account_id="{{ $accountId }}" data-days="182">6M</button>
+                    <button type="button"
+                        class="btn btn-outline-secondary zoom-btn-account active flex-fill py-0 px-0"
+                        data-account_id="{{ $accountId }}" data-days="365">1Y</button>
+                    <button type="button"
+                        class="btn btn-outline-secondary zoom-btn-account flex-fill py-0 px-0"
+                        data-account_id="{{ $accountId }}" data-days="0">ALL</button>
                 </div>
             </td>
-            <td class="px-2"><div id="eurusd-range-bar"></div></td>
-            <td class="pr-2"><div id="cost-range-bar"></div></td>
-            <td class="pr-2"><div id="mvalue-range-bar"></div></td>
+            <td class="pr-2"><div id="cost-range-bar-{{ $accountId }}"></div></td>
+            <td class="pr-2"><div id="mvalue-range-bar-{{ $accountId }}"></div></td>
             <td></td>
-            <td class="pr-5"><div id="change-range-bar"></div></td>
-            <td><div id="cash-range-bar"></div></td>
+            <td class="pr-5"><div id="change-range-bar-{{ $accountId }}"></div></td>
+            <td><div id="cash-range-bar-{{ $accountId }}"></div></td>
         </tr>
     </table>
     <div class="position-relative" style="margin-top:36px;">
-        <div id="chart-userOverview" data-currency_iso_code="{{ $currency }}"></div>
+        <div class="chart-accountOverview"
+            data-account_id="{{ $accountId }}"
+            data-account_currency_iso_code="{{ $currency }}"></div>
         <div style="position:absolute;top:-16px;left:0;right:0;z-index:10;
             display:flex;justify-content:space-between;align-items:flex-start;
             pointer-events:none;">
             @foreach($ChartsBuilder::getAccountMetrics() as $metric => $properties)
             @if($metric === 'changePercentage')
-            <span id="legend-{{ $metric }}"
+            <span id="legend-{{ $metric }}-{{ $accountId }}"
                 style="cursor:pointer;pointer-events:auto;
                     border:2px {{ $properties['border_style'] }} {{ $properties['line_color'] }};
                     color:{{ $properties['line_color'] }};border-radius:4px;
@@ -63,10 +61,10 @@
             </span>
             @endif
             @endforeach
-            <div id="legend-right-badges" style="display:flex;gap:6px;pointer-events:none;">
+            <div id="legend-right-badges-{{ $accountId }}" style="display:flex;gap:6px;pointer-events:none;">
                 @foreach($ChartsBuilder::getAccountMetrics() as $metric => $properties)
                 @if($metric !== 'changePercentage')
-                <span id="legend-{{ $metric }}"
+                <span id="legend-{{ $metric }}-{{ $accountId }}"
                     style="cursor:pointer;pointer-events:auto;
                         border:2px {{ $properties['border_style'] }} {{ $properties['line_color'] }};
                         color:{{ $properties['line_color'] }};border-radius:4px;
@@ -79,5 +77,3 @@
             </div>
         </div>
     </div>
-</div>
-

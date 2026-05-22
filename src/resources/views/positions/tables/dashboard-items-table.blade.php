@@ -277,17 +277,15 @@
                             ->getFormattedDetails() !!}
                 </td>
             </tr>
-            <tr>
-                <td colspan="10" class="position-relative">
-                    <div class="chart-accountOverview"
-                        data-account_id="{{ $accountId }}"
-                        data-account_currency_iso_code="{{
-                            $accountData[$accountId]['accountModel']
-                                ->currency->iso_code }}"></div>
-                </td>
-            </tr>
         </tfoot>
     </table>
 
     <div class="clearfix mb-3"></div>
+</div>
+
+<div style="padding:0 20px 20px;">
+    @include('myfinance2::positions.partials.account-overview-graph', [
+        'accountId' => $accountId,
+        'currency' => $accountData[$accountId]['accountModel']->currency->iso_code,
+    ])
 </div>

@@ -247,5 +247,11 @@ table.data-table {
   transform: rotate(90deg);
 }
 
+@media (min-width: 1350px) {
+    .show-1350 {
+        display: table-cell !important;
+    }
+}
+
 </style>
 

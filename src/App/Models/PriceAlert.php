@@ -91,8 +91,8 @@ class PriceAlert extends MyFinance2Model
     public function getAlertTypeBadgeClass(): string
     {
         return match ($this->alert_type) {
-            'PRICE_ABOVE' => 'bg-danger',
-            'PRICE_BELOW' => 'bg-primary',
+            'PRICE_ABOVE' => 'bg-success',
+            'PRICE_BELOW' => 'bg-danger',
             default       => 'bg-secondary',
         };
     }
@@ -117,5 +117,35 @@ class PriceAlert extends MyFinance2Model
     public function scopeForSymbol($query, string $symbol)
     {
         return $query->where('symbol', $symbol);
+    }
+
+    /**
+     * Return active, non-expired alerts for the given symbols, keyed by symbol.
+     *
+     * @param string[] $symbols
+     *
+     * @return array<string, PriceAlert[]>
+     */
+    public static function activeBySymbols(array $symbols): array
+    {
+        if (empty($symbols)) {
+            return [];
+        }
+
+        $alerts = static::whereIn('symbol', $symbols)
+            ->where('status', 'ACTIVE')
+            ->where(function ($q) {
+                $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+            })
+            ->with('tradeCurrencyModel')
+            ->orderBy('alert_type')
+            ->get();
+
+        $bySymbol = [];
+        foreach ($alerts as $alert) {
+            $bySymbol[$alert->symbol][] = $alert;
+        }
+
+        return $bySymbol;
     }
 }

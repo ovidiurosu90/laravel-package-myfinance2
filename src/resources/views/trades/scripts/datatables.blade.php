@@ -8,31 +8,7 @@ $(document).ready(function()
             { targets: 'no-sort', sortable: false},
             { targets: 'no-search', searchable: false}
         ],
-        initComplete: function ()
-        {
-            this.api()
-                .columns()
-                .every(function () {
-                    let column = this;
-                    if (column.footer().innerText == '') {
-                        return
-                    }
-
-                    let title = column.footer().textContent;
-
-                    // Create input element
-                    let input = document.createElement('input');
-                    input.placeholder = title;
-                    column.footer().replaceChildren(input);
-
-                    // Event listener for user input
-                    input.addEventListener('keyup', () => {
-                        if (column.search() !== this.value) {
-                            column.search(input.value, true, false).draw();
-                        }
-                    });
-            });
-        }
+        initComplete: @include('myfinance2::general.scripts.partials.datatable-footer-search')
     });
 });
 </script>
