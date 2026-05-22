@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace ovidiuro\myfinance2\App\Services;
 
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -403,7 +404,7 @@ class Positions
                 ->format(trans('myfinance2::general.datetime-format'));
     }
 
-    public static function addDayChange(array &$position, array $quote = null)
+    public static function addDayChange(array &$position, array $quote = null, array &$warnedSymbols = [])
     {
         $symbol = $position['symbol'];
         $isUnlisted = FinanceAPI::isUnlisted($symbol);
@@ -412,22 +413,31 @@ class Positions
             $position['day_change'] = 0;
             $position['day_change_percentage'] = 0;
         } else {
+            $obsoleteSymbols = config('general.obsolete_symbols', []);
+            $delistedSymbols = config('trades.delisted_symbols', []);
+            $shouldWarn = !in_array($symbol, $obsoleteSymbols)
+                && !in_array($symbol, $delistedSymbols, true)
+                && !in_array($symbol, $warnedSymbols, true);
+
+            $recentSuccess = false;
+            if ($shouldWarn) {
+                $lastSuccess = Cache::get("dc_last_success_{$symbol}");
+                $recentSuccess = $lastSuccess !== null && (time() - $lastSuccess) <= 5 * 60;
+            }
+
             if (!empty($quote) && !empty($quote['day_change'])) {
                 $position['day_change'] = $quote['day_change'];
                 $position['pre_market_day_change'] =
                     !empty($quote['pre_market_day_change'])
                     ? $quote['pre_market_day_change'] : false;
+                Cache::put("dc_last_success_{$symbol}", time(), 3600);
             } else {
                 $position['day_change'] = 0;
 
-                // Only warn if symbol is not obsolete or delisted
-                $obsoleteSymbols = config('general.obsolete_symbols', []);
-                $delistedSymbols = config('trades.delisted_symbols', []);
-                if (!in_array($symbol, $obsoleteSymbols)
-                    && !in_array($symbol, $delistedSymbols, true)
-                ) {
-                    LOG::warning("No quote day change for symbol $symbol! "
-                                 ."Defaulting to 0...");
+                if ($shouldWarn) {
+                    $recentSuccess
+                        ? LOG::debug("No quote day change for symbol $symbol! Defaulting to 0...")
+                        : LOG::warning("No quote day change for symbol $symbol! Defaulting to 0...");
                 }
             }
             if (!empty($quote) && !empty($quote['day_change_percentage'])) {
@@ -438,15 +448,15 @@ class Positions
             } else {
                 $position['day_change_percentage'] = 0;
 
-                // Only warn if symbol is not obsolete or delisted
-                $obsoleteSymbols = config('general.obsolete_symbols', []);
-                $delistedSymbols = config('trades.delisted_symbols', []);
-                if (!in_array($symbol, $obsoleteSymbols)
-                    && !in_array($symbol, $delistedSymbols, true)
-                ) {
-                    LOG::warning("No quote day change percentage for symbol $symbol! "
-                                 ."Defaulting to 0...");
+                if ($shouldWarn) {
+                    $recentSuccess
+                        ? LOG::debug("No quote day change percentage for symbol $symbol! Defaulting to 0...")
+                        : LOG::warning("No quote day change percentage for symbol $symbol! Defaulting to 0...");
                 }
+            }
+
+            if ($shouldWarn) {
+                $warnedSymbols[] = $symbol;
             }
         }
 
@@ -763,6 +773,7 @@ class Positions
             $this->_persistStats
         );
 
+        $warnedDayChangeSymbols = [];
         foreach ($positions as $accountId => &$symbols) {
             foreach ($symbols as $symbol => &$position) {
                 $isUnlisted = FinanceAPI::isUnlisted($symbol);
@@ -784,7 +795,7 @@ class Positions
                 self::addMarketUtils($position, $quote);
                 self::addSymbolName($position, $quote);
                 self::addPrice($position, $quote, $date);
-                self::addDayChange($position, $quote);
+                self::addDayChange($position, $quote, $warnedDayChangeSymbols);
                 self::addMarketValue($position);
                 self::addOverallChange($position);
                 self::addCost($position);

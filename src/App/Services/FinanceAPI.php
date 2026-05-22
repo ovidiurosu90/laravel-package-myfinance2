@@ -105,7 +105,8 @@ class FinanceAPI
     public function getQuotes(
         array $symbols,
         bool $checkCache = true,
-        bool $persistStats = true
+        bool $persistStats = true,
+        bool $warnOnError = true
     ): ?array
     {
         $missingCachedSymbols = [];
@@ -146,11 +147,10 @@ class FinanceAPI
                 $this->cacheQuotes($apiQuotes, $persistStats);
                 $quotes = array_merge($quotes, $apiQuotes);
             } catch (\Exception $e) {
-                Log::warning(
-                    "Couldn't get quotes for symbols "
+                $message = "Couldn't get quotes for symbols "
                     . join(', ', $missingCachedSymbols)
-                    . ". Exception message: " . $e->getMessage()
-                );
+                    . ". Exception message: " . $e->getMessage();
+                $warnOnError ? Log::warning($message) : Log::info($message);
             }
         }
 

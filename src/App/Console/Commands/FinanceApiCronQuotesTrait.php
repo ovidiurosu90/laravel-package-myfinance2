@@ -2,6 +2,7 @@
 
 namespace ovidiuro\myfinance2\App\Console\Commands;
 
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 use ovidiuro\myfinance2\App\Models\Dividend;
@@ -41,13 +42,24 @@ trait FinanceApiCronQuotesTrait
         Log::info('START app:finance-api-cron refreshQuotes()');
         $symbols = $this->getAllUsedSymbols();
         $financeAPI = new FinanceAPI();
-        $quotes = $financeAPI->getQuotes($symbols, false); // don't check cache
+
+        $lastSuccess = Cache::get('finance_api_quotes_last_success');
+        $recentSuccess = $lastSuccess !== null && (time() - $lastSuccess) <= 5 * 60;
+
+        $quotes = $financeAPI->getQuotes($symbols, false, true, !$recentSuccess); // don't check cache
 
         if (empty($quotes)) {
-            Log::error('END app:finance-api-cron refreshQuotes() => '
-                       . "ERROR! We couldn't get the quotes! Exiting...");
+            if ($recentSuccess) {
+                Log::info('END app:finance-api-cron refreshQuotes() => '
+                    . "Couldn't get the quotes (transient, last success was recent). Skipping...");
+            } else {
+                Log::error('END app:finance-api-cron refreshQuotes() => '
+                    . "ERROR! We couldn't get the quotes! Exiting...");
+            }
             return;
         }
+
+        Cache::put('finance_api_quotes_last_success', time(), 3600);
 
         $fetchedSymbols = [];
         foreach ($quotes as $quote) {
