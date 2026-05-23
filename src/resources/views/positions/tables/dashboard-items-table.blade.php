@@ -42,15 +42,18 @@
         @if(count($items) > 0)
             @foreach($items as $item)
             <tr>
-                <td class="text-nowrap" data-bs-toggle="tooltip"
-                    title="{!! $item['symbol_name'] !!}">
+                <td class="text-nowrap">
                     @if (!FinanceAPI::isUnlisted($item['symbol']))
                     <a href="https://finance.yahoo.com/quote/{{ $item['symbol'] }}"
-                        target="_blank">
+                        target="_blank"
+                        data-bs-toggle="tooltip"
+                        title="{!! $item['symbol_name'] !!}">
                         {{ $item['symbol'] }}
                     </a>
                     @else
-                    <span class="unlisted small">{{ $item['symbol'] }}</span>
+                    <span class="unlisted small"
+                          data-bs-toggle="tooltip"
+                          title="{!! $item['symbol_name'] !!}">{{ $item['symbol'] }}</span>
                     @endif
                     <div>
                         x {{ $item['quantity'] }}

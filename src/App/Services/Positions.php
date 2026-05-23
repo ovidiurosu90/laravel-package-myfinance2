@@ -422,7 +422,7 @@ class Positions
             $recentSuccess = false;
             if ($shouldWarn) {
                 $lastSuccess = Cache::get("dc_last_success_{$symbol}");
-                $recentSuccess = $lastSuccess !== null && (time() - $lastSuccess) <= 5 * 60;
+                $recentSuccess = $lastSuccess !== null && (time() - $lastSuccess) <= 10 * 60;
             }
 
             if (!empty($quote) && !empty($quote['day_change'])) {
@@ -658,10 +658,16 @@ class Positions
     public static function updateAccountDataTotal(array &$positionAccountData,
         array $position)
     {
+        // Use cost2 (original proportional cost of current shares, unaffected by prior sell
+        // proceeds) so that total_change represents pure unrealized P&L on open positions.
+        // Using cost_in_account_currency instead would silently absorb realized gains from
+        // prior sells into the figure: a very profitable past sell drives cost close to zero,
+        // making the remaining position look far more profitable than it really is — and
+        // closing that position then causes a disproportionately large drop in total_change.
         $positionAccountData['total_change'] +=
-            $position['overall_change_in_account_currency'];
+            $position['overall_change2_in_account_currency'];
         $positionAccountData['total_cost'] +=
-            $position['cost_in_account_currency'];
+            $position['cost2_in_account_currency'];
         $positionAccountData['total_market_value'] +=
             $position['market_value_in_account_currency'];
 
