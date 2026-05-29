@@ -387,6 +387,26 @@ class ChartsBuilder
     }
 
     /**
+     * Latest value of a stored symbol chart series.
+     *
+     * Reads the same cached series the chart renders and returns its final
+     * data point, so server-side consumers (e.g. portfolio health) use the
+     * identical rate the user sees in the overview. The stored series is a JS
+     * object literal, so the value is extracted by pattern rather than
+     * json_decode. Returns null when no data exists.
+     */
+    public static function getLatestSymbolValue(string $symbol): ?float
+    {
+        $series = self::getChartSymbolAsJsonString($symbol);
+        if (!preg_match_all('/value:\s*(-?\d+(?:\.\d+)?)/', $series, $matches)) {
+            return null;
+        }
+
+        $last = end($matches[1]);
+        return $last === false ? null : (float) $last;
+    }
+
+    /**
      * Get the opposite currency for a given currency.
      * Handles EUR ↔ USD, plus GBX → EUR mapping.
      *

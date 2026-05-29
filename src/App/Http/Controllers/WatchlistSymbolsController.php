@@ -26,12 +26,12 @@ class WatchlistSymbolsController extends MyFinance2Controller
     public function index()
     {
         $service = new WatchlistSymbolsDashboard();
-
-        // associative array (symbol => array(quote_data))
-        $items = $service->handle();
+        $result  = $service->handle();
 
         return view('myfinance2::watchlistsymbols.crud.dashboard', [
-            'items' => $items
+            'items'        => $result['items'],
+            'health_score' => $result['health_score'],
+            'quadrant'     => $result['quadrant'],
         ]);
     }
 

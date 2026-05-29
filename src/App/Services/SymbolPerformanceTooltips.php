@@ -18,6 +18,7 @@ class SymbolPerformanceTooltips
      *     overall_annualized_short: string, overall_annualized: string,
      *     overall_holding_period: string, overall_fees: string,
      *     gain_split: string, win_rate: string, time_pattern: string,
+     *     xirr_short: bool, open_money: string, overall_money: string,
      *     windows: array<int, array{label: string, star: string, gain: string, peak: string}>
      * }
      */
@@ -40,6 +41,7 @@ class SymbolPerformanceTooltips
             self::_openTooltips($openWin, $isNonEur, $tradeCurrencyCode),
             self::_overallTooltips($symbolPerf),
             self::_metricsTooltips(),
+            self::_moneyTooltips($symbolPerf),
             [
                 'windows' => self::_windowTooltips(
                     $symbolPerf['windows'],
@@ -62,7 +64,50 @@ class SymbolPerformanceTooltips
             'overall_annualized_short' => '', 'overall_annualized' => '',
             'overall_holding_period' => '', 'overall_fees' => '',
             'gain_split' => '', 'win_rate' => '', 'time_pattern' => '',
+            'xirr_short' => false, 'open_money' => '', 'overall_money' => '',
             'windows' => [],
+        ];
+    }
+
+    /**
+     * Tooltips and the short-period flag for the money-weighted XIRR (the "money/y" badge),
+     * built in the BE so the view never has to reach for SymbolPerformanceService constants
+     * or assemble these strings inline. xirr_short marks a sub-year hold whose annualized rate
+     * is provisional; the open/overall strings cover the value, provisional and n/a cases.
+     */
+    private static function _moneyTooltips(array $symbolPerf): array
+    {
+        $xirr      = $symbolPerf['xirr_pct'] ?? null;
+        $totalDays = (int) ($symbolPerf['total_days'] ?? 0);
+        $short     = $totalDays < SymbolPerformanceService::MIN_CAGR_DAYS;
+
+        $naReason = 'Money-weighted return (XIRR) is withheld for positions held under '
+            . SymbolPerformanceService::MIN_ANNUALIZED_DAYS . ' days, where annualizing such a short '
+            . 'window is meaningless, or when it cannot be solved from the cash flows.';
+        $provisional = ' Held under a year, this rate annualizes a sub-year window and is provisional;'
+            . ' it firms up once the position has been held a full year.';
+
+        $openBase = 'Money-weighted annualized return (XIRR): how your actual euros did, crediting the'
+            . ' timing and size of every buy, sell and dividend. The gain/y above is the time-weighted'
+            . ' CAGR (the asset\'s performance while held), the figure comparable to an index; XIRR'
+            . ' answers the separate question of how your money did.';
+        $overallBase = 'Money-weighted annualized return (XIRR) across all windows: how your actual'
+            . ' euros did, crediting the timing and size of every buy, sell and dividend. The gain/y'
+            . ' above is the time-weighted CAGR (asset performance while held), the figure comparable'
+            . ' to an index; the two diverge when capital was added or trimmed at different times.';
+
+        $compose = static function (string $base) use ($xirr, $short, $naReason, $provisional): string
+        {
+            if ($xirr === null) {
+                return $naReason;
+            }
+            return $short ? $base . $provisional : $base;
+        };
+
+        return [
+            'xirr_short'    => $short,
+            'open_money'    => $compose($openBase),
+            'overall_money' => $compose($overallBase),
         ];
     }
 
@@ -89,12 +134,10 @@ class SymbolPerformanceTooltips
                 $hasPartialSells, $hasDividends, $isNonEur, $currencyCode
             ),
             'open_gain_big'           => $hasPartialSells || $hasDividends || $isNonEur,
-            'open_annualized_short'   => !empty($openWin['annualized_gain_short_window'])
-                ? 'Annualized gain is not shown for positions held less than 30 days:'
-                    . ' extrapolating a short-term gain over a full year would produce a misleading figure.'
+            'open_annualized_short'   => ($openWin['annualized_percentage_gain'] === null)
+                ? self::_shortAnnualizedTooltip((int) $openWin['duration_days'])
                 : '',
-            'open_annualized'         => ($openWin['annualized_gain_eur'] !== null
-                    && empty($openWin['annualized_gain_short_window']))
+            'open_annualized'         => ($openWin['annualized_percentage_gain'] !== null)
                 ? self::_annualizedTooltip((float) $openWin['total_gain_eur'], (int) $openWin['duration_days'])
                 : '',
             'open_holding_period'     => 'Holding period of the current open position',
@@ -140,13 +183,44 @@ class SymbolPerformanceTooltips
         return $tooltip;
     }
 
-    private static function _annualizedTooltip(float $totalGainEur, int $durationDays, bool $isOverall = false): string
+    /**
+     * Explains why a per-year CAGR is withheld for a sub-year hold and what is shown instead.
+     * Used wherever the gain/y figure is null because the position has not been held a full year.
+     */
+    private static function _shortAnnualizedTooltip(int $durationDays): string
     {
-        $years     = round($durationDays / 365.25, 1);
+        $years = round($durationDays / 365.0, 1);
+
+        return "Annualized return (CAGR) appears once a position has been held a full year"
+            . " (this one: {$durationDays} days, about {$years}y). Compounding a sub-year return"
+            . ' would extrapolate and inflate the yearly rate, so the raw cumulative gain shown in'
+            . ' the gain badge is used instead. A CAGR is shown automatically once the holding'
+            . ' period reaches one year.';
+    }
+
+    private static function _annualizedTooltip(float $totalGainEur, int $durationDays, int $windowCount = 1): string
+    {
+        $years     = round($durationDays / 365.0, 1);
         $formatted = MoneyFormat::get_formatted_number_plain($totalGainEur, 0);
-        $suffix    = $isOverall ? ' across all windows' : '';
-        return "Annualized gain: {$formatted} EUR total gain divided by {$years} years of holding{$suffix}."
-            . ' Simple linear annualization (total gain / years held).';
+
+        if ($windowCount > 1) {
+            // Multi-window: blended total return annualized over the time held. The windows are
+            // NOT geometrically chained (that would compound separate buy/sell episodes that were
+            // never reinvested and inflate the rate); instead total profit over all capital
+            // deployed is CAGR-annualized over the days actually held (gaps excluded).
+            return "Annualized return (CAGR) across {$windowCount} holding windows"
+                . " ({$years} years held, total gain: {$formatted} EUR)."
+                . ' Total profit relative to all capital deployed, annualized over the time you'
+                . ' actually held the position (gaps when you held nothing are excluded). The'
+                . ' windows are not compounded together, since each was funded by fresh capital.'
+                . ' The money-weighted view that accounts for your euro timing is the separate'
+                . ' XIRR figure.';
+        }
+
+        // Single window: CAGR, the steady compound yearly rate that reproduces the period return.
+        return "Annualized return (CAGR) over {$years} years (total gain: {$formatted} EUR)."
+            . ' The steady yearly rate that, compounded, reproduces the actual total return:'
+            . ' (1 + total return)^(1/years) - 1. Directly comparable to an index CAGR.';
     }
 
     private static function _overallTooltips(array $symbolPerf): array
@@ -160,16 +234,14 @@ class SymbolPerformanceTooltips
                 : '',
             'overall_gain'            => 'All-time total gain across all windows: realized + unrealized'
                 . ($hasDividends ? ' + dividends' : ''),
-            'overall_annualized_short' => !empty($symbolPerf['annualized_gain_short_window'])
-                ? 'Annualized gain is not shown for positions held less than 30 days:'
-                    . ' extrapolating a short-term gain over a full year would produce a misleading figure.'
+            'overall_annualized_short' => ($symbolPerf['annualized_percentage_gain'] === null)
+                ? self::_shortAnnualizedTooltip((int) $symbolPerf['total_days'])
                 : '',
-            'overall_annualized'      => ($symbolPerf['annualized_gain_eur'] !== null
-                    && empty($symbolPerf['annualized_gain_short_window']))
+            'overall_annualized'      => ($symbolPerf['annualized_percentage_gain'] !== null)
                 ? self::_annualizedTooltip(
                     (float) $symbolPerf['total_gain_eur'],
                     (int) $symbolPerf['total_days'],
-                    true
+                    (int) ($symbolPerf['window_count'] ?? 1)
                 )
                 : '',
             'overall_holding_period'  => 'Total holding period across all position windows',
@@ -221,7 +293,7 @@ class SymbolPerformanceTooltips
                     . ' with your first purchase and ends when you fully sell out.'
                     . ' A new window opens the next time you buy back in.',
                 'star'  => $idx === $bestIndex
-                    ? 'Best window: highest annualized return among completed positions.'
+                    ? 'Best window: highest annualized return (CAGR) among completed positions.'
                     : '',
                 'gain'  => $isNonEur ? self::_winGainTooltip($win, $currencyCode) : '',
                 'peak'  => $win['peak_gain_eur'] !== null

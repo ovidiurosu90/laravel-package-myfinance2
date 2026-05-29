@@ -72,6 +72,11 @@ Route::group([
     Route::resource('dividends', 'DividendsController');
     Route::resource('watchlist-symbols', 'WatchlistSymbolsController');
 
+    Route::post('symbol-tier-overrides',
+                'SymbolTierOverrideController@store')->name('symbol-tier-overrides.store');
+    Route::delete('symbol-tier-overrides/{symbol}',
+                  'SymbolTierOverrideController@destroy')->name('symbol-tier-overrides.destroy');
+
     Route::get('finance-home', 'HomeController@index')->name('home');
     Route::get('positions', 'PositionsController@index');
     Route::get('returns', 'ReturnsController@index')->name('returns.index');

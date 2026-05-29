@@ -31,6 +31,8 @@
     .non-watchlist-group-header > tr > td {
         border-top: 2px solid var(--bs-table-border-color);
     }
+    .watchlist-symbol-items-table th:nth-child(n+12),
+    .watchlist-symbol-items-table td:nth-child(n+12) { display: none; }
     .watchlist-symbol-items-table tfoot input {
         min-width: 0;
         width: 100%;
@@ -41,6 +43,18 @@
 @php
     $watchlistItems    = array_filter($items, fn($q) => $q['is_on_watchlist']);
     $nonWatchlistItems = array_filter($items, fn($q) => !$q['is_on_watchlist']);
+
+    $healthSymbolIndex = [];
+    if (!empty($health_score)) {
+        foreach (array_merge(
+            $health_score['platinum_gold_symbols'] ?? [],
+            $health_score['silver_symbols'] ?? [],
+            $health_score['bronze_rust_symbols'] ?? [],
+            $health_score['unrated_symbols'] ?? [],
+        ) as $hsRow) {
+            $healthSymbolIndex[$hsRow['symbol']] = $hsRow;
+        }
+    }
 @endphp
 <div class="table-responsive">
     <table class="table table-sm data-table watchlist-symbol-items-table">
@@ -81,29 +95,20 @@
                 );
                 $hasPerfRow = !empty($quoteData['performance']['has_data'])
                     || !empty($quoteData['performance']['sector'])
-                    || $hasTechInd;
-                $openWinPerf = null;
-                if (!empty($quoteData['performance']['has_data'])) {
-                    foreach ($quoteData['performance']['windows'] as $w) {
-                        if ($w['is_open']) { $openWinPerf = $w; break; }
-                    }
-                }
-                // Overall row exists when there is no open window, or there are multiple windows.
-                // Otherwise (single open window only) fall back to the current window.
-                $gainYSource = (!empty($quoteData['performance']['has_data'])
-                    && ($openWinPerf === null || ($quoteData['performance']['window_count'] ?? 0) > 1))
-                    ? $quoteData['performance']
-                    : $openWinPerf;
-                $overallGainYOrder = $gainYSource !== null
-                    ? round($gainYSource['annualized_gain_eur'] ?? -9999999, 2)
-                    : -9999999;
-                $overallGainYPctOrder = $gainYSource !== null
-                    ? round($gainYSource['annualized_percentage_gain'] ?? -9999999, 4)
-                    : -9999999;
+                    || $hasTechInd
+                    || !empty($quoteData['categorization']);
+                // Sort keys and filter labels are built in the BE (WatchlistTableMetaBuilder).
+                $meta = $quoteData['table_meta'] ?? [];
             @endphp
-            <tr data-symbol="{{ $symbol }}"@if(count($quoteData['open_positions']) > 0) class="table-info"@endif>
+            <tr data-symbol="{{ $symbol }}"
+                data-tier="{{ $meta['tier_text'] ?? '' }}"
+                data-quadrants="{{ json_encode($meta['quadrant_labels'] ?? []) }}"
+                data-actions="{{ json_encode($meta['action_labels'] ?? []) }}"
+                @if(count($quoteData['open_positions']) > 0) class="table-info"@endif>
                 <td>
-                    <div data-bs-toggle="tooltip" data-bs-placement="top"
+                    <a href="https://finance.yahoo.com/quote/{{ $symbol }}"
+                        target="_blank"
+                        data-bs-toggle="tooltip" data-bs-placement="top"
                         data-bs-custom-class="big-tooltips" data-bs-html="true"
                         data-bs-title="<p class='text-left'>
 Id: {{ $quoteData['item']->id }}<br />
@@ -112,11 +117,8 @@ Timestamp: {{ $quoteData['item']->timestamp }}<br />
 Description: {{ $quoteData['item']->description }}<br />
 Created: {{ $quoteData['item']->created_at }}<br />
 Updated: {{ $quoteData['item']->updated_at }}</p>">
-                        <a href="https://finance.yahoo.com/quote/{{ $symbol }}"
-                            target="_blank">
-                            {{ $symbol }}
-                        </a>
-                    </div>
+                        {{ $symbol }}
+                    </a>
                 </td>
                 <td class="text-right">
                     <span data-bs-toggle="tooltip"
@@ -282,8 +284,8 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                         'type' => 'Watchlist Symbol',
                         'id' => $quoteData['item']->id])
                 </td>
-                <td data-order="{{ $overallGainYOrder }}"></td>
-                <td data-order="{{ $overallGainYPctOrder }}"></td>
+                <td data-order="{{ $meta['gain_y_order'] ?? -9999999 }}"></td>
+                <td data-order="{{ $meta['gain_y_pct_order'] ?? -9999999 }}"></td>
             </tr>
             @if ($hasPerfRow)
             <tr class="performance-row{{ count($quoteData['open_positions']) > 0 ? ' table-info' : '' }}" data-symbol="{{ $symbol }}">
@@ -293,6 +295,7 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                         'tradeCurrencyCode'    => $quoteData['tradeCurrencyModel']->iso_code,
                         'technicalIndicators'  => $hasTechInd ? $techInd : null,
                     ])
+                    @include('myfinance2::watchlistsymbols.tables.partials.tier-quadrant-perf-row')
                 </td>
             </tr>
             @endif
@@ -350,7 +353,8 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
         );
         $hasNwPerfRow = !empty($quoteData['performance']['has_data'])
             || !empty($quoteData['performance']['sector'])
-            || $hasNwTechInd;
+            || $hasNwTechInd
+            || !empty($quoteData['categorization']);
     @endphp
     <tr data-symbol="{{ $symbol }}-nw"@if(count($quoteData['open_positions']) > 0) class="table-info"@endif>
         <td>
@@ -408,7 +412,7 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
         </td>
         <td{!! $hasNwPerfRow ? ' rowspan="2"' : '' !!}></td>
         <td{!! $hasNwPerfRow ? ' rowspan="2"' : '' !!}></td>
-        <td{!! $hasNwPerfRow ? ' rowspan="2"' : '' !!} colspan="4" class="text-end">
+        <td{!! $hasNwPerfRow ? ' rowspan="2"' : '' !!} colspan="6" class="text-end">
             <a class="btn btn-sm btn-outline-primary"
                 href="{{ route('myfinance2::watchlist-symbols.create',
                                ['symbol' => $symbol]) }}"
@@ -427,6 +431,7 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                 'tradeCurrencyCode'   => $quoteData['tradeCurrencyModel']->iso_code,
                 'technicalIndicators' => $hasNwTechInd ? $nwTechInd : null,
             ])
+            @include('myfinance2::watchlistsymbols.tables.partials.tier-quadrant-perf-row')
         </td>
     </tr>
     @endif

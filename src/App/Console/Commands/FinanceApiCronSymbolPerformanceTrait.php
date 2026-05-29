@@ -12,7 +12,10 @@ use ovidiuro\myfinance2\App\Models\Trade;
 use ovidiuro\myfinance2\App\Models\WatchlistSymbol;
 use ovidiuro\myfinance2\App\Models\Scopes\AssignedToUserScope;
 use ovidiuro\myfinance2\App\Services\FinanceAPI;
+use ovidiuro\myfinance2\App\Services\DrawdownService;
+use ovidiuro\myfinance2\App\Services\CategorizationService;
 use ovidiuro\myfinance2\App\Services\SymbolPerformanceService;
+use ovidiuro\myfinance2\App\Services\TechnicalIndicatorsService;
 
 /**
  * Trait for symbol performance pre-computation operations
@@ -35,12 +38,16 @@ trait FinanceApiCronSymbolPerformanceTrait
 
             foreach ($userIds as $userId) {
                 SymbolPerformanceService::clearCache((int) $userId);
+                DrawdownService::clearCache((int) $userId);
+                CategorizationService::clearCache((int) $userId);
                 (new SymbolPerformanceService())->handle((int) $userId);
                 $processed++;
                 Log::info("Symbol performance built for user {$userId}");
             }
 
             $this->refreshSymbolSectors();
+            $this->refreshCategorization();
+            $this->_refreshAnalystCache();
 
             Log::info(
                 "END app:finance-api-cron refreshSymbolPerformance() => "
@@ -52,6 +59,24 @@ trait FinanceApiCronSymbolPerformanceTrait
                 . ' | ' . $e->getFile() . ':' . $e->getLine()
             );
         }
+    }
+
+    private function _refreshAnalystCache(): void
+    {
+        Log::info('START _refreshAnalystCache()');
+
+        $tradeSymbols     = Trade::withoutGlobalScope(AssignedToUserScope::class)
+            ->distinct()->pluck('symbol')->toArray();
+        $watchlistSymbols = WatchlistSymbol::withoutGlobalScope(AssignedToUserScope::class)
+            ->distinct()->pluck('symbol')->toArray();
+        $symbols = array_values(array_unique(array_merge($tradeSymbols, $watchlistSymbols)));
+        $symbols = array_values(array_filter($symbols, function (string $symbol): bool {
+            return !FinanceAPI::isSkippedSymbol($symbol);
+        }));
+
+        (new TechnicalIndicatorsService())->preWarmAnalystCache($symbols);
+
+        Log::info('END _refreshAnalystCache() => ' . count($symbols) . ' symbols processed');
     }
 
     private const SECTOR_REFRESH_GUARD_PREFIX = 'SECTOR_DAILY_';

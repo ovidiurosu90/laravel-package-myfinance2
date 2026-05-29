@@ -19,17 +19,24 @@ class SymbolPerformanceService
     private const CACHE_TTL = 7200; // 2 hours
     private const CACHE_KEY_PREFIX = 'symbol_performance_v2_u';
     private const FLOAT_EPSILON = 0.0001;
-    private const MIN_ANNUALIZED_DAYS = 30;
+    // Minimum holding days before a money-weighted XIRR is emitted. Below this an annualized rate
+    // is mathematically meaningless, so XIRR is withheld. Public so views can explain the gap.
+    public const MIN_ANNUALIZED_DAYS = 30;
+    // Minimum holding days before a time-weighted CAGR (gain/y) is emitted. Below a full year,
+    // compounding a sub-year window extrapolates and inflates the rate, so the raw cumulative
+    // return is shown instead. Public so views can flag sub-year holds as provisional.
+    public const MIN_CAGR_DAYS = 365;
 
     private array $_eurRates = [];
 
     public function handle(int $userId): array
     {
-        $cacheKey = self::CACHE_KEY_PREFIX . $userId;
-        return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($userId)
-        {
-            return $this->_compute($userId);
-        });
+        // Caching is intentionally disabled while the returns framework (CAGR / XIRR /
+        // same-window benchmark) is being finalised, so formula changes appear on the next
+        // page load without a cache clear. To re-enable, wrap the compute in:
+        //   return Cache::remember(self::CACHE_KEY_PREFIX . $userId, self::CACHE_TTL,
+        //       fn () => $this->_compute($userId));
+        return $this->_compute($userId);
     }
 
     public static function clearCache(int $userId): void
@@ -76,17 +83,16 @@ class SymbolPerformanceService
                 $window['percentage_gain'] = ($window['invested_eur'] > self::FLOAT_EPSILON)
                     ? ($window['total_gain_eur'] / $window['invested_eur']) * 100.0
                     : null;
-                $durationYears = $window['duration_days'] / 365.25;
                 $tooShort = $window['duration_days'] < self::MIN_ANNUALIZED_DAYS;
                 $window['annualized_gain_short_window'] = $tooShort;
-                $window['annualized_percentage_gain'] = (
-                    !$tooShort && $window['percentage_gain'] !== null && $durationYears > self::FLOAT_EPSILON
-                )
-                    ? $window['percentage_gain'] / $durationYears
-                    : null;
-                $window['annualized_gain_eur'] = (!$tooShort && $durationYears > self::FLOAT_EPSILON)
-                    ? $window['total_gain_eur'] / $durationYears
-                    : null;
+                $wAnn = $this->_annualizeReturn(
+                    $window['percentage_gain'],
+                    $window['duration_days'],
+                    $window['total_gain_eur'],
+                    $window['invested_eur']
+                );
+                $window['annualized_percentage_gain'] = $wAnn['pct'];
+                $window['annualized_gain_eur']        = $wAnn['eur'];
                 $changed = true;
             }
             unset($window);
@@ -100,7 +106,6 @@ class SymbolPerformanceService
             $totalFeesEur     = $result[$symbol]['fees_eur'];
             $totalDividendsEur = $result[$symbol]['total_dividends_eur'];
             $totalDays        = $result[$symbol]['total_days'];
-            $totalYears       = $totalDays / 365.25;
 
             $percentageGain = ($totalInvestedEur > self::FLOAT_EPSILON)
                 ? ($totalGainEur / $totalInvestedEur) * 100.0
@@ -111,12 +116,19 @@ class SymbolPerformanceService
             $result[$symbol]['percentage_gain']            = $percentageGain;
             $tooShortSymbol = $totalDays < self::MIN_ANNUALIZED_DAYS;
             $result[$symbol]['annualized_gain_short_window'] = $tooShortSymbol;
-            $result[$symbol]['annualized_gain_eur']          = (!$tooShortSymbol && $totalYears > self::FLOAT_EPSILON)
-                ? $totalGainEur / $totalYears : null;
-            $result[$symbol]['annualized_percentage_gain']   = (
-                !$tooShortSymbol && $percentageGain !== null && $totalYears > self::FLOAT_EPSILON
-            )
-                ? $percentageGain / $totalYears : null;
+            // Recompute the overall annualized return with the live-priced windows, using the
+            // same blended CAGR as the cron build (total return annualized over time held; never
+            // chained, so multi-window positions are not inflated). The money-weighted XIRR is
+            // recomputed too, so the open window's live market value is reflected in both figures.
+            $overallAnn = $this->_annualizeReturn(
+                $percentageGain,
+                $totalDays,
+                $totalGainEur,
+                $totalInvestedEur
+            );
+            $result[$symbol]['annualized_gain_eur']        = $overallAnn['eur'];
+            $result[$symbol]['annualized_percentage_gain'] = $overallAnn['pct'];
+            $result[$symbol]['xirr_pct']                   = $this->_symbolXirr($windows, $totalDays);
             $result[$symbol]['fees_pct_of_gain']           = ($totalGainEur > self::FLOAT_EPSILON)
                 ? ($totalFeesEur / $totalGainEur) * 100.0 : null;
             $result[$symbol]['dividend_split_pct']         = ($totalGainEur > self::FLOAT_EPSILON)
@@ -146,6 +158,11 @@ class SymbolPerformanceService
         }
 
         if ($penceRequested) {
+            if (!isset($eurRates['GBP']) && isset($this->_eurRates['GBP'])) {
+                // Reuse the GBP rate already resolved by _loadEurRates() during the main
+                // compute, so applyLivePrices() does not re-query EURGBP=X in the same request.
+                $eurRates['GBP'] = $this->_eurRates['GBP'];
+            }
             if (!isset($eurRates['GBP'])) {
                 $gbpStat = StatHistorical::withoutGlobalScope(AssignedToUserScope::class)
                     ->where('symbol', 'EURGBP=X')
@@ -204,6 +221,77 @@ class SymbolPerformanceService
         }
 
         return $result;
+    }
+
+    /**
+     * Returns ['pct' => float|null, 'eur' => float|null] for a single holding window.
+     * <30 days: both null (too short to annualize).
+     * 30-364 days: null (sub-1Y; raw period return shown by the gain badge, not repeated here).
+     * >=365 days: CAGR for the percentage; invested * CAGR for the EUR figure.
+     *
+     * CAGR (geometric annualization) is the steady yearly rate that, compounded over the
+     * holding period, reproduces the actual total return: (1 + period_return)^(1/years) - 1.
+     * It is used instead of simple annualization (period_return / years) for two reasons:
+     *   1. Comparability. An index's "annualized return" is a CAGR, so reporting CAGR here
+     *      lets the figure be placed directly next to the VUSA.AS benchmark.
+     *   2. Honesty on big/long winners. Simple annualization over-states them badly
+     *      (e.g. +200% over 2y reads as 100%/yr simple but 73%/yr CAGR); CAGR does not.
+     * The EUR/y figure is the first-year euro equivalent of that compound rate
+     * (invested * CAGR); the verifiable cumulative figure is shown separately as total gain.
+     *
+     * NOTE: the same formula is reused for the overall multi-window figure, applied to the
+     * blended total return over total days held (NOT a geometric chain of the windows, which
+     * would inflate separate buy/sell episodes). The money-weighted counterpart is Xirr.
+     */
+    private function _annualizeReturn(
+        ?float $pct,
+        int $days,
+        float $gainEur,
+        float $investedEur
+    ): array
+    {
+        if ($days < self::MIN_CAGR_DAYS || $pct === null) {
+            return ['pct' => null, 'eur' => null];
+        }
+        $years = $days / 365.0;
+        $cagr  = (pow(1.0 + $pct / 100.0, 1.0 / $years) - 1.0) * 100.0;
+        $eur   = $investedEur > self::FLOAT_EPSILON ? $investedEur * ($cagr / 100.0) : null;
+        return ['pct' => $cagr, 'eur' => $eur];
+    }
+
+    /**
+     * Money-weighted annualized return (XIRR) for the whole symbol, across every window.
+     *
+     * Collects the dated EUR cash flows already recorded on each window (BUYs negative,
+     * SELLs and dividends positive) and, for any still-open window, adds the current market
+     * value as a terminal positive flow dated today. See the Xirr service for the math and
+     * for why this answers a different question than CAGR.
+     *
+     * Returns null for holdings under 30 days (too short to annualize meaningfully) or when
+     * the rate cannot be solved.
+     *
+     * @param array $windows  Finalized windows (each with cash_flows, remaining_qty, etc.).
+     */
+    private function _symbolXirr(array $windows, int $totalDays): ?float
+    {
+        if ($totalDays < self::MIN_ANNUALIZED_DAYS) {
+            return null;
+        }
+
+        $cashFlows = [];
+        foreach ($windows as $w) {
+            foreach ($w['cash_flows'] ?? [] as $cf) {
+                $cashFlows[] = $cf;
+            }
+            // Open window: book today's market value as if sold now, so the unrealized
+            // gain is reflected in the money-weighted rate.
+            if (!empty($w['is_open']) && $w['remaining_qty'] > self::FLOAT_EPSILON) {
+                $marketValueEur = $w['remaining_cost_eur'] + $w['unrealized_gain_eur'];
+                $cashFlows[]    = ['date' => Carbon::today(), 'amount' => $marketValueEur];
+            }
+        }
+
+        return (new Xirr())->compute($cashFlows);
     }
 
     private function _loadTrades(int $userId): Collection
@@ -341,6 +429,12 @@ class SymbolPerformanceService
             $investedEur = 0.0;
             $feesEur = 0.0;
             $realizedGainsPerYear = [];
+            // Dated EUR cash flows for the money-weighted return (XIRR): BUYs are money out
+            // (negative), SELLs money in (positive). Dividends are appended later in
+            // _attributeDividendsToWindows; the open position's terminal value is added at
+            // XIRR time. Mirrors the same CLOSED-trade filter as the cost basis below so the
+            // XIRR is consistent with the displayed figures.
+            $cashFlows = [];
             foreach ($window['trades'] as $trade) {
                 // In an open window, skip all CLOSED trades. CLOSED BUY/SELL pairs
                 // represent lots that have been fully exited (e.g. via closeSymbol)
@@ -369,6 +463,7 @@ class SymbolPerformanceService
                     $runningCostEur += $costEur;
                     $runningQty += $qty;
                     $feesEur += $feeEur;
+                    $cashFlows[] = ['date' => $trade->timestamp, 'amount' => -$costEur];
                 } elseif ($trade->action === 'SELL' && $runningQty > self::FLOAT_EPSILON) {
                     $proceedsEur = $amountEur - $feeEur;
                     $avgCostEur = $runningCostEur / $runningQty;
@@ -381,9 +476,11 @@ class SymbolPerformanceService
                     $feesEur += $feeEur;
                     $year = $trade->timestamp->format('Y');
                     $realizedGainsPerYear[$year] = ($realizedGainsPerYear[$year] ?? 0.0) + $gain;
+                    $cashFlows[] = ['date' => $trade->timestamp, 'amount' => $proceedsEur];
                 }
             }
 
+            $window['cash_flows'] = $cashFlows;
             $window['realized_gain_eur'] = $realizedGainEur;
             $window['invested_eur'] = $investedEur;
             $window['fees_eur'] = $feesEur;
@@ -416,6 +513,8 @@ class SymbolPerformanceService
             $year = $divTime->format('Y');
             $windows[$targetIdx]['dividends_per_year'][$year] =
                 ($windows[$targetIdx]['dividends_per_year'][$year] ?? 0.0) + $amountEur;
+            // Dividends are money returning to you: a positive cash flow for XIRR.
+            $windows[$targetIdx]['cash_flows'][] = ['date' => $divTime, 'amount' => $amountEur];
         }
     }
 
@@ -535,17 +634,16 @@ class SymbolPerformanceService
             $window['period_display'] = $this->_formatPeriod($window['duration_days']);
             $window['status'] = $window['is_open'] ? 'Open' : 'Closed';
 
-            $durationYears = $window['duration_days'] / 365.25;
             $tooShort = $window['duration_days'] < self::MIN_ANNUALIZED_DAYS;
             $window['annualized_gain_short_window'] = $tooShort;
-            $window['annualized_percentage_gain'] = (
-                !$tooShort && $window['percentage_gain'] !== null && $durationYears > self::FLOAT_EPSILON
-            )
-                ? $window['percentage_gain'] / $durationYears
-                : null;
-            $window['annualized_gain_eur'] = (!$tooShort && $durationYears > self::FLOAT_EPSILON)
-                ? $window['total_gain_eur'] / $durationYears
-                : null;
+            $ann = $this->_annualizeReturn(
+                $window['percentage_gain'],
+                $window['duration_days'],
+                $window['total_gain_eur'],
+                $window['invested_eur']
+            );
+            $window['annualized_percentage_gain'] = $ann['pct'];
+            $window['annualized_gain_eur']        = $ann['eur'];
         }
         unset($window);
     }
@@ -611,14 +709,33 @@ class SymbolPerformanceService
         $hasOpenWindow = count(array_filter($windows, fn($w) => $w['is_open'])) > 0;
         $totalDays = (int) array_sum(array_column($windows, 'duration_days'));
 
-        $totalYears = $totalDays / 365.25;
-        $tooShort = $totalDays < self::MIN_ANNUALIZED_DAYS;
-        $annualizedGainEur = (!$tooShort && $totalYears > self::FLOAT_EPSILON)
-            ? $totalGainEur / $totalYears
-            : null;
-        $annualizedPercentageGain = (!$tooShort && $percentageGain !== null && $totalYears > self::FLOAT_EPSILON)
-            ? $percentageGain / $totalYears
-            : null;
+        // Overall annualized return (CAGR), multi-window safe.
+        //
+        // The figure is the BLENDED total return annualized over the time held: take the total
+        // profit relative to all capital ever deployed (percentage_gain = totalGain/totalInvested)
+        // and CAGR-annualize it over totalDays (the sum of the windows' own durations, so the gaps
+        // when nothing was held are excluded). This is the same formula used for a single window.
+        //
+        // We deliberately do NOT geometrically chain the windows (product of (1 + r_i)). Chaining
+        // is correct only when each window's proceeds compound into the next, like a fund's NAV.
+        // Here the windows are separate buy/sell episodes funded by fresh capital, not reinvested
+        // proceeds, so chaining would compound returns that never actually compounded and inflate
+        // the rate (e.g. two +50% episodes would read as 50%/yr instead of the real ~22.5%/yr).
+        // The money-weighted XIRR below is the rigorous "your euros" answer across the same flows.
+        $tooShort                 = $totalDays < self::MIN_ANNUALIZED_DAYS;
+        $overallAnn               = $this->_annualizeReturn(
+            $percentageGain,
+            $totalDays,
+            $totalGainEur,
+            $totalInvestedEur
+        );
+        $annualizedGainEur        = $overallAnn['eur'];
+        $annualizedPercentageGain = $overallAnn['pct'];
+
+        // Money-weighted annualized return (XIRR): the "how did my actual money do" figure,
+        // accounting for the timing and size of every buy, sell and dividend. Shown alongside
+        // CAGR, not instead of it (see Xirr for why they answer different questions).
+        $xirrPct = $this->_symbolXirr($windows, $totalDays);
         if ($windowCount === 1) {
             $holdingPeriodDisplay = $windows[0]['period_display']
                 . ($windows[0]['is_open'] ? ' (open)' : '');
@@ -663,6 +780,7 @@ class SymbolPerformanceService
             'annualized_gain_eur'              => $annualizedGainEur,
             'annualized_percentage_gain'       => $annualizedPercentageGain,
             'annualized_gain_short_window'     => $tooShort,
+            'xirr_pct'                    => $xirrPct,
             'holding_period_display'      => $holdingPeriodDisplay,
             'total_days'                  => $totalDays,
             'total_dividends_eur'         => $totalDividendsEur,

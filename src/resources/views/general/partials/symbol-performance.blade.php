@@ -54,7 +54,7 @@
               data-bs-toggle="tooltip"
               title="{{ $tt['open_annualized_short'] }}">
             <span class="text-body">gain/y:</span>
-            <span class="text-muted">n/a</span>
+            <span class="text-muted">n/a</span><sup>*</sup>
         </span>
         @elseif ($tt['open_annualized'])
         <span class="badge bg-transparent border {{ $openWin['annualized_gain_eur'] >= 0 ? 'border-success' : 'border-danger' }}"
@@ -66,6 +66,26 @@
             <span class="text-body">(</span>{!! MoneyFormat::get_formatted_gain('%', $openWin['annualized_percentage_gain']) !!}<span class="text-body">)</span>
             @endif
         </span>
+        @endif
+        @if (($symbolPerf['window_count'] ?? 1) === 1)
+        {{-- Money-weighted return (XIRR), shown alongside the CAGR gain/y. For a single window
+             the symbol-level XIRR is exactly this position's, so it is shown on the Current row.
+             Never hidden: under a year it is flagged provisional (*); under 30 days it is n/a. --}}
+        @if (($symbolPerf['xirr_pct'] ?? null) !== null)
+        <span class="badge bg-transparent border {{ $symbolPerf['xirr_pct'] >= 0 ? 'border-success' : 'border-danger' }}"
+              data-bs-toggle="tooltip"
+              title="{{ $tt['open_money'] }}">
+            <span class="text-body">money/y:</span>
+            {!! MoneyFormat::get_formatted_gain('%', $symbolPerf['xirr_pct']) !!}@if($tt['xirr_short'])<sup>*</sup>@endif
+        </span>
+        @else
+        <span class="badge bg-transparent border border-secondary"
+              data-bs-toggle="tooltip"
+              title="{{ $tt['open_money'] }}">
+            <span class="text-body">money/y:</span>
+            <span class="text-muted">n/a</span><sup>*</sup>
+        </span>
+        @endif
         @endif
         <span class="badge bg-secondary"
               data-bs-toggle="tooltip"
@@ -118,7 +138,7 @@
               data-bs-toggle="tooltip"
               title="{{ $tt['overall_annualized_short'] }}">
             <span class="text-body">gain/y:</span>
-            <span class="text-muted">n/a</span>
+            <span class="text-muted">n/a</span><sup>*</sup>
         </span>
         @elseif ($tt['overall_annualized'])
         <span class="badge bg-transparent border {{ $symbolPerf['annualized_gain_eur'] >= 0 ? 'border-success' : 'border-danger' }}"
@@ -130,6 +150,25 @@
             @if ($symbolPerf['annualized_percentage_gain'] !== null)
             <span class="text-body">(</span>{!! MoneyFormat::get_formatted_gain('%', $symbolPerf['annualized_percentage_gain']) !!}<span class="text-body">)</span>
             @endif
+        </span>
+        @endif
+        {{-- Money-weighted return (XIRR) across all windows, next to the time-weighted CAGR gain/y.
+             Never hidden: under a year it is flagged provisional (*); under 30 days it is n/a. --}}
+        @if (($symbolPerf['xirr_pct'] ?? null) !== null)
+        <span class="badge bg-transparent border {{ $symbolPerf['xirr_pct'] >= 0 ? 'border-success' : 'border-danger' }}"
+              style="border-style: dotted !important;"
+              data-bs-toggle="tooltip"
+              title="{{ $tt['overall_money'] }}">
+            <span class="text-body">money/y:</span>
+            {!! MoneyFormat::get_formatted_gain('%', $symbolPerf['xirr_pct']) !!}@if($tt['xirr_short'])<sup>*</sup>@endif
+        </span>
+        @else
+        <span class="badge bg-transparent border border-secondary"
+              style="border-style: dotted !important;"
+              data-bs-toggle="tooltip"
+              title="{{ $tt['overall_money'] }}">
+            <span class="text-body">money/y:</span>
+            <span class="text-muted">n/a</span><sup>*</sup>
         </span>
         @endif
         <span class="badge bg-transparent border border-secondary text-secondary"

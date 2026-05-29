@@ -53,6 +53,30 @@ Frontend assets are built from the main **laravel-admin** project using `yarn in
 ## Testing
 - **Main project tests**: `php artisan test` (run from laravel-admin)
 - **Package tests**: `php vendor/bin/phpunit --testdox` (run from myfinance2)
+- **Unit tests** (this package, `tests/Unit/`) are pure: no DB, no Laravel boot. Test private methods via reflection. Prefer these for anything testable without the database.
+- **Feature/integration tests** live in the **laravel-admin** project at `tests/Packages/MyFinance2/Feature/` (run with `php artisan test`), because they need the Laravel context and database.
+
+### Writing MyFinance2 feature tests
+Feature tests run against the **production database** (no separate test DB; `RefreshDatabase` is intentionally unused). Follow these rules so a test never pollutes real data and never stalls:
+
+1. **Always roll back.** `use DatabaseTransactions;` and transact both connections, since myfinance2 models use a second connection:
+   ```php
+   public function connectionsToTransact(): array
+   {
+       return [null, config('myfinance2.db_connection', 'myfinance2_mysql')];
+   }
+   ```
+2. **Never save a User model.** Saving one triggers virtual attributes (e.g. `theme`) and lock-wait timeouts. Use `actingAs(User::first())` read-only (skip if absent) and `Auth::forgetGuards()` in `tearDown()`. Do not use `User::factory()->create()`.
+3. **Only write synthetic rows.** Use identifiers that cannot exist in production (e.g. symbol `TST.*`). Never insert or update a real row, not even rolled back; the `VUSA.AS` benchmark is read-only.
+4. **`stats_historical` has no `user_id`,** so the base model's `creating` hook fails on it. Insert via the query builder (`DB::connection($conn)->table(...)`), not Eloquent.
+5. **Isolate per-user pipelines** (e.g. `CategorizationService::build($userId)`) so they do not walk a real portfolio. Insert the synthetic trade under an unused id, then call `build()` for it:
+   ```php
+   $userId = (int) DB::connection($conn)->table('trades')->max('user_id') + 1;
+   ```
+   `trades.user_id` has a cross-database FK to the admin `users` table, so wrap the synthetic trade insert in `Schema::connection($conn)->withoutForeignKeyConstraints(fn () => ...)` (session-scoped, rolled back) to accept the unused id without referencing a real user.
+6. **Avoid live network calls.** The test cache driver is `array` (cold every run), so any code falling back to `HistoricalPriceCache` makes a live Yahoo Finance request per uncovered symbol (this is what makes an un-isolated `build()` take ~30s). Seed prices for the synthetic symbol across the date range so `DrawdownService` never hits that path. Assert deterministic values only on the seeded symbol; for benchmark-relative figures (alpha), assert how the value is assembled rather than an exact number, and skip if the benchmark history is missing.
+
+Reference example: `laravel-admin/tests/Packages/MyFinance2/Feature/CategorizationPipelineTest.php` (full pipeline, ~2s, touches no real data).
 
 ## Code Standards
 **General:**

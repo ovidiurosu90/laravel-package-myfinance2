@@ -18,6 +18,7 @@ use ovidiuro\myfinance2\App\Models\Scopes\AssignedToUserScope;
  * - Account overview and charts (FinanceApiCronChartsTrait)
  * - Returns calculation (FinanceApiCronReturnsTrait)
  * - Symbol performance pre-computation (FinanceApiCronSymbolPerformanceTrait)
+ * - Portfolio categorization: tier, quadrant, drawdown (FinanceApiCronCategorizationTrait)
  */
 class FinanceApiCron extends Command
 {
@@ -27,6 +28,7 @@ class FinanceApiCron extends Command
     use FinanceApiCronMoversTrait;
     use FinanceApiCronAlertsTrait;
     use FinanceApiCronSymbolPerformanceTrait;
+    use FinanceApiCronCategorizationTrait;
 
     /**
      * The name and signature of the console command.

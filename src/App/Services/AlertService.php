@@ -48,7 +48,7 @@ class AlertService
         $startTime = microtime(true);
         $maxSeconds = (int) config('alerts.eval_max_seconds', 20);
 
-        $notifiedToday = $this->_getNotifiedTodaySymbols($userId);
+        $notifiedToday = $this->_getNotifiedTodayAlertIds($userId);
 
         $activeAlerts = PriceAlert::withoutGlobalScope(AssignedToUserScope::class)
             ->where('user_id', $userId)
@@ -74,7 +74,7 @@ class AlertService
                 break;
             }
 
-            if (in_array($alert->symbol, $notifiedToday, true)) {
+            if (in_array($alert->id, $notifiedToday, true)) {
                 $stats['skipped']++;
                 continue;
             }
@@ -114,7 +114,7 @@ class AlertService
             if ($this->_isPotentialSplitAnomaly($alert, $currentPrice)) {
                 $sent = $this->_sendSplitWarningEmail($alert, $currentPrice, $userId);
                 if ($sent) {
-                    $notifiedToday[] = $alert->symbol;
+                    $notifiedToday[] = $alert->id;
                 }
                 $stats['skipped']++;
                 continue;
@@ -139,7 +139,7 @@ class AlertService
             if ($sent) {
                 $alert->increment('trigger_count');
                 $alert->update(['last_triggered_at' => now()]);
-                $notifiedToday[] = $alert->symbol;
+                $notifiedToday[] = $alert->id;
                 $stats['triggered']++;
             }
         }
@@ -469,19 +469,22 @@ class AlertService
     }
 
     /**
-     * Get symbols for which the user has already received a notification today.
+     * Get the IDs of price alerts for which the user has already received a
+     * notification today. Throttling is per price alert (not per symbol), so
+     * multiple alerts on the same symbol can each fire once per day.
      *
      * @param int $userId
      *
      * @return array
      */
-    private function _getNotifiedTodaySymbols(int $userId): array
+    private function _getNotifiedTodayAlertIds(int $userId): array
     {
         return PriceAlertNotification::where('user_id', $userId)
             ->where('status', 'SENT')
             ->where('sent_at', '>=', now()->startOfDay())
-            ->pluck('symbol')
+            ->pluck('price_alert_id')
             ->unique()
+            ->map(fn ($id) => (int) $id)
             ->toArray();
     }
 
@@ -548,7 +551,7 @@ class AlertService
 
     /**
      * Send a split-anomaly maintenance warning email.
-     * Creates a notification record so the 1-per-day throttle applies to split warnings too.
+     * Creates a notification record so the 1-per-day-per-alert throttle applies to split warnings too.
      *
      * @param PriceAlert $alert
      * @param float      $currentPrice

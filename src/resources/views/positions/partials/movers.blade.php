@@ -45,6 +45,15 @@
     $hasSummary = !empty($summaryItems);
 @endphp
 
+<style>
+    #biggest-movers-title .fa-chevron-down {
+        transition: transform 0.2s ease;
+        transform: rotate(0deg);
+    }
+    #biggest-movers-title.collapsed .fa-chevron-down {
+        transform: rotate(90deg);
+    }
+</style>
 <div class="card">
     <div class="card-header">
         <div class="d-flex align-items-center gap-3">
@@ -66,10 +75,10 @@
             </div>
             @endif
             <div class="ms-auto flex-shrink-0">
-                <a id="biggest-movers-title" class="btn btn-sm" href="#biggest-movers"
+                <a id="biggest-movers-title" class="btn btn-sm collapsed" href="#biggest-movers"
                     aria-expanded="false" aria-controls="biggest-movers"
                     data-bs-toggle="collapse" title="Expand">
-                    <i class="fa fa-chevron-right pull-right"></i>
+                    <i class="fa fa-chevron-down pull-right"></i>
                 </a>
             </div>
         </div>

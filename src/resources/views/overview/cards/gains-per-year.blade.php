@@ -27,40 +27,25 @@
                         <tr>
                             <th scope="col">Year / Account /
                                 Symbol</th>
-                            <th scope="col" class="text-right"
-                                data-bs-toggle="tooltip"
-                                title="Gains from selling stocks">
-                                Stock gain
+                            <th scope="col" class="text-right">
+                                <span data-bs-toggle="tooltip"
+                                      title="Gains from selling stocks">Stock gain</span>
                             </th>
-                            <th scope="col"
-                                class="text-right table-info"
-                                data-bs-toggle="tooltip"
-                                title="Stock gains converted to EUR
-                                       using the last exchange rate
-                                       of the year">
-                                Stock gain &euro;
+                            <th scope="col" class="text-right table-info">
+                                <span data-bs-toggle="tooltip"
+                                      title="Stock gains converted to EUR using the last exchange rate of the year">Stock gain &euro;</span>
                             </th>
-                            <th scope="col" class="text-right"
-                                data-bs-toggle="tooltip"
-                                title="Total Dividends (after
-                                       deducting fees) in account
-                                       currency">
-                                Dividends
+                            <th scope="col" class="text-right">
+                                <span data-bs-toggle="tooltip"
+                                      title="Total Dividends (after deducting fees) in account currency">Dividends</span>
                             </th>
-                            <th scope="col"
-                                class="text-right table-info"
-                                data-bs-toggle="tooltip"
-                                title="Dividends converted to EUR
-                                       using the last exchange rate
-                                       of the year">
-                                Dividends &euro;
+                            <th scope="col" class="text-right table-info">
+                                <span data-bs-toggle="tooltip"
+                                      title="Dividends converted to EUR using the last exchange rate of the year">Dividends &euro;</span>
                             </th>
-                            <th scope="col"
-                                class="text-right table-warning"
-                                data-bs-toggle="tooltip"
-                                title="Stock gain &euro; + Dividends
-                                       &euro;">
-                                Total gain &euro;
+                            <th scope="col" class="text-right table-warning">
+                                <span data-bs-toggle="tooltip"
+                                      title="Stock gain &euro; + Dividends &euro;">Total gain &euro;</span>
                             </th>
                         </tr>
                     </thead>

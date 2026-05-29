@@ -459,10 +459,20 @@ class FinanceAPI
 
             return empty($validData) ? null : $validData;
         } catch (\Exception $e) {
-            Log::warning(
-                "Couldn't get historical data for symbol $symbol!"
-                . " Exception message: " . $e->getMessage()
-            );
+            $msg = $e->getMessage();
+            // 400 "Data doesn't exist for startDate" is expected for newly listed symbols
+            // (e.g. a spinoff/IPO where the ticker didn't exist for the requested date range).
+            if (str_contains($msg, "Data doesn't exist for startDate")) {
+                Log::info(
+                    "No historical data for $symbol before its listing date"
+                    . " (start: " . $startDate->format('Y-m-d') . ")"
+                );
+            } else {
+                Log::warning(
+                    "Couldn't get historical data for symbol $symbol!"
+                    . " Exception message: " . $msg
+                );
+            }
             return null;
         }
     }

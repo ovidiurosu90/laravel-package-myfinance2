@@ -15,44 +15,29 @@
                     <thead>
                         <tr>
                             <th scope="col">Account</th>
-                            <th scope="col" class="text-right opacity-50"
-                                data-bs-toggle="tooltip"
-                                title="Total Cost in account currency">
-                                Cost
+                            <th scope="col" class="text-right opacity-50">
+                                <span data-bs-toggle="tooltip"
+                                      title="Total Cost in account currency">Cost</span>
                             </th>
-                            <th scope="col"
-                                class="text-right text-nowrap
-                                       table-info"
-                                data-bs-toggle="tooltip"
-                                title="Total Current Market Value
-                                        in account currency">
-                                MValue
+                            <th scope="col" class="text-right text-nowrap table-info">
+                                <span data-bs-toggle="tooltip"
+                                      title="Total Current Market Value in account currency">MValue</span>
                             </th>
-                            <th scope="col" class="text-right opacity-50"
-                                data-bs-toggle="tooltip"
-                                title="Total Overall Gain
-                                        in account currency">
-                                Gain
+                            <th scope="col" class="text-right opacity-50">
+                                <span data-bs-toggle="tooltip"
+                                      title="Total Overall Gain in account currency">Gain</span>
                             </th>
-                            <th scope="col"
-                                class="text-right table-info"
-                                data-bs-toggle="tooltip"
-                                title="Cash balance
-                                        in account currency">
-                                Cash
+                            <th scope="col" class="text-right table-info">
+                                <span data-bs-toggle="tooltip"
+                                      title="Cash balance in account currency">Cash</span>
                             </th>
-                            <th scope="col"
-                                class="text-right"
-                                data-bs-toggle="tooltip"
-                                title="MValue + Cash
-                                        in account currency">
-                                Balance
+                            <th scope="col" class="text-right">
+                                <span data-bs-toggle="tooltip"
+                                      title="MValue + Cash in account currency">Balance</span>
                             </th>
-                            <th scope="col"
-                                class="text-right table-warning"
-                                data-bs-toggle="tooltip"
-                                title="Balance converted to EUR">
-                                Balance &euro;
+                            <th scope="col" class="text-right table-warning">
+                                <span data-bs-toggle="tooltip"
+                                      title="Balance converted to EUR">Balance &euro;</span>
                             </th>
                         </tr>
                     </thead>

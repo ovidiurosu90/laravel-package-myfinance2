@@ -175,6 +175,29 @@ class TechnicalIndicatorsService
         return round(100.0 - (100.0 / (1.0 + ($avgGain / $avgLoss))), 1);
     }
 
+    /**
+     * Pre-warm the analyst data cache for a list of symbols.
+     * Skips symbols already cached. Called from the cron so the first page load is silent.
+     */
+    public function preWarmAnalystCache(array $symbols): void
+    {
+        $toFetch = [];
+        foreach ($symbols as $symbol) {
+            if (Cache::get(self::ANALYST_CACHE_PREFIX . $symbol) === null) {
+                $toFetch[] = $symbol;
+            }
+        }
+
+        if (empty($toFetch)) {
+            return;
+        }
+
+        $fetched = $this->_fetchConcurrent($toFetch);
+        foreach ($fetched as $symbol => $data) {
+            Cache::put(self::ANALYST_CACHE_PREFIX . $symbol, $data, self::ANALYST_CACHE_TTL);
+        }
+    }
+
     private function _fetchAllAnalystData(array $symbols): array
     {
         $results = [];

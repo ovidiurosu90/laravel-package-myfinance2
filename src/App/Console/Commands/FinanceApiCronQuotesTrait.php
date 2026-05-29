@@ -235,7 +235,10 @@ trait FinanceApiCronQuotesTrait
     }
 
     /**
-     * Fetch historical exchange rates for a date range
+     * Fetch historical exchange rates for a date range.
+     * Uses period-based bulk fetching (one API call per currency pair symbol)
+     * rather than iterating day-by-day, which would be prohibitively slow for
+     * multi-year backfills.
      */
     private function _fetchHistoricalExchangeRates(
         FinanceAPI $financeAPI,
@@ -248,34 +251,30 @@ trait FinanceApiCronQuotesTrait
             return null;
         }
 
-        $currencyPairs = $currencyPairsData['pairs'];
         $symbols = $currencyPairsData['symbols'];
-
-        $currentDate = new \DateTime($start);
-        $endDate = new \DateTime($end);
         $numExchangeRateEntries = 0;
 
-        while ($currentDate <= $endDate) {
-            $historicalExchangeRates = $financeAPI
-                ->getHistoricalExchangeRates($currencyPairs, $currentDate);
-
-            if (!empty($historicalExchangeRates)) {
-                // Match historical data with symbols by index
-                foreach ($historicalExchangeRates as $index => $historicalData) {
-                    if (!empty($historicalData) && isset($symbols[$index])) {
-                        $symbol = $symbols[$index];
-                        // Get quote for this exchange rate symbol
-                        $quote = $financeAPI->getQuote($symbol);
-                        if (!empty($quote)
-                            && Stats::persistHistoricalData($quote, $historicalData)
-                        ) {
-                            $numExchangeRateEntries++;
-                        }
-                    }
-                }
+        foreach ($symbols as $symbol) {
+            $quote = $financeAPI->getQuote($symbol);
+            if (empty($quote)) {
+                continue;
             }
 
-            $currentDate->modify('+1 day');
+            $historicalDataArray = $financeAPI->getHistoricalPeriodQuoteData(
+                $quote,
+                new \DateTime($start),
+                new \DateTime($end)
+            );
+
+            if (empty($historicalDataArray)) {
+                continue;
+            }
+
+            foreach ($historicalDataArray as $historicalData) {
+                if (Stats::persistHistoricalData($quote, $historicalData)) {
+                    $numExchangeRateEntries++;
+                }
+            }
         }
 
         return $numExchangeRateEntries;

@@ -158,6 +158,7 @@
                     $timeline[] = [
                         'type' => 'trade',
                         'date' => $trade->timestamp->format('Y-m-d'),
+                        'ts'   => $trade->timestamp,
                         'data' => $trade,
                     ];
                 }
@@ -165,10 +166,13 @@
                     $timeline[] = [
                         'type' => 'split',
                         'date' => $split->split_date->format('Y-m-d'),
+                        'ts'   => $split->split_date,
                         'data' => $split,
                     ];
                 }
-                usort($timeline, fn ($a, $b) => $b['date'] <=> $a['date']);
+                // Sort by the full timestamp (not just the date) so same-day trades keep their true
+                // chronological order, newest first, even though only the date is shown.
+                usort($timeline, fn ($a, $b) => $b['ts'] <=> $a['ts']);
             @endphp
             <table class="trades table table-borderless table-sm mb-0">
             @foreach ($timeline as $event)

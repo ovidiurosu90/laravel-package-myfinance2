@@ -154,7 +154,7 @@
     </div>
     <div class="footer">
         <strong>MyFinance2</strong> — Price Alert #{{ $alert->id }} for {{ $alert->symbol }}<br>
-        This alert will continue to fire (max once per day per symbol) until you pause or delete it.
+        This alert will continue to fire (max once per day per alert) until you pause or delete it.
     </div>
 </div>
 </body>

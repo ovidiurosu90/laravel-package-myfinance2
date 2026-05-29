@@ -2,7 +2,7 @@
     <div class="card-header">
         <div style="display: flex; justify-content: space-between;
                     align-items: center;">
-            <span id="card_title">
+            <span id="card_title" class="fw-semibold">
                 {!! trans('myfinance2::watchlistsymbols.titles.dashboard') !!}
             </span>
             <div class="float-right">
