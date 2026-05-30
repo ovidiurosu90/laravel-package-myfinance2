@@ -377,6 +377,11 @@ class Positions
                 $position['pre_market_day_change_percentage'] =
                     !empty($quote['pre_market_day_change_percentage'])
                     ? $quote['pre_market_day_change_percentage'] : false;
+
+                $position['regular_market_price']          = $quote['regular_market_price'] ?? null;
+                $position['regular_market_timestamp']      = $quote['regular_market_timestamp'] ?? null;
+                $position['regular_market_day_change']     = $quote['regular_market_day_change'] ?? null;
+                $position['regular_market_day_change_pct'] = $quote['regular_market_day_change_pct'] ?? null;
             } else {
                 $position['price'] = $position['unit_price'];
                 $position['price_timestamp'] = new \DateTime();
@@ -402,6 +407,12 @@ class Positions
         $position['quote_timestamp_formatted'] =
             $position['price_timestamp']
                 ->format(trans('myfinance2::general.datetime-format'));
+
+        if (($position['regular_market_timestamp'] ?? null) instanceof \DateTime) {
+            $position['regular_market_timestamp_formatted'] =
+                $position['regular_market_timestamp']
+                    ->format(trans('myfinance2::general.datetime-format'));
+        }
     }
 
     public static function addDayChange(array &$position, array $quote = null, array &$warnedSymbols = [])

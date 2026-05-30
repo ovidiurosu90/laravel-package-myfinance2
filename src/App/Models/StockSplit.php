@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace ovidiuro\myfinance2\App\Models;
 
+use ovidiuro\myfinance2\App\Models\Concerns\InvalidatesSymbolPerformanceCache;
+
 /**
  * Audit log of stock split events recorded by a user.
  * Extends MyFinance2Model for automatic user_id injection and AssignedToUserScope.
@@ -11,6 +13,8 @@ namespace ovidiuro\myfinance2\App\Models;
  */
 class StockSplit extends MyFinance2Model
 {
+    use InvalidatesSymbolPerformanceCache;
+
     /**
      * The attributes that are not mass assignable.
      *

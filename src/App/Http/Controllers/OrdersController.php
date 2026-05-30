@@ -40,19 +40,17 @@ class OrdersController extends MyFinance2Controller
             ->orderBy('timestamp', 'desc')
             ->get();
 
-        $currentPrices   = $this->_buildCurrentPrices($items);
-        $projectedGains  = $this->_buildProjectedGains($items);
-        $quoteTimestamps = $this->_buildQuoteTimestamps($items);
-        $activeAlerts    = $this->_buildActiveAlertsBySymbol($items);
+        $quoteData      = $this->_buildQuoteData($items);
+        $projectedGains = $this->_buildProjectedGains($items);
+        $activeAlerts   = $this->_buildActiveAlertsBySymbol($items);
 
         return view('myfinance2::orders.crud.dashboard', [
-            'items'           => $items,
-            'view'            => $view,
-            'trades'          => $trades,
-            'currentPrices'   => $currentPrices,
-            'projectedGains'  => $projectedGains,
-            'quoteTimestamps' => $quoteTimestamps,
-            'activeAlerts'    => $activeAlerts,
+            'items'          => $items,
+            'view'           => $view,
+            'trades'         => $trades,
+            'quoteData'      => $quoteData,
+            'projectedGains' => $projectedGains,
+            'activeAlerts'   => $activeAlerts,
         ]);
     }
 
@@ -507,25 +505,14 @@ class OrdersController extends MyFinance2Controller
         return $projectedGains;
     }
 
-    private function _buildQuoteTimestamps(\Illuminate\Support\Collection $orders): array
-    {
-        $symbols = $orders->whereIn('status', ['DRAFT', 'PLACED'])
-            ->pluck('symbol')
-            ->unique()
-            ->values()
-            ->toArray();
-
-        return (new FinanceUtils())->buildQuoteTimestamps($symbols);
-    }
-
     /**
-     * Build a map of symbol => current market price for non-terminal orders.
+     * Build a map of symbol => quote tooltip data for non-terminal orders.
      *
      * @param \Illuminate\Support\Collection $orders
      *
-     * @return array symbol => float
+     * @return array symbol => array
      */
-    private function _buildCurrentPrices(\Illuminate\Support\Collection $orders): array
+    private function _buildQuoteData(\Illuminate\Support\Collection $orders): array
     {
         $symbols = $orders->whereIn('status', ['DRAFT', 'PLACED'])
             ->pluck('symbol')
@@ -533,7 +520,7 @@ class OrdersController extends MyFinance2Controller
             ->values()
             ->toArray();
 
-        return (new FinanceUtils())->getPricesBySymbol($symbols);
+        return (new FinanceUtils())->buildQuoteData($symbols);
     }
 
     /**

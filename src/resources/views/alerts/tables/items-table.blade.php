@@ -71,9 +71,9 @@
             @foreach ($items as $item)
             @php
                 $gain         = $projectedGains[$item->id] ?? null;
-                $cp           = $currentPrices[$item->symbol] ?? null;
+                $qd           = $quoteData[$item->symbol] ?? null;
+                $cp           = $qd['price'] ?? null;
                 $currencyCode = $item->tradeCurrencyModel ? $item->tradeCurrencyModel->display_code : '';
-                $qt           = $quoteTimestamps[$item->symbol] ?? null;
             @endphp
             <tr data-symbol="{{ $item->symbol }}" data-alert-type="{{ $item->alert_type }}">
                 <td>
@@ -152,9 +152,20 @@
                             $deltaSign = $delta >= 0 ? '+' : '−';
                         @endphp
                         <div class="text-nowrap">
-                            <span @if($qt) data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips" title="Quote timestamp: {{ $qt }}" @endif>
-                                {!! MoneyFormat::get_formatted_price_display($currencyCode, $cp, true) !!}
-                            </span>
+                            @include('myfinance2::partials.price-tooltip', [
+                                'currency'           => $currencyCode,
+                                'price'              => $qd['price'] ?? null,
+                                'timestamp'          => $qd['quote_timestamp'] ?? null,
+                                'isPreMarket'        => !empty($qd['pre_market_price']),
+                                'isPostMarket'       => !empty($qd['post_market_price']),
+                                'dayChange'          => $qd['day_change'] ?? null,
+                                'dayChangePct'       => $qd['day_change_pct'] ?? null,
+                                'regularPrice'       => $qd['regular_market_price'] ?? null,
+                                'regularTimestamp'   => $qd['regular_market_timestamp'] ?? null,
+                                'regularDayChange'   => $qd['regular_market_day_change'] ?? null,
+                                'regularDayChangePct'=> $qd['regular_market_day_change_pct'] ?? null,
+                                'content'            => MoneyFormat::get_formatted_price_display($currencyCode, $cp, true),
+                            ])
                             → {!! MoneyFormat::get_formatted_price_display($currencyCode, (float) $item->target_price, true) !!}
                         </div>
                         <div class="text-muted small text-nowrap">

@@ -31,12 +31,16 @@ class SymbolPerformanceService
 
     public function handle(int $userId): array
     {
-        // Caching is intentionally disabled while the returns framework (CAGR / XIRR /
-        // same-window benchmark) is being finalised, so formula changes appear on the next
-        // page load without a cache clear. To re-enable, wrap the compute in:
-        //   return Cache::remember(self::CACHE_KEY_PREFIX . $userId, self::CACHE_TTL,
-        //       fn () => $this->_compute($userId));
-        return $this->_compute($userId);
+        // The expensive base computation (windows / CAGR / XIRR / same-window benchmark) is cached;
+        // the dashboard patches the open-window unrealized gains with live quotes afterwards via
+        // applyLivePrices(), which recomputes from immutable base fields and is therefore idempotent
+        // on a cached snapshot. The cron pre-warms this key. NOTE: clear this cache (or run
+        // app:finance-api-cron --refresh-symbol-performance) after changing any returns formula.
+        return Cache::remember(
+            self::CACHE_KEY_PREFIX . $userId,
+            self::CACHE_TTL,
+            fn () => $this->_compute($userId)
+        );
     }
 
     public static function clearCache(int $userId): void

@@ -29,12 +29,15 @@ class DrawdownService
 
     public function handle(int $userId): array
     {
-        // Caching is intentionally disabled while the returns framework (CAGR / XIRR /
-        // same-window benchmark) is being finalised, so changes appear on the next page load
-        // without a cache clear. To re-enable, wrap the compute in:
-        //   return Cache::remember(self::CACHE_KEY_PREFIX . $userId, self::CACHE_TTL,
-        //       fn () => $this->_compute($userId));
-        return $this->_compute($userId);
+        // Drawdown/momentum/exit-zones are pure historical (no live-price dependence), so the 2h
+        // snapshot is safe to cache; it barely moves intraday. CategorizationService reads this and
+        // the cron pre-warms it. NOTE: clear this cache (or run the refresh-symbol-performance cron)
+        // after changing any drawdown/exit-zone formula.
+        return Cache::remember(
+            self::CACHE_KEY_PREFIX . $userId,
+            self::CACHE_TTL,
+            fn () => $this->_compute($userId)
+        );
     }
 
     public static function clearCache(int $userId): void

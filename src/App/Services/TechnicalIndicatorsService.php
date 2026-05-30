@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace ovidiuro\myfinance2\App\Services;
 
+use Carbon\Carbon;
 use GuzzleHttp\Client;
 use GuzzleHttp\Pool;
 use GuzzleHttp\Psr7\Request as GuzzleRequest;
@@ -15,6 +16,15 @@ use ovidiuro\myfinance2\App\Models\StatHistorical;
 class TechnicalIndicatorsService
 {
     private const RSI_PERIOD = 14;
+    // RSI is a daily-close metric, so a per-symbol cache spares the full-history query on every
+    // page load. Wilder's smoothing converges well within a year, so the source query is bounded to
+    // this many days (a year-plus runway) rather than the entire price history.
+    private const RSI_CACHE_PREFIX = 'RSI_';
+    private const RSI_CACHE_TTL    = 21600; // 6 hours
+    private const RSI_LOOKBACK_DAYS = 400;
+    // RSI lives in [0, 100]; this sentinel records "computed but not enough data" so symbols with
+    // thin history are not re-queried on every load.
+    private const RSI_NULL_SENTINEL = -1.0;
     private const ANALYST_CACHE_TTL = 86400; // 24 hours
     private const ANALYST_CACHE_PREFIX = 'ANALYST_TARGET_';
     private const ANALYST_CONCURRENCY = 5;
@@ -119,8 +129,50 @@ class TechnicalIndicatorsService
 
     private function _computeRsiForSymbols(array $symbols): array
     {
+        $rsiBySymbol = [];
+        $missing     = [];
+
+        foreach ($symbols as $symbol) {
+            $cached = Cache::get(self::RSI_CACHE_PREFIX . $symbol);
+            if ($cached === null) {
+                $missing[] = $symbol;
+                continue;
+            }
+            if ($cached !== self::RSI_NULL_SENTINEL) {
+                $rsiBySymbol[$symbol] = $cached;
+            }
+        }
+
+        if (!empty($missing)) {
+            $rsiBySymbol = array_merge($rsiBySymbol, $this->_computeAndCacheRsi($missing));
+        }
+
+        return $rsiBySymbol;
+    }
+
+    /**
+     * Pre-warm the RSI cache for a list of symbols, forcing a recompute so the daily value is
+     * refreshed. Called from the cron alongside the analyst pre-warm so the first page load is
+     * already a cache hit.
+     */
+    public function preWarmRsiCache(array $symbols): void
+    {
+        if (!empty($symbols)) {
+            $this->_computeAndCacheRsi($symbols);
+        }
+    }
+
+    /**
+     * Compute RSI for the given symbols from a bounded slice of history and cache each result
+     * (including the "insufficient data" sentinel), then return the usable values keyed by symbol.
+     */
+    private function _computeAndCacheRsi(array $symbols): array
+    {
+        $cutoff = Carbon::today()->subDays(self::RSI_LOOKBACK_DAYS)->format('Y-m-d');
+
         $rows = StatHistorical::withoutGlobalScope(AssignedToUserScope::class)
             ->whereIn('symbol', $symbols)
+            ->where('date', '>=', $cutoff)
             ->orderBy('date', 'asc')
             ->select(['symbol', 'unit_price'])
             ->get();
@@ -131,8 +183,17 @@ class TechnicalIndicatorsService
         }
 
         $rsiBySymbol = [];
-        foreach ($pricesBySymbol as $symbol => $prices) {
-            $rsi = $this->_computeRsi($prices, self::RSI_PERIOD);
+        foreach ($symbols as $symbol) {
+            $rsi = isset($pricesBySymbol[$symbol])
+                ? $this->_computeRsi($pricesBySymbol[$symbol], self::RSI_PERIOD)
+                : null;
+
+            Cache::put(
+                self::RSI_CACHE_PREFIX . $symbol,
+                $rsi ?? self::RSI_NULL_SENTINEL,
+                self::RSI_CACHE_TTL
+            );
+
             if ($rsi !== null) {
                 $rsiBySymbol[$symbol] = $rsi;
             }

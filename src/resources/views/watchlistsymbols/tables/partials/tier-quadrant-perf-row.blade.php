@@ -27,6 +27,10 @@ $basisLabel   = match($basis) {
 // EUR gain shown on the tier line (matches what decided the tier), built in the BE.
 $gainEur = $quoteData['table_meta']['basis_gain_eur'] ?? null;
 
+// Per-period "P&L if sold at this window's peak" (EUR + %), built in the BE (PeakExitPnlBuilder).
+// Owned symbols only; null per period when there is no held position or no window peak.
+$peakPnlMap = $quoteData['table_meta']['period_peak_pnl'] ?? [];
+
 // Portfolio mvalue from health score lookup (built in items-table.blade.php)
 $hsRow      = ($healthSymbolIndex ?? [])[$symbol] ?? null;
 $mvalueEur  = $hsRow['mvalue_eur'] ?? null;
@@ -167,7 +171,7 @@ $actionColors = [
     <div class="d-flex flex-wrap gap-1 align-items-start mt-1">
         <div class="text-muted">
             <span data-bs-toggle="tooltip"
-                title="Market return only; your holdings don't affect this section.">Quadrant:</span>
+                title="Market return per period; your holdings only affect the 'P&L at peak' column.">Quadrant:</span>
         </div>
         @if(!empty($periods))
         <table class="table table-sm table-borderless mb-0 ms-1 opacity-50" style="width:auto;">
@@ -181,6 +185,8 @@ $actionColors = [
                     <th class="text-end">Risk</th>
                     <th>Action</th>
                     <th class="text-end">From peak</th>
+                    <th class="text-end"><span data-bs-toggle="tooltip"
+                        title="P&L on your held shares if sold at this window's peak price, versus your purchase cost. The 3M figure is your realistic near-term ceiling.">P&amp;L at peak</span></th>
                 </tr>
             </thead>
             <tbody>
@@ -192,6 +198,7 @@ $actionColors = [
                     : ($pdRisk > 3.0 ? 'text-danger' : ($pdRisk > 2.0 ? 'text-warning' : 'text-success'));
                 $pdAction = $pd['action'] ?? null;
                 $pdEz     = $pd['exit_zone'] ?? null;
+                $pdPnl    = $peakPnlMap[$pKey] ?? null;
                 $pdTier   = ($pd && ($pd['gain'] ?? null) !== null)
                     ? $tierCalc->getTier($pd['gain']) : null;
                 $pdTierStyle = $pdTier === TierCalculationService::BRONZE
@@ -268,6 +275,20 @@ $actionColors = [
                                 {!! MoneyFormat::get_formatted_gain('%', $pdEz['proximity_pct']) !!}
                             </span>
                         @endif
+                    @else
+                        <span class="text-muted small">-</span>
+                    @endif
+                </td>
+                <td class="text-end ps-3">
+                    @if($pdPnl !== null)
+                        <span @if($pdEz !== null) data-bs-toggle="tooltip"
+                              title="If sold at the {{ $pLabel }} peak
+({{ $pdEz['peak_price_date'] ?? 'n/a' }}), versus your purchase cost."@endif>
+                            {!! MoneyFormat::get_formatted_gain('&euro;', $pdPnl['eur']) !!}
+                            @if($pdPnl['pct'] !== null)
+                                <span class="text-muted">(</span>{!! MoneyFormat::get_formatted_gain('%', $pdPnl['pct']) !!}<span class="text-muted">)</span>
+                            @endif
+                        </span>
                     @else
                         <span class="text-muted small">-</span>
                     @endif

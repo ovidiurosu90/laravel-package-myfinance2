@@ -345,13 +345,19 @@ class FinanceUtils
             */
             self::fixTimezone($quote, $quoteTimestamp);
 
-            $quotesArray[$quote->getSymbol()] = [
-                'price'                 => $quote->getRegularMarketPrice(),
-                'currency'              => $currency,
-                'name'                  => $quote->getLongName(),
-                'quote_timestamp'       => $quoteTimestamp,
-                'day_change'            => $quote->getRegularMarketChange(),
-                'day_change_percentage' => $quote->getRegularMarketChangePercent(),
+            $sym = $quote->getSymbol();
+            $quotesArray[$sym] = [
+                'price'                    => $quote->getRegularMarketPrice(),
+                'currency'                 => $currency,
+                'name'                     => $quote->getLongName(),
+                'quote_timestamp'          => $quoteTimestamp,
+                'day_change'               => $quote->getRegularMarketChange(),
+                'day_change_percentage'    => $quote->getRegularMarketChangePercent(),
+
+                'regular_market_price'              => $quote->getRegularMarketPrice(),
+                'regular_market_timestamp'         => clone $quoteTimestamp,
+                'regular_market_day_change'        => $quote->getRegularMarketChange(),
+                'regular_market_day_change_pct'    => $quote->getRegularMarketChangePercent(),
 
                 'fiftyTwoWeekHigh'              => $quote->getFiftyTwoWeekHigh(),
                 'fiftyTwoWeekHighChangePercent' =>
@@ -368,46 +374,42 @@ class FinanceUtils
             ];
 
             if (!empty($quote->getPostMarketPrice())) {
-                $quotesArray[$quote->getSymbol()]['price'] =
-                    $quote->getPostMarketPrice();
-                $quotesArray[$quote->getSymbol()]['quote_timestamp'] =
-                    $quote->getPostMarketTime();
-                $quotesArray[$quote->getSymbol()]['post_market_price'] = true;
-                self::fixTimezone($quote,
-                    $quotesArray[$quote->getSymbol()]['quote_timestamp']);
+                $postMarketTs = $quote->getPostMarketTime();
+                if ($postMarketTs instanceof \DateTime) {
+                    self::fixTimezone($quote, $postMarketTs);
+                }
+                $quotesArray[$sym]['price']                 = $quote->getPostMarketPrice();
+                $quotesArray[$sym]['quote_timestamp']        = $postMarketTs;
+                $quotesArray[$sym]['post_market_price']      = $quote->getPostMarketPrice();
+                $quotesArray[$sym]['post_market_timestamp']  = $postMarketTs;
             }
             if (!empty($quote->getPreMarketPrice())) {
-                $quotesArray[$quote->getSymbol()]['price'] =
-                    $quote->getPreMarketPrice();
-                $quotesArray[$quote->getSymbol()]['quote_timestamp'] =
-                    $quote->getPreMarketTime();
-                $quotesArray[$quote->getSymbol()]['pre_market_price'] = true;
-                self::fixTimezone($quote,
-                    $quotesArray[$quote->getSymbol()]['quote_timestamp']);
+                $preMarketTs = $quote->getPreMarketTime();
+                if ($preMarketTs instanceof \DateTime) {
+                    self::fixTimezone($quote, $preMarketTs);
+                }
+                $quotesArray[$sym]['price']                = $quote->getPreMarketPrice();
+                $quotesArray[$sym]['quote_timestamp']       = $preMarketTs;
+                $quotesArray[$sym]['pre_market_price']      = $quote->getPreMarketPrice();
+                $quotesArray[$sym]['pre_market_timestamp']  = $preMarketTs;
             }
 
             if (!empty($quote->getPostMarketChange())) {
-                $quotesArray[$quote->getSymbol()]['day_change'] =
-                    $quote->getPostMarketChange();
-                $quotesArray[$quote->getSymbol()]['post_market_day_change'] = true;
+                $quotesArray[$sym]['day_change']           = $quote->getPostMarketChange();
+                $quotesArray[$sym]['post_market_day_change'] = true;
             }
             if (!empty($quote->getPreMarketChange())) {
-                $quotesArray[$quote->getSymbol()]['day_change'] =
-                    $quote->getPreMarketChange();
-                $quotesArray[$quote->getSymbol()]['pre_market_day_change'] = true;
+                $quotesArray[$sym]['day_change']          = $quote->getPreMarketChange();
+                $quotesArray[$sym]['pre_market_day_change'] = true;
             }
 
             if (!empty($quote->getPostMarketChangePercent())) {
-                $quotesArray[$quote->getSymbol()]['day_change_percentage'] =
-                    $quote->getPostMarketChangePercent();
-                $quotesArray[$quote->getSymbol()][
-                    'post_market_day_change_percentage'] = true;
+                $quotesArray[$sym]['day_change_percentage']          = $quote->getPostMarketChangePercent();
+                $quotesArray[$sym]['post_market_day_change_percentage'] = true;
             }
             if (!empty($quote->getPreMarketChangePercent())) {
-                $quotesArray[$quote->getSymbol()]['day_change_percentage'] =
-                    $quote->getPreMarketChangePercent();
-                $quotesArray[$quote->getSymbol()][
-                    'pre_market_day_change_percentage'] = true;
+                $quotesArray[$sym]['day_change_percentage']         = $quote->getPreMarketChangePercent();
+                $quotesArray[$sym]['pre_market_day_change_percentage'] = true;
             }
 
             //NOTE If we provide a date, we overwrite the price and quote timestamp
@@ -546,6 +548,69 @@ class FinanceUtils
         }
 
         return $timestamps;
+    }
+
+    /**
+     * Fetch structured quote tooltip data for the given symbols (single API call).
+     * Returns a map of symbol => array with price, timestamps, and pre/post market info.
+     * Used to build rich price tooltips in views.
+     *
+     * @param string[] $symbols
+     *
+     * @return array<string, array>
+     */
+    public function buildQuoteData(array $symbols): array
+    {
+        if (empty($symbols)) {
+            return [];
+        }
+
+        $quotes = $this->getQuotes($symbols, null, false);
+
+        if (!is_array($quotes)) {
+            return [];
+        }
+
+        $fmt    = trans('myfinance2::general.datetime-format');
+        $result = [];
+        foreach ($symbols as $symbol) {
+            $q = $quotes[$symbol] ?? null;
+            if (empty($q)) {
+                continue;
+            }
+
+            $entry = [
+                'price'                         => $q['price'] ?? null,
+                'day_change'                    => $q['day_change'] ?? null,
+                'day_change_pct'                => $q['day_change_percentage'] ?? null,
+                'quote_timestamp'               => null,
+                'regular_market_price'          => $q['regular_market_price'] ?? null,
+                'regular_market_day_change'     => $q['regular_market_day_change'] ?? null,
+                'regular_market_day_change_pct' => $q['regular_market_day_change_pct'] ?? null,
+                'regular_market_timestamp'      => null,
+                'pre_market_price'              => $q['pre_market_price'] ?? null,
+                'pre_market_timestamp'          => null,
+                'post_market_price'             => $q['post_market_price'] ?? null,
+                'post_market_timestamp'         => null,
+            ];
+
+            if (($q['quote_timestamp'] ?? null) instanceof \DateTime) {
+                $entry['quote_timestamp'] = $q['quote_timestamp']->format($fmt);
+            }
+            if (($q['regular_market_timestamp'] ?? null) instanceof \DateTime) {
+                $entry['regular_market_timestamp'] = $q['regular_market_timestamp']->format($fmt);
+            }
+            if (($q['pre_market_timestamp'] ?? null) instanceof \DateTime) {
+                $entry['pre_market_timestamp'] = $q['pre_market_timestamp']->format($fmt);
+            }
+            if (($q['post_market_timestamp'] ?? null) instanceof \DateTime) {
+                $entry['post_market_timestamp'] = $q['post_market_timestamp']->format($fmt);
+            }
+
+            $result[$symbol] = $entry;
+        }
+
+        return $result;
     }
 
     /**

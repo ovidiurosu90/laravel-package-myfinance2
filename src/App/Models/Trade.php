@@ -3,6 +3,7 @@
 namespace ovidiuro\myfinance2\App\Models;
 
 use ovidiuro\myfinance2\App\Models\Order;
+use ovidiuro\myfinance2\App\Models\Concerns\InvalidatesSymbolPerformanceCache;
 use ovidiuro\myfinance2\App\Services\MoneyFormat;
 use ovidiuro\myfinance2\App\Services\FinanceAPI;
 
@@ -11,6 +12,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Trade extends MyFinance2Model
 {
+    use InvalidatesSymbolPerformanceCache;
+
     /**
      * The attributes that are not mass assignable.
      *

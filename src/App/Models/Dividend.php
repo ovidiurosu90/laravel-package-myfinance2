@@ -2,12 +2,15 @@
 
 namespace ovidiuro\myfinance2\App\Models;
 
+use ovidiuro\myfinance2\App\Models\Concerns\InvalidatesSymbolPerformanceCache;
 use ovidiuro\myfinance2\App\Services\MoneyFormat;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Dividend extends MyFinance2Model
 {
+    use InvalidatesSymbolPerformanceCache;
+
     /**
      * The attributes that are not mass assignable.
      *

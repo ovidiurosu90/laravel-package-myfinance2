@@ -41,17 +41,15 @@ class PriceAlertController extends MyFinance2Controller
 
         $projectedGains      = $this->_buildProjectedGains($items);
         $recentNotifications = $this->_buildRecentNotifications($items);
-        $currentPrices       = $this->_buildCurrentPrices($items);
-        $quoteTimestamps     = $this->_buildQuoteTimestamps($items);
-        $accountNames        = $this->_buildAccountNames($items);
+        $quoteData    = $this->_buildQuoteData($items);
+        $accountNames = $this->_buildAccountNames($items);
 
         return view('myfinance2::alerts.crud.dashboard', [
             'items'               => $items,
             'view'                => $view,
             'projectedGains'      => $projectedGains,
             'recentNotifications' => $recentNotifications,
-            'currentPrices'       => $currentPrices,
-            'quoteTimestamps'     => $quoteTimestamps,
+            'quoteData'           => $quoteData,
             'accountNames'        => $accountNames,
         ]);
     }
@@ -416,25 +414,18 @@ class PriceAlertController extends MyFinance2Controller
     }
 
     /**
-     * Fetch current market prices for all alert symbols (keyed by symbol).
-     * Uses the FinanceAPI 2-min cache so this is cheap when cron has already warmed it.
+     * Fetch structured quote tooltip data (price, timestamps, pre/post market info) for all alert
+     * symbols. Uses the FinanceAPI 2-min cache so this is cheap when cron has already warmed it.
      *
-     * @param \Illuminate\Database\Eloquent\Collection $alerts
+     * @param \Illuminate\Support\Collection $alerts
      *
-     * @return array symbol => float
+     * @return array symbol => array
      */
-    private function _buildCurrentPrices(\Illuminate\Support\Collection $alerts): array
+    private function _buildQuoteData(\Illuminate\Support\Collection $alerts): array
     {
         $symbols = $alerts->pluck('symbol')->unique()->values()->toArray();
 
-        return (new FinanceUtils())->getPricesBySymbol($symbols);
-    }
-
-    private function _buildQuoteTimestamps(\Illuminate\Support\Collection $alerts): array
-    {
-        $symbols = $alerts->pluck('symbol')->unique()->values()->toArray();
-
-        return (new FinanceUtils())->buildQuoteTimestamps($symbols);
+        return (new FinanceUtils())->buildQuoteData($symbols);
     }
 
     /**

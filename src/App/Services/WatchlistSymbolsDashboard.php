@@ -13,6 +13,7 @@ use ovidiuro\myfinance2\App\Services\CategorizationService;
 use ovidiuro\myfinance2\App\Services\PortfolioHealthScore;
 use ovidiuro\myfinance2\App\Services\QuadrantChartBuilder;
 use ovidiuro\myfinance2\App\Services\WatchlistTableMetaBuilder;
+use ovidiuro\myfinance2\App\Services\PeakExitPnlBuilder;
 use ovidiuro\myfinance2\App\Services\Positions;
 use ovidiuro\myfinance2\App\Services\SymbolPerformanceService;
 use ovidiuro\myfinance2\App\Services\TechnicalIndicatorsService;
@@ -133,6 +134,9 @@ class WatchlistSymbolsDashboard
         );
         $items = (new TechnicalIndicatorsService())->attachIndicators($items);
         $items = (new WatchlistTableMetaBuilder())->attach($items);
+        // Adds the per-period "P&L if sold at this window's peak" to each owned symbol's table_meta;
+        // runs after categorization (needs the per-period peak) and table_meta (extends its array).
+        $items = (new PeakExitPnlBuilder())->attach($items, $liveEurRates);
         $quadrant = (new QuadrantChartBuilder())->build($items);
 
         return ['items' => $items, 'health_score' => $healthScore, 'quadrant' => $quadrant];

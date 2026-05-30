@@ -69,11 +69,20 @@
                     @endif
                 </td>
                 <td class="text-right text-nowrap no-sort no-search">
-                    <span data-bs-toggle="tooltip"
-                          data-bs-custom-class="big-tooltips"
-                          title="Quote timestamp: {{ $item['quote_timestamp_formatted'] }}">
-                        {!! $item['current_unit_price_in_trade_currency_formatted'] !!}
-                    </span><br>
+                    @include('myfinance2::partials.price-tooltip', [
+                        'currency'           => $item['tradeCurrencyModel']->display_code,
+                        'price'              => $item['price'] ?? null,
+                        'timestamp'          => $item['quote_timestamp_formatted'],
+                        'isPreMarket'        => !empty($item['pre_market_price']),
+                        'isPostMarket'       => !empty($item['post_market_price']),
+                        'dayChange'          => $item['day_change'] ?? null,
+                        'dayChangePct'       => $item['day_change_percentage'] ?? null,
+                        'regularPrice'       => $item['regular_market_price'] ?? null,
+                        'regularTimestamp'   => $item['regular_market_timestamp_formatted'] ?? null,
+                        'regularDayChange'   => $item['regular_market_day_change'] ?? null,
+                        'regularDayChangePct'=> $item['regular_market_day_change_pct'] ?? null,
+                        'content'            => $item['current_unit_price_in_trade_currency_formatted'],
+                    ])<br>
                     <div class="chart-symbol"
                         data-account_id="{{ $accountId }}"
                         data-symbol="{{ $item['symbol'] }}"
@@ -99,11 +108,20 @@
                     </div>
                 </td>
                 <td class="text-right text-nowrap">
-                    <span data-bs-toggle="tooltip"
-                          data-bs-custom-class="big-tooltips"
-                          title="Quote timestamp: {{ $item['quote_timestamp_formatted'] }}">
-                        {!! $item['market_value_in_account_currency_formatted'] !!}
-                    </span>
+                    @include('myfinance2::partials.price-tooltip', [
+                        'currency'           => $item['tradeCurrencyModel']->display_code,
+                        'price'              => $item['price'] ?? null,
+                        'timestamp'          => $item['quote_timestamp_formatted'],
+                        'isPreMarket'        => !empty($item['pre_market_price']),
+                        'isPostMarket'       => !empty($item['post_market_price']),
+                        'dayChange'          => $item['day_change'] ?? null,
+                        'dayChangePct'       => $item['day_change_percentage'] ?? null,
+                        'regularPrice'       => $item['regular_market_price'] ?? null,
+                        'regularTimestamp'   => $item['regular_market_timestamp_formatted'] ?? null,
+                        'regularDayChange'   => $item['regular_market_day_change'] ?? null,
+                        'regularDayChangePct'=> $item['regular_market_day_change_pct'] ?? null,
+                        'content'            => $item['market_value_in_account_currency_formatted'],
+                    ])
                 </td>
                 <td class="text-right text-nowrap">
                     @if($item['cost2_in_account_currency_formatted'])

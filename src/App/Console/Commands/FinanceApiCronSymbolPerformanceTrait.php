@@ -74,7 +74,11 @@ trait FinanceApiCronSymbolPerformanceTrait
             return !FinanceAPI::isSkippedSymbol($symbol);
         }));
 
-        (new TechnicalIndicatorsService())->preWarmAnalystCache($symbols);
+        $indicators = new TechnicalIndicatorsService();
+        $indicators->preWarmAnalystCache($symbols);
+        // RSI is a daily-close metric; warming it here keeps the watchlist page off the
+        // full-history recompute on the first load after the cache expires.
+        $indicators->preWarmRsiCache($symbols);
 
         Log::info('END _refreshAnalystCache() => ' . count($symbols) . ' symbols processed');
     }
