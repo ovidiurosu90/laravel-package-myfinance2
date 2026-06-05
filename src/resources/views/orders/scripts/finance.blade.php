@@ -3,15 +3,17 @@ $(document).ready(function()
 {
     @include('myfinance2::general.scripts.partials.finance-utils')
 
-    var $symbolInput      = $('#symbol-input');
-    var $limitPriceInput  = $('#limit_price');
-    var $quantityInput    = $('#quantity-input');
-    var $descriptionInput = $('#description');
-    var $orderBanner      = $('#order-summary-banner');
+    var $symbolInput        = $('#symbol-input');
+    var $limitPriceInput    = $('#limit_price');
+    var $fetchedLimitPrice  = $('#fetched-limit-price');
+    var $quantityInput      = $('#quantity-input');
+    var $descriptionInput   = $('#description');
+    var $orderBanner        = $('#order-summary-banner');
 
     var fetchedSuggestion   = null;
     var lastAutoDescription = null;
     var fetchCounter        = 0;
+    var urlParamsPrefilled  = $limitPriceInput.val() !== '';
 
     var applySmartPrefill = function(symbol)
     {
@@ -35,7 +37,14 @@ $(document).ready(function()
                     actionSelectize.setValue(s.action);
                 }
 
-                $limitPriceInput.val(s.limit_price);
+                $fetchedLimitPrice.find('span')
+                    .text(data.price)
+                    .attr('data-bs-original-title', data.quote_timestamp)
+                    .end().show();
+
+                if (!urlParamsPrefilled) {
+                    $limitPriceInput.val(s.limit_price);
+                }
 
                 if (s.suggested_qty !== null && !$quantityInput.val()) {
                     $quantityInput.val(s.suggested_qty);

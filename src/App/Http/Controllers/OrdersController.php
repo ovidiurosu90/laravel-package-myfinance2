@@ -200,13 +200,22 @@ class OrdersController extends MyFinance2Controller
                     ['id' => $id, 'status' => $item->status]));
         }
 
+        $oldLimitPrice = $item->limit_price;
+        $oldAction     = $item->action;
+        $oldSymbol     = $item->symbol;
+
         $data = $request->fillData($id);
         $item->fill($data);
         $item->save();
 
-        return redirect()->route('myfinance2::orders.index')->with('success',
-            trans('myfinance2::general.flash-messages.item-updated',
-                ['type' => 'Order', 'id' => $item->id]));
+        $alertUpdated = $this->_syncOrderAlert($item, $oldAction, $oldSymbol, $oldLimitPrice, $data['limit_price']);
+
+        $message = trans('myfinance2::general.flash-messages.item-updated', ['type' => 'Order', 'id' => $item->id]);
+        if ($alertUpdated) {
+            $message .= '. The linked price alert was also updated.';
+        }
+
+        return redirect()->route('myfinance2::orders.index')->with('success', $message);
     }
 
     /**
@@ -295,7 +304,6 @@ class OrdersController extends MyFinance2Controller
                 'timestamp'         => $item->filled_at
                                         ? $item->filled_at->format('Y-m-d H:i:s')
                                         : now()->format('Y-m-d H:i:s'),
-                'description'       => $item->description,
                 'order_id'          => $item->id,
             ]);
 
@@ -705,6 +713,68 @@ class OrdersController extends MyFinance2Controller
             'notification_channel' => 'email',
             'expires_at'           => now()->addDays(5),
         ]);
+
+        return true;
+    }
+
+    /**
+     * Resync the auto-created order alert when the order's price, action, or symbol changes.
+     * Matches the alert by its original symbol, original alert_type (derived from the old action),
+     * ACTIVE status, source='order', a non-expired expiry, and target_price equal to the old limit
+     * price, then mirrors the edited order onto it (price, type, symbol, trade currency).
+     *
+     * @param Order  $item
+     * @param string $oldAction
+     * @param string $oldSymbol
+     * @param mixed  $oldLimitPrice
+     * @param mixed  $newLimitPrice
+     *
+     * @return bool True if an alert was updated.
+     */
+    private function _syncOrderAlert(
+        Order $item,
+        string $oldAction,
+        string $oldSymbol,
+        mixed $oldLimitPrice,
+        mixed $newLimitPrice
+    ): bool
+    {
+        if (!$oldLimitPrice) {
+            return false;
+        }
+
+        $oldAlertType = $oldAction === 'BUY' ? 'PRICE_BELOW' : 'PRICE_ABOVE';
+
+        $alert = PriceAlert::where('symbol', $oldSymbol)
+            ->where('alert_type', $oldAlertType)
+            ->where('status', 'ACTIVE')
+            ->where('source', 'order')
+            ->whereNotNull('expires_at')
+            ->where('expires_at', '>', now())
+            ->where('target_price', $oldLimitPrice)
+            ->first();
+
+        if (!$alert) {
+            return false;
+        }
+
+        $newAlertType  = $item->action === 'BUY' ? 'PRICE_BELOW' : 'PRICE_ABOVE';
+        $priceChanged  = $newLimitPrice
+            && bccomp((string) $oldLimitPrice, (string) $newLimitPrice, 4) !== 0;
+        $typeChanged   = $oldAlertType !== $newAlertType;
+        $symbolChanged = $oldSymbol !== $item->symbol;
+
+        if (!$priceChanged && !$typeChanged && !$symbolChanged) {
+            return false;
+        }
+
+        if ($priceChanged) {
+            $alert->target_price = $newLimitPrice;
+        }
+        $alert->alert_type        = $newAlertType;
+        $alert->symbol            = $item->symbol;
+        $alert->trade_currency_id = $item->trade_currency_id;
+        $alert->save();
 
         return true;
     }

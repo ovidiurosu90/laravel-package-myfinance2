@@ -3,12 +3,22 @@ $(document).ready(function()
 {
     @include('myfinance2::general.scripts.partials.finance-utils')
 
-    var $symbolInput      = $('#symbol-input');
-    var $targetPriceInput = $('#target_price');
-    var $notesTextarea    = $('#notes');
+    var $symbolInput        = $('#symbol-input');
+    var $targetPriceInput   = $('#target_price');
+    var $fetchedTargetPrice = $('#fetched-target-price');
+    var $notesTextarea      = $('#notes');
 
-    var lastAutoNotes = null;
-    var fetchCounter  = 0;
+    var lastAutoNotes      = null;
+    var fetchCounter       = 0;
+    var urlParamsPrefilled = $targetPriceInput.val() !== '';
+
+    var showFetchedCurrentPrice = function(data)
+    {
+        $fetchedTargetPrice.find('span')
+            .text(data.price)
+            .attr('data-bs-original-title', data.quote_timestamp)
+            .end().show();
+    };
 
     var applySmartPrefill = function(symbol)
     {
@@ -30,9 +40,21 @@ $(document).ready(function()
                     );
                 }
 
-                $targetPriceInput.val(s.limit_price);
+                if (urlParamsPrefilled) {
+                    showFetchedCurrentPrice(data);
+                } else {
+                    $targetPriceInput.val(s.limit_price);
+                    setFetchedTradeCurrency(data);
 
-                setFetchedTradeCurrency(data);
+                    // The suggestion bumps the target above the current price
+                    // (the +X% recommendation); surface the current price next to
+                    // the label so the markup is clearly a recommendation.
+                    if (parseFloat(s.limit_price) > parseFloat(data.price)) {
+                        showFetchedCurrentPrice(data);
+                    } else {
+                        $fetchedTargetPrice.hide();
+                    }
+                }
 
                 var currentTargetPrice = parseFloat($targetPriceInput.val());
                 if (!isNaN(currentTargetPrice) && fetchedHigh && fetchedLow) {

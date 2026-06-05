@@ -1,10 +1,14 @@
 <div class="mb-3 has-feedback row {{ $errors->has('limit_price') ? 'has-error' : '' }}">
-    <label for="limit_price" class="col-12 control-label">
+    <label for="limit_price" class="col-7 control-label">
         {{ trans('myfinance2::orders.forms.item-form.limit_price.label') }}
         <span data-bs-toggle="tooltip" title="Trade Currency">
             {!! !empty($tradeCurrencyModel) ? $tradeCurrencyModel->display_code : '' !!}
         </span>
     </label>
+    <div class="col-5 p-0 m-0 pt-1 pr-3 text-muted text-right small"
+        id="fetched-limit-price" style="display: none">
+        <span style="cursor: pointer" data-bs-toggle="tooltip" title=""></span>
+    </div>
     <div class="col-12">
         <input type="number" step=".0001" id="limit_price" name="limit_price"
             class="form-control"

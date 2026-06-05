@@ -14,8 +14,25 @@ $(document).ready(function()
     var $unitPriceInput       = $('#unit_price');
     var $descriptionInput     = $('#description');
 
+    var fetchedSuggestion   = null;
     var lastAutoDescription = null;
     var fetchCounter        = 0;
+    var urlParamsPrefilled  = $unitPriceInput.val() !== '';
+
+    var applyAutoDescription = function(unitPrice)
+    {
+        if (isNaN(unitPrice) || !fetchedHigh || !fetchedLow) return;
+
+        var noteText = buildNoteText(unitPrice, fetchedPrice,
+            fetchedHigh, fetchedLow, fetchedCurrencySymbol);
+        if (!noteText) return;
+
+        if (fetchedSuggestion && fetchedSuggestion.weak_signal) {
+            noteText = 'weak signal; ' + noteText;
+        }
+        $descriptionInput.val(noteText);
+        lastAutoDescription = noteText;
+    };
 
     $isListedButton.click(function()
     {
@@ -49,6 +66,7 @@ $(document).ready(function()
                 $getFinanceData.addClass('text-success').removeClass('text-danger')
                     .attr('data-bs-original-title', 'Get Finance Data');
 
+                fetchedSuggestion = data.suggestion;
                 storeFetchedData(data);
 
                 $fetchedTradeCurrency.find('span').text(data.currency).end().show();
@@ -57,19 +75,19 @@ $(document).ready(function()
                 $fetchedUnitPrice.find('span').text(data.price)
                     .attr('data-bs-original-title', data.quote_timestamp).end().show();
 
-                $unitPriceInput.val(data.price);
+                if (!urlParamsPrefilled) {
+                    $unitPriceInput.val(data.price);
+                }
 
-                var currentUnitPrice  = parseFloat($unitPriceInput.val());
-                var prevAutoDesc      = lastAutoDescription;
-                var descIsAuto        = !$descriptionInput.val()
-                    || $descriptionInput.val() === prevAutoDesc;
-                if (descIsAuto && !isNaN(currentUnitPrice) && fetchedHigh && fetchedLow) {
-                    var noteText = buildNoteText(currentUnitPrice, fetchedPrice,
-                        fetchedHigh, fetchedLow, fetchedCurrencySymbol);
-                    if (noteText) {
-                        $descriptionInput.val(noteText);
-                        lastAutoDescription = noteText;
-                    }
+                var descIsAuto = !$descriptionInput.val()
+                    || $descriptionInput.val() === lastAutoDescription;
+                if (descIsAuto) {
+                    // Empty (e.g. order-to-trade conversion, which prefills the unit
+                    // price but no description) or still the previous auto-note:
+                    // regenerate from the current unit price input.
+                    applyAutoDescription(parseFloat($unitPriceInput.val()));
+                } else {
+                    lastAutoDescription = $descriptionInput.val() || null;
                 }
 
                 window.handleAvailableQuantity(data.available_quantity);
@@ -100,6 +118,12 @@ $(document).ready(function()
         var noteText = buildNoteText(unitPrice, fetchedPrice,
             fetchedHigh, fetchedLow, fetchedCurrencySymbol);
         if (!noteText) return;
+
+        var weakSignal = (fetchedSuggestion && fetchedSuggestion.weak_signal)
+            || (lastAutoDescription !== null && lastAutoDescription.startsWith('weak signal; '));
+        if (weakSignal) {
+            noteText = 'weak signal; ' + noteText;
+        }
 
         if ($descriptionInput.val() === lastAutoDescription || !$descriptionInput.val()) {
             $descriptionInput.val(noteText);
