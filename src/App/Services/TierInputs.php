@@ -19,7 +19,18 @@ final class TierInputs
         public readonly ?float $annualizedReturnPct,
         public readonly ?float $rawReturnPct,
         public readonly int    $holdingDays,
-        public readonly ?float $marketMomentumPct
+        public readonly ?float $marketMomentumPct,
+        // The remaining fields drive ONLY the staleness warning, never the tier basis. The tier
+        // stays on the lifetime return above; these just let the classifier flag when that headline
+        // figure no longer reflects the holding you currently have.
+        //
+        // Lifetime overall return (realized + unrealized + dividends across all windows).
+        public readonly ?float $overallRawReturnPct = null,
+        // The current open window's own raw return, for an owned symbol.
+        public readonly ?float $currentWindowRawReturnPct = null,
+        // Number of earlier CLOSED windows for an owned symbol, i.e. how many times the position
+        // was fully exited before the current holding. >= 1 means this is a re-entry.
+        public readonly int    $priorClosedWindows = 0
     )
     {
     }
@@ -45,10 +56,10 @@ final class TierInputs
 
         $hasData = !empty($perf['has_data']);
 
-        // Both return figures are the overall position return across every buy/sell
-        // window (realized + unrealized + dividends), so the tier always reflects the
-        // lifetime performance, not just the latest open lot. annualized is only emitted
-        // by SymbolPerformanceService once total holding time reaches a year.
+        // Both return figures are the overall position return across every buy/sell window
+        // (realized + unrealized + dividends), so the tier always reflects the lifetime
+        // performance, not just the latest open lot. annualized is only emitted by
+        // SymbolPerformanceService once total holding time reaches a year.
         $annualized = $hasData && isset($perf['annualized_percentage_gain'])
             && $perf['annualized_percentage_gain'] !== null
             ? (float) $perf['annualized_percentage_gain']
@@ -59,10 +70,44 @@ final class TierInputs
 
         if ($annualized !== null || $raw !== null)
         {
-            $totalDays = (int) ($perf['total_days'] ?? 0);
-            $isOwned   = (bool) array_filter($perf['windows'] ?? [], fn ($w) => !empty($w['is_open']));
+            $windows     = $perf['windows'] ?? [];
+            $totalDays   = (int) ($perf['total_days'] ?? 0);
+            $isOwned     = (bool) array_filter($windows, fn ($w) => !empty($w['is_open']));
+            $closedCount = count(array_filter($windows, fn ($w) => empty($w['is_open'])));
 
-            return new self($symbol, $isOwned, true, $annualized, $raw, $totalDays, $market);
+            // The current open window's own raw return. This does NOT change the tier (the lifetime
+            // figures above still decide it); it is only compared against the lifetime return so the
+            // classifier can warn when a re-entered position's headline number has gone stale.
+            $currentWindowRaw = null;
+            if ($isOwned)
+            {
+                foreach ($windows as $w)
+                {
+                    if (empty($w['is_open']))
+                    {
+                        continue;
+                    }
+                    $invested = (float) ($w['invested_eur'] ?? 0.0);
+                    $gain     = (float) ($w['total_gain_eur'] ?? 0.0);
+                    $currentWindowRaw = $invested > 0.0
+                        ? $gain / $invested * 100.0
+                        : ($w['percentage_gain'] ?? null);
+                    break;
+                }
+            }
+
+            return new self(
+                symbol:                    $symbol,
+                isOwned:                   $isOwned,
+                ownedEver:                 true,
+                annualizedReturnPct:       $annualized,
+                rawReturnPct:              $raw,
+                holdingDays:               $totalDays,
+                marketMomentumPct:         $market,
+                overallRawReturnPct:       $raw,
+                currentWindowRawReturnPct: $isOwned ? $currentWindowRaw : null,
+                priorClosedWindows:        $isOwned ? $closedCount : 0
+            );
         }
 
         // No performance-service return. Fall back to the position-derived return when the
@@ -76,13 +121,30 @@ final class TierInputs
                 ? (pow(1.0 + $posRaw / 100.0, 365.0 / $posDays) - 1.0) * 100.0
                 : null;
 
-            return new self($symbol, true, true, $posAnn, $posRaw, $posDays, $market);
+            return new self(
+                symbol:              $symbol,
+                isOwned:             true,
+                ownedEver:           true,
+                annualizedReturnPct: $posAnn,
+                rawReturnPct:        $posRaw,
+                holdingDays:         $posDays,
+                marketMomentumPct:   $market,
+                overallRawReturnPct: $posRaw
+            );
         }
 
         // Owned (an open window exists) but no return at all, or no data: let the classifier
         // fall back to market 1Y or mark it Unrated.
         $isOwned = $hasData && (bool) array_filter($perf['windows'] ?? [], fn ($w) => !empty($w['is_open']));
 
-        return new self($symbol, $isOwned, $hasData, null, null, 0, $market);
+        return new self(
+            symbol:            $symbol,
+            isOwned:           $isOwned,
+            ownedEver:         $hasData,
+            annualizedReturnPct: null,
+            rawReturnPct:      null,
+            holdingDays:       0,
+            marketMomentumPct: $market
+        );
     }
 }

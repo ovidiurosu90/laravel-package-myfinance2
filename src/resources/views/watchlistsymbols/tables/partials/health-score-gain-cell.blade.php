@@ -35,6 +35,7 @@
 
     // The overall line carries the figure that decides any return-based tier; the
     // market line carries it for momentum-based tiers.
+    $isStale     = !empty($row['is_stale']);
     $boldOverall = in_array($basis, [TierDecision::BASIS_ANNUALIZED_RETURN, TierDecision::BASIS_RAW_RETURN]);
     $boldMarket  = $basis === TierDecision::BASIS_MARKET_MOMENTUM;
     $isLow       = $confidence === TierDecision::CONFIDENCE_LOW;
@@ -44,6 +45,10 @@
     $warnIcon = '<span data-bs-toggle="tooltip" title="' . e($explanation)
         . '" style="line-height:1;vertical-align:middle;">'
         . '<i class="fa fa-exclamation-circle fa-xs text-warning" aria-hidden="true"></i></span>';
+    // Stale headline (re-entered position) uses a clock icon, matching the tier line and badge.
+    $staleIcon = '<span data-bs-toggle="tooltip" title="' . e($explanation)
+        . '" style="line-height:1;vertical-align:middle;">'
+        . '<i class="fa fa-clock-o fa-xs text-warning" aria-hidden="true"></i></span>';
 @endphp
 <td data-order="{{ $orderValue }}" class="text-end align-top border-bottom">
     @if($showCurrent)
@@ -75,6 +80,7 @@
             <span>(</span>{!! MoneyFormat::get_formatted_gain('%', $oPct) !!}<span>)</span>
         </span>
         @if($boldOverall && $isLow){!! $warnIcon !!}@endif
+        @if($boldOverall && $isStale){!! $staleIcon !!}@endif
     </div>
     @endif
 

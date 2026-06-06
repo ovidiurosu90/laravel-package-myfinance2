@@ -23,6 +23,8 @@
     // market-momentum fallback (low confidence). A settled raw return is not flagged.
     $showWarn = $cat !== null && !$hasOverride
         && $confidence === TierDecision::CONFIDENCE_LOW;
+    // A separate flag for a re-entered position whose headline lifetime return is stale.
+    $isStale  = !empty($cat['is_stale']);
 @endphp
 <td class="text-nowrap" data-order="{{ $sortOrder }}">
 @if ($cat === null)
@@ -66,6 +68,13 @@
           title="{{ $explanation }}"
           style="line-height:1;vertical-align:middle;">
         <i class="fa fa-exclamation-circle fa-xs text-warning" aria-hidden="true"></i>
+    </span>
+    @endif
+    @if ($isStale)
+    <span data-bs-toggle="tooltip"
+          title="{{ $explanation }}"
+          style="line-height:1;vertical-align:middle;">
+        <i class="fa fa-clock-o fa-xs text-warning" aria-hidden="true"></i>
     </span>
     @endif
     @if ($cat['basis'] === TierDecision::BASIS_MARKET_MOMENTUM && !$isOwned)

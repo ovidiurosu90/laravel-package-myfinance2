@@ -34,7 +34,12 @@ final class TierDecision
         public readonly string  $confidence,
         public readonly bool    $isOwned,
         public readonly array   $candidates,
-        public readonly string  $explanation
+        public readonly string  $explanation,
+        // True when the symbol's headline lifetime return (which decides the tier) diverges
+        // materially from the return on the holding you currently have, because it folds in one or
+        // more earlier closed positions (a re-entry). The tier is unchanged; this only flags that
+        // the big "overall" number on screen no longer reflects the current lot.
+        public readonly bool    $isStale = false
     )
     {
     }
@@ -75,6 +80,7 @@ final class TierDecision
             'is_owned'       => $this->isOwned,
             'candidates'     => $this->candidates,
             'explanation'    => $this->explanation,
+            'is_stale'       => $this->isStale,
         ];
     }
 }

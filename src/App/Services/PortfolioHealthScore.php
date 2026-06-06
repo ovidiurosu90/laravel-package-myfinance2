@@ -394,6 +394,7 @@ class PortfolioHealthScore
                 'basis_value'          => $cat['basis_value'] ?? null,
                 'confidence'           => $cat['confidence'] ?? TierDecision::CONFIDENCE_HIGH,
                 'has_override'         => $cat['has_override'] ?? false,
+                'is_stale'             => $cat['is_stale'] ?? false,
                 'explanation'          => $cat['explanation'] ?? '',
                 'position_start'       => $this->_resolvePositionStart($openWin, $positions),
                 'position_days'        => $this->_resolvePositionDays($openWin, $positions),

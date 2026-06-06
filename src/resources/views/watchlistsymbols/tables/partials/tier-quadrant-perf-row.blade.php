@@ -15,6 +15,7 @@ $basis        = $cat['basis'] ?? null;
 $basisValue   = $cat['basis_value'] ?? null;
 $action       = $cat['action'] ?? null;
 $showWarn     = $cat !== null && !$hasOverride && $confidence === TierDecision::CONFIDENCE_LOW;
+$isStale      = !empty($cat['is_stale']);
 $isOwned      = !empty($quoteData['open_positions']);
 $isAnn        = $basis === TierDecision::BASIS_ANNUALIZED_RETURN;
 $basisLabel   = match($basis) {
@@ -95,6 +96,12 @@ $actionColors = [
                         {!! MoneyFormat::get_formatted_gain('%', $basisValue) !!}@if($isAnn)<span class="text-muted">/y</span>@endif
                     @endif
                 </span>
+            @endif
+            @if($isStale)
+            <span data-bs-toggle="tooltip" title="{{ $explanation }}"
+                  style="line-height:1;vertical-align:middle;">
+                <i class="fa fa-clock-o fa-xs text-warning" aria-hidden="true"></i>
+            </span>
             @endif
             @php
                 // CAGR (the tier basis above) measures the asset while held and is what the index

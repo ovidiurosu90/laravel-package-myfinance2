@@ -72,6 +72,12 @@ final class TierClassifier
     private const MARKET_1Y_MAX_PCT = 200.0;
     private const MARKET_1Y_MIN_PCT = -50.0;
 
+    // How far the lifetime overall return must diverge from the current open window's own return
+    // before the headline figure is called stale. A few points is just the prior window's small
+    // contribution and not worth flagging; a large gap (e.g. a +40% lifetime return sitting behind
+    // a freshly re-entered lot, or a banked winner masking a current loss) is the case to warn on.
+    private const STALE_DIVERGENCE_PCT = 5.0;
+
     public function __construct(private readonly TierCalculationService $tiers)
     {
     }
@@ -87,7 +93,10 @@ final class TierClassifier
         $overrideTier  = $override?->tier_override;
         $effectiveTier = $overrideTier ?? $computedTier;
 
-        $explanation = $this->_explain($inputs, $basis, $value, $override, $computedTier);
+        // A manual override replaces the computed basis, so the stale-headline warning no longer
+        // applies (the override note explains the tier instead).
+        $isStale     = $overrideTier === null && $this->_isStale($inputs);
+        $explanation = $this->_explain($inputs, $basis, $value, $override, $computedTier, $isStale);
 
         return new TierDecision(
             tier:         $effectiveTier,
@@ -104,8 +113,25 @@ final class TierClassifier
                 'raw_pct'        => $inputs->rawReturnPct,
                 'market_1y_pct'  => $inputs->marketMomentumPct,
             ],
-            explanation:  $explanation
+            explanation:  $explanation,
+            isStale:      $isStale
         );
+    }
+
+    /**
+     * The headline lifetime return is stale when an owned, re-entered position (>= 1 prior closed
+     * window) carries an overall return that diverges materially from the return on the holding you
+     * actually have now (the current open window). The tier itself stays on the lifetime return;
+     * this only drives the warning. A manual override replaces the basis, so staleness no longer
+     * applies. Watchlist/exited symbols are never stale: their realized return is the point.
+     */
+    private function _isStale(TierInputs $inputs): bool
+    {
+        return $inputs->isOwned
+            && $inputs->priorClosedWindows >= 1
+            && $inputs->currentWindowRawReturnPct !== null
+            && $inputs->overallRawReturnPct !== null
+            && abs($inputs->overallRawReturnPct - $inputs->currentWindowRawReturnPct) >= self::STALE_DIVERGENCE_PCT;
     }
 
     /**
@@ -175,10 +201,15 @@ final class TierClassifier
         string $basis,
         ?float $value,
         ?SymbolTierOverride $override,
-        ?string $computedTier
+        ?string $computedTier,
+        bool $isStale
     ): string
     {
         $computed = $this->_computedExplanation($inputs, $basis, $value);
+        if ($isStale)
+        {
+            $computed .= ' ' . $this->_stalenessNote($inputs);
+        }
 
         if ($override?->tier_override)
         {
@@ -199,6 +230,17 @@ final class TierClassifier
         }
 
         return $computed;
+    }
+
+    private function _stalenessNote(TierInputs $inputs): string
+    {
+        $episodes = $inputs->priorClosedWindows === 1
+            ? 'an earlier closed position'
+            : $inputs->priorClosedWindows . ' earlier closed positions';
+
+        return 'Note: the overall return of ' . $this->_fmt($inputs->overallRawReturnPct)
+            . ' includes ' . $episodes . ' and is stale; your current holding is '
+            . $this->_fmt($inputs->currentWindowRawReturnPct) . '.';
     }
 
     private function _computedExplanation(TierInputs $inputs, string $basis, ?float $value): string
