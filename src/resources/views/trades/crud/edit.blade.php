@@ -33,6 +33,6 @@
     @include('myfinance2::general.scripts.timestamp-picker')
     @include('myfinance2::general.scripts.tooltips')
     @include('myfinance2::general.scripts.available-quantity')
-    @include('myfinance2::trades.scripts.finance')
+    @include('myfinance2::trades.scripts.finance', ['labelOnly' => true])
 @endsection
 

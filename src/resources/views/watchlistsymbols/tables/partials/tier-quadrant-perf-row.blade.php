@@ -181,7 +181,8 @@ $actionColors = [
                     <th><span data-bs-toggle="tooltip"
                         title="Tier this window's market return maps to (same thresholds as the headline tier, applied to the market gain in this row).">Tier</span></th>
                     <th>Quadrant</th>
-                    <th class="text-end">Gain</th>
+                    <th class="text-end"><span data-bs-toggle="tooltip"
+                        title="Market return over the window, measured from the price at the window start to the latest price (just those two points). 3M and 6M are raw returns; 1Y and 2Y are annualized (CAGR), so the 2Y figure is a per-year rate comparable to 1Y, not the full two-year total.">Gain</span></th>
                     <th class="text-end">Risk</th>
                     <th>Action</th>
                     <th class="text-end">From peak</th>

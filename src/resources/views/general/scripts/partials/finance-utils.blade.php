@@ -72,3 +72,17 @@
             lastAutoCurrencyId = newId;
         }
     };
+
+    // Surface the fetched currency in the read-only label to the right of the
+    // Trade Currency field (where present), formatted as "Name (symbol)".
+    var showFetchedTradeCurrency = function(data)
+    {
+        if (!data.currency) return;
+
+        var tc    = tradeCurrenciesByIsoCode[data.currency];
+        var label = tc
+            ? tc['name'] + ' (' + decodeHtml(tc['display_code']) + ')'
+            : data.currency;
+
+        $('#fetched-trade-currency').find('span').text(label).end().show();
+    };

@@ -11,6 +11,7 @@ $(document).ready(function()
     var $editTradeForm        = $('#edit-trade-form');
     var $fetchedTradeCurrency = $('#fetched-trade-currency');
     var $fetchedUnitPrice     = $('#fetched-unit-price');
+    var $fetchedDescription   = $('#fetched-description');
     var $unitPriceInput       = $('#unit_price');
     var $descriptionInput     = $('#description');
 
@@ -18,6 +19,38 @@ $(document).ready(function()
     var lastAutoDescription = null;
     var fetchCounter        = 0;
     var urlParamsPrefilled  = $unitPriceInput.val() !== '';
+
+    // In label-only mode (edit) the regenerated description is surfaced next to
+    // the Description label; it never overwrites the textarea or other inputs.
+    var labelOnly           = {{ !empty($labelOnly) ? 'true' : 'false' }};
+
+    // The auto-description for the current unit price: the price relationships
+    // (vs current / 52W high / 52W low), prefixed with "weak signal" when the
+    // fetched suggestion flagged one.
+    var buildReasonText = function()
+    {
+        if (!fetchedPrice || !fetchedHigh || !fetchedLow) return null;
+
+        var unitPrice = parseFloat($unitPriceInput.val());
+        if (isNaN(unitPrice) || unitPrice <= 0) return null;
+
+        var text = buildNoteText(unitPrice, fetchedPrice,
+            fetchedHigh, fetchedLow, fetchedCurrencySymbol);
+        if (!text) return null;
+
+        if (fetchedSuggestion && fetchedSuggestion.weak_signal) {
+            text = 'weak signal; ' + text;
+        }
+        return text;
+    };
+
+    var showFetchedDescription = function(text)
+    {
+        if (text === undefined) text = buildReasonText();
+        if (!text) { $fetchedDescription.hide(); return; }
+
+        $fetchedDescription.find('span').text(text).end().show();
+    };
 
     var applyAutoDescription = function(unitPrice)
     {
@@ -69,11 +102,20 @@ $(document).ready(function()
                 fetchedSuggestion = data.suggestion;
                 storeFetchedData(data);
 
-                $fetchedTradeCurrency.find('span').text(data.currency).end().show();
-                setFetchedTradeCurrency(data);
-
+                showFetchedTradeCurrency(data);
                 $fetchedUnitPrice.find('span').text(data.price)
                     .attr('data-bs-original-title', data.quote_timestamp).end().show();
+
+                // Trade currency tracks the symbol, so keep the select in sync.
+                setFetchedTradeCurrency(data);
+
+                // Edit: the unit price is already set, so the description can be
+                // regenerated into the label without mutating any user input.
+                if (labelOnly) {
+                    showFetchedDescription();
+                    window.handleAvailableQuantity(data.available_quantity);
+                    return;
+                }
 
                 if (!urlParamsPrefilled) {
                     $unitPriceInput.val(data.price);
@@ -102,6 +144,7 @@ $(document).ready(function()
                 $fetchedTradeCurrency.find('span').text('').end().hide();
                 $fetchedUnitPrice.find('span').text('')
                     .attr('data-bs-original-title', '').end().hide();
+                $fetchedDescription.find('span').text('').end().hide();
 
                 window.handleAvailableQuantity(null);
             }
@@ -110,6 +153,8 @@ $(document).ready(function()
 
     $unitPriceInput.on('input', function()
     {
+        if (labelOnly) { showFetchedDescription(); return; }
+
         if (!fetchedPrice || !fetchedHigh || !fetchedLow) return;
 
         var unitPrice = parseFloat($(this).val());

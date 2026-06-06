@@ -6,11 +6,16 @@ $(document).ready(function()
     var $symbolInput        = $('#symbol-input');
     var $targetPriceInput   = $('#target_price');
     var $fetchedTargetPrice = $('#fetched-target-price');
+    var $fetchedNotes       = $('#fetched-notes');
     var $notesTextarea      = $('#notes');
 
     var lastAutoNotes      = null;
     var fetchCounter       = 0;
     var urlParamsPrefilled = $targetPriceInput.val() !== '';
+
+    // In label-only mode (edit) the fetch result is surfaced in the label
+    // section to the right of the inputs; it never mutates the form inputs.
+    var labelOnly          = {{ !empty($labelOnly) ? 'true' : 'false' }};
 
     var showFetchedCurrentPrice = function(data)
     {
@@ -18,6 +23,22 @@ $(document).ready(function()
             .text(data.price)
             .attr('data-bs-original-title', data.quote_timestamp)
             .end().show();
+    };
+
+    // Label-only: render the note that would be generated for the current
+    // target price next to the Notes field, without touching the textarea.
+    var showFetchedNotes = function()
+    {
+        if (!fetchedPrice || !fetchedHigh || !fetchedLow) return;
+
+        var targetPrice = parseFloat($targetPriceInput.val());
+        if (isNaN(targetPrice) || targetPrice <= 0) { $fetchedNotes.hide(); return; }
+
+        var noteText = buildNoteText(targetPrice, fetchedPrice,
+            fetchedHigh, fetchedLow, fetchedCurrencySymbol);
+        if (!noteText) return;
+
+        $fetchedNotes.find('span').text(noteText).end().show();
     };
 
     var applySmartPrefill = function(symbol)
@@ -30,8 +51,20 @@ $(document).ready(function()
             success: function(data)
             {
                 if (myFetch !== fetchCounter) return;
-                var s = data.suggestion;
                 storeFetchedData(data);
+
+                if (labelOnly) {
+                    showFetchedCurrentPrice(data);
+                    showFetchedTradeCurrency(data);
+                    // Trade currency tracks the symbol, so keep the select in sync.
+                    setFetchedTradeCurrency(data);
+                    showFetchedNotes();
+                    return;
+                }
+
+                var s = data.suggestion;
+
+                showFetchedTradeCurrency(data);
 
                 var alertTypeSelectize = $('#alert_type-select')[0].selectize;
                 if (alertTypeSelectize && !alertTypeSelectize.getValue()) {
@@ -71,6 +104,7 @@ $(document).ready(function()
 
     $targetPriceInput.on('input', function()
     {
+        if (labelOnly) { showFetchedNotes(); return; }
         if (!fetchedPrice || !fetchedHigh || !fetchedLow) return;
 
         var targetPrice = parseFloat($(this).val());
