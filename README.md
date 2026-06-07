@@ -245,6 +245,51 @@ crontab -e
 ```
 
 
+### finance:peak-proximity-alerts
+
+Emails an exit-hint alert when an open position has rallied close to its peak in any of the 3M / 6M / 1Y / 2Y windows. Each window has its own proximity threshold, tighter for near-term peaks and looser for long-term ones: within 2% of the 3M peak, 5% of the 6M peak, 8% of the 1Y peak, or 10% of the 2Y peak. One email per symbol per day. The email reproduces the data shown in the three watchlist-symbols cards for that symbol (performance, quadrant, open positions) plus a summary of the current price, distance from the peak, and the gain if sold now. Eligible positions are all open positions (winners included); the email's tier and action tell you whether it is a good moment to trim. The subject names the closest window, e.g. `[MyFinance2] AF.PA near peak => -3.49% to 3M`. The once-per-symbol-per-day throttle means it is safe to run hourly: a symbol is emailed at most once a day, but an hourly schedule catches it the moment it enters the near-peak zone during the trading day instead of only reflecting the previous close. If a symbol already alerted today and you want it to fire again the same day (after re-checking), re-arm it from the per-symbol page at `/peak-proximity-alerts` (the Re-arm button clears today's record).
+
+```bash
+sudo su
+crontab -e
+
+#############
+# Purpose: Hourly exit-hint email when an open position is near its 3M/6M/1Y/2Y peak.
+# Throttled to one email per symbol per day, so running it every hour is safe.
+# Runs at minute :12, clear of the other finance crons (--refresh-returns at :24,
+# app:stats-cron at :42, --refresh-symbol-performance at :54), so no two ever run the
+# same minute. It reads live quotes through the watchlist dashboard, so it uses the
+# same curl-impersonate env and cpulimit as the other finance-api-cron jobs, and logs
+# to finance-api-cron.log (its WARNING+ entries then surface in the logs:email-daily-errors digest).
+
+12 * * * * su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; export LD_PRELOAD=/usr/local/lib/libcurl-impersonate-chrome.so; export CURL_IMPERSONATE=chrome116; cd [USER_HOME]/Repositories/laravel-admin/ && cpulimit -l 50 -- php artisan finance:peak-proximity-alerts --all-users >> [USER_HOME]/Repositories/laravel-admin/storage/logs/finance-api-cron.log 2>&1"
+
+# Run the job 480s after reboot (staggered after the other finance reboot jobs, the last of which is at 400s)
+@reboot sleep 480 && su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; export LD_PRELOAD=/usr/local/lib/libcurl-impersonate-chrome.so; export CURL_IMPERSONATE=chrome116; cd [USER_HOME]/Repositories/laravel-admin/ && cpulimit -l 50 -- php artisan finance:peak-proximity-alerts --all-users >> [USER_HOME]/Repositories/laravel-admin/storage/logs/finance-api-cron.log 2>&1"
+#############
+```
+
+To limit hourly runs to market hours (08:00 to 22:00 server time), use `12 8-22 * * *` instead of `12 * * * *`.
+
+```bash
+# Preview for one user without sending or recording
+php artisan finance:peak-proximity-alerts --user-id=1 --dry-run
+
+# All users with open positions
+php artisan finance:peak-proximity-alerts --all-users
+
+# Override every window with one uniform threshold, or narrow to specific symbols
+php artisan finance:peak-proximity-alerts --user-id=1 --threshold=10
+php artisan finance:peak-proximity-alerts --user-id=1 --symbols=AMD,ETH-EUR
+```
+
+`--threshold=N` replaces all four per-window thresholds with a single uniform value of N%.
+
+These alerts are **off by default**. Each user enables the symbols they want at `/peak-proximity-alerts` (enable/disable per symbol or in bulk; an optional "until" date makes the change temporary and auto-reverts afterwards; Active/All filter). The hourly cron runs `--all-users`; only users who enabled at least one symbol receive emails, so a full run is a no-op for everyone else.
+
+Configuration (env, all optional): `MYFINANCE2_PEAK_PROXIMITY_ENABLED` (default true); the per-window thresholds `MYFINANCE2_PEAK_PROXIMITY_THRESHOLD_3M` / `_6M` / `_1Y` / `_2Y` (defaults 2 / 5 / 8 / 10); `MYFINANCE2_PEAK_PROXIMITY_THRESHOLD_PCT` (default 5, the fallback when a window has no specific threshold); `MYFINANCE2_PEAK_PROXIMITY_EMAIL_TO` (defaults to the alerts email, then the user's email). Migrations add the `peak_proximity_notifications` audit table and the `peak_proximity_alert_settings` opt-in table; run `php artisan migrate` to apply them.
+
+
 ### Running tests
 
 NOTE That there are 2 types of tests, in 2 locations:
