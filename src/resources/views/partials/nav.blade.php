@@ -1,4 +1,5 @@
 @use('ovidiuro\myfinance2\App\Models\PriceAlert')
+@use('ovidiuro\myfinance2\App\Models\PeakProximityAlertSetting')
 @use('ovidiuro\myfinance2\App\Models\Order')
 @role(['admin', 'financeadmin'])
 <li class="nav-item dropdown">
@@ -53,6 +54,21 @@
             @php $activeAlertsCount = PriceAlert::where('status', 'ACTIVE')->count(); @endphp
             @if ($activeAlertsCount > 0)
                 <span class="badge bg-success ms-1">{{ $activeAlertsCount }}</span>
+            @endif
+        </a>
+        <div class="dropdown-divider"></div>
+
+        <a class="dropdown-item
+            {{ Request::is('peak-proximity-alerts') || Request::is('peak-proximity-alerts/*') ? 'active' : null }}"
+           href="{{ url('/peak-proximity-alerts') }}">
+            Peak-Proximity Alerts
+            @php
+                $enabledPeakCount = PeakProximityAlertSetting::where('user_id', auth()->id())
+                    ->where('status', PeakProximityAlertSetting::ENABLED)
+                    ->count();
+            @endphp
+            @if ($enabledPeakCount > 0)
+                <span class="badge bg-success ms-1">{{ $enabledPeakCount }}</span>
             @endif
         </a>
         <div class="dropdown-divider"></div>

@@ -270,17 +270,24 @@ $actionColors = [
                     @endif
                 </td>
                 <td class="text-end ps-3">
-                    @if($pdEz !== null)
-                        @if($pdEz['in_zone'])
+                    @if($pdEz !== null && ($pdEz['proximity_pct'] ?? null) !== null)
+                        @php
+                            // Same per-window thresholds as the peak-proximity exit-hint email
+                            // (finance:peak-proximity-alerts), so "near peak" here means the same
+                            // thing as a fired alert: within N% of this window's peak.
+                            $nearThreshold = config("alerts.peak_proximity.window_thresholds.{$pKey}")
+                                ?? config('alerts.peak_proximity.threshold_pct', 5);
+                            $isNearPeak = $pdEz['proximity_pct'] >= -(float) $nearThreshold;
+                        @endphp
+                        <span class="text-nowrap" data-bs-toggle="tooltip"
+                              title="{{ $pLabel }} peak: {{ $pdEz['peak_price_date'] }}">
+                            {!! MoneyFormat::get_formatted_gain('%', $pdEz['proximity_pct']) !!}
+                        </span>
+                        @if($isNearPeak)
                             <span class="badge bg-success"
                                   data-bs-toggle="tooltip"
-                                  title="Within 15% of {{ $pLabel }} peak ({{ $pdEz['peak_price_date'] }})">
-                                In zone
-                            </span>
-                        @else
-                            <span data-bs-toggle="tooltip"
-                                  title="{{ $pLabel }} peak: {{ $pdEz['peak_price_date'] }}">
-                                {!! MoneyFormat::get_formatted_gain('%', $pdEz['proximity_pct']) !!}
+                                  title="Within {{ $nearThreshold }}% of the {{ $pLabel }} peak ({{ $pdEz['peak_price_date'] }}), the same range that triggers a peak-proximity email.">
+                                near peak
                             </span>
                         @endif
                     @else

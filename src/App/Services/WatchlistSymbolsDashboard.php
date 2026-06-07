@@ -230,6 +230,11 @@ class WatchlistSymbolsDashboard
 
         foreach ($items as $symbol => $quoteData) {
             $items[$symbol]['categorization'] = $categorization[$symbol] ?? null;
+            // Unrealized gain on currently held shares (market value minus cost2), in EUR. This is
+            // the "if sold now" figure; it differs from the performance card's lifetime total gain,
+            // which also folds in dividends and realized gains. Null when the symbol is not held.
+            $items[$symbol]['unrealized_gain_eur'] = $positionReturns[$symbol]['gain_eur'] ?? null;
+            $items[$symbol]['unrealized_gain_pct'] = $positionReturns[$symbol]['raw_pct'] ?? null;
         }
 
         return [$items, $categorization];
@@ -265,8 +270,9 @@ class WatchlistSymbolsDashboard
             }
 
             $returns[$symbol] = [
-                'raw_pct' => $cost > 0.0 ? ($mvalue - $cost) / $cost * 100.0 : null,
-                'days'    => $earliest !== null ? (int) $earliest->diffInDays(now()) : 0,
+                'raw_pct'  => $cost > 0.0 ? ($mvalue - $cost) / $cost * 100.0 : null,
+                'gain_eur' => round($mvalue - $cost, 2),
+                'days'     => $earliest !== null ? (int) $earliest->diffInDays(now()) : 0,
             ];
         }
 

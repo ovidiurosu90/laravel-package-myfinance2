@@ -30,6 +30,22 @@ Route::group([
 
     Route::resource('price-alerts', 'PriceAlertController');
 
+    #NOTE Peak-proximity alerts: opt-in per-symbol management (no create/edit/delete)
+    Route::get('peak-proximity-alerts/history',
+               'PeakProximityNotificationController@index')->name('peak-proximity-alerts.history');
+    Route::delete('peak-proximity-alerts/history/{id}',
+                  'PeakProximityNotificationController@destroy')->name('peak-proximity-alerts.history.destroy');
+    Route::post('peak-proximity-alerts/history/bulk-action',
+                'PeakProximityNotificationController@bulkAction')->name('peak-proximity-alerts.history.bulk-action');
+    Route::get('peak-proximity-alerts',
+               'PeakProximityAlertController@index')->name('peak-proximity-alerts.index');
+    Route::post('peak-proximity-alerts/enable',
+                'PeakProximityAlertController@enable')->name('peak-proximity-alerts.enable');
+    Route::post('peak-proximity-alerts/disable',
+                'PeakProximityAlertController@disable')->name('peak-proximity-alerts.disable');
+    Route::post('peak-proximity-alerts/rearm',
+                'PeakProximityAlertController@rearm')->name('peak-proximity-alerts.rearm');
+
     #NOTE Orders custom action routes must be before Route::resource
     Route::post('orders/{id}/place',
                 'OrdersController@place')->name('orders.place');
