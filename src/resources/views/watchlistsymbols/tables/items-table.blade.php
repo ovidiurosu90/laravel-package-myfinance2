@@ -132,6 +132,25 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                             $quoteData['tradeCurrencyModel']->display_code, $quoteData['price']
                         );
                     @endphp
+                    @include('myfinance2::general.partials.symbol-chart-trigger', [
+                        'symbol'      => $symbol,
+                        'symbolName'  => $quoteData['name'] ?? $symbol,
+                        'currency'    => $quoteData['tradeCurrencyModel']->display_code,
+                        'baseValue'   => $quoteData['base_value'],
+                        'quoteHeaderData' => [
+                            'currency'           => $quoteData['tradeCurrencyModel']->display_code,
+                            'price'              => $quoteData['price'],
+                            'timestamp'          => $wl_qtFormatted,
+                            'isPreMarket'        => !empty($quoteData['pre_market_price']),
+                            'isPostMarket'       => !empty($quoteData['post_market_price']),
+                            'dayChange'          => $quoteData['day_change'] ?? null,
+                            'dayChangePct'       => $quoteData['day_change_percentage'] ?? null,
+                            'regularPrice'       => $quoteData['regular_market_price'] ?? null,
+                            'regularTimestamp'   => $wl_regTsFormatted,
+                            'regularDayChange'   => $quoteData['regular_market_day_change'] ?? null,
+                            'regularDayChangePct'=> $quoteData['regular_market_day_change_pct'] ?? null,
+                        ],
+                    ])
                     @include('myfinance2::partials.price-tooltip', [
                         'currency'           => $quoteData['tradeCurrencyModel']->display_code,
                         'price'              => $quoteData['price'],

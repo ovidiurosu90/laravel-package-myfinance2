@@ -69,6 +69,37 @@
                     @endif
                 </td>
                 <td class="text-right text-nowrap no-sort no-search">
+                    @include('myfinance2::general.partials.symbol-chart-trigger', [
+                        'symbol'         => $item['symbol'],
+                        'symbolName'     => $item['symbol_name'],
+                        'currency'       => $item['tradeCurrencyModel']->display_code,
+                        'baseValue'      => $item['average_unit_cost_in_trade_currency'],
+                        'accountId'      => $accountId,
+                        'mvalue'         => $item['market_value_in_account_currency_formatted'],
+                        'costBasis'      => $item['cost2_in_account_currency_formatted']
+                            ?: $item['cost_in_account_currency_formatted'],
+                        'avgCost'        => $item['average_unit_cost2_in_trade_currency_formatted']
+                            ?: $item['average_unit_cost_in_trade_currency_formatted'],
+                        'dayGain'        => $item['day_change_in_account_currency_formatted'],
+                        'dayGainPct'     => $item['day_change_in_percentage_formatted'],
+                        'overallGain'    => $item['overall_change2_in_account_currency_formatted']
+                            ?: $item['overall_change_in_account_currency_formatted'],
+                        'overallGainPct' => $item['overall_change2_in_percentage_formatted']
+                            ?: $item['overall_change_in_percentage_formatted'],
+                        'quoteHeaderData' => [
+                            'currency'           => $item['tradeCurrencyModel']->display_code,
+                            'price'              => $item['price'] ?? null,
+                            'timestamp'          => $item['quote_timestamp_formatted'],
+                            'isPreMarket'        => !empty($item['pre_market_price']),
+                            'isPostMarket'       => !empty($item['post_market_price']),
+                            'dayChange'          => $item['day_change'] ?? null,
+                            'dayChangePct'       => $item['day_change_percentage'] ?? null,
+                            'regularPrice'       => $item['regular_market_price'] ?? null,
+                            'regularTimestamp'   => $item['regular_market_timestamp_formatted'] ?? null,
+                            'regularDayChange'   => $item['regular_market_day_change'] ?? null,
+                            'regularDayChangePct'=> $item['regular_market_day_change_pct'] ?? null,
+                        ],
+                    ])
                     @include('myfinance2::partials.price-tooltip', [
                         'currency'           => $item['tradeCurrencyModel']->display_code,
                         'price'              => $item['price'] ?? null,

@@ -51,6 +51,7 @@
     @include('myfinance2::general.scripts.available-quantity')
     @include('myfinance2::orders.scripts.banner')
     @include('myfinance2::orders.scripts.finance', ['labelOnly' => true])
+    @include('myfinance2::orders.scripts.symbol-chart-panel')
     @include('myfinance2::orders.scripts.open-alerts-banner', [
         'openAlertsFetchUrl' => route('myfinance2::orders.open-alerts-for-symbol'),
     ])

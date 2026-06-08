@@ -63,3 +63,5 @@
         @include('myfinance2::orders.forms.partials.description-input')
     </div>
 </div>
+
+@include('myfinance2::orders.forms.partials.symbol-chart-panel')

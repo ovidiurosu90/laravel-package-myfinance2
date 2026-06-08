@@ -12,6 +12,9 @@ const symbolData = {
 @endif
 };
 
+// Expose the series map so the shared symbol chart modal can reuse the same data.
+window.__symbolChartSeries = symbolData;
+
 $(document).ready(function()
 {
     $('.chart-symbol').each(function()

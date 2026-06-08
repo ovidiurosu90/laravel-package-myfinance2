@@ -13,6 +13,7 @@ use ovidiuro\myfinance2\App\Services\MoneyFormat;
 use ovidiuro\myfinance2\App\Services\CashBalancesUtils;
 use ovidiuro\myfinance2\App\Services\CurrencyUtils;
 use ovidiuro\myfinance2\App\Services\OrderSuggestion;
+use ovidiuro\myfinance2\App\Services\ChartsBuilder;
 use ovidiuro\myfinance2\App\Http\Requests\GetCurrencyExchangeGainEstimate;
 use ovidiuro\myfinance2\App\Http\Controllers\MyFinance2Controller;
 use ovidiuro\myfinance2\App\Models\Account;
@@ -132,6 +133,69 @@ class AjaxController extends MyFinance2Controller
             'fiftyTwoWeekLow'               => $financeData['fiftyTwoWeekLow'],
             'fiftyTwoWeekLowChangePercent'  =>
                 $financeData['fiftyTwoWeekLowChangePercent'],
+        ]);
+    }
+
+    /**
+     * Symbol chart panel data: the stored chart series, a rendered quote header
+     * (pre/post + at close, with green/red change), the current price, day gain
+     * and 52-week range. Used by the orders form to show the same content as the
+     * positions/watchlist "expand chart" modal for the chosen symbol.
+     *
+     * @param \Illuminate\Http\Request $request
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getSymbolChart(Request $request)
+    {
+        if (!$request->filled('symbol')) {
+            return response()->json(['message' => 'Missing parameter symbol!'], 422);
+        }
+        $symbol = strtoupper(trim($request->symbol));
+
+        $financeUtils = new FinanceUtils();
+        $quotes = $financeUtils->getQuotes([$symbol]);
+        if (empty($quotes[$symbol])) {
+            return response()->json(['message' => 'Finance data not found!'], 400);
+        }
+        $q = $quotes[$symbol];
+
+        $currencyModel = (new CurrencyUtils(true))->getCurrencyByIsoCode($q['currency']);
+        $displayCode   = $currencyModel ? $currencyModel->display_code : $q['currency'];
+
+        $datetimeFormat = trans('myfinance2::general.datetime-format');
+        $fmtTs = function ($ts) use ($datetimeFormat)
+        {
+            return ($ts instanceof \DateTimeInterface) ? $ts->format($datetimeFormat) : null;
+        };
+
+        $quoteHeader = view('myfinance2::general.partials.quote-header', [
+            'currency'           => $displayCode,
+            'price'              => $q['price'] ?? null,
+            'timestamp'          => $fmtTs($q['quote_timestamp'] ?? null),
+            'isPreMarket'        => !empty($q['pre_market_price']),
+            'isPostMarket'       => !empty($q['post_market_price']),
+            'dayChange'          => $q['day_change'] ?? null,
+            'dayChangePct'       => $q['day_change_percentage'] ?? null,
+            'regularPrice'       => $q['regular_market_price'] ?? null,
+            'regularTimestamp'   => $fmtTs($q['regular_market_timestamp'] ?? null),
+            'regularDayChange'   => $q['regular_market_day_change'] ?? null,
+            'regularDayChangePct'=> $q['regular_market_day_change_pct'] ?? null,
+        ])->render();
+
+        return response()->json([
+            'name'         => $q['name'],
+            'currency'     => html_entity_decode($displayCode, ENT_QUOTES | ENT_HTML5),
+            'series'       => ChartsBuilder::getChartSymbolAsArray($symbol),
+            'quote_header' => $quoteHeader,
+            // Raw price (number) for the 52W range bar; the formatted price is
+            // already shown in the quote header.
+            'price'        => $q['regular_market_price'] ?? $q['price'] ?? null,
+
+            'fiftyTwoWeekHigh'              => $q['fiftyTwoWeekHigh'] ?? null,
+            'fiftyTwoWeekHighChangePercent' => $q['fiftyTwoWeekHighChangePercent'] ?? null,
+            'fiftyTwoWeekLow'               => $q['fiftyTwoWeekLow'] ?? null,
+            'fiftyTwoWeekLowChangePercent'  => $q['fiftyTwoWeekLowChangePercent'] ?? null,
         ]);
     }
 

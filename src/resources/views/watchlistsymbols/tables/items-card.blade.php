@@ -22,5 +22,7 @@
 @if(!empty($items))
     @php $symbols = array_keys($items) @endphp
     @include('myfinance2::general.scripts.quote-price-graphs')
+    @include('myfinance2::general.modals.symbol-chart-modal')
+    @include('myfinance2::general.scripts.symbol-chart-modal')
 @endif
 

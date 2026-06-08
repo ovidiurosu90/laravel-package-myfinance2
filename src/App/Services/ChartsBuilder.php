@@ -387,6 +387,33 @@ class ChartsBuilder
     }
 
     /**
+     * Stored symbol chart series as a PHP array of [time, value] points.
+     *
+     * The series is persisted as a JS object literal (unquoted keys,
+     * single-quoted strings) for direct embedding in the page. This normalises
+     * it to JSON so server-side consumers (e.g. the orders form panel, served
+     * over AJAX) get a real array. Returns an empty array when no data exists.
+     *
+     * @return array<int, array{time: string, value: float}>
+     */
+    public static function getChartSymbolAsArray(string $symbol): array
+    {
+        $literal = trim(self::getChartSymbolAsJsonString($symbol));
+        if ($literal === '' || $literal === '[]') {
+            return [];
+        }
+
+        $json = str_replace("'", '"', $literal);
+        $json = preg_replace('/([{,]\s*)([A-Za-z_]\w*)\s*:/', '$1"$2":', $json);
+        if (!is_string($json)) {
+            return [];
+        }
+        $data = json_decode($json, true);
+
+        return is_array($data) ? $data : [];
+    }
+
+    /**
      * Latest value of a stored symbol chart series.
      *
      * Reads the same cached series the chart renders and returns its final
