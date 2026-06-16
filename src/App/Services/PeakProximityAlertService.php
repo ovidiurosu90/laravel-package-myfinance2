@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
+use ovidiuro\myfinance2\App\Models\PeakProximityAlertEvent;
 use ovidiuro\myfinance2\App\Models\PeakProximityAlertSetting;
 use ovidiuro\myfinance2\App\Models\PeakProximityNotification;
 use ovidiuro\myfinance2\App\Models\Trade;
@@ -119,7 +120,14 @@ final class PeakProximityAlertService
         ?array $filterSymbols = null
     ): array
     {
-        $stats = ['processed' => 0, 'triggered' => 0, 'skipped' => 0, 'failed' => 0, 'symbols' => []];
+        $stats = [
+            'processed' => 0,
+            'triggered' => 0,
+            'info'      => 0,
+            'skipped'   => 0,
+            'failed'    => 0,
+            'symbols'   => [],
+        ];
 
         $notifiedToday  = $this->_getNotifiedTodaySymbols($userId);
         $enabledSymbols = $this->_enabledSymbols($userId);
@@ -135,16 +143,32 @@ final class PeakProximityAlertService
                 continue; // not opted in (default off)
             }
 
-            $stats['processed']++;
-
-            if (in_array($symbol, $notifiedToday, true)) {
-                $stats['skipped']++;
+            $triggered = $this->_triggeredWindows($quoteData, $thresholdPct);
+            if (empty($triggered)) {
+                // Not near peak today. An existing OPEN event is left untouched: it persists in the
+                // inbox until the user dismisses it, even after the symbol drifts off peak.
                 continue;
             }
 
-            $triggered = $this->_triggeredWindows($quoteData, $thresholdPct);
-            if (empty($triggered)) {
-                $stats['skipped']++;
+            $stats['processed']++;
+
+            // Classify (tier gate + 3M-as-context) and upsert the inbox event (INFO entries too, so
+            // they show in the inbox). The event also carries the email cadence state.
+            $class = $this->_classify($quoteData, $triggered);
+            $event = $this->_upsertEvent($userId, $symbol, $quoteData, $triggered, $class, $dryRun);
+
+            if (!$class['actionable']) {
+                $stats['info']++;
+                continue; // INFO: shown in the inbox, never emailed
+            }
+
+            if (in_array($symbol, $notifiedToday, true)) {
+                $stats['skipped']++; // daily double-send guard
+                continue;
+            }
+
+            if (!$this->_shouldEmail($event, $class)) {
+                $stats['skipped']++; // cadence not due yet
                 continue;
             }
 
@@ -153,12 +177,16 @@ final class PeakProximityAlertService
                 $stats['symbols'][] = $symbol;
                 Log::info(
                     "PeakProximityAlertService: [dry-run] user {$userId} {$symbol} near peak"
-                    . ' (' . implode(',', array_keys($triggered)) . ')'
+                    . ' (' . implode(',', array_keys($triggered)) . '), tier ' . ($class['tier'] ?? 'n/a')
                 );
                 continue;
             }
 
-            if ($this->_sendEmail($symbol, $quoteData, $triggered, $userId)) {
+            // First email of an episode vs a cadence reminder (a previously emailed open event).
+            $isReminder = $event !== null && (int) $event->email_count > 0;
+
+            if ($this->_sendEmail($symbol, $quoteData, $triggered, $userId, $isReminder)) {
+                $this->_recordEmailOnEvent($event, $class);
                 $stats['triggered']++;
                 $stats['symbols'][] = $symbol;
                 $notifiedToday[] = $symbol;
@@ -168,6 +196,254 @@ final class PeakProximityAlertService
         }
 
         return $stats;
+    }
+
+    /**
+     * Classify a near-peak symbol for the exit-focused gate, severity and cadence.
+     *
+     * The email gate is driven by the gain-based effective_tier only: "near peak" is an exit aid, so
+     * an alert is actionable only for a position you would actually consider trimming (a weak tier)
+     * whose near-peak signal lands in a meaningful (6M/1Y/2Y) window. A 3M-only trigger is context.
+     * The HOLD/EXIT action is captured for display but never gates. When exit_focused is off, the
+     * gate falls back to "any window near peak".
+     *
+     * @param array $quoteData
+     * @param array $triggered  window label => exit-zone entry (all near-peak windows, incl 3M)
+     *
+     * @return array
+     */
+    private function _classify(array $quoteData, array $triggered): array
+    {
+        $cat    = $quoteData['categorization'] ?? [];
+        $tier   = $cat['effective_tier'] ?? null;
+        $action = $cat['action'] ?? null;
+
+        $meaningfulWindows = config('alerts.peak_proximity.meaningful_windows', ['6m', '1y', '2y']);
+        $meaningful        = array_values(array_intersect(array_keys($triggered), $meaningfulWindows));
+
+        $exitTiers  = array_map('strtoupper', config('alerts.peak_proximity.exit_tiers', ['RUST', 'BRONZE']));
+        $exitWorthy = $tier !== null && in_array(strtoupper((string) $tier), $exitTiers, true);
+
+        $exitFocused = (bool) config('alerts.peak_proximity.exit_focused', true);
+        if ($exitFocused) {
+            $actionable      = !empty($meaningful) && $exitWorthy;
+            $cadenceWindows  = $meaningful;
+        } else {
+            $actionable      = true;
+            $cadenceWindows  = array_keys($triggered);
+        }
+
+        $rsi        = $quoteData['technical_indicators']['rsi'] ?? null;
+        $overbought = $rsi !== null && (float) $rsi >= (float) config('alerts.peak_proximity.rsi_overbought', 70);
+
+        if (!$actionable) {
+            $severity = PeakProximityAlertEvent::SEVERITY_LOW;
+        } elseif (count($meaningful) >= 2 || $overbought) {
+            $severity = PeakProximityAlertEvent::SEVERITY_HIGH;
+        } else {
+            $severity = PeakProximityAlertEvent::SEVERITY_MEDIUM;
+        }
+
+        return [
+            'tier'            => $tier,
+            'action'          => $action,
+            'exit_worthy'     => $exitWorthy,
+            'actionable'      => $actionable,
+            'severity'        => $severity,
+            'meaningful'      => $meaningful,
+            'cadence_windows' => $cadenceWindows,
+        ];
+    }
+
+    /**
+     * Build the JSON snapshot of the email's "Summary" block for the inbox card: currency, current
+     * price, a per-triggered-window table (from-peak %, peak price, peak date) ordered largest window
+     * first, and the unrealized "sell now" gain. Captured at engine time so the inbox renders it
+     * without live quote calls.
+     *
+     * @param array $quoteData
+     * @param array $triggered  window label => exit-zone entry
+     *
+     * @return array
+     */
+    private function _buildSummary(array $quoteData, array $triggered): array
+    {
+        $price = isset($quoteData['price']) ? (float) $quoteData['price'] : null;
+        $cur   = isset($quoteData['tradeCurrencyModel']->display_code)
+            ? html_entity_decode((string) $quoteData['tradeCurrencyModel']->display_code, ENT_QUOTES | ENT_HTML5, 'UTF-8')
+            : '€';
+
+        $labels  = ['3m' => '3M', '6m' => '6M', '1y' => '1Y', '2y' => '2Y'];
+        $windows = [];
+        foreach (['2y', '1y', '6m', '3m'] as $w) {
+            if (!array_key_exists($w, $triggered)) {
+                continue;
+            }
+            $prox = $triggered[$w]['proximity_pct'] ?? null;
+            $peak = ($price !== null && $prox !== null && (1.0 + $prox / 100.0) != 0.0)
+                ? $price / (1.0 + $prox / 100.0)
+                : null;
+            $windows[] = [
+                'label' => $labels[$w] ?? strtoupper($w),
+                'prox'  => $prox !== null ? (float) $prox : null,
+                'peak'  => $peak,
+                'date'  => $triggered[$w]['peak_price_date'] ?? null,
+            ];
+        }
+
+        return [
+            'currency'            => $cur,
+            'price'               => $price,
+            'windows'             => $windows,
+            'unrealized_gain_eur' => $quoteData['unrealized_gain_eur'] ?? null,
+            'unrealized_gain_pct' => $quoteData['unrealized_gain_pct'] ?? null,
+        ];
+    }
+
+    /**
+     * Create or refresh the OPEN inbox event for this user + symbol, recording the latest snapshot
+     * and last_seen_at. Returns the OPEN event, or null on a dry run (no DB writes).
+     *
+     * @param int   $userId
+     * @param string $symbol
+     * @param array $quoteData
+     * @param array $triggered
+     * @param array $class
+     * @param bool  $dryRun
+     *
+     * @return PeakProximityAlertEvent|null
+     */
+    private function _upsertEvent(
+        int $userId,
+        string $symbol,
+        array $quoteData,
+        array $triggered,
+        array $class,
+        bool $dryRun
+    ): ?PeakProximityAlertEvent
+    {
+        if ($dryRun) {
+            return null;
+        }
+
+        $snapshot = [
+            'classification' => $class['actionable']
+                ? PeakProximityAlertEvent::CLASS_ACTIONABLE
+                : PeakProximityAlertEvent::CLASS_INFO,
+            'severity'              => $class['severity'],
+            'effective_tier'        => $class['tier'],
+            'head_action'           => $class['action'],
+            'triggered_windows'     => implode(',', array_keys($triggered)),
+            'meaningful_windows'    => implode(',', $class['meaningful']) ?: null,
+            'closest_proximity_pct' => $this->_closestProximityPct($triggered),
+            'peak_dates'            => $this->_peakDatesString($triggered),
+            'summary'               => $this->_buildSummary($quoteData, $triggered),
+            'current_price'         => isset($quoteData['price']) ? (float) $quoteData['price'] : null,
+            'last_seen_at'          => now(),
+        ];
+
+        $event = PeakProximityAlertEvent::where('user_id', $userId)
+            ->where('symbol', $symbol)
+            ->where('status', PeakProximityAlertEvent::STATUS_OPEN)
+            ->first();
+
+        if ($event === null) {
+            return PeakProximityAlertEvent::create(array_merge($snapshot, [
+                'user_id'                       => $userId,
+                'symbol'                        => $symbol,
+                'status'                        => PeakProximityAlertEvent::STATUS_OPEN,
+                'opened_at'                     => now(),
+                'last_emailed_meaningful_count' => 0,
+                'email_count'                   => 0,
+            ]));
+        }
+
+        $event->fill($snapshot)->save();
+
+        return $event;
+    }
+
+    /**
+     * Whether this run should send an email for an actionable, OPEN event. Implements the escalating,
+     * confluence-driven cadence: a new meaningful window crossing into near-peak emails immediately;
+     * otherwise the reminder interval shrinks as more long windows are near peak at once.
+     *
+     * @param PeakProximityAlertEvent|null $event  null on a dry run / brand-new episode -> would email
+     * @param array                        $class
+     *
+     * @return bool
+     */
+    private function _shouldEmail(?PeakProximityAlertEvent $event, array $class): bool
+    {
+        if ($event === null || $event->last_emailed_at === null) {
+            return true; // first email of the episode
+        }
+
+        $cadenceWindows = $class['cadence_windows'];
+        $count          = count($cadenceWindows);
+
+        // Escalate immediately when confluence grows or a new long window joins (your "2 -> 3 peaks").
+        if ($count > (int) $event->last_emailed_meaningful_count) {
+            return true;
+        }
+        $previous   = array_filter(explode(',', (string) $event->last_emailed_windows));
+        $newWindows = array_diff($cadenceWindows, $previous);
+        if (!empty($newWindows)) {
+            return true;
+        }
+
+        return $event->last_emailed_at->lte(now()->subDays($this->_reminderInterval($count)));
+    }
+
+    /**
+     * The reminder interval (days) for a given confluence (number of long windows near peak). More
+     * confluence -> shorter interval. A confluence above the largest configured key clamps to the
+     * shortest interval; zero or unknown falls back to the default.
+     *
+     * @param int $count
+     *
+     * @return int
+     */
+    private function _reminderInterval(int $count): int
+    {
+        $map = config('alerts.peak_proximity.reminder_days_by_confluence', [1 => 7, 2 => 3, 3 => 1]);
+
+        if (isset($map[$count])) {
+            return (int) $map[$count];
+        }
+
+        if (!empty($map) && $count > 0) {
+            $maxKey = max(array_keys($map));
+            if ($count > $maxKey) {
+                return (int) $map[$maxKey];
+            }
+        }
+
+        return (int) config('alerts.peak_proximity.reminder_days_default', 7);
+    }
+
+    /**
+     * Record that an email was just sent on the event: bump the cadence high-water mark so the next
+     * run only re-emails on a fresh window crossing or once the interval elapses.
+     *
+     * @param PeakProximityAlertEvent|null $event
+     * @param array                        $class
+     *
+     * @return void
+     */
+    private function _recordEmailOnEvent(?PeakProximityAlertEvent $event, array $class): void
+    {
+        if ($event === null) {
+            return;
+        }
+
+        $cadenceWindows = $class['cadence_windows'];
+
+        $event->last_emailed_at               = now();
+        $event->email_count                   = (int) $event->email_count + 1;
+        $event->last_emailed_meaningful_count = count($cadenceWindows);
+        $event->last_emailed_windows          = implode(',', $cadenceWindows) ?: null;
+        $event->save();
     }
 
     /**
@@ -264,8 +540,9 @@ final class PeakProximityAlertService
      *
      * @param string $symbol
      * @param array  $quoteData
-     * @param array  $triggered  window label => exit-zone entry
+     * @param array  $triggered   window label => exit-zone entry
      * @param int    $userId
+     * @param bool   $isReminder  true for a cadence reminder (vs the first email of the episode)
      *
      * @return bool
      */
@@ -273,7 +550,8 @@ final class PeakProximityAlertService
         string $symbol,
         array $quoteData,
         array $triggered,
-        int $userId
+        int $userId,
+        bool $isReminder = false
     ): bool
     {
         $emailTo = config('alerts.peak_proximity.email_to')
@@ -297,7 +575,7 @@ final class PeakProximityAlertService
         ]);
 
         try {
-            Mail::to($emailTo)->send(new PeakProximityAlert($symbol, $quoteData, $triggered));
+            Mail::to($emailTo)->send(new PeakProximityAlert($symbol, $quoteData, $triggered, $isReminder));
         } catch (\Throwable $e) {
             Log::error("PeakProximityAlertService: email send failed for {$symbol}: " . $e->getMessage());
             $notification->update(['status' => 'FAILED', 'error_message' => substr($e->getMessage(), 0, 500)]);

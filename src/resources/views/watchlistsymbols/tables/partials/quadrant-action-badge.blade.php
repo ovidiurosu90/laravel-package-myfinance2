@@ -59,7 +59,7 @@
 @if ($action !== null && $isOwned)
     <br>
     <span class="badge {{ $actionColors[$action] ?? 'bg-secondary' }} mt-1">
-        {{ $action }}
+        {{ ucfirst(strtolower($action)) }}
     </span>
 @endif
 

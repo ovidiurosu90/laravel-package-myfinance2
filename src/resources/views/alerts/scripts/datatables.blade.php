@@ -9,7 +9,10 @@ $(document).ready(function()
         'pageLength': 100,
         'order': [[ 3, 'asc' ]],
         'autoWidth': false,
-        'dom': '<"d-flex align-items-center gap-3 mb-2"<"alert-bulk-slot">l<"ms-auto"f>>r<"table-responsive"t>ip',
+        'dom': '<"d-flex align-items-center gap-2 mb-2 flex-wrap"<"alert-bulk-slot">'
+             + '<"alert-filter-slot d-flex align-items-center gap-2 flex-wrap">'
+             + '<"ms-auto flex-shrink-0"f>>r<"table-responsive"t>'
+             + '<"d-flex align-items-center justify-content-between flex-wrap gap-2 mt-2"l<"d-flex align-items-center gap-3"ip>>',
         'columnDefs': [
             { targets: 'no-sort', sortable: false },
             { targets: 'no-search', searchable: false }
@@ -19,6 +22,66 @@ $(document).ready(function()
 
     // Move the bulk action bar into the DataTables header row (left of search)
     $('#bulk-action-bar').appendTo('.alert-bulk-slot').css('display', 'flex');
+
+    // ── Style the DataTables search label to match Sort / Filter section headers ──
+    const $dtSearch = $(table.table().container()).find('.dt-search');
+    $dtSearch.addClass('d-flex align-items-center gap-1');
+    $dtSearch.find('label').contents().filter(function() { return this.nodeType === 3; }).remove();
+    // Drop DataTables' default .5em input margin so only the gap-1 spacing applies (halves the SEARCH/input gap)
+    $dtSearch.find('input').css('margin-left', 0);
+    $dtSearch.prepend($('<span>', { class: 'text-muted small fw-semibold text-uppercase text-nowrap' }).text('Search'));
+
+    // ── Type & duration filters ──────────────────────────────────────────────
+    // Mirrors the watchlist-symbols toolbar: inline selects backed by data-* on
+    // each <tr>, combined with the view toggle / search through ext.search.
+    function buildFilterSelect(id, placeholder, options)
+    {
+        const $sel = $('<select>', { class: 'form-select form-select-sm', id, style: 'width:auto' });
+        $sel.append($('<option>', { value: '', text: placeholder }));
+        options.forEach(function (o)
+        {
+            $sel.append($('<option>', { value: o.value, text: o.label }));
+        });
+        return $sel;
+    }
+
+    const $typeFilter = buildFilterSelect('alert-type-filter', 'All types', [
+        { value: 'PRICE_ABOVE', label: '▲ Above' },
+        { value: 'PRICE_BELOW', label: '▼ Below' },
+    ]);
+    const $durationFilter = buildFilterSelect('alert-duration-filter', 'All durations', [
+        { value: 'temporary', label: 'Temporary (expiring)' },
+        { value: 'permanent', label: 'Permanent (no expiry)' },
+    ]);
+
+    const $filterBar = $('.alert-filter-slot');
+    $('<span>', { class: 'text-muted small fw-semibold text-uppercase' }).text('Filter').appendTo($filterBar);
+    $filterBar.append($typeFilter).append($durationFilter);
+
+    $.fn.dataTable.ext.search.push(function (settings, searchData, dataIndex)
+    {
+        if (settings.nTable !== table.table().node()) { return true; }
+
+        const typeVal     = $typeFilter.val();
+        const durationVal = $durationFilter.val();
+        if (!typeVal && !durationVal) { return true; }
+
+        const $row = $(table.row(dataIndex).node());
+
+        if (typeVal && $row.data('alert-type') !== typeVal) { return false; }
+        if (durationVal) {
+            const isTemporary = String($row.data('temporary')) === '1';
+            if (durationVal === 'temporary' && !isTemporary) { return false; }
+            if (durationVal === 'permanent' &&  isTemporary) { return false; }
+        }
+        return true;
+    });
+
+    $typeFilter.add($durationFilter).on('change', function ()
+    {
+        clearSelection();
+        table.draw();
+    });
 
     // ── Bulk selection ───────────────────────────────────────────────────────
     // Declared before applyViewFilter because clearSelection is called inside it

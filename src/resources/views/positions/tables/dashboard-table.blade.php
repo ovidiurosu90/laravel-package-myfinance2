@@ -60,12 +60,14 @@
         </div>
     </div>
 </div>
-<div class="clearfix mb-4"></div>
+<div class="clearfix mb-3"></div>
 
 @if(!is_null($moversData ?? null))
     @include('myfinance2::positions.partials.movers')
-    <div class="clearfix mb-4"></div>
+    <div class="clearfix mb-3"></div>
 @endif
+
+@include('myfinance2::positions.partials.dip-buying-panel')
 @endif
 
 @foreach($groupedItems as $accountId => $items)
@@ -109,7 +111,7 @@
     </div>
 </div>
 
-<div class="clearfix mb-4"></div>
+<div class="clearfix mb-3"></div>
 
 @endforeach
 

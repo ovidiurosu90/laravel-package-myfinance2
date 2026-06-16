@@ -74,6 +74,7 @@ class QuadrantChartBuilder
 
         return [
             'symbol'               => $symbol,
+            'isBenchmark'          => $cat['is_benchmark'] ?? false,
             'isOwned'              => $isOwned,
             'ownedEver'            => $ownedEver,
             'isExited'             => $isExited,

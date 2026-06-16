@@ -88,7 +88,7 @@ class PeakProximityAlerts extends Command
 
         Log::info('START finance:peak-proximity-alerts' . $logContext . ' => ' . count($userIds) . ' user(s)');
 
-        $totals = ['processed' => 0, 'triggered' => 0, 'skipped' => 0, 'failed' => 0];
+        $totals = ['processed' => 0, 'triggered' => 0, 'info' => 0, 'skipped' => 0, 'failed' => 0];
 
         foreach ($userIds as $id) {
             $user = User::find($id);
@@ -112,8 +112,8 @@ class PeakProximityAlerts extends Command
                 auth()->forgetGuards();
             }
 
-            foreach (['processed', 'triggered', 'skipped', 'failed'] as $key) {
-                $totals[$key] += $stats[$key];
+            foreach (['processed', 'triggered', 'info', 'skipped', 'failed'] as $key) {
+                $totals[$key] += $stats[$key] ?? 0;
             }
 
             if ($stats['triggered'] > 0) {
@@ -125,11 +125,11 @@ class PeakProximityAlerts extends Command
 
         $verb = $dryRun ? 'Would alert' : 'Alerted';
         $this->info("{$verb} {$totals['triggered']} symbol(s); processed {$totals['processed']},"
-            . " skipped {$totals['skipped']}, failed {$totals['failed']}.");
+            . " info {$totals['info']}, skipped {$totals['skipped']}, failed {$totals['failed']}.");
 
         Log::info('END finance:peak-proximity-alerts' . $logContext
             . " => processed={$totals['processed']} triggered={$totals['triggered']}"
-            . " skipped={$totals['skipped']} failed={$totals['failed']}");
+            . " info={$totals['info']} skipped={$totals['skipped']} failed={$totals['failed']}");
 
         return Command::SUCCESS;
     }

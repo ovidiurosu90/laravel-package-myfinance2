@@ -14,6 +14,7 @@ use ovidiuro\myfinance2\App\Services\CashBalancesUtils;
 use ovidiuro\myfinance2\App\Services\CurrencyUtils;
 use ovidiuro\myfinance2\App\Services\OrderSuggestion;
 use ovidiuro\myfinance2\App\Services\ChartsBuilder;
+use ovidiuro\myfinance2\App\Services\Stats;
 use ovidiuro\myfinance2\App\Http\Requests\GetCurrencyExchangeGainEstimate;
 use ovidiuro\myfinance2\App\Http\Controllers\MyFinance2Controller;
 use ovidiuro\myfinance2\App\Models\Account;
@@ -181,12 +182,69 @@ class AjaxController extends MyFinance2Controller
             'regularTimestamp'   => $fmtTs($q['regular_market_timestamp'] ?? null),
             'regularDayChange'   => $q['regular_market_day_change'] ?? null,
             'regularDayChangePct'=> $q['regular_market_day_change_pct'] ?? null,
+            'marketOpen'         => isset($q['marketUtils']) && $q['marketUtils']->isOpen(),
         ])->render();
+
+        // Prefer the precomputed chart file. Deciding whether it is stale only needs
+        // this symbol's latest data date, fetched with a cheap indexed query, so the
+        // hot path never loads the full stats_* tables. The expensive live build runs
+        // only when the cached file is actually behind (e.g. its position was closed
+        // so the cron stopped rebuilding it), and then self-heals the file and warns.
+        $series     = ChartsBuilder::getChartSymbolAsArray($symbol);
+        $storedLast = !empty($series) ? (end($series)['time'] ?? null) : null;
+        $liveLast   = Stats::getLatestSeriesDate($symbol);
+
+        $isStale = $liveLast !== null && ($storedLast === null || $storedLast < $liveLast);
+
+        if ($isStale) {
+            Log::warning('getSymbolChart: stale chart cache self-healed for ' . $symbol
+                . ' (cached last point ' . ($storedLast ?? 'none')
+                . ', latest stats point ' . $liveLast . ').');
+            // Rewrite the cached file from fresh stats so every consumer of the JSON
+            // (not just this endpoint) sees the up-to-date series next time.
+            ChartsBuilder::buildChartSymbol($symbol, Stats::getQuoteStats($symbol));
+            $series = ChartsBuilder::getLiveChartSymbolAsArray($symbol);
+        }
+
+        // Pin the chart's final point to the live quote shown in the header. The
+        // series ends on the last persisted stat (stats_today), which can lag the
+        // freshly fetched quote by an intraday tick, so without this the chart tip
+        // and the header price disagree by that small move.
+        $headerPrice = $q['price'] ?? null;
+        $todayDate   = date(trans('myfinance2::general.date-format'));
+        if ($headerPrice !== null && !empty($series)) {
+            $lastIdx = array_key_last($series);
+            if (($series[$lastIdx]['time'] ?? null) === $todayDate) {
+                $series[$lastIdx]['value'] = (float) $headerPrice;
+            }
+        }
+
+        // Flag gaps in the series larger than expected non-trading days (weekends,
+        // plus a single-holiday tolerance). Missing trading days usually signal
+        // incomplete price history, so warn in the logs and the UI.
+        $gaps       = ChartsBuilder::detectSeriesGaps($series);
+        $gapWarning = null;
+        if (!empty($gaps)) {
+            $totalMissing = array_sum(array_column($gaps, 'missing'));
+            $widest       = $gaps[0];
+            foreach ($gaps as $gap) {
+                if ($gap['missing'] > $widest['missing']) {
+                    $widest = $gap;
+                }
+            }
+            $gapWarning = 'Price history has gaps: ' . $totalMissing
+                . ' trading day(s) missing across ' . count($gaps) . ' gap(s); '
+                . 'widest from ' . $widest['from'] . ' to ' . $widest['to']
+                . ' (' . $widest['missing'] . ' missing).';
+            Log::warning('getSymbolChart gap check for ' . $symbol . ': ' . $gapWarning);
+        }
 
         return response()->json([
             'name'         => $q['name'],
             'currency'     => html_entity_decode($displayCode, ENT_QUOTES | ENT_HTML5),
-            'series'       => ChartsBuilder::getChartSymbolAsArray($symbol),
+            'series'       => $series,
+            'stale'        => $isStale,
+            'gap_warning'  => $gapWarning,
             'quote_header' => $quoteHeader,
             // Raw price (number) for the 52W range bar; the formatted price is
             // already shown in the quote header.

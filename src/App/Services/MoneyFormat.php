@@ -167,14 +167,18 @@ class MoneyFormat
      * @return string (formatted value)
      */
     //NOTE This is used a lot
-    public static function get_formatted_gain($currencyDisplayCode, $value)
+    public static function get_formatted_gain($currencyDisplayCode, $value, ?int $decimals = null)
     {
         if ($value == 0) {
             return '0 ' . $currencyDisplayCode;
         }
-        $formatted = ($currencyDisplayCode === '%')
-            ? self::get_formatted_pct(abs((float) $value))
-            : self::get_formatted_price(abs((float) $value));
+        if ($decimals !== null) {
+            $formatted = number_format(abs((float) $value), $decimals);
+        } elseif ($currencyDisplayCode === '%') {
+            $formatted = self::get_formatted_pct(abs((float) $value));
+        } else {
+            $formatted = self::get_formatted_price(abs((float) $value));
+        }
         if ($formatted === '0') {
             return '0 ' . $currencyDisplayCode;
         }
@@ -284,6 +288,26 @@ class MoneyFormat
     public static function get_formatted_number_plain($value, $numDecimals = 2)
     {
         return number_format($value, $numDecimals);
+    }
+
+    /**
+     * EUR amount for a number input or data attribute: no thousands separator (so the raw value
+     * parses), cents dropped at >= 1000 where they add no precision, and kept (trailing zeros
+     * trimmed) below it. Routes the separator-free formatting through MoneyFormat so views never
+     * call number_format() directly.
+     *
+     * @param mixed $value
+     *
+     * @return string
+     */
+    public static function get_formatted_amount_input_plain($value)
+    {
+        $floatValue = (float) $value;
+        if ($floatValue >= 1000.0) {
+            return number_format($floatValue, 0, '.', '');
+        }
+
+        return rtrim(rtrim(number_format($floatValue, 2, '.', ''), '0'), '.');
     }
 
     /**

@@ -67,6 +67,8 @@ class MyFinance2ServiceProvider extends ServiceProvider
             \ovidiuro\myfinance2\App\Console\Commands\StatsCron::class,
             \ovidiuro\myfinance2\App\Console\Commands\SuggestAlerts::class,
             \ovidiuro\myfinance2\App\Console\Commands\PeakProximityAlerts::class,
+            \ovidiuro\myfinance2\App\Console\Commands\DipBuyingAlerts::class,
+            \ovidiuro\myfinance2\App\Console\Commands\DipBuyingBacktest::class,
         ]);
     }
 

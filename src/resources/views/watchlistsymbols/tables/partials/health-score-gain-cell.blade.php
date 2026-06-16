@@ -32,6 +32,7 @@
     );
     $showOverall   = !empty($row['show_overall']);
     $showCurrent   = !empty($row['show_current']);
+    $isBenchmark   = !empty($row['is_benchmark']);
 
     // The overall line carries the figure that decides any return-based tier; the
     // market line carries it for momentum-based tiers.
@@ -107,11 +108,15 @@
     </div>
     @endif
 
-    @if($alphaPct !== null)
-    {{-- Alpha vs VUSA.AS over the same holding window; raw difference (flagged *) when held < 1y. --}}
+    {{-- The benchmark does not compare against itself; it just states what it is. Otherwise show
+         the alpha vs the benchmark (VUSA.AS) over the same holding window (raw difference, flagged
+         * when held < 1y). The label reads "benchmark"; the tooltip keeps the VUSA.AS name. --}}
+    @if($isBenchmark)
+    <div class="text-nowrap text-muted fst-italic">is the benchmark</div>
+    @elseif($alphaPct !== null)
     <div class="text-nowrap text-muted">
         <span data-bs-toggle="tooltip" title="{{ $alphaTip }}">
-            vs VUSA.AS {!! MoneyFormat::get_formatted_gain('%', $alphaPct) !!}@if($alphaShort)<sup>*</sup>@endif
+            benchmark {!! MoneyFormat::get_formatted_gain('%', $alphaPct) !!}@if($alphaShort)<sup>*</sup>@endif
         </span>
     </div>
     @endif

@@ -37,6 +37,10 @@ Route::group([
                   'PeakProximityNotificationController@destroy')->name('peak-proximity-alerts.history.destroy');
     Route::post('peak-proximity-alerts/history/bulk-action',
                 'PeakProximityNotificationController@bulkAction')->name('peak-proximity-alerts.history.bulk-action');
+    Route::post('peak-proximity-alerts/history/clear-today',
+                'PeakProximityNotificationController@clearToday')->name('peak-proximity-alerts.history.clear-today');
+    Route::post('peak-proximity-alerts/history/rerun',
+                'PeakProximityNotificationController@rerun')->name('peak-proximity-alerts.history.rerun');
     Route::get('peak-proximity-alerts',
                'PeakProximityAlertController@index')->name('peak-proximity-alerts.index');
     Route::post('peak-proximity-alerts/enable',
@@ -45,6 +49,26 @@ Route::group([
                 'PeakProximityAlertController@disable')->name('peak-proximity-alerts.disable');
     Route::post('peak-proximity-alerts/rearm',
                 'PeakProximityAlertController@rearm')->name('peak-proximity-alerts.rearm');
+    Route::get('peak-proximity-alerts/inbox',
+               'PeakProximityAlertController@inbox')->name('peak-proximity-alerts.inbox');
+    Route::post('peak-proximity-alerts/dismiss',
+                'PeakProximityAlertController@dismiss')->name('peak-proximity-alerts.dismiss');
+    Route::post('peak-proximity-alerts/dismiss-all',
+                'PeakProximityAlertController@dismissAll')->name('peak-proximity-alerts.dismiss-all');
+
+    #NOTE Dip Buying Plan: settings, the self-validation backtest report and email history
+    Route::get('dip-buying-alerts/backtest',
+               'DipBuyingBacktestController@index')->name('dip-buying-alerts.backtest');
+    Route::get('dip-buying-alerts/history',
+               'DipBuyingNotificationController@index')->name('dip-buying-alerts.history');
+    Route::delete('dip-buying-alerts/history/{id}',
+                  'DipBuyingNotificationController@destroy')->name('dip-buying-alerts.history.destroy');
+    Route::post('dip-buying-alerts/history/bulk-action',
+                'DipBuyingNotificationController@bulkAction')->name('dip-buying-alerts.history.bulk-action');
+    Route::get('dip-buying-alerts',
+               'DipBuyingAlertController@index')->name('dip-buying-alerts.index');
+    Route::post('dip-buying-alerts',
+                'DipBuyingAlertController@save')->name('dip-buying-alerts.save');
 
     #NOTE Orders custom action routes must be before Route::resource
     Route::post('orders/{id}/place',

@@ -9,23 +9,20 @@
             <div class="col-sm-12">
                 <div class="card card-default">
                     <div class="card-header">
-                        <div class="float-right d-flex align-items-center gap-2">
-                            <div class="btn-group btn-group-sm" role="group">
+                        <div class="float-right d-flex align-items-center gap-2 flex-wrap">
+                            @include('myfinance2::peakproximityalerts.partials.subnav', ['active' => 'manage'])
+                            <div class="btn-group btn-group-sm" role="group" aria-label="Filter symbols">
                                 <a href="{{ route('myfinance2::peak-proximity-alerts.index', ['view' => 'active']) }}"
-                                   class="btn {{ $view === 'active' ? 'btn-primary' : 'btn-outline-secondary' }}">
+                                   class="btn {{ $view === 'active' ? 'btn-primary' : 'btn-outline-secondary' }}"
+                                   data-bs-toggle="tooltip" title="Only enabled symbols">
                                     Active
                                 </a>
                                 <a href="{{ route('myfinance2::peak-proximity-alerts.index', ['view' => 'all']) }}"
-                                   class="btn {{ $view === 'all' ? 'btn-primary' : 'btn-outline-secondary' }}">
+                                   class="btn {{ $view === 'all' ? 'btn-primary' : 'btn-outline-secondary' }}"
+                                   data-bs-toggle="tooltip" title="All held symbols, enabled or not">
                                     All
                                 </a>
                             </div>
-                            <a href="{{ route('myfinance2::peak-proximity-alerts.history') }}"
-                               class="btn btn-outline-secondary btn-sm"
-                               data-bs-toggle="tooltip"
-                               title="View notification history">
-                                <i class="fa fa-fw fa-history" aria-hidden="true"></i> History
-                            </a>
                             <a href="{{ url('/watchlist-symbols') }}"
                                class="btn btn-outline-secondary btn-sm"
                                data-bs-toggle="tooltip"
@@ -37,11 +34,7 @@
                     </div>
                     <div class="card-body p-0">
                         <div class="p-3">
-                            <p class="text-muted small">
-                                These alerts are off by default. Enable the symbols you want a daily
-                                near-peak email for. Disable (pause) the rest. An optional "until" date
-                                makes the change temporary and auto-reverts afterwards.
-                            </p>
+                            @include('myfinance2::peakproximityalerts.partials.rules')
 
                             <div id="peak-bulk-action-bar" style="display:none"
                                  class="d-flex align-items-center gap-2 flex-wrap mb-2">

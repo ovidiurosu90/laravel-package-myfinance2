@@ -48,7 +48,7 @@
                     data-bs-toggle="tooltip"
                     title="{{ $row['explanation'] ?? 'Unrated: no usable return data' }}">U</span>
                 @endif
-                {{ $row['symbol'] }}
+                {{ $row['symbol'] }}@if(!empty($row['is_benchmark']))<i class="fa fa-anchor fa-xs text-muted ms-1" aria-hidden="true" data-bs-toggle="tooltip" title="{{ $row['symbol'] }} is the benchmark; the 10% Gold line is anchored to it, so it is pinned to Gold."></i>@endif
             </div>
             @if(!empty($row['show_current']))
             <div class="fst-italic fw-normal text-muted">overall</div>

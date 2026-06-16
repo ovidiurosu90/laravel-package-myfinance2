@@ -571,7 +571,7 @@ class FinanceAPI
     public function fetchAndCacheSector(string $symbol): ?string
     {
         // Crypto pairs (e.g. BTC-EUR, ETH-USD) carry no sector in Yahoo Finance
-        if (self::_isCryptoSymbol($symbol)) {
+        if (self::isCryptoSymbol($symbol)) {
             Cache::put(self::SECTOR_CACHE_KEY_PREFIX . $symbol, 'Crypto', self::SECTOR_CACHE_TTL);
             return 'Crypto';
         }
@@ -623,7 +623,7 @@ class FinanceAPI
         return $category;
     }
 
-    private static function _isCryptoSymbol(string $symbol): bool
+    public static function isCryptoSymbol(string $symbol): bool
     {
         $parts = explode('-', $symbol);
         if (count($parts) !== 2) {

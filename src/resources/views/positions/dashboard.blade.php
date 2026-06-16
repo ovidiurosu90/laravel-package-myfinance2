@@ -32,8 +32,10 @@
     @include('myfinance2::general.scripts.confirm-modal', ['formTrigger' => 'confirm-delete-modal'])
     @include('myfinance2::positions.scripts.user-overview')
     @include('myfinance2::positions.scripts.movers')
+    @include('myfinance2::positions.scripts.dip-buying-panel')
     @include('myfinance2::positions.scripts.datatables')
     @include('myfinance2::general.scripts.tooltips')
     @include('myfinance2::positions.scripts.countdowns')
+    @include('myfinance2::positions.scripts.card-collapse')
 @endsection
 

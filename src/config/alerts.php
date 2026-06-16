@@ -28,5 +28,79 @@ return [
             '2y' => env('MYFINANCE2_PEAK_PROXIMITY_THRESHOLD_2Y', 10),
         ],
         'email_to'      => env('MYFINANCE2_PEAK_PROXIMITY_EMAIL_TO', null),
+
+        // Exit-focused gating. "Near peak" is an exit aid, so an email only fires for a position you
+        // would actually consider trimming, i.e. one whose gain-based effective_tier is weak. The
+        // HOLD/EXIT action is shown for context but is never a gate. When exit_focused is false the
+        // gate is just "any window near peak" (the older, noisier behavior).
+        'exit_focused'   => env('MYFINANCE2_PEAK_PROXIMITY_EXIT_FOCUSED', true),
+        // Gain-based tiers (TierCalculationService constants) considered exit-worthy.
+        'exit_tiers'     => ['RUST', 'BRONZE'],
+        // A 3M-only trigger is context only and never emails on its own; an email needs at least one
+        // of these longer windows near peak.
+        'meaningful_windows' => ['6m', '1y', '2y'],
+        'short_windows'      => ['3m'],
+        // RSI at or above this counts as overbought and bumps an alert's severity to HIGH.
+        'rsi_overbought' => env('MYFINANCE2_PEAK_PROXIMITY_RSI_OVERBOUGHT', 70),
+
+        // Escalating cadence. The reminder interval (days) shrinks as more long windows are near peak
+        // at once (more confluence = closer to a real top). A new long window crossing into near-peak
+        // emails immediately, regardless of the interval. No reminder cap: it keeps going while the
+        // alert stays open and actionable, until the user dismisses it.
+        'reminder_days_by_confluence' => [1 => 7, 2 => 3, 3 => 1],
+        'reminder_days_default'       => env('MYFINANCE2_PEAK_PROXIMITY_REMINDER_DAYS', 7),
+    ],
+
+    // Dip Buying Plan: paced cash deployment through drawdowns. Behavioral damage-control for a
+    // dip-buying cash pool, not an alpha bet. One engine (DipBuyingPlanService) feeds the
+    // /positions panel, the opt-in daily email, the settings page and the self-validation backtest.
+    'dip_buying' => [
+        'enabled' => env('MYFINANCE2_DIP_BUYING_ENABLED', true),
+
+        // Front-loaded reserve ladder: cumulative % of the pool to have deployed at each effective
+        // drawdown depth. Calibrated to participate hard in the common -10% to -25% corrections,
+        // fully deployed by a -30% drop (~75% in by the worst real low of ~-23.5%) while keeping a
+        // small reserve for a deeper leg, rather than holding back for a -35%+ crash that is rare.
+        // Each entry is [min_drawdown_pct, cumulative_target_pct]; the deepest matching band wins.
+        // A per-user override (DipBuyingSetting.bands JSON) replaces this default when present.
+        'bands' => [
+            ['dd' => 0,  'target' => 0],   // under 10%: keep powder dry
+            ['dd' => 10, 'target' => 30],
+            ['dd' => 15, 'target' => 55],
+            ['dd' => 20, 'target' => 75],
+            ['dd' => 25, 'target' => 90],
+            ['dd' => 30, 'target' => 100], // all in
+        ],
+
+        // Gap tolerance (percentage points) before the verdict flips to behind / ahead of plan.
+        'tolerance_pct' => env('MYFINANCE2_DIP_BUYING_TOLERANCE_PCT', 5),
+
+        // Trailing-peak lookback (years) for the VUSA.AS drawdown anchor.
+        'peak_lookback_years' => env('MYFINANCE2_DIP_BUYING_PEAK_LOOKBACK_YEARS', 3),
+
+        // Moving-average period (days) for the informational trend rail (VUSA above/below its MA).
+        // The 200-day (10-month) MA is the only timing rule with robust long-run evidence; it is
+        // context here, never a gate. Tranches deploy on schedule regardless of the trend.
+        'ma_trend_period' => env('MYFINANCE2_DIP_BUYING_MA_TREND_PERIOD', 200),
+
+        // RSI(14) oversold note: an optional, off-by-default descriptive add-on for the trend rail.
+        'rsi_note_enabled'   => env('MYFINANCE2_DIP_BUYING_RSI_NOTE_ENABLED', false),
+        'rsi_oversold_level' => env('MYFINANCE2_DIP_BUYING_RSI_OVERSOLD_LEVEL', 30),
+
+        // Stall backstop: once an episode has been active (effective_dd >= MIN_EPISODE_DD) for this
+        // many months without entering a new, deeper band, release the remaining pool on a plain
+        // monthly schedule over the following this-many months. A fresh deeper band resets the clock.
+        'stall_backstop_months' => env('MYFINANCE2_DIP_BUYING_STALL_BACKSTOP_MONTHS', 6),
+
+        // Effective drawdown (%) at or above which an episode is considered active (band 1 floor).
+        // Drives the live ladder/stall backstop; keep aligned with the first band's drawdown floor.
+        'min_episode_dd_pct' => env('MYFINANCE2_DIP_BUYING_MIN_EPISODE_DD_PCT', 10),
+
+        // Default depth (%) at or above which the backtest/chart isolate a "drop" episode. Distinct
+        // from min_episode_dd_pct (the ladder's active floor): this only controls which dips are
+        // surfaced and shaded, and is overridable per request from the chart's drop-config input.
+        'min_drop_pct' => env('MYFINANCE2_DIP_BUYING_MIN_DROP_PCT', 5),
+
+        'email_to' => env('MYFINANCE2_DIP_BUYING_EMAIL_TO', null),
     ],
 ];

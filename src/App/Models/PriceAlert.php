@@ -66,6 +66,26 @@ class PriceAlert extends MyFinance2Model
         return $this->status === 'ACTIVE';
     }
 
+    public function isExpired(): bool
+    {
+        return $this->expires_at !== null && $this->expires_at->isPast();
+    }
+
+    /**
+     * The status as it should be presented to the user. An ACTIVE alert whose
+     * expiry has passed can no longer fire (see canFire()), so it is surfaced as
+     * EXPIRED rather than ACTIVE. This keeps it out of the "active" list filter
+     * while leaving it visible under the "all" view.
+     */
+    public function getEffectiveStatus(): string
+    {
+        if ($this->status === 'ACTIVE' && $this->isExpired()) {
+            return 'EXPIRED';
+        }
+
+        return $this->status;
+    }
+
     public function canFire(): bool
     {
         if ($this->status !== 'ACTIVE') {
@@ -81,10 +101,11 @@ class PriceAlert extends MyFinance2Model
 
     public function getStatusBadgeClass(): string
     {
-        return match ($this->status) {
-            'ACTIVE' => 'bg-success',
-            'PAUSED' => 'bg-secondary',
-            default  => 'bg-secondary',
+        return match ($this->getEffectiveStatus()) {
+            'ACTIVE'  => 'bg-success',
+            'PAUSED'  => 'bg-secondary',
+            'EXPIRED' => 'bg-danger',
+            default   => 'bg-secondary',
         };
     }
 

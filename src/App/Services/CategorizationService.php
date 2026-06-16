@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace ovidiuro\myfinance2\App\Services;
 
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+
+use ovidiuro\myfinance2\App\Models\SymbolTierState;
 
 /**
  * Builds and caches the per-symbol categorisation map (tier decision, quadrant,
@@ -47,7 +50,11 @@ final class CategorizationService
     {
         // While caching is off this just recomputes; it does not persist anything.
         // To re-enable, Cache::put(self::CACHE_PREFIX . $userId, $data, self::CACHE_TTL).
-        return $this->build($userId);
+        //
+        // The cron is the single writer of the per-symbol tier STATE (the hysteresis memory), so
+        // it passes persistState. The dashboard read path reads that state but never writes it,
+        // which keeps live-vs-snapshot price differences from churning the settled tiers.
+        return $this->build($userId, persistState: true);
     }
 
     public static function clearCache(int $userId): void
@@ -59,7 +66,8 @@ final class CategorizationService
         int $userId,
         array $livePerformance = [],
         array $positionReturns = [],
-        ?array $performance = null
+        ?array $performance = null,
+        bool $persistState = false
     ): array
     {
         // Reuse the caller's already-computed performance map when provided (the watchlist
@@ -76,6 +84,8 @@ final class CategorizationService
         $tiers       = new TierCalculationService();
         $classifier  = new TierClassifier($tiers);
         $overrides   = $tiers->loadOverrides($userId);
+        // Previously settled computed tiers, fed into the classifier as the hysteresis baseline.
+        $priorTiers  = $tiers->loadStates($userId);
 
         $symbols = array_values(array_unique(array_merge(
             array_keys($performance),
@@ -89,7 +99,9 @@ final class CategorizationService
             $perf     = $performance[$symbol] ?? ['has_data' => false];
             $dd       = $drawdown[$symbol] ?? null;
             $inputs   = TierInputs::fromData($symbol, $perf, $dd, $positionReturns[$symbol] ?? null);
-            $decision = $classifier->classify($inputs, $overrides->get($symbol));
+            $decision = $classifier->classify(
+                $inputs, $overrides->get($symbol), $priorTiers[$symbol] ?? null
+            );
 
             $relDrawdown = $dd['relative_drawdown'] ?? null;
             $quadrant    = QuadrantClassifier::classify($decision->basisValue, $relDrawdown);
@@ -159,6 +171,46 @@ final class CategorizationService
             ]);
         }
 
+        if ($persistState) {
+            $this->_persistTierStates($userId, $result);
+        }
+
         return $result;
+    }
+
+    /**
+     * Persist each symbol's settled computed tier so the next run can apply hysteresis against it.
+     * Written via the query builder (not Eloquent) so it bypasses the base model's creating hook,
+     * which sets user_id from the authenticated user, unavailable in the cron context. Only the
+     * cron calls this (single writer); the dashboard read path never persists.
+     *
+     * @param array $result symbol => categorization entry (must carry 'computed_tier')
+     */
+    private function _persistTierStates(int $userId, array $result): void
+    {
+        $rows = [];
+        $now  = now();
+        foreach ($result as $symbol => $entry) {
+            $tier = $entry['computed_tier'] ?? null;
+            if ($tier === null) {
+                // Nothing settled to remember (Unrated); leave any prior state untouched.
+                continue;
+            }
+            $rows[] = [
+                'user_id'    => $userId,
+                'symbol'     => $symbol,
+                'tier'       => $tier,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        if (empty($rows)) {
+            return;
+        }
+
+        DB::connection((new SymbolTierState())->getConnectionName())
+            ->table((new SymbolTierState())->getTable())
+            ->upsert($rows, ['user_id', 'symbol'], ['tier', 'updated_at']);
     }
 }

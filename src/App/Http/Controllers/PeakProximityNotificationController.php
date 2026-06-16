@@ -7,6 +7,7 @@ namespace ovidiuro\myfinance2\App\Http\Controllers;
 use Illuminate\Http\Request;
 
 use ovidiuro\myfinance2\App\Models\PeakProximityNotification;
+use ovidiuro\myfinance2\App\Services\PeakProximityAlertService;
 
 /**
  * Notification history for the peak-proximity exit-hint alerts. Read-only audit log, optionally
@@ -63,6 +64,54 @@ class PeakProximityNotificationController extends MyFinance2Controller
 
         return redirect()->route('myfinance2::peak-proximity-alerts.history')
             ->with('success', "Notification #{$id} deleted; the symbol can alert again today.");
+    }
+
+    /**
+     * Clear all of today's SENT/FAILED notification records for the logged-in user, re-arming every
+     * symbol that already alerted today so the next run (or the Re-run button) can email them again.
+     * Older history is left intact. Scoped to auth()->id().
+     *
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function clearToday(): \Illuminate\Http\RedirectResponse
+    {
+        $userId = (int) auth()->user()->id;
+
+        $deleted = PeakProximityNotification::where('user_id', $userId)
+            ->where('sent_at', '>=', now()->startOfDay())
+            ->delete();
+
+        return redirect()->route('myfinance2::peak-proximity-alerts.history')
+            ->with('success', "{$deleted} of today's record(s) cleared; those symbols can alert again today.");
+    }
+
+    /**
+     * Re-run the peak-proximity alert engine now, for the logged-in user only. Evaluates the user's
+     * enabled symbols against the live watchlist dashboard and sends any emails that are due, exactly
+     * as the daily cron would for this one user. Scoped to auth()->id() (the watchlist dashboard and
+     * the engine read auth()->id() and the per-user scope, which the authenticated request resolves).
+     *
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function rerun(): \Illuminate\Http\RedirectResponse
+    {
+        if (!config('alerts.peak_proximity.enabled', true)) {
+            return redirect()->route('myfinance2::peak-proximity-alerts.history')
+                ->with('error', 'Peak-proximity alerts are globally disabled (alerts.peak_proximity.enabled).');
+        }
+
+        $userId = (int) auth()->user()->id;
+
+        try {
+            $stats = (new PeakProximityAlertService())->evaluateForUser($userId);
+        } catch (\Throwable $e) {
+            return redirect()->route('myfinance2::peak-proximity-alerts.history')
+                ->with('error', 'Re-run failed: ' . $e->getMessage());
+        }
+
+        return redirect()->route('myfinance2::peak-proximity-alerts.history')
+            ->with('success', "Re-run complete: emailed {$stats['triggered']}, info {$stats['info']},"
+                . " skipped {$stats['skipped']}, failed {$stats['failed']}.");
     }
 
     /**

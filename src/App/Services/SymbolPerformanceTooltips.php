@@ -22,8 +22,11 @@ class SymbolPerformanceTooltips
      *     windows: array<int, array{label: string, star: string, gain: string, peak: string}>
      * }
      */
-    public static function build(array $symbolPerf, string $tradeCurrencyCode): array
-    {
+    public static function build(
+        array $symbolPerf,
+        string $tradeCurrencyCode,
+        string $tradeCurrencyDisplayCode = ''
+    ): array {
         if (empty($symbolPerf['has_data'])) {
             return self::_emptyDefaults();
         }
@@ -47,7 +50,8 @@ class SymbolPerformanceTooltips
                     $symbolPerf['windows'],
                     $symbolPerf['best_window_index'],
                     $isNonEur,
-                    $tradeCurrencyCode
+                    $tradeCurrencyCode,
+                    $tradeCurrencyDisplayCode
                 ),
             ],
         );
@@ -280,11 +284,19 @@ class SymbolPerformanceTooltips
         array $windows,
         ?int $bestIndex,
         bool $isNonEur,
-        string $currencyCode
+        string $currencyCode,
+        string $displayCode = ''
     ): array {
         $result = [];
         foreach ($windows as $win) {
             $idx          = $win['index'];
+            $peakLabel    = self::_peakLabel(
+                $win['peak_price_native'] ?? null,
+                $win['peak_price_eur'] ?? null,
+                $isNonEur,
+                $displayCode
+            );
+            $peakValue    = $peakLabel !== '' ? ', peak ' . $peakLabel : '';
             $peakDate     = !empty($win['peak_gain_date'])
                 ? ', best exit date: ' . $win['peak_gain_date']->format('d M Y')
                 : '';
@@ -297,11 +309,37 @@ class SymbolPerformanceTooltips
                     : '',
                 'gain'  => $isNonEur ? self::_winGainTooltip($win, $currencyCode) : '',
                 'peak'  => $win['peak_gain_eur'] !== null
-                    ? 'Peak paper gain during this window based on historical prices' . $peakDate
+                    ? 'Peak paper gain during this window based on historical prices'
+                        . $peakValue . $peakDate
                     : '',
             ];
         }
         return $result;
+    }
+
+    /**
+     * The window peak in its native trade currency first, then the EUR equivalent in parentheses;
+     * EUR-quoted symbols (or those without a native figure) show only the EUR value. Mirrors the
+     * quadrant's peak label (WatchlistTableMetaBuilder::_peakLabel) so both tooltips read the same.
+     */
+    private static function _peakLabel(
+        ?float $peakNative,
+        ?float $peakEur,
+        bool $isNonEur,
+        string $displayCode
+    ): string {
+        if ($peakEur === null) {
+            return '';
+        }
+
+        $eur = MoneyFormat::get_formatted_price_plain($peakEur) . '&euro;';
+
+        if ($isNonEur && $displayCode !== '' && $peakNative !== null) {
+            return MoneyFormat::get_formatted_price_plain($peakNative) . $displayCode
+                . ' (' . $eur . ')';
+        }
+
+        return $eur;
     }
 
     private static function _winGainTooltip(array $win, string $currencyCode): string

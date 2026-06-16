@@ -4,6 +4,9 @@ namespace ovidiuro\myfinance2\App\Http\Controllers;
 
 use Illuminate\Support\Facades\Log;
 
+use ovidiuro\myfinance2\App\Services\DipBuyingBacktestService;
+use ovidiuro\myfinance2\App\Services\DipBuyingPlanService;
+use ovidiuro\myfinance2\App\Services\DipBuyingPresenter;
 use ovidiuro\myfinance2\App\Services\MoversService;
 use ovidiuro\myfinance2\App\Services\Positions;
 
@@ -43,6 +46,34 @@ class PositionsController extends MyFinance2Controller
         $data['moversData'] = empty($dateInput)
             ? (new MoversService())->getMovers(auth()->id())
             : null;
+
+        // Dip Buying Plan panel: only on the live view, and only when the user has opted in (the
+        // engine returns null otherwise). The whole panel reads one render-ready view model built in
+        // the BE (DipBuyingPresenter), shared with the daily email. Failures must never break /positions.
+        $data['dipPresent']   = null;
+        $data['dipCurrent']   = null;
+        $data['dipFirstBand'] = null;
+        if (empty($dateInput)) {
+            try {
+                $userId = (int) auth()->id();
+                $plan   = (new DipBuyingPlanService())->buildForUser($userId);
+                if ($plan !== null) {
+                    // The regime breakdown, current episode and first band come from one shared
+                    // computation, so the panel, the /dip-buying-alerts/backtest page and the email
+                    // can never show different figures.
+                    $detail = (new DipBuyingBacktestService())->panelDetail($userId, $plan);
+
+                    $data['dipPresent'] = DipBuyingPresenter::make(
+                        $plan, $detail['current'], $detail['firstBand'], $detail['regime']
+                    );
+                    // The shared current-episode card is included with the raw episode + first band.
+                    $data['dipCurrent']   = $detail['current'];
+                    $data['dipFirstBand'] = $detail['firstBand'];
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Dip Buying Plan panel skipped: ' . $e->getMessage());
+            }
+        }
 
         return view('myfinance2::positions.dashboard', $data);
     }

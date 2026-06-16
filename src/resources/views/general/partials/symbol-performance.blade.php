@@ -18,7 +18,9 @@
     {{-- ── Primary tags rows ── --}}
     @php
         $openWin = !empty($symbolPerf['has_data']) ? collect($symbolPerf['windows'])->firstWhere('is_open', true) : null;
-        $tt = SymbolPerformanceTooltips::build($symbolPerf, $tradeCurrencyCode ?? 'EUR');
+        $tt = SymbolPerformanceTooltips::build(
+            $symbolPerf, $tradeCurrencyCode ?? 'EUR', $tradeCurrencyDisplayCode ?? ''
+        );
     @endphp
 
     @if (!empty($symbolPerf['has_data']))
@@ -223,7 +225,7 @@
                 </span>
             </td>
             <td>
-                <span class="badge {{ $win['is_open'] ? 'bg-primary' : 'bg-secondary' }}">
+                <span class="badge opacity-50 {{ $win['is_open'] ? 'bg-primary' : 'bg-secondary' }}">
                     {{ $win['status'] }}
                 </span>
             </td>
@@ -231,7 +233,7 @@
             <td class="text-muted pe-1 text-end d-none d-lg-table-cell">
                 @if ($winTt['peak'])
                 <span data-bs-toggle="tooltip"
-                      title="{{ $winTt['peak'] }}">
+                      title="{!! $winTt['peak'] !!}">
                     peak
                 </span>
                 @endif
@@ -239,8 +241,8 @@
             <td class="d-none d-lg-table-cell">
                 @if ($winTt['peak'])
                 <span data-bs-toggle="tooltip"
-                      title="{{ $winTt['peak'] }}">
-                <span class="text-nowrap">{!! MoneyFormat::get_formatted_gain('&euro;', $win['peak_gain_eur']) !!}</span>
+                      title="{!! $winTt['peak'] !!}">
+                <span class="text-nowrap">{!! MoneyFormat::get_formatted_gain('&euro;', $win['peak_gain_eur'], 0) !!}</span>
                 @if ($win['peak_gain_percentage'] !== null)
                 <span class="text-nowrap">({!! MoneyFormat::get_formatted_gain('%', $win['peak_gain_percentage']) !!})</span>
                 @endif
@@ -252,10 +254,10 @@
         <tr class="d-lg-none">
             <td colspan="5" class="pt-0 text-muted">
                 <span data-bs-toggle="tooltip"
-                      title="{{ $winTt['peak'] }}">
+                      title="{!! $winTt['peak'] !!}">
                     peak
                 </span>
-                {!! MoneyFormat::get_formatted_gain('&euro;', $win['peak_gain_eur']) !!}
+                {!! MoneyFormat::get_formatted_gain('&euro;', $win['peak_gain_eur'], 0) !!}
                 @if ($win['peak_gain_percentage'] !== null)
                 ({!! MoneyFormat::get_formatted_gain('%', $win['peak_gain_percentage']) !!})
                 @endif
@@ -271,7 +273,7 @@
 
     {{-- ── Extended metrics ── --}}
     {{-- Removed metrics ("Invested:", "By year:") are documented in SymbolPerformanceService::_buildSymbolResult(). --}}
-    <div class="d-flex flex-wrap gap-2 symbol-perf-metrics">
+    <div class="d-flex flex-wrap gap-2 symbol-perf-metrics mb-1">
 
         @if ($symbolPerf['sector'])
         <span>
@@ -314,7 +316,7 @@
     </div>
 
     @if (!empty($technicalIndicators))
-    <div class="d-flex flex-wrap gap-2 symbol-perf-metrics">
+    <div class="d-flex flex-wrap gap-2 symbol-perf-metrics mb-1">
         @include('myfinance2::watchlistsymbols.tables.partials.technical-indicators',
             ['indicators' => $technicalIndicators])
     </div>

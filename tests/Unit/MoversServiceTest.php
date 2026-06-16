@@ -151,6 +151,137 @@ class MoversServiceTest extends TestCase
     }
 
     /**
+     * Build a quote carrying a regular-market timestamp (and optional extra fields) for the
+     * staleness tests. $regularDate is a 'Y-m-d' string.
+     */
+    private function _timedQuote(float $dayChange, float $price, string $regularDate, array $extra = []): array
+    {
+        return array_merge([
+            'day_change'               => $dayChange,
+            'day_change_percentage'    => $dayChange,
+            'price'                    => $price,
+            'regular_market_timestamp' => new \DateTime($regularDate . ' 17:30:00'),
+        ], $extra);
+    }
+
+    /**
+     * _effectiveQuoteDate prefers a pre/post-market session date, then the regular-market
+     * timestamp, and returns null when no timestamp is present.
+     */
+    public function test_effective_quote_date_precedence(): void
+    {
+        // Pre-market change wins over the regular timestamp.
+        $pre = $this->_invokePrivate('_effectiveQuoteDate', [[
+            'pre_market_day_change'    => true,
+            'pre_market_timestamp'     => new \DateTime('2026-06-16 08:00:00'),
+            'regular_market_timestamp' => new \DateTime('2026-06-15 17:30:00'),
+        ]]);
+        $this->assertSame('2026-06-16', $pre);
+
+        // Post-market change wins over the regular timestamp.
+        $post = $this->_invokePrivate('_effectiveQuoteDate', [[
+            'post_market_day_change'   => true,
+            'post_market_timestamp'    => new \DateTime('2026-06-16 22:00:00'),
+            'regular_market_timestamp' => new \DateTime('2026-06-16 17:30:00'),
+        ]]);
+        $this->assertSame('2026-06-16', $post);
+
+        // Falls back to the regular-market timestamp.
+        $regular = $this->_invokePrivate('_effectiveQuoteDate', [[
+            'regular_market_timestamp' => new \DateTime('2026-06-15 17:30:00'),
+        ]]);
+        $this->assertSame('2026-06-15', $regular);
+
+        // No timestamp at all -> null (cannot prove staleness).
+        $this->assertNull($this->_invokePrivate('_effectiveQuoteDate', [[]]));
+    }
+
+    /**
+     * _resolveSessionDate returns today when any non-crypto symbol already trades today,
+     * otherwise the most recent completed session; crypto is ignored in the decision.
+     */
+    public function test_resolve_session_date(): void
+    {
+        $today = '2026-06-16';
+
+        // A non-crypto symbol with a today session -> card is today.
+        $this->assertSame($today, $this->_invokePrivate('_resolveSessionDate', [[
+            'AMD'   => ['date' => '2026-06-16', 'is_crypto' => false],
+            'ADYEN' => ['date' => '2026-06-15', 'is_crypto' => false],
+        ], $today]));
+
+        // No non-crypto symbol open yet -> fall back to the latest completed session.
+        $this->assertSame('2026-06-15', $this->_invokePrivate('_resolveSessionDate', [[
+            'AMD'   => ['date' => '2026-06-15', 'is_crypto' => false],
+            'ADYEN' => ['date' => '2026-06-15', 'is_crypto' => false],
+        ], $today]));
+
+        // Crypto trading today must not force the card to today while equities are still closed.
+        $this->assertSame('2026-06-15', $this->_invokePrivate('_resolveSessionDate', [[
+            'BTC-EUR' => ['date' => '2026-06-16', 'is_crypto' => true],
+            'ADYEN'   => ['date' => '2026-06-15', 'is_crypto' => false],
+        ], $today]));
+    }
+
+    /**
+     * Mixed markets: when one market already trades today, a position still on yesterday's close
+     * is excluded and the card is labelled today.
+     */
+    public function test_compute_today_movers_excludes_stale_when_another_market_is_today(): void
+    {
+        $currentDate = new \DateTime('2026-06-16 10:30:00');
+        $positions = [
+            'AMD'   => ['quantity' => 10, 'trade_currency' => 'EUR'],
+            'ADYEN' => ['quantity' => 5,  'trade_currency' => 'EUR'],
+        ];
+        $quotes = [
+            'AMD'   => $this->_timedQuote(2.50, 80.0, '2026-06-16'),  // open today
+            'ADYEN' => $this->_timedQuote(9.00, 700.0, '2026-06-15'), // still yesterday's close
+        ];
+
+        $result = $this->_invokePrivate('_computeTodayMovers', [$positions, $quotes, $currentDate, 4300.0]);
+
+        $allSymbols = array_merge(
+            array_column($result['losers'], 'symbol'),
+            array_column($result['gainers'], 'symbol')
+        );
+        $this->assertContains('AMD', $allSymbols);
+        $this->assertNotContains('ADYEN', $allSymbols);
+        $this->assertSame('Jun 16', $result['date_label']);
+    }
+
+    /**
+     * Before any market opens, every position carries yesterday's change: nothing is dropped and
+     * the card is relabelled to the last completed session so yesterday is not shown as "today".
+     */
+    public function test_compute_today_movers_falls_back_to_last_session_before_open(): void
+    {
+        $currentDate = new \DateTime('2026-06-16 08:00:00');
+        $positions = [
+            'AMD'     => ['quantity' => 10, 'trade_currency' => 'EUR'],
+            'ADYEN'   => ['quantity' => 5,  'trade_currency' => 'EUR'],
+            'BTC-EUR' => ['quantity' => 1,  'trade_currency' => 'EUR'],
+        ];
+        $quotes = [
+            'AMD'     => $this->_timedQuote(2.50, 80.0, '2026-06-15'),
+            'ADYEN'   => $this->_timedQuote(9.00, 700.0, '2026-06-15'),
+            // Crypto keeps trading; it is included regardless of the equity session date.
+            'BTC-EUR' => $this->_timedQuote(120.0, 60000.0, '2026-06-16'),
+        ];
+
+        $result = $this->_invokePrivate('_computeTodayMovers', [$positions, $quotes, $currentDate, 70000.0]);
+
+        $allSymbols = array_merge(
+            array_column($result['losers'], 'symbol'),
+            array_column($result['gainers'], 'symbol')
+        );
+        $this->assertContains('AMD', $allSymbols);
+        $this->assertContains('ADYEN', $allSymbols);
+        $this->assertContains('BTC-EUR', $allSymbols);
+        $this->assertSame('Jun 15', $result['date_label']);
+    }
+
+    /**
      * EUR currency must return a rate of exactly 1.0 — no DB lookup, no conversion.
      */
     public function test_get_eur_rate_returns_1_for_eur(): void

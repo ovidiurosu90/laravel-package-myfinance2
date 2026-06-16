@@ -2,8 +2,8 @@
 <table class="table table-sm table-striped data-table order-items-table">
         <thead class="thead">
             <tr role="row">
-                <th>Status</th>
                 <th>Id</th>
+                <th>Status</th>
                 <th>Symbol</th>
                 <th>Account</th>
                 <th>Action</th>
@@ -33,6 +33,7 @@
                 $gain         = $projectedGains[$item->id] ?? null;
             @endphp
             <tr>
+                <td>{{ $item->id }}</td>
                 <td data-order="{{ $item->placed_at ? $item->placed_at->timestamp : 0 }}">
                     <span class="badge {{ $item->getStatusBadgeClass() }}">
                         {{ $item->status }}
@@ -43,7 +44,6 @@
                         </div>
                     @endif
                 </td>
-                <td>{{ $item->id }}</td>
                 <td>
                     <a href="https://finance.yahoo.com/quote/{{ $item->symbol }}"
                         target="_blank">
@@ -105,6 +105,7 @@
                                 'regularTimestamp'   => $qd['regular_market_timestamp'] ?? null,
                                 'regularDayChange'   => $qd['regular_market_day_change'] ?? null,
                                 'regularDayChangePct'=> $qd['regular_market_day_change_pct'] ?? null,
+                                'marketOpen'         => $qd['market_open'] ?? false,
                                 'content'            => MoneyFormat::get_formatted_price_display($currencyCode, $cp, true),
                             ])
                             → {!! $item->getFormattedLimitPrice() !!}
@@ -207,8 +208,8 @@
         </tbody>
         <tfoot class="tfoot">
             <tr role="row">
-                <th>Status</th>
                 <th>Id</th>
+                <th>Status</th>
                 <th>Symbol</th>
                 <th>Account</th>
                 <th>Action</th>

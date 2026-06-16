@@ -1,12 +1,12 @@
 <script type="module">
 $(document).ready(function()
 {
-    const STATUS_COLUMN = 0;
+    const STATUS_COLUMN = 1;
     const ACTIVE_FILTER = 'DRAFT|PLACED';
 
     const table = $('.order-items-table.data-table').DataTable({
         'pageLength': 100,
-        'order': [[ 2, 'asc' ]],
+        'order': [[ STATUS_COLUMN, 'desc' ]],
         'autoWidth': false,
         'dom': '<"d-flex align-items-center gap-3 mb-2"l<"ms-auto"f>>r<"table-responsive"t>ip',
         'columnDefs': [

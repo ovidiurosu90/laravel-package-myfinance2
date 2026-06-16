@@ -247,7 +247,15 @@ crontab -e
 
 ### finance:peak-proximity-alerts
 
-Emails an exit-hint alert when an open position has rallied close to its peak in any of the 3M / 6M / 1Y / 2Y windows. Each window has its own proximity threshold, tighter for near-term peaks and looser for long-term ones: within 2% of the 3M peak, 5% of the 6M peak, 8% of the 1Y peak, or 10% of the 2Y peak. One email per symbol per day. The email reproduces the data shown in the three watchlist-symbols cards for that symbol (performance, quadrant, open positions) plus a summary of the current price, distance from the peak, and the gain if sold now. Eligible positions are all open positions (winners included); the email's tier and action tell you whether it is a good moment to trim. The subject names the closest window, e.g. `[MyFinance2] AF.PA near peak => -3.49% to 3M`. The once-per-symbol-per-day throttle means it is safe to run hourly: a symbol is emailed at most once a day, but an hourly schedule catches it the moment it enters the near-peak zone during the trading day instead of only reflecting the previous close. If a symbol already alerted today and you want it to fire again the same day (after re-checking), re-arm it from the per-symbol page at `/peak-proximity-alerts` (the Re-arm button clears today's record).
+Emails an exit-hint alert when an open position has rallied close to its peak in the 3M / 6M / 1Y / 2Y windows. Each window has its own proximity threshold, tighter for near-term peaks and looser for long-term ones: within 2% of the 3M peak, 5% of the 6M peak, 8% of the 1Y peak, or 10% of the 2Y peak.
+
+**The alert is exit-focused** so it stays actionable rather than noisy. "Near peak" is an exit aid, so an email only fires for a position you would actually consider trimming, that is, one whose gain-based effective tier is **weak (Rust or Bronze)**. Strong holdings (Platinum, Gold, Silver) never email; they appear in the inbox as informational only. The gain-based tier is the gate; the HOLD / EXIT action is shown for context but never gates. An email also needs a **meaningful** window near peak (6M, 1Y or 2Y): a 3M-only signal is context and never emails on its own.
+
+**Cadence escalates with confluence.** You get one email when an alert opens, then reminders that come faster the more long windows are near peak at once (one window: weekly; two: every 3 days; three: daily). A new long window crossing into near-peak emails right away. There is no reminder cap; reminders continue until you dismiss the alert (and a per-day throttle still caps it at one email per symbol per day, so running the cron hourly is safe).
+
+The email reproduces the data shown in the three watchlist-symbols cards for that symbol (performance, quadrant, open positions) plus a summary of the current price, distance from the peak, and the gain if sold now. The subject leads with the tier and names the closest window, e.g. `[MyFinance2] EZJ.L (Bronze, EXIT) near peak => -4.25% to 6M`; reminders are prefixed `Reminder:`. If a symbol already alerted today and you want it to fire again the same day, re-arm it from the per-symbol page at `/peak-proximity-alerts` (the Re-arm button clears today's record).
+
+**Front-end inbox.** Every near-peak position (actionable and informational) becomes a card in the inbox at `/peak-proximity-alerts/inbox`, sorted by severity. Cards persist until you dismiss them, even after the symbol is no longer near peak, so nothing is silently lost. Dismissing one ends its email reminders; if the symbol later returns to peak, a fresh alert opens. The full rule set is also documented on the `/peak-proximity-alerts` page itself.
 
 ```bash
 sudo su
@@ -288,6 +296,42 @@ php artisan finance:peak-proximity-alerts --user-id=1 --symbols=AMD,ETH-EUR
 These alerts are **off by default**. Each user enables the symbols they want at `/peak-proximity-alerts` (enable/disable per symbol or in bulk; an optional "until" date makes the change temporary and auto-reverts afterwards; Active/All filter). The hourly cron runs `--all-users`; only users who enabled at least one symbol receive emails, so a full run is a no-op for everyone else.
 
 Configuration (env, all optional): `MYFINANCE2_PEAK_PROXIMITY_ENABLED` (default true); the per-window thresholds `MYFINANCE2_PEAK_PROXIMITY_THRESHOLD_3M` / `_6M` / `_1Y` / `_2Y` (defaults 2 / 5 / 8 / 10); `MYFINANCE2_PEAK_PROXIMITY_THRESHOLD_PCT` (default 5, the fallback when a window has no specific threshold); `MYFINANCE2_PEAK_PROXIMITY_EMAIL_TO` (defaults to the alerts email, then the user's email). Migrations add the `peak_proximity_notifications` audit table and the `peak_proximity_alert_settings` opt-in table; run `php artisan migrate` to apply them.
+
+
+### finance:dip-buying-alerts
+
+The inverse of peak-proximity: a deploy-cash hint on the way **down**. The Dip Buying Plan paces how you spend a dip-buying cash pool as the market falls, from a fixed EUR pool, a front-loaded drawdown "ladder", a gap-to-target verdict, a VUSA-vs-200-day-MA trend rail (context only, never a "wait"), and a six-month stall backstop that releases idle cash on a slow schedule. It is behavioral damage-control for cash you keep anyway; it does **not** promise to beat staying invested. One engine (`DipBuyingPlanService`) feeds four surfaces: a panel on `/positions`, this opt-in daily email, the settings page `/dip-buying-alerts`, and the self-validation backtest at `/dip-buying-backtest`.
+
+The drawdown axis is `effective_dd = max(VUSA.AS trailing-peak drawdown, your portfolio drawdown)`; the reserve ladder is cumulative % of the pool to have deployed at each depth (default: 10%->30%, 15%->55%, 20%->75%, 25%->90%, 30%->100%). The verdict is "no dip yet" below 10%, then behind / on plan / ahead of plan against the band target (5pp tolerance). The email fires only on a state change (the band deepens, you cross from on-plan to behind, or the stall backstop activates), throttled to one per day; there is deliberately no "the trend turned" email.
+
+```bash
+sudo su
+crontab -e
+
+#############
+# Purpose: Daily Dip Buying Plan email after the European close.
+# Off by default; only users who enabled the feature AND the email channel on /dip-buying-alerts
+# are processed, so a full run is a no-op for everyone else. Throttled to one email per day, and it
+# fires only on a state change. Runs at 18:10 server time, clear of the other finance crons, and
+# logs to finance-api-cron.log (WARNING+ entries surface in the logs:email-daily-errors digest).
+
+10 18 * * * su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Repositories/laravel-admin/ && cpulimit -l 50 -- php artisan finance:dip-buying-alerts --all-users >> [USER_HOME]/Repositories/laravel-admin/storage/logs/finance-api-cron.log 2>&1"
+#############
+```
+
+```bash
+# Preview for one user without sending or recording
+php artisan finance:dip-buying-alerts --user-id=1 --dry-run
+
+# All users with the feature + email enabled
+php artisan finance:dip-buying-alerts --all-users
+
+# Self-validation backtest: replay your trades through the ladder (CLI mirror of /dip-buying-backtest)
+php artisan finance:dip-buying-backtest --user-id=1
+php artisan finance:dip-buying-backtest --user-id=1 --from=2025-01-01 --pool=10000
+```
+
+These alerts are **off by default**. Set the pool, enable the feature and the email channel at `/dip-buying-alerts` (an optional advanced JSON override replaces the default ladder). Configuration (env, all optional): `MYFINANCE2_DIP_BUYING_ENABLED` (default true); `MYFINANCE2_DIP_BUYING_TOLERANCE_PCT` (default 5); `MYFINANCE2_DIP_BUYING_PEAK_LOOKBACK_YEARS` (default 3); `MYFINANCE2_DIP_BUYING_MA_TREND_PERIOD` (default 200); `MYFINANCE2_DIP_BUYING_STALL_BACKSTOP_MONTHS` (default 6); `MYFINANCE2_DIP_BUYING_MIN_EPISODE_DD_PCT` (default 10); `MYFINANCE2_DIP_BUYING_RSI_NOTE_ENABLED` (default false) with `MYFINANCE2_DIP_BUYING_RSI_OVERSOLD_LEVEL` (default 30); `MYFINANCE2_DIP_BUYING_EMAIL_TO` (defaults to the alerts email, then the user's email). Migrations add the `dip_buying_settings` opt-in table and the `dip_buying_notifications` audit/throttle table; run `php artisan migrate` to apply them. The per-user plan is cached 2h (like `DrawdownService`); a settings change clears it, and editing the ladder defaults or the drawdown formula needs a `cache:clear`.
 
 
 ### Running tests

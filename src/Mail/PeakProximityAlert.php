@@ -10,6 +10,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Route;
 
 use ovidiuro\myfinance2\App\Services\MoneyFormat;
+use ovidiuro\myfinance2\App\Services\TierCalculationService;
 use ovidiuro\myfinance2\Mail\Concerns\HasAppLabel;
 
 class PeakProximityAlert extends Mailable
@@ -25,6 +26,7 @@ class PeakProximityAlert extends Mailable
     private string $_symbol;
     private array $_quoteData;
     private array $_triggeredWindows;
+    private bool $_isReminder;
 
     /**
      * Create a new message instance.
@@ -32,16 +34,19 @@ class PeakProximityAlert extends Mailable
      * @param string $symbol
      * @param array  $quoteData        the dashboard item for this symbol (all three cards' data)
      * @param array  $triggeredWindows window label => exit-zone entry (proximity_pct, peak date)
+     * @param bool   $isReminder       true for a cadence reminder (vs the first email of the episode)
      */
     public function __construct(
         string $symbol,
         array $quoteData,
-        array $triggeredWindows
+        array $triggeredWindows,
+        bool $isReminder = false
     )
     {
         $this->_symbol           = $symbol;
         $this->_quoteData        = $quoteData;
         $this->_triggeredWindows = $triggeredWindows;
+        $this->_isReminder       = $isReminder;
     }
 
     /**
@@ -56,14 +61,22 @@ class PeakProximityAlert extends Mailable
         $closestProximity = $this->_triggeredWindows[$closestWindow]['proximity_pct'] ?? null;
         $orderedWindows   = $this->_orderedWindows();
 
-        // All triggered windows, largest first, e.g.
-        // "[MyFinance2-LOCAL] Open position near peak => GOOGL -6.65% to 2Y, -1.46% to 3M"
+        $tier      = $this->_quoteData['categorization']['effective_tier'] ?? null;
+        $tierLabel = TierCalculationService::tierLabel($tier);
+        $action    = $this->_quoteData['categorization']['action'] ?? null;
+
+        // Lead the subject with the tier (and action) so a near-peak winner reads differently from a
+        // near-peak laggard at a glance, e.g.
+        // "[MyFinance2-LOCAL] EZJ.L (Bronze, EXIT) near peak => -4.25% to 6M, +0.00% to 3M"
         $parts = [];
         foreach ($orderedWindows as $window) {
             $parts[] = $this->_signedPct($this->_triggeredWindows[$window]['proximity_pct'] ?? null)
                 . ' to ' . strtoupper($window);
         }
-        $subject = "{$label} Open position near peak => {$this->_symbol} " . implode(', ', $parts);
+
+        $tierTag = $this->_tierTag($tierLabel, $action);
+        $prefix  = $this->_isReminder ? 'Reminder: ' : '';
+        $subject = "{$label} {$prefix}{$this->_symbol}{$tierTag} near peak => " . implode(', ', $parts);
 
         $watchlistUrl = Route::has('myfinance2::watchlist-symbols.index')
             ? route('myfinance2::watchlist-symbols.index')
@@ -78,10 +91,32 @@ class PeakProximityAlert extends Mailable
                 'orderedWindows'   => $orderedWindows,
                 'closestWindow'    => $closestWindow,
                 'closestProximity' => $closestProximity,
+                'tier'             => $tier,
+                'tierLabel'        => $tierLabel,
+                'headAction'       => $action,
+                'isReminder'       => $this->_isReminder,
                 'watchlistUrl'     => $watchlistUrl,
                 'yahooUrl'         => self::YAHOO_QUOTE_URL . $this->_symbol,
                 'vusaUrl'          => self::YAHOO_QUOTE_URL . self::BENCHMARK_SYMBOL,
             ]);
+    }
+
+    /**
+     * The " (Tier, ACTION)" subject fragment, omitting whichever pieces are unknown.
+     *
+     * @param string|null $tierLabel
+     * @param string|null $action
+     *
+     * @return string
+     */
+    private function _tierTag(?string $tierLabel, ?string $action): string
+    {
+        $bits = array_filter([$tierLabel, $action]);
+        if (empty($bits)) {
+            return '';
+        }
+
+        return ' (' . implode(', ', $bits) . ')';
     }
 
     /**

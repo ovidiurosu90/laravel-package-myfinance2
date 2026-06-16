@@ -8,6 +8,9 @@
     $qh_isPost   = !empty($isPostMarket);
     $qh_extended = $qh_isPre || $qh_isPost;
 
+    // Regular session label: "Market open" while the session is live, else "At close".
+    $qh_regularLabel = !empty($marketOpen) ? 'Market open' : 'At close';
+
     $qh_blocks = [];
 
     // Regular session ("At close"). When in extended hours the live figure is
@@ -22,7 +25,7 @@
         ];
     } else {
         $qh_blocks[] = [
-            'label'     => 'At close',
+            'label'     => $qh_regularLabel,
             'price'     => $price ?? null,
             'change'    => $dayChange ?? null,
             'changePct' => $dayChangePct ?? null,

@@ -274,71 +274,6 @@ class MoversService
     }
 
     /**
-     * Get a map of symbol => [accountId => true] for the user's open positions,
-     * and the total number of distinct accounts.
-     * Returns: ['symbol_accounts' => [...], 'account_count' => int]
-     */
-    private function _getSymbolAccountsMap(int $userId): array
-    {
-        $trades = Trade::withoutGlobalScope(AssignedToUserScope::class)
-            ->where('user_id', $userId)
-            ->where('status', 'OPEN')
-            ->select(['symbol', 'account_id'])
-            ->get();
-
-        $symbolAccounts = [];
-        $allAccountIds = [];
-        foreach ($trades as $trade) {
-            $symbolAccounts[$trade->symbol][$trade->account_id] = true;
-            $allAccountIds[$trade->account_id] = true;
-        }
-
-        return [
-            'symbol_accounts' => $symbolAccounts,
-            'account_count'   => count($allAccountIds),
-        ];
-    }
-
-    /**
-     * Find the most recent date in stats_historical where at least $threshold distinct
-     * accounts had at least one symbol with recorded data.
-     * Looks back up to 30 days. Returns null if no qualifying date is found.
-     */
-    private function _findLastTradingDate(array $symbolAccounts, int $threshold): ?\DateTime
-    {
-        if (empty($symbolAccounts)) {
-            return null;
-        }
-
-        $symbols = array_keys($symbolAccounts);
-        $cutoffDate = (new \DateTime())->modify('-30 days')->format('Y-m-d');
-
-        $rows = StatHistorical::withoutGlobalScope(AssignedToUserScope::class)
-            ->whereIn('symbol', $symbols)
-            ->where('date', '>=', $cutoffDate)
-            ->orderBy('date', 'DESC')
-            ->select(['date', 'symbol'])
-            ->get();
-
-        $dateAccountCounts = [];
-        foreach ($rows as $row) {
-            $accountIds = $symbolAccounts[$row->symbol] ?? [];
-            foreach (array_keys($accountIds) as $accountId) {
-                $dateAccountCounts[$row->date][$accountId] = true;
-            }
-        }
-
-        krsort($dateAccountCounts);
-        foreach ($dateAccountCounts as $date => $accounts) {
-            if (count($accounts) >= $threshold) {
-                return new \DateTime($date);
-            }
-        }
-
-        return null;
-    }
-
-    /**
      * Format a date range for period labels (e.g. "Mar 8 – Mar 15" or "Mar 15, 2025 – Mar 15, 2026").
      * Year is included on both sides only when the two dates span different calendar years.
      */
@@ -399,7 +334,58 @@ class MoversService
     }
 
     /**
+     * Determine the calendar date (Europe/Amsterdam) that a quote's day_change actually belongs to.
+     * Pre/post-market changes are extended-hours sessions dated to the current session; otherwise the
+     * regular-market timestamp is used. Returns 'Y-m-d' or null when no timestamp is available.
+     */
+    private function _effectiveQuoteDate(array $quote): ?string
+    {
+        if (!empty($quote['pre_market_day_change']) && !empty($quote['pre_market_timestamp'])) {
+            return $quote['pre_market_timestamp']->format('Y-m-d');
+        }
+        if (!empty($quote['post_market_day_change']) && !empty($quote['post_market_timestamp'])) {
+            return $quote['post_market_timestamp']->format('Y-m-d');
+        }
+        if (!empty($quote['regular_market_timestamp'])) {
+            return $quote['regular_market_timestamp']->format('Y-m-d');
+        }
+        return null;
+    }
+
+    /**
+     * Pick the session date the "Today" card should report.
+     *
+     * Yahoo's regularMarketChange keeps showing the previous session's move until a market reopens,
+     * so before the user's markets open (e.g. early morning, weekends, holidays) a position's
+     * day_change still reflects yesterday. To avoid labelling yesterday's move as "today":
+     *   - if any non-crypto held symbol already has a session dated today, the card is "today";
+     *   - otherwise it falls back to the most recent completed session (e.g. yesterday).
+     * Crypto trades 24/7 so it is ignored here (it would otherwise always force "today").
+     *
+     * @param array $effDates symbol => ['date' => ?string, 'is_crypto' => bool]
+     */
+    private function _resolveSessionDate(array $effDates, string $today): string
+    {
+        $candidateDates = [];
+        foreach ($effDates as $info) {
+            if ($info['is_crypto'] || $info['date'] === null) {
+                continue;
+            }
+            if ($info['date'] === $today) {
+                return $today;
+            }
+            $candidateDates[] = $info['date'];
+        }
+
+        return empty($candidateDates) ? $today : max($candidateDates);
+    }
+
+    /**
      * Compute today's movers from live day_change data (already in $quotes).
+     *
+     * Only positions whose day_change belongs to the resolved session date are included; a symbol
+     * whose market has not opened yet (still carrying yesterday's regularMarketChange) is skipped
+     * while another market already trades today. Crypto is always included since it trades 24/7.
      */
     private function _computeTodayMovers(
         array $positions,
@@ -408,6 +394,21 @@ class MoversService
         float $totalPortfolioEur
     ): array
     {
+        $today = $currentDate->format('Y-m-d');
+
+        $effDates = [];
+        foreach ($positions as $symbol => $position) {
+            if (!isset($quotes[$symbol])) {
+                continue;
+            }
+            $effDates[$symbol] = [
+                'date'      => $this->_effectiveQuoteDate($quotes[$symbol]),
+                'is_crypto' => FinanceAPI::isCryptoSymbol($symbol),
+            ];
+        }
+
+        $sessionDate = $this->_resolveSessionDate($effDates, $today);
+
         $gains = [];
 
         foreach ($positions as $symbol => $position) {
@@ -415,6 +416,15 @@ class MoversService
                 Log::warning("MoversService: no quote for {$symbol} in today movers, skipping");
                 continue;
             }
+
+            // Skip stale positions: a known session date that is not the card's session date means
+            // this market has not opened today yet (its day_change is a prior session's move).
+            // A null date (no timestamp) cannot be proven stale, so it is kept; crypto always stays.
+            $info = $effDates[$symbol];
+            if (!$info['is_crypto'] && $info['date'] !== null && $info['date'] !== $sessionDate) {
+                continue;
+            }
+
             $dayChange = $quotes[$symbol]['day_change'] ?? 0;
             if (abs($dayChange) < 0.0001) {
                 continue;
@@ -458,6 +468,7 @@ class MoversService
         $ranked['portfolio_total_pct'] = $totalPortfolioEur > 0.005
             ? ($portfolioTotalEur / $totalPortfolioEur) * 100
             : 0;
+        $ranked['date_label'] = (new \DateTime($sessionDate))->format('M j');
         return $ranked;
     }
 
@@ -685,23 +696,9 @@ class MoversService
         }
         $totalPortfolioEur = $this->_computeTotalPortfolioValueEur($positions, $quotes, $currentDate);
 
-        // For "today" label: on weekends, find the last trading day with enough account data.
-        $dayOfWeek = (int) $currentDate->format('N'); // 1 = Mon … 7 = Sun
-        if ($dayOfWeek >= 6) {
-            $symbolAccountsData = $this->_getSymbolAccountsMap($userId);
-            $threshold = max(1, min(2, $symbolAccountsData['account_count']));
-            $lastTradingDate = $this->_findLastTradingDate(
-                $symbolAccountsData['symbol_accounts'], $threshold
-            );
-            $todayDateLabel = $lastTradingDate
-                ? $lastTradingDate->format('M j')
-                : $currentDate->format('M j');
-        } else {
-            $todayDateLabel = $currentDate->format('M j');
-        }
-
+        // _computeTodayMovers resolves the session date itself (today, or the last completed session
+        // when the user's markets have not opened yet) and sets date_label accordingly.
         $todayMovers = $this->_computeTodayMovers($positions, $quotes, $currentDate, $totalPortfolioEur);
-        $todayMovers['date_label'] = $todayDateLabel;
         $todayMovers['total_portfolio_eur'] = $totalPortfolioEur;
         Cache::put($this->_getCacheKey($userId, 'today'), $todayMovers, self::CACHE_TTL_TODAY);
 

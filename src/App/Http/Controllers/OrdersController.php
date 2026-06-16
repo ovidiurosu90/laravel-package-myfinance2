@@ -292,6 +292,13 @@ class OrdersController extends MyFinance2Controller
 
         $item->save();
 
+        $alertDeleted = $this->_deleteOrderAlert($item);
+
+        $message = trans('myfinance2::orders.flash-messages.order-filled', ['id' => $item->id]);
+        if ($alertDeleted) {
+            $message .= '. Its temporary price alert was deleted.';
+        }
+
         if ($request->create_trade == '1') {
             $params = http_build_query([
                 'symbol'            => $item->symbol,
@@ -307,12 +314,10 @@ class OrdersController extends MyFinance2Controller
                 'order_id'          => $item->id,
             ]);
 
-            return redirect(url('/trades/create?' . $params))->with('success',
-                trans('myfinance2::orders.flash-messages.order-filled', ['id' => $item->id]));
+            return redirect(url('/trades/create?' . $params))->with('success', $message);
         }
 
-        return redirect()->route('myfinance2::orders.index', ['view' => 'all'])->with('success',
-            trans('myfinance2::orders.flash-messages.order-filled', ['id' => $item->id]));
+        return redirect()->route('myfinance2::orders.index', ['view' => 'all'])->with('success', $message);
     }
 
     /**
@@ -775,6 +780,43 @@ class OrdersController extends MyFinance2Controller
         $alert->symbol            = $item->symbol;
         $alert->trade_currency_id = $item->trade_currency_id;
         $alert->save();
+
+        return true;
+    }
+
+    /**
+     * Delete the auto-created order alert when the order is filled.
+     * Matches the alert the same way _createOrderAlert built it: by symbol, the alert_type
+     * derived from the order's action, ACTIVE status, source='order', a non-expired expiry,
+     * and target_price equal to the order's limit price. The temporary alert is no longer
+     * needed once the order is filled, so it is removed.
+     *
+     * @param Order $item
+     *
+     * @return bool True if an alert was deleted.
+     */
+    private function _deleteOrderAlert(Order $item): bool
+    {
+        if (!$item->limit_price) {
+            return false;
+        }
+
+        $alertType = $item->action === 'BUY' ? 'PRICE_BELOW' : 'PRICE_ABOVE';
+
+        $alert = PriceAlert::where('symbol', $item->symbol)
+            ->where('alert_type', $alertType)
+            ->where('status', 'ACTIVE')
+            ->where('source', 'order')
+            ->whereNotNull('expires_at')
+            ->where('expires_at', '>', now())
+            ->where('target_price', $item->limit_price)
+            ->first();
+
+        if (!$alert) {
+            return false;
+        }
+
+        $alert->forceDelete();
 
         return true;
     }

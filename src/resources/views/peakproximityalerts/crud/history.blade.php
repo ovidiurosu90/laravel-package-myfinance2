@@ -16,16 +16,42 @@
                                 <span class="badge bg-secondary ms-2">{{ $symbol }}</span>
                             @endif
                         </span>
-                        <div class="d-flex gap-2">
+                        <div class="d-flex gap-2 flex-wrap align-items-center">
+                            @include('myfinance2::peakproximityalerts.partials.subnav', ['active' => 'history'])
+                            <form method="POST"
+                                  action="{{ route('myfinance2::peak-proximity-alerts.history.clear-today') }}"
+                                  class="mb-0"
+                                  onsubmit="return confirm('Clear all of today\'s alert records for your account? Those symbols will be able to alert again today.');">
+                                @csrf
+                                <button type="submit" class="btn btn-outline-warning btn-sm"
+                                        data-bs-toggle="tooltip"
+                                        title="Delete today's records so those symbols can alert again today">
+                                    <i class="fa fa-fw fa-eraser" aria-hidden="true"></i> Clear today
+                                </button>
+                            </form>
+                            <form method="POST"
+                                  action="{{ route('myfinance2::peak-proximity-alerts.history.rerun') }}"
+                                  class="mb-0"
+                                  onsubmit="return confirm('Re-run peak-proximity alerts now for your account? This evaluates your enabled symbols and sends any due emails.');">
+                                @csrf
+                                <button type="submit" class="btn btn-outline-primary btn-sm"
+                                        data-bs-toggle="tooltip"
+                                        title="Run the alert engine now for your account">
+                                    <i class="fa fa-fw fa-refresh" aria-hidden="true"></i> Re-run
+                                </button>
+                            </form>
                             @if ($symbol)
                                 <a href="{{ route('myfinance2::peak-proximity-alerts.history') }}"
-                                   class="btn btn-outline-secondary btn-sm">
+                                   class="btn btn-outline-secondary btn-sm"
+                                   data-bs-toggle="tooltip" title="Remove the symbol filter">
                                     Show All
                                 </a>
                             @endif
-                            <a href="{{ route('myfinance2::peak-proximity-alerts.index') }}"
-                               class="btn btn-outline-secondary btn-sm">
-                                <i class="fa fa-fw fa-reply-all" aria-hidden="true"></i> Back to Alerts
+                            <a href="{{ url('/watchlist-symbols') }}"
+                               class="btn btn-outline-secondary btn-sm"
+                               data-bs-toggle="tooltip"
+                               title="Open the watchlist symbols dashboard">
+                                <i class="fa fa-fw fa-line-chart" aria-hidden="true"></i> Watchlist
                             </a>
                         </div>
                     </div>

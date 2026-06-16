@@ -15,6 +15,8 @@ const symbolData = {
 // Expose the series map so the shared symbol chart modal can reuse the same data.
 window.__symbolChartSeries = symbolData;
 
+@include('myfinance2::general.scripts.partials.fmt-price')
+
 $(document).ready(function()
 {
     $('.chart-symbol').each(function()
@@ -152,7 +154,7 @@ $(document).ready(function()
                     + `</div>`
                     + `<div style="font-size: 24px; margin: 4px 0px;`
                     + `            color:${'black'}">`
-                    +     `${Math.round(100 * price) / 100} `
+                    +     `${fmtPrice(price)} `
                     +     tradeCurrencyFormatted
                     + `</div>`
                     + `<div style="color: ${'black'}">${dateStr}</div>`;

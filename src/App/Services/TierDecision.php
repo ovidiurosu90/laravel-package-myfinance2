@@ -39,7 +39,13 @@ final class TierDecision
         // materially from the return on the holding you currently have, because it folds in one or
         // more earlier closed positions (a re-entry). The tier is unchanged; this only flags that
         // the big "overall" number on screen no longer reflects the current lot.
-        public readonly bool    $isStale = false
+        public readonly bool    $isStale = false,
+        // True for the benchmark itself (VUSA.AS): it does not compete in its own tournament. Its
+        // tier is pinned to at least Gold and the view renders it as a labelled reference row.
+        public readonly bool    $isBenchmark = false,
+        // True when the deciding value sits within the borderline band of a tier line, so the
+        // label is soft. Cosmetic only; never changes the tier.
+        public readonly bool    $isBorderline = false
     )
     {
     }
@@ -81,6 +87,8 @@ final class TierDecision
             'candidates'     => $this->candidates,
             'explanation'    => $this->explanation,
             'is_stale'       => $this->isStale,
+            'is_benchmark'   => $this->isBenchmark,
+            'is_borderline'  => $this->isBorderline,
         ];
     }
 }

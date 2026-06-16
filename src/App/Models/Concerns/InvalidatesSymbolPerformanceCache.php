@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ovidiuro\myfinance2\App\Models\Concerns;
 
 use ovidiuro\myfinance2\App\Services\CategorizationService;
+use ovidiuro\myfinance2\App\Services\DipBuyingPlanService;
 use ovidiuro\myfinance2\App\Services\DrawdownService;
 use ovidiuro\myfinance2\App\Services\SymbolPerformanceService;
 
@@ -32,6 +33,9 @@ trait InvalidatesSymbolPerformanceCache
 
             SymbolPerformanceService::clearCache($userId);
             DrawdownService::clearCache($userId);
+            // The dip-buying plan reads the deployed-so-far measure from trades, so a trade change
+            // must invalidate its cached snapshot too.
+            DipBuyingPlanService::clearCache($userId);
             // Categorization is currently recomputed live (uncached); clearing it here is a no-op
             // today but keeps the invalidation correct if that cache is ever re-enabled.
             CategorizationService::clearCache($userId);

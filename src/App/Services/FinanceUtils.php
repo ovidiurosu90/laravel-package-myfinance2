@@ -592,6 +592,8 @@ class FinanceUtils
                 'pre_market_timestamp'          => null,
                 'post_market_price'             => $q['post_market_price'] ?? null,
                 'post_market_timestamp'         => null,
+                'market_open'                   => isset($q['marketUtils'])
+                    && $q['marketUtils']->isOpen(),
             ];
 
             if (($q['quote_timestamp'] ?? null) instanceof \DateTime) {

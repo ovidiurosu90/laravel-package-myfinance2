@@ -82,13 +82,35 @@ final class TierClassifier
     {
     }
 
-    public function classify(TierInputs $inputs, ?SymbolTierOverride $override): TierDecision
+    /**
+     * @param ?string $previousTier  The symbol's last settled computed tier (from SymbolTierState),
+     *                               used to damp boundary chatter via hysteresis. Null on first sight.
+     */
+    public function classify(
+        TierInputs $inputs,
+        ?SymbolTierOverride $override,
+        ?string $previousTier = null
+    ): TierDecision
     {
         [$basis, $value, $confidence] = $this->_resolveBasis($inputs);
 
+        // Hysteresis: keep the previously settled tier unless the value crosses the boundary
+        // dead-band, so a position on a tier line does not flip week to week.
         $computedTier = $basis === TierDecision::BASIS_NONE
             ? null
-            : $this->tiers->getTier($value);
+            : $this->tiers->getTierWithHysteresis($value, $previousTier);
+
+        // The benchmark does not compete in its own tournament: pin it to at least Gold so a
+        // soft trailing return never renders VUSA.AS below its own 10% line. A genuinely hot
+        // benchmark can still show Platinum.
+        $isBenchmark = $inputs->symbol === TierCalculationService::BENCHMARK_SYMBOL;
+        if ($isBenchmark) {
+            $computedTier = $this->_pinToGold($computedTier);
+        }
+
+        // A soft label sitting on a tier line. Suppressed for the benchmark, whose tier is pinned
+        // and therefore stable by construction.
+        $isBorderline = !$isBenchmark && $this->tiers->isBorderline($value);
 
         $overrideTier  = $override?->tier_override;
         $effectiveTier = $overrideTier ?? $computedTier;
@@ -96,7 +118,9 @@ final class TierClassifier
         // A manual override replaces the computed basis, so the stale-headline warning no longer
         // applies (the override note explains the tier instead).
         $isStale     = $overrideTier === null && $this->_isStale($inputs);
-        $explanation = $this->_explain($inputs, $basis, $value, $override, $computedTier, $isStale);
+        $explanation = $this->_explain(
+            $inputs, $basis, $value, $override, $computedTier, $isStale, $isBenchmark
+        );
 
         return new TierDecision(
             tier:         $effectiveTier,
@@ -114,8 +138,30 @@ final class TierClassifier
                 'market_1y_pct'  => $inputs->marketMomentumPct,
             ],
             explanation:  $explanation,
-            isStale:      $isStale
+            isStale:      $isStale,
+            isBenchmark:  $isBenchmark,
+            isBorderline: $isBorderline
         );
+    }
+
+    /**
+     * Raise a computed tier to at least Gold (the benchmark floor). A null computed tier (e.g. the
+     * benchmark briefly without a usable return) still becomes Gold so the reference line holds.
+     */
+    private function _pinToGold(?string $computedTier): string
+    {
+        $order = [
+            TierCalculationService::RUST     => 0,
+            TierCalculationService::BRONZE   => 1,
+            TierCalculationService::SILVER   => 2,
+            TierCalculationService::GOLD     => 3,
+            TierCalculationService::PLATINUM => 4,
+        ];
+        $rank = $computedTier !== null ? ($order[$computedTier] ?? 0) : 0;
+
+        return $rank >= $order[TierCalculationService::GOLD]
+            ? $computedTier
+            : TierCalculationService::GOLD;
     }
 
     /**
@@ -202,10 +248,20 @@ final class TierClassifier
         ?float $value,
         ?SymbolTierOverride $override,
         ?string $computedTier,
-        bool $isStale
+        bool $isStale,
+        bool $isBenchmark = false
     ): string
     {
         $computed = $this->_computedExplanation($inputs, $basis, $value);
+        if ($isBenchmark)
+        {
+            // The benchmark anchors the 10% Gold line; surface its trailing figure as context
+            // while making clear the tier is pinned, not earned.
+            $computed = 'Benchmark (' . $inputs->symbol . '): the '
+                . $this->_fmt(TierCalculationService::GOLD_THRESHOLD_PCT)
+                . ' Gold line is anchored to its long-run return, so it is pinned to Gold. '
+                . 'Trailing ' . $computed;
+        }
         if ($isStale)
         {
             $computed .= ' ' . $this->_stalenessNote($inputs);

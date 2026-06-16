@@ -98,6 +98,8 @@
                             'regularTimestamp'   => $item['regular_market_timestamp_formatted'] ?? null,
                             'regularDayChange'   => $item['regular_market_day_change'] ?? null,
                             'regularDayChangePct'=> $item['regular_market_day_change_pct'] ?? null,
+                            'marketOpen'         => !empty($item['marketUtils'])
+                                && $item['marketUtils']->isOpen(),
                         ],
                     ])
                     @include('myfinance2::partials.price-tooltip', [
@@ -112,6 +114,8 @@
                         'regularTimestamp'   => $item['regular_market_timestamp_formatted'] ?? null,
                         'regularDayChange'   => $item['regular_market_day_change'] ?? null,
                         'regularDayChangePct'=> $item['regular_market_day_change_pct'] ?? null,
+                        'marketOpen'         => !empty($item['marketUtils'])
+                            && $item['marketUtils']->isOpen(),
                         'content'            => $item['current_unit_price_in_trade_currency_formatted'],
                     ])<br>
                     <div class="chart-symbol"
@@ -125,10 +129,10 @@
                         style="position: relative; float: right;"></div>
                     <div class="clearfix"></div>
                     @if(!empty($item['pre_market_price']))
-                    <span class="badge rounded-pill bg-info">pre-market</span>
+                    <span class="badge rounded-pill bg-info opacity-50">pre-market</span>
                     @endif
                     @if(!empty($item['post_market_price']))
-                    <span class="badge rounded-pill bg-info">post-market</span>
+                    <span class="badge rounded-pill bg-info opacity-50">post-market</span>
                     @endif
                 </td>
                 <td class="text-nowrap">
@@ -151,6 +155,8 @@
                         'regularTimestamp'   => $item['regular_market_timestamp_formatted'] ?? null,
                         'regularDayChange'   => $item['regular_market_day_change'] ?? null,
                         'regularDayChangePct'=> $item['regular_market_day_change_pct'] ?? null,
+                        'marketOpen'         => !empty($item['marketUtils'])
+                            && $item['marketUtils']->isOpen(),
                         'content'            => $item['market_value_in_account_currency_formatted'],
                     ])
                 </td>
@@ -199,11 +205,11 @@
                     {!! $item['day_change_in_account_currency_formatted'] !!}
                     @if(!empty($item['pre_market_day_change']))
                     <br />
-                    <span class="badge rounded-pill bg-info">pre-market</span>
+                    <span class="badge rounded-pill bg-info opacity-50">pre-market</span>
                     @endif
                     @if(!empty($item['post_market_day_change']))
                     <br />
-                    <span class="badge rounded-pill bg-info">post-market</span>
+                    <span class="badge rounded-pill bg-info opacity-50">post-market</span>
                     @endif
                 </td>
                 <td class="text-right text-nowrap"
@@ -212,11 +218,11 @@
                     {!! $item['day_change_in_percentage_formatted'] !!}
                     @if(!empty($item['pre_market_day_change_percentage']))
                     <br />
-                    <span class="badge rounded-pill bg-info">pre-market</span>
+                    <span class="badge rounded-pill bg-info opacity-50">pre-market</span>
                     @endif
                     @if(!empty($item['post_market_day_change_percentage']))
                     <br />
-                    <span class="badge rounded-pill bg-info">post-market</span>
+                    <span class="badge rounded-pill bg-info opacity-50">post-market</span>
                     @endif
                 </td>
                 <td class="text-right text-nowrap"
@@ -236,11 +242,11 @@
                     @endif
                     @if(!empty($item['pre_market_price']))
                     <br />
-                    <span class="badge rounded-pill bg-info">pre-market</span>
+                    <span class="badge rounded-pill bg-info opacity-50">pre-market</span>
                     @endif
                     @if(!empty($item['post_market_price']))
                     <br />
-                    <span class="badge rounded-pill bg-info">post-market</span>
+                    <span class="badge rounded-pill bg-info opacity-50">post-market</span>
                     @endif
                 </td>
                 <td class="text-right text-nowrap"
@@ -268,11 +274,11 @@
                     @endif
                     @if(!empty($item['pre_market_price']))
                     <br />
-                    <span class="badge rounded-pill bg-info">pre-market</span>
+                    <span class="badge rounded-pill bg-info opacity-50">pre-market</span>
                     @endif
                     @if(!empty($item['post_market_price']))
                     <br />
-                    <span class="badge rounded-pill bg-info">post-market</span>
+                    <span class="badge rounded-pill bg-info opacity-50">post-market</span>
                     @endif
                 </td>
             </tr>

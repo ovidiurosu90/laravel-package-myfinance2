@@ -49,6 +49,15 @@ class MarketUtils
         return $this->_quote->getMarketState(); # CLOSED
     }
 
+    /**
+     * Whether the symbol's market is currently in its regular trading session.
+     * Used to label live prices as "Market open" instead of "At close".
+     */
+    public function isOpen(): bool
+    {
+        return $this->getState() === 'REGULAR';
+    }
+
     public function getExchangeName()
     {
         # NasdaqGS, Paris, Amsterdam, LSE

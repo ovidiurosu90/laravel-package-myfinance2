@@ -17,6 +17,7 @@ $action       = $cat['action'] ?? null;
 $showWarn     = $cat !== null && !$hasOverride && $confidence === TierDecision::CONFIDENCE_LOW;
 $isStale      = !empty($cat['is_stale']);
 $isOwned      = !empty($quoteData['open_positions']);
+$isBenchmark  = !empty($cat['is_benchmark']);
 $isAnn        = $basis === TierDecision::BASIS_ANNUALIZED_RETURN;
 $basisLabel   = match($basis) {
     TierDecision::BASIS_ANNUALIZED_RETURN,
@@ -133,8 +134,9 @@ $actionColors = [
         @endif
     </div>
 
-    {{-- Line 2: Returns (money-weighted XIRR and alpha vs the benchmark), both per year --}}
-    @if($tier !== null && (($xirrPct !== null && $isOwned) || $alphaPct !== null))
+    {{-- Line 2: Returns (money-weighted XIRR and alpha vs the benchmark), both per year. The
+         benchmark does not compare against itself, so it just states what it is. --}}
+    @if($tier !== null && (($xirrPct !== null && $isOwned) || $alphaPct !== null || $isBenchmark))
     <div class="d-flex flex-wrap gap-1 align-items-center mt-1">
         <span class="text-muted" data-bs-toggle="tooltip"
             title="{{ ReturnsTooltips::moneyWeightedLabel() }}">Money-weighted:</span>
@@ -143,10 +145,13 @@ $actionColors = [
                 <span class="text-muted">XIRR</span> {!! MoneyFormat::get_formatted_gain('%', $xirrPct) !!}<span class="text-muted">/y</span>@if($xirrShort)<sup>*</sup>@endif
             </span>
         @endif
-        @if($alphaPct !== null)
+        @if($isBenchmark)
+            @if($xirrPct !== null && $isOwned)<span class="text-muted">·</span>@endif
+            <span class="text-muted fst-italic">is the benchmark</span>
+        @elseif($alphaPct !== null)
             @if($xirrPct !== null && $isOwned)<span class="text-muted">·</span>@endif
             <span data-bs-toggle="tooltip" title="{{ $alphaTip }}">
-                <span class="text-muted">vs VUSA.AS</span> {!! MoneyFormat::get_formatted_gain('%', $alphaPct) !!}@if($alphaShort)<sup>*</sup>@else<span class="text-muted">/y</span>@endif
+                <span class="text-muted">benchmark</span> {!! MoneyFormat::get_formatted_gain('%', $alphaPct) !!}@if($alphaShort)<sup>*</sup>@else<span class="text-muted">/y</span>@endif
             </span>
         @endif
     </div>
@@ -174,16 +179,20 @@ $actionColors = [
         ];
         $periods = $cat['periods'] ?? [];
         $tierCalc = new TierCalculationService();
+
+        // Ready-to-display peak-price labels (native trade currency + EUR), built in the BE by
+        // WatchlistTableMetaBuilder. The blade only echoes them; null per period when no usable peak.
+        $peakLabels = $quoteData['table_meta']['peak_labels'] ?? [];
     @endphp
     <div class="d-flex flex-wrap gap-1 align-items-start mt-1">
-        <div class="text-muted">
+        <div class="text-muted" style="padding-top: 0.3rem;">
             <span data-bs-toggle="tooltip"
                 title="Market return per period; your holdings only affect the 'P&L at peak' column.">Quadrant:</span>
         </div>
         @if(!empty($periods))
-        <table class="table table-sm table-borderless mb-0 ms-1 opacity-50" style="width:auto;">
+        <table class="table table-sm table-borderless mb-0" style="width:auto;">
             <thead>
-                <tr class="text-muted small">
+                <tr class="text-muted">
                     <th></th>
                     <th><span data-bs-toggle="tooltip"
                         title="Tier this window's market return maps to (same thresholds as the headline tier, applied to the market gain in this row).">Tier</span></th>
@@ -207,16 +216,21 @@ $actionColors = [
                 $pdAction = $pd['action'] ?? null;
                 $pdEz     = $pd['exit_zone'] ?? null;
                 $pdPnl    = $peakPnlMap[$pKey] ?? null;
+                // Human-readable peak date (e.g. "02 Jun 2026"), matching the position-window
+                // tooltips. peak_price_date is a Y-m-d string (the price-series key).
+                $pdPeakDate = !empty($pdEz['peak_price_date'])
+                    ? \Carbon\Carbon::parse($pdEz['peak_price_date'])->format('d M Y')
+                    : 'n/a';
                 $pdTier   = ($pd && ($pd['gain'] ?? null) !== null)
                     ? $tierCalc->getTier($pd['gain']) : null;
                 $pdTierStyle = $pdTier === TierCalculationService::BRONZE
                     ? 'background-color:#e67e22!important;' : '';
             @endphp
             <tr>
-                <td class="text-muted pe-2">{{ $pLabel }}</td>
+                <td class="text-muted">{{ $pLabel }}</td>
                 <td>
                     @if($pdTier !== null)
-                        <span class="badge {{ TierCalculationService::tierBadgeClass($pdTier) }}"
+                        <span class="badge opacity-50 {{ TierCalculationService::tierBadgeClass($pdTier) }}"
                             style="{{ $pdTierStyle }}" data-bs-toggle="tooltip"
                             title="{{ TierCalculationService::tierLabel($pdTier) }}"
                             >{{ TierCalculationService::tierInitial($pdTier) }}</span>
@@ -226,21 +240,21 @@ $actionColors = [
                 </td>
                 <td>
                     @if($pd && $pd['quadrant'])
-                        <span class="badge {{ $quadrantColors[$pd['quadrant']] ?? 'bg-secondary' }}">
+                        <span class="badge opacity-50 {{ $quadrantColors[$pd['quadrant']] ?? 'bg-secondary' }}">
                             {{ QuadrantClassifier::label($pd['quadrant']) }}
                         </span>
                     @else
                         <span class="text-muted small">-</span>
                     @endif
                 </td>
-                <td class="text-end ps-3">
+                <td class="text-end text-nowrap">
                     @if($pd && $pd['gain'] !== null)
                         {!! MoneyFormat::get_formatted_gain('%', $pd['gain']) !!}
                     @else
                         <span class="text-muted small">-</span>
                     @endif
                 </td>
-                <td class="text-end ps-3">
+                <td class="text-end">
                     @if($pdRisk !== null)
                         <span class="{{ $pdRiskClass }}">
                             {{ MoneyFormat::get_formatted_number_plain($pdRisk, 2) }}x
@@ -249,27 +263,27 @@ $actionColors = [
                         <span class="text-muted small">-</span>
                     @endif
                 </td>
-                <td class="ps-3">
+                <td>
                     @if($pdAction !== null)
                         @if($isOwned)
-                            <span class="badge {{ $actionColors[$pdAction] ?? 'bg-secondary' }}"
+                            <span class="badge opacity-50 {{ $actionColors[$pdAction] ?? 'bg-secondary' }}"
                                   data-bs-toggle="tooltip"
                                   title="{{ $ownedActionTooltips[$pdAction] ?? '' }}">
-                                {{ $pdAction }}
+                                {{ ucfirst(strtolower($pdAction)) }}
                             </span>
                         @else
-                            <span class="badge bg-transparent {{ $actionOutlineColors[$pdAction] ?? 'text-secondary' }}"
+                            <span class="badge bg-transparent opacity-50 {{ $actionOutlineColors[$pdAction] ?? 'text-secondary' }}"
                                   style="border: 1px dotted currentColor;"
                                   data-bs-toggle="tooltip"
                                   title="{{ $actionTooltips[$pdAction] ?? '' }}">
-                                {{ $pdAction }}
+                                {{ ucfirst(strtolower($pdAction)) }}
                             </span>
                         @endif
                     @else
                         <span class="text-muted small">-</span>
                     @endif
                 </td>
-                <td class="text-end ps-3">
+                <td class="text-end">
                     @if($pdEz !== null && ($pdEz['proximity_pct'] ?? null) !== null)
                         @php
                             // Same per-window thresholds as the peak-proximity exit-hint email
@@ -280,13 +294,15 @@ $actionColors = [
                             $isNearPeak = $pdEz['proximity_pct'] >= -(float) $nearThreshold;
                         @endphp
                         <span class="text-nowrap" data-bs-toggle="tooltip"
-                              title="{{ $pLabel }} peak: {{ $pdEz['peak_price_date'] }}">
+                              title="{{ $pLabel }} peak: {!! $peakLabels[$pKey] ?? 'n/a' !!} on {{ $pdPeakDate }}">
                             {!! MoneyFormat::get_formatted_gain('%', $pdEz['proximity_pct']) !!}
                         </span>
                         @if($isNearPeak)
+                            {{-- Drop the badge to its own line on smaller screens; keep inline on xl+ (>=1200px) --}}
+                            <br class="d-xl-none">
                             <span class="badge bg-success"
                                   data-bs-toggle="tooltip"
-                                  title="Within {{ $nearThreshold }}% of the {{ $pLabel }} peak ({{ $pdEz['peak_price_date'] }}), the same range that triggers a peak-proximity email.">
+                                  title="Within {{ $nearThreshold }}% of the {{ $pLabel }} peak {!! $peakLabels[$pKey] ?? 'n/a' !!} on {{ $pdPeakDate }}, the same range that triggers a peak-proximity email.">
                                 near peak
                             </span>
                         @endif
@@ -294,14 +310,34 @@ $actionColors = [
                         <span class="text-muted small">-</span>
                     @endif
                 </td>
-                <td class="text-end ps-3">
+                <td class="text-end">
                     @if($pdPnl !== null)
-                        <span @if($pdEz !== null) data-bs-toggle="tooltip"
-                              title="If sold at the {{ $pLabel }} peak
-({{ $pdEz['peak_price_date'] ?? 'n/a' }}), versus your purchase cost."@endif>
-                            {!! MoneyFormat::get_formatted_gain('&euro;', $pdPnl['eur']) !!}
+                        @php
+                            $isIncomplete = $pdPnl['incomplete'] ?? false;
+                            if ($isIncomplete) {
+                                $heldPeakDate = !empty($pdPnl['held_peak_date'])
+                                    ? \Carbon\Carbon::parse($pdPnl['held_peak_date'])->format('d M Y')
+                                    : 'n/a';
+                                $pnlTitle = 'If sold at your holding peak '
+                                    . MoneyFormat::get_formatted_price_plain($pdPnl['held_peak_eur'])
+                                    . '&euro; on ' . $heldPeakDate . ', versus your purchase cost.';
+                            } else {
+                                $pnlTitle = $pdEz !== null
+                                    ? 'If sold at the ' . $pLabel . " peak\n"
+                                        . ($peakLabels[$pKey] ?? 'n/a') . ' on ' . $pdPeakDate
+                                        . ', versus your purchase cost.'
+                                    : '';
+                            }
+                        @endphp
+                        @if($isIncomplete)
+                        <i class="fa fa-exclamation-triangle text-warning me-1" aria-hidden="true"
+                           data-bs-toggle="tooltip"
+                           title="You held this for only part of the {{ $pLabel }}. The {{ $pLabel }} peak was {{ MoneyFormat::get_formatted_price_plain($pdPnl['period_peak_eur']) }}&euro; on {{ $pdPeakDate }}, before you held it. This values your shares at your holding peak {{ MoneyFormat::get_formatted_price_plain($pdPnl['held_peak_eur']) }}&euro; ({{ $heldPeakDate }}), {{ $pdPnl['shortfall_pct'] }}% below the {{ $pLabel }} peak."></i>
+                        @endif
+                        <span @if($pnlTitle !== '') data-bs-toggle="tooltip" title="{!! $pnlTitle !!}"@endif>
+                            <span class="text-nowrap">{!! MoneyFormat::get_formatted_gain('&euro;', $pdPnl['eur'], 0) !!}</span>
                             @if($pdPnl['pct'] !== null)
-                                <span class="text-muted">(</span>{!! MoneyFormat::get_formatted_gain('%', $pdPnl['pct']) !!}<span class="text-muted">)</span>
+                                <span class="text-nowrap"><span class="text-muted">(</span>{!! MoneyFormat::get_formatted_gain('%', $pdPnl['pct']) !!}<span class="text-muted">)</span></span>
                             @endif
                         </span>
                     @else

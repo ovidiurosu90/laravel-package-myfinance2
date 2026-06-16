@@ -103,6 +103,21 @@ trait FinanceApiCronChartsTrait
         }
 
         self::_buildChartsAccount($chartsToBuildAccounts);
+
+        // Live runs also rebuild charts for every used symbol (trades, dividends,
+        // watchlist, active alerts), not only currently open positions. Otherwise a
+        // symbol's chart JSON freezes on the day its position is closed, while the
+        // underlying stats_* data keeps updating, so the chart appears truncated.
+        // Historical replays stay scoped to positions: symbol charts are full-series
+        // and date independent, so replaying them per day would only repeat work.
+        if (empty($date)) {
+            foreach ($this->getAllUsedSymbols() as $usedSymbol) {
+                if (empty($chartsToBuildSymbols[$usedSymbol])) {
+                    $chartsToBuildSymbols[$usedSymbol] = ['position' => null];
+                }
+            }
+        }
+
         self::_buildChartsSymbols($chartsToBuildSymbols);
 
         $message = 'END app:finance-api-cron refreshAccountOverview('
@@ -434,30 +449,35 @@ trait FinanceApiCronChartsTrait
     {
         foreach ($chartsToBuildSymbols as $symbol => $value) {
             $stats = Stats::getQuoteStats($symbol);
+            if (empty($stats)) {
+                continue; // No stats yet (e.g. a freshly added symbol); nothing to write.
+            }
             ChartsBuilder::buildChartSymbol($symbol, $stats);
 
+            // Native currency: authoritative from the open position when present,
+            // otherwise derived from the symbol's own stats (for symbols that are
+            // tracked but no longer held: closed trades, watchlist, alerts).
+            $position = $value['position'] ?? null;
+            $currency = ($position !== null && $position['tradeCurrencyModel'])
+                ? $position['tradeCurrencyModel']->iso_code
+                : self::_symbolCurrencyFromStats($stats);
+
+            if ($currency === null) {
+                continue; // Unknown currency; native chart already written.
+            }
+
             //NOTE Dual currency
-            if (in_array(
-                $value['position']['tradeCurrencyModel']->iso_code,
-                ['EUR', 'USD']
-            )) {
-                list($convertedSymbol, $convertedStats) =
-                    ChartsBuilder::convertPositionStatsToCurrency(
-                        $value['position'],
-                        $stats
-                    );
-                ChartsBuilder::buildChartSymbol($convertedSymbol, $convertedStats);
+            if (in_array($currency, ['EUR', 'USD'], true)) {
+                $opposite       = $currency === 'EUR' ? 'USD' : 'EUR';
+                $convertedStats = Stats::convertStatsToCurrency($stats, $opposite);
+                ChartsBuilder::buildChartSymbol($symbol . '_' . $opposite, $convertedStats);
             } else {
                 //NOTE It's not EUR or USD, e.g. GBX / GBP / GBp
-                $convertedSymbol1 = $symbol . '_EUR';
-                $stats1 = $stats;
-                $convertedStats1 = Stats::convertStatsToCurrency($stats1, 'EUR');
-                ChartsBuilder::buildChartSymbol($convertedSymbol1, $convertedStats1);
+                $convertedStats1 = Stats::convertStatsToCurrency($stats, 'EUR');
+                ChartsBuilder::buildChartSymbol($symbol . '_EUR', $convertedStats1);
 
-                $convertedSymbol2 = $symbol . '_USD';
-                $stats2 = $stats;
-                $convertedStats2 = Stats::convertStatsToCurrency($stats2, 'USD');
-                ChartsBuilder::buildChartSymbol($convertedSymbol2, $convertedStats2);
+                $convertedStats2 = Stats::convertStatsToCurrency($stats, 'USD');
+                ChartsBuilder::buildChartSymbol($symbol . '_USD', $convertedStats2);
             }
         }
 
@@ -465,6 +485,27 @@ trait FinanceApiCronChartsTrait
         $symbol = 'EURUSD=X';
         $stats = Stats::getQuoteStats($symbol);
         ChartsBuilder::buildChartSymbol($symbol, $stats);
+    }
+
+    /**
+     * Best-effort native currency for a symbol from its stats payload, used when
+     * no open position is available to provide an authoritative trade currency.
+     */
+    private static function _symbolCurrencyFromStats(?array $stats): ?string
+    {
+        if (empty($stats)) {
+            return null;
+        }
+        if (!empty($stats['today_last']['currency_iso_code'])) {
+            return $stats['today_last']['currency_iso_code'];
+        }
+        if (!empty($stats['historical'])) {
+            $last = end($stats['historical']);
+            if (!empty($last['currency_iso_code'])) {
+                return $last['currency_iso_code'];
+            }
+        }
+        return null;
     }
 
     /**

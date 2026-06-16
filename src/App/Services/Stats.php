@@ -201,6 +201,33 @@ class Stats
         return !empty(self::$_stats[$symbol]) ? self::$_stats[$symbol] : null;
     }
 
+    /**
+     * Latest data date a live chart series would end on for a single symbol,
+     * resolved with targeted indexed queries instead of loading the full
+     * stats_* tables. Mirrors the series built by the charts formatter: today's
+     * date when an intraday (stat_today) row exists, otherwise the most recent
+     * historical date. Returns null when the symbol has no stats at all.
+     *
+     * Used as a cheap staleness probe so the cached chart file is preferred on
+     * the hot path and the expensive full build runs only when truly stale.
+     */
+    public static function getLatestSeriesDate(string $symbol): ?string
+    {
+        $hasToday = StatToday::withoutGlobalScope(AssignedToUserScope::class)
+            ->where('symbol', $symbol)
+            ->exists();
+
+        if ($hasToday) {
+            return date(trans('myfinance2::general.date-format'));
+        }
+
+        $maxDate = StatHistorical::withoutGlobalScope(AssignedToUserScope::class)
+            ->where('symbol', $symbol)
+            ->max('date');
+
+        return $maxDate ?: null;
+    }
+
     public static function getQuoteStatByDate(string $symbol,
         \DateTimeInterface $date): ?array
     {

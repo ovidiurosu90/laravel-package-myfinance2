@@ -9,6 +9,10 @@
     $confidence   = $cat['confidence'] ?? TierDecision::CONFIDENCE_HIGH;
     $explanation  = $cat['explanation'] ?? '';
     $isOwned      = !empty($quoteData['open_positions']);
+    // The benchmark (VUSA.AS) is a labelled reference, not a competitor: its tier is pinned to
+    // Gold and it is not editable. Borderline flags a soft label sitting on a tier line.
+    $isBenchmark  = $cat['is_benchmark'] ?? false;
+    $isBorderline = $cat['is_borderline'] ?? false;
 
     $tierOrder = [
         TierCalculationService::PLATINUM => 5,
@@ -47,7 +51,18 @@
         title="{{ $explanation }}">
         {{ $label }}{{ $hasOverride ? ' ★' : '' }}
     </span>
-    @if ($isOwned)
+    @if ($isBenchmark)
+    <span class="badge bg-light text-dark border"
+          data-bs-toggle="tooltip"
+          title="{{ $symbol }} is the benchmark; the 10% Gold line is anchored to it, so it is pinned to Gold.">
+        <i class="fa fa-anchor fa-xs" aria-hidden="true"></i> benchmark
+    </span>
+    @elseif ($isBorderline)
+    <span class="text-muted" data-bs-toggle="tooltip"
+          title="Near a tier line; a small move could reclassify it."
+          style="line-height:1;vertical-align:middle;">~</span>
+    @endif
+    @if ($isOwned && !$isBenchmark)
     <span data-bs-toggle="tooltip" title="Edit tier for {{ $symbol }}"
           style="line-height:1;vertical-align:middle;">
         <button type="button"

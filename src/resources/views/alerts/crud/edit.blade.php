@@ -13,7 +13,7 @@
                             {!! trans('myfinance2::general.titles.edit-item', ['type' => 'Price Alert']) !!}
                             #{{ $id }}
                             <span class="badge {{ $alertModel->getStatusBadgeClass() }} ms-2">
-                                {{ $alertModel->status }}
+                                {{ $alertModel->getEffectiveStatus() }}
                             </span>
                         </span>
                         <div>

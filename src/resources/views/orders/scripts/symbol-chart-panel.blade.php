@@ -11,6 +11,8 @@ $(document).ready(function()
     let chart  = null;
     let reqId  = 0; // guards against out-of-order responses
 
+    @include('myfinance2::general.scripts.partials.fmt-price')
+
     function disposeChart()
     {
         if (chart) {
@@ -36,6 +38,7 @@ $(document).ready(function()
             width: chartContainer.clientWidth,
             height: 300,
             layout: { attributionLogo: false },
+            localization: { priceFormatter: fmtPrice },
             grid: {
                 vertLines: { visible: false },
                 horzLines: { color: 'rgba(42, 46, 57, 0.2)' },
@@ -46,6 +49,7 @@ $(document).ready(function()
 
         const s = chart.addSeries(LightweightCharts.BaselineSeries, {
             lastValueVisible: true,
+            priceFormat: { type: 'custom', minMove: 0.01, formatter: fmtPrice },
             topLineColor: 'rgba( 38, 166, 154, 1)',
             topFillColor1: 'rgba( 38, 166, 154, 0.28)',
             topFillColor2: 'rgba( 38, 166, 154, 0.05)',
@@ -79,9 +83,9 @@ $(document).ready(function()
         const aboveLow = data.fiftyTwoWeekLowChangePercent != null
             ? (data.fiftyTwoWeekLowChangePercent * 100).toFixed(2) : null;
 
-        const lowLabel   = Number(low).toFixed(2) + ' ' + cur;
-        const highLabel  = Number(high).toFixed(2) + ' ' + cur;
-        const priceLabel = Number(price).toFixed(2) + ' ' + cur;
+        const lowLabel   = fmtPrice(low) + ' ' + cur;
+        const highLabel  = fmtPrice(high) + ' ' + cur;
+        const priceLabel = fmtPrice(price) + ' ' + cur;
 
         const tip = [
             belowHigh != null ? belowHigh + '% below 52W high' : '',
@@ -147,6 +151,11 @@ $(document).ready(function()
                 $('#osc-name').html(data.name || '');
                 $('#osc-quote-details').html(data.quote_header || '');
                 buildRangeBar(data, data.currency || '');
+
+                $('#osc-stale-warning').toggle(!!data.stale);
+
+                const gapWarning = data.gap_warning || '';
+                $('#osc-gap-warning').text(gapWarning).toggle(!!gapWarning);
 
                 $(panel).show();
                 buildChart(data.series); // panel visible, so container has width

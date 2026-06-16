@@ -20,6 +20,8 @@ $(document).ready(function()
 
     let symbolChart = null;
 
+    @include('myfinance2::general.scripts.partials.fmt-price')
+
     // Captured on show; the chart is built on shown.bs.modal so the container
     // has a measurable width.
     let currentSymbol    = null;
@@ -53,6 +55,7 @@ $(document).ready(function()
             width: chartContainer.clientWidth,
             height: 360,
             layout: { attributionLogo: false },
+            localization: { priceFormatter: fmtPrice },
             grid: {
                 vertLines: { visible: false },
                 horzLines: { color: 'rgba(42, 46, 57, 0.2)' },
@@ -63,6 +66,7 @@ $(document).ready(function()
 
         const seriesProperties = {
             lastValueVisible: true,
+            priceFormat: { type: 'custom', minMove: 0.01, formatter: fmtPrice },
             topLineColor: 'rgba( 38, 166, 154, 1)',
             topFillColor1: 'rgba( 38, 166, 154, 0.28)',
             topFillColor2: 'rgba( 38, 166, 154, 0.05)',
@@ -108,9 +112,9 @@ $(document).ready(function()
         const aboveLow = data.fiftyTwoWeekLowChangePercent != null
             ? (data.fiftyTwoWeekLowChangePercent * 100).toFixed(2) : null;
 
-        const lowLabel   = Number(low).toFixed(2) + ' ' + cur;
-        const highLabel  = Number(high).toFixed(2) + ' ' + cur;
-        const priceLabel = Number(price).toFixed(2) + ' ' + cur;
+        const lowLabel   = fmtPrice(low) + ' ' + cur;
+        const highLabel  = fmtPrice(high) + ' ' + cur;
+        const priceLabel = fmtPrice(price) + ' ' + cur;
 
         const tip = [
             belowHigh != null ? belowHigh + '% below 52W high' : '',

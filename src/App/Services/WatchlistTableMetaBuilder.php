@@ -33,6 +33,7 @@ class WatchlistTableMetaBuilder
                 'gain_y_order'     => $gainYOrder,
                 'gain_y_pct_order' => $gainYPctOrder,
                 'basis_gain_eur'   => $this->_basisGainEur($cat, $perf),
+                'peak_labels'      => $this->_peakLabels($quoteData, $cat),
             ];
         }
 
@@ -113,6 +114,50 @@ class WatchlistTableMetaBuilder
         }
 
         return [$quadrantLabels, $actionLabels];
+    }
+
+    /**
+     * Ready-to-display peak-price label per period for the quadrant table's exit-zone tooltips
+     * ("From peak", "near peak", "P&L at peak"). Keeps the currency decision in the BE so the blade
+     * only echoes the string. Each value is an HTML fragment (carries the &euro; entity), printed
+     * with {!! !!}; null when the period has no usable peak.
+     *
+     * @return array period => string|null   e.g. "471.70 GBX (&euro; 5.46)" or "&euro; 5.46"
+     */
+    private function _peakLabels(array $quoteData, ?array $cat): array
+    {
+        $tradeCode = $quoteData['tradeCurrencyModel']->display_code ?? null;
+        $tradeIso  = $quoteData['currency'] ?? null;
+
+        $labels = [];
+        foreach ($cat['periods'] ?? [] as $period => $periodData) {
+            $labels[$period] = $this->_peakLabel(
+                $periodData['exit_zone'] ?? null, $tradeCode, $tradeIso
+            );
+        }
+
+        return $labels;
+    }
+
+    /**
+     * The symbol's peak in its native trade currency first, then the EUR equivalent in parentheses;
+     * EUR-quoted symbols (or those without a native figure) show only the EUR value.
+     */
+    private function _peakLabel(?array $exitZone, ?string $tradeCode, ?string $tradeIso): ?string
+    {
+        if ($exitZone === null || ($exitZone['peak_price_eur'] ?? null) === null) {
+            return null;
+        }
+
+        $eur = MoneyFormat::get_formatted_price_plain($exitZone['peak_price_eur']) . '&euro;';
+
+        if ($tradeIso !== null && $tradeIso !== 'EUR' && $tradeCode !== null
+            && ($exitZone['peak_price_native'] ?? null) !== null) {
+            return MoneyFormat::get_formatted_price_plain($exitZone['peak_price_native']) . $tradeCode
+                . ' (' . $eur . ')';
+        }
+
+        return $eur;
     }
 
     /**

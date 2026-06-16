@@ -2,6 +2,8 @@
 @php
     $isPreMarket  = !empty($isPreMarket);
     $isPostMarket = !empty($isPostMarket);
+    // Regular session label: "Market open" while the session is live, else "At close".
+    $regularLabel = !empty($marketOpen) ? 'Market open' : 'At close';
 
     $formatChange = function (float $change, float $pct, string $currency)
     {
@@ -41,7 +43,7 @@
     } else {
         $priceFormatted = MoneyFormat::get_formatted_price_display($currency, (float) $price, true);
         $changeStr      = $buildChangeStr($dayChange ?? null, $dayChangePct ?? null, $currency);
-        $tooltipLines   = ['<strong>At close:</strong> ' . $priceFormatted . $changeStr, $timestamp ?? ''];
+        $tooltipLines   = ['<strong>' . $regularLabel . ':</strong> ' . $priceFormatted . $changeStr, $timestamp ?? ''];
     }
 
     $tooltipHtml = implode('<br>', $tooltipLines);

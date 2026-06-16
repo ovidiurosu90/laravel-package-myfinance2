@@ -347,4 +347,78 @@ class TierClassifierTest extends TestCase
         $this->assertSame(TierCalculationService::RUST, $tiers->getTier(-0.01));
         $this->assertNull($tiers->getTier(null));
     }
+
+    public function test_benchmark_with_soft_return_is_pinned_to_gold(): void
+    {
+        // VUSA.AS trailing at 9.8% would bucket as Silver, but the benchmark anchors the Gold
+        // line and must never render below it: pin to Gold and flag it as the benchmark.
+        $decision = $this->classifier->classify(
+            TierInputs::fromData(
+                TierCalculationService::BENCHMARK_SYMBOL,
+                [
+                    'has_data'                   => true,
+                    'annualized_percentage_gain' => 9.8,
+                    'percentage_gain'            => 26.0,
+                    'total_days'                 => 980,
+                    'windows'                    => [$this->_openWindow(1000.0, 260.0, 980)],
+                ],
+                ['momenta' => ['1y' => 9.0]]
+            ),
+            null
+        );
+
+        $this->assertSame(TierCalculationService::GOLD, $decision->tier);
+        $this->assertTrue($decision->isBenchmark);
+        $this->assertFalse($decision->isBorderline); // suppressed for the pinned benchmark
+        $this->assertSame(9.8, $decision->basisValue); // real trailing CAGR preserved for context
+    }
+
+    public function test_benchmark_running_hot_can_still_show_platinum(): void
+    {
+        // The pin is a floor, not a clamp: a genuinely hot benchmark keeps its earned Platinum.
+        $decision = $this->classifier->classify(
+            TierInputs::fromData(
+                TierCalculationService::BENCHMARK_SYMBOL,
+                [
+                    'has_data'                   => true,
+                    'annualized_percentage_gain' => 18.0,
+                    'percentage_gain'            => 40.0,
+                    'total_days'                 => 900,
+                    'windows'                    => [$this->_openWindow(1000.0, 400.0, 900)],
+                ],
+                ['momenta' => ['1y' => 17.0]]
+            ),
+            null
+        );
+
+        $this->assertSame(TierCalculationService::PLATINUM, $decision->tier);
+        $this->assertTrue($decision->isBenchmark);
+    }
+
+    public function test_previous_tier_drives_hysteresis_through_the_classifier(): void
+    {
+        // A non-benchmark symbol settled at Gold, now trailing 9.8%: inside the dead-band, so the
+        // classifier keeps Gold rather than flipping to Silver.
+        $perf = [
+            'has_data'                   => true,
+            'annualized_percentage_gain' => 9.8,
+            'percentage_gain'            => 22.0,
+            'total_days'                 => 900,
+            'windows'                    => [$this->_openWindow(1000.0, 220.0, 900)],
+        ];
+
+        $sticky = $this->classifier->classify(
+            TierInputs::fromData('TEST', $perf, ['momenta' => ['1y' => 9.0]]),
+            null,
+            TierCalculationService::GOLD
+        );
+        $this->assertSame(TierCalculationService::GOLD, $sticky->tier);
+
+        // With no prior tier the same value buckets plainly as Silver.
+        $fresh = $this->classifier->classify(
+            TierInputs::fromData('TEST', $perf, ['momenta' => ['1y' => 9.0]]),
+            null
+        );
+        $this->assertSame(TierCalculationService::SILVER, $fresh->tier);
+    }
 }

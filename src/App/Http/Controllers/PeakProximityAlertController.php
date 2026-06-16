@@ -7,6 +7,7 @@ namespace ovidiuro\myfinance2\App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
+use ovidiuro\myfinance2\App\Models\PeakProximityAlertEvent;
 use ovidiuro\myfinance2\App\Models\PeakProximityAlertSetting;
 use ovidiuro\myfinance2\App\Models\PeakProximityNotification;
 use ovidiuro\myfinance2\App\Models\Scopes\AssignedToUserScope;
@@ -135,6 +136,122 @@ class PeakProximityAlertController extends MyFinance2Controller
 
         return $this->_redirect($view)->with('success',
             "{$deleted} symbol(s) re-armed; the next run can alert them again today.");
+    }
+
+    /**
+     * The front-end alerts inbox. The Open view lists the user's OPEN alert events, sorted by severity
+     * (HIGH first) then newest, split into "action suggested" (ACTIONABLE) and "for your awareness"
+     * (INFO); events persist here until dismissed, even after a symbol drifts off peak. The Dismissed
+     * view (?show=dismissed) lists previously dismissed events, newest first.
+     *
+     * @param Request $request
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function inbox(Request $request)
+    {
+        $userId = (int) auth()->user()->id;
+        $show   = $request->query('show') === 'dismissed' ? 'dismissed' : 'open';
+
+        if ($show === 'dismissed') {
+            $dismissed = PeakProximityAlertEvent::where('user_id', $userId)
+                ->where('status', PeakProximityAlertEvent::STATUS_DISMISSED)
+                ->orderByDesc('dismissed_at')
+                ->limit(500)
+                ->get();
+
+            return view('myfinance2::peakproximityalerts.inbox.dashboard', [
+                'show'       => 'dismissed',
+                'actionable' => collect(),
+                'info'       => collect(),
+                'dismissed'  => $dismissed,
+            ]);
+        }
+
+        $rank = [
+            PeakProximityAlertEvent::SEVERITY_HIGH   => 0,
+            PeakProximityAlertEvent::SEVERITY_MEDIUM => 1,
+            PeakProximityAlertEvent::SEVERITY_LOW    => 2,
+        ];
+
+        $events = PeakProximityAlertEvent::where('user_id', $userId)
+            ->where('status', PeakProximityAlertEvent::STATUS_OPEN)
+            ->get()
+            ->sort(function ($a, $b) use ($rank)
+            {
+                $byRank = ($rank[$a->severity] ?? 9) <=> ($rank[$b->severity] ?? 9);
+
+                return $byRank !== 0 ? $byRank : ($b->opened_at <=> $a->opened_at);
+            })
+            ->values();
+
+        return view('myfinance2::peakproximityalerts.inbox.dashboard', [
+            'show'       => 'open',
+            'actionable' => $events->where('classification', PeakProximityAlertEvent::CLASS_ACTIONABLE)->values(),
+            'info'       => $events->where('classification', PeakProximityAlertEvent::CLASS_INFO)->values(),
+            'dismissed'  => collect(),
+        ]);
+    }
+
+    /**
+     * Dismiss the posted OPEN alert events by id (single or bulk). Dismissing ends the email episode
+     * and removes the card from the inbox; a later re-trigger opens a fresh event.
+     *
+     * @param Request $request
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function dismiss(Request $request)
+    {
+        $userId = (int) auth()->user()->id;
+
+        $ids = array_values(array_filter(array_map('intval', (array) $request->input('ids', []))));
+        if (empty($ids)) {
+            return redirect()->route('myfinance2::peak-proximity-alerts.inbox')
+                ->with('error', 'No alerts selected to dismiss.');
+        }
+
+        $count = PeakProximityAlertEvent::where('user_id', $userId)
+            ->whereIn('id', $ids)
+            ->where('status', PeakProximityAlertEvent::STATUS_OPEN)
+            ->update([
+                'status'       => PeakProximityAlertEvent::STATUS_DISMISSED,
+                'dismissed_at' => now(),
+            ]);
+
+        return redirect()->route('myfinance2::peak-proximity-alerts.inbox')
+            ->with('success', "{$count} alert(s) dismissed.");
+    }
+
+    /**
+     * Dismiss every OPEN event for the user, or only the informational ones when scope=info (keeping
+     * the actionable ones in the inbox).
+     *
+     * @param Request $request
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function dismissAll(Request $request)
+    {
+        $userId   = (int) auth()->user()->id;
+        $onlyInfo = $request->input('scope') === 'info';
+
+        $query = PeakProximityAlertEvent::where('user_id', $userId)
+            ->where('status', PeakProximityAlertEvent::STATUS_OPEN);
+
+        if ($onlyInfo) {
+            $query->where('classification', PeakProximityAlertEvent::CLASS_INFO);
+        }
+
+        $count = $query->update([
+            'status'       => PeakProximityAlertEvent::STATUS_DISMISSED,
+            'dismissed_at' => now(),
+        ]);
+
+        $what = $onlyInfo ? 'informational alert(s)' : 'alert(s)';
+
+        return redirect()->route('myfinance2::peak-proximity-alerts.inbox')
+            ->with('success', "{$count} {$what} dismissed.");
     }
 
     /**

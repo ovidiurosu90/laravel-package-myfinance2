@@ -75,7 +75,8 @@
                 $cp           = $qd['price'] ?? null;
                 $currencyCode = $item->tradeCurrencyModel ? $item->tradeCurrencyModel->display_code : '';
             @endphp
-            <tr data-symbol="{{ $item->symbol }}" data-alert-type="{{ $item->alert_type }}">
+            <tr data-symbol="{{ $item->symbol }}" data-alert-type="{{ $item->alert_type }}"
+                data-temporary="{{ $item->expires_at ? '1' : '0' }}">
                 <td>
                     <input type="checkbox"
                            class="alert-row-checkbox"
@@ -83,7 +84,7 @@
                 </td>
                 <td>
                     <span class="badge {{ $item->getStatusBadgeClass() }}">
-                        {{ $item->status }}
+                        {{ $item->getEffectiveStatus() }}
                     </span>
                 </td>
                 <td>{{ $item->id }}</td>
@@ -164,6 +165,7 @@
                                 'regularTimestamp'   => $qd['regular_market_timestamp'] ?? null,
                                 'regularDayChange'   => $qd['regular_market_day_change'] ?? null,
                                 'regularDayChangePct'=> $qd['regular_market_day_change_pct'] ?? null,
+                                'marketOpen'         => $qd['market_open'] ?? false,
                                 'content'            => MoneyFormat::get_formatted_price_display($currencyCode, $cp, true),
                             ])
                             → {!! MoneyFormat::get_formatted_price_display($currencyCode, (float) $item->target_price, true) !!}

@@ -107,14 +107,22 @@ $(document).ready(function ()
                     render: (d, t, row) =>
                     {
                         if (t !== 'display') return d;
+                        // The benchmark (VUSA.AS) is the reference point the quadrant is built
+                        // around; mark it with an anchor and explain that it anchors the Gold line.
+                        const anchor = row.isBenchmark
+                            ? ` <i class="fa fa-anchor fa-xs text-muted" aria-hidden="true"`
+                                + ` data-bs-toggle="tooltip"`
+                                + ` title="${d} is the benchmark; the 10% Gold line is anchored to it, so it is pinned to Gold."`
+                                + `></i>`
+                            : '';
                         if (row.isExited) {
                             return `<span class="opacity-50">${d} `
                                 + `<i class="fa fa-history fa-xs" aria-hidden="true"`
                                 + ` data-bs-toggle="tooltip"`
                                 + ` title="Previously held; no longer in portfolio or watchlist"`
-                                + `></i></span>`;
+                                + `></i></span>` + anchor;
                         }
-                        return row.isOwned ? `<strong>${d}</strong>` : d;
+                        return (row.isOwned ? `<strong>${d}</strong>` : d) + anchor;
                     },
                 },
                 {
@@ -199,6 +207,7 @@ $(document).ready(function ()
 
             dt.row.add({
                 symbol:               sym.symbol,
+                isBenchmark:          sym.isBenchmark,
                 isOwned:              sym.isOwned,
                 ownedEver:            sym.ownedEver,
                 isExited:             sym.isExited,

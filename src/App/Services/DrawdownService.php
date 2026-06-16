@@ -27,6 +27,10 @@ class DrawdownService
 
     private array $_eurRates = [];
 
+    // symbol => native trade currency iso (e.g. 'USD', 'GBp'), captured while loading prices so the
+    // EUR-converted peak can be shown back in the symbol's own trading currency.
+    private array $_symbolCurrencies = [];
+
     public function handle(int $userId): array
     {
         // Drawdown/momentum/exit-zones are pure historical (no live-price dependence), so the 2h
@@ -84,7 +88,9 @@ class DrawdownService
 
         foreach ($ownedStartDates as $symbol => $startDate) {
             $symPrices = $historicalPrices[$symbol] ?? [];
-            $data      = $this->_computeSymbolData($symPrices, $vusaPrices, $startDate);
+            $data      = $this->_computeSymbolData(
+                $symPrices, $vusaPrices, $startDate, $this->_symbolCurrencies[$symbol] ?? null
+            );
 
             // For the benchmark itself, relative drawdown is 1.0 by definition.
             if ($symbol === self::BENCHMARK_SYMBOL && $data['max_drawdown'] !== null) {
@@ -118,7 +124,7 @@ class DrawdownService
             }
             $symPrices                             = $historicalPrices[$symbol] ?? [];
             $symbolData                            = $this->_computeSymbolData(
-                $symPrices, $vusaPrices, $watchlistStartDate
+                $symPrices, $vusaPrices, $watchlistStartDate, $this->_symbolCurrencies[$symbol] ?? null
             );
             $momenta                               = $this->_computeAllMomenta($symPrices);
             $symbolData['momenta']                 = $momenta;
@@ -140,7 +146,7 @@ class DrawdownService
             }
             $symPrices                             = $historicalPrices[$symbol] ?? [];
             $symbolData                            = $this->_computeSymbolData(
-                $symPrices, $vusaPrices, $watchlistStartDate
+                $symPrices, $vusaPrices, $watchlistStartDate, $this->_symbolCurrencies[$symbol] ?? null
             );
             $momenta                               = $this->_computeAllMomenta($symPrices);
             $symbolData['momenta']                 = $momenta;
@@ -288,8 +294,9 @@ class DrawdownService
             $dateStr = is_string($stat->date)
                 ? substr($stat->date, 0, 10)
                 : $stat->date->format('Y-m-d');
-            $eurRate                 = $this->_eurRates[$stat->currency_iso_code] ?? 1.0;
-            $grouped[$sym][$dateStr] = (float) $stat->unit_price * $eurRate;
+            $eurRate                       = $this->_eurRates[$stat->currency_iso_code] ?? 1.0;
+            $grouped[$sym][$dateStr]       = (float) $stat->unit_price * $eurRate;
+            $this->_symbolCurrencies[$sym] = $stat->currency_iso_code;
         }
 
         $this->_fillGapsFromApiCache($grouped, $symbols, $fromDate);
@@ -335,6 +342,7 @@ class DrawdownService
             }
 
             $eurRate = $this->_eurRates[$fetched['currency']] ?? 1.0;
+            $this->_symbolCurrencies[$symbol] ??= $fetched['currency'];
 
             foreach ($fetched['prices'] as $dateStr => $price) {
                 if ($dateStr >= $fromDate && $dateStr <= $gapTo) {
@@ -352,10 +360,11 @@ class DrawdownService
     private function _computeSymbolData(
         array $symPrices,
         array $vusaPrices,
-        string $startDate
+        string $startDate,
+        ?string $currency = null
     ): array
     {
-        $exitZones = !empty($symPrices) ? $this->_computeAllExitZones($symPrices) : [];
+        $exitZones = !empty($symPrices) ? $this->_computeAllExitZones($symPrices, $currency) : [];
 
         $base = [
             'start_date'              => $startDate,
@@ -430,10 +439,14 @@ class DrawdownService
      * Exit zone: current price within EXIT_ZONE_THRESHOLD of the peak in the window.
      * Returns keyed array; individual entries are null when insufficient data.
      */
-    private function _computeAllExitZones(array $allSymPrices): array
+    private function _computeAllExitZones(array $allSymPrices, ?string $currency = null): array
     {
         $windows = ['3m' => 91, '6m' => 182, '1y' => 365, '2y' => 730];
         $result  = [];
+
+        // Rate used to convert the stored EUR price back to the symbol's native trade currency
+        // (peak_price_eur was unit_price * this rate, so dividing recovers the original quote).
+        $eurRate = $currency !== null ? (float) ($this->_eurRates[$currency] ?? 1.0) : 1.0;
 
         $latestDate   = max(array_keys($allSymPrices));
         $currentPrice = $allSymPrices[$latestDate];
@@ -465,10 +478,12 @@ class DrawdownService
             }
 
             $result[$label] = $peakPrice > 0.0 ? [
-                'peak_price_eur'  => round($peakPrice, 4),
-                'peak_price_date' => $peakDate,
-                'proximity_pct'   => round(($currentPrice / $peakPrice - 1.0) * 100.0, 2),
-                'in_zone'         => $currentPrice >= self::EXIT_ZONE_THRESHOLD * $peakPrice,
+                'peak_price_eur'    => round($peakPrice, 4),
+                'peak_price_native' => $eurRate > 0.0 ? round($peakPrice / $eurRate, 4) : null,
+                'peak_currency'     => $currency,
+                'peak_price_date'   => $peakDate,
+                'proximity_pct'     => round(($currentPrice / $peakPrice - 1.0) * 100.0, 2),
+                'in_zone'           => $currentPrice >= self::EXIT_ZONE_THRESHOLD * $peakPrice,
             ] : null;
         }
 

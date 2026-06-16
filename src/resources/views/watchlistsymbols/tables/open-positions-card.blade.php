@@ -5,9 +5,9 @@
 </div>
 <div class="card-text">
     <div class="d-flex flex-wrap gap-2 align-items-start">
-        <div>
+        <div class="flex-fill">
             <div class="fw-semibold text-muted small mb-1">Overview</div>
-            <table class="metrics table table-borderless table-sm mb-0">
+            <table class="metrics table table-borderless table-sm mb-0 w-100">
                 <tbody>
                 <tr>
                     <td>Quantity</td>
@@ -149,7 +149,7 @@
             </table>
         </div>
 
-        <div>
+        <div class="flex-fill">
             <div class="fw-semibold text-muted small mb-1">Trades</div>
             @php
                 $symbolSplits = $quoteData['stock_splits'] ?? [];
@@ -174,7 +174,7 @@
                 // chronological order, newest first, even though only the date is shown.
                 usort($timeline, fn ($a, $b) => $b['ts'] <=> $a['ts']);
             @endphp
-            <table class="trades table table-borderless table-sm mb-0">
+            <table class="trades table table-borderless table-sm mb-0 w-100">
             @foreach ($timeline as $event)
                 @if ($event['type'] === 'split')
                     @php $splitItem = $event['data']; @endphp

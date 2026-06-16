@@ -20,14 +20,14 @@ $(document).ready(function()
     const openPositionsWidth = '550px';
 
     // Column indices (0-based): 0=Symbol,1=Price,2=DayChg,3=52W,4=%Low,5=%High,
-    // 6=OpenPositions,7=Orders,8=Alerts,9=ActEdit,10=Delete,
-    // 11=hidden GainY EUR,12=hidden GainY PCT
+    // 6=OpenPositions,7=Orders,8=Alerts,9=Actions (Edit + Delete stacked),
+    // 10=hidden GainY EUR,11=hidden GainY PCT
     // Tier and quadrant filter data live on <tr data-tier data-quadrant> attributes.
     const columnDefs = [
         { targets: 'no-sort', sortable: false },
         { targets: 'no-search', searchable: false },
+        { targets: 10, visible: false, searchable: false, type: 'num' },
         { targets: 11, visible: false, searchable: false, type: 'num' },
-        { targets: 12, visible: false, searchable: false, type: 'num' },
     ];
     if (isWide) {
         columnDefs.push({ targets: 6, width: openPositionsWidth });
@@ -165,8 +165,8 @@ $(document).ready(function()
     });
 
     // ── Gain/y sort controls ──
-    const GAIN_Y_EUR_COL = 11;
-    const GAIN_Y_PCT_COL = 12;
+    const GAIN_Y_EUR_COL = 10;
+    const GAIN_Y_PCT_COL = 11;
     let pinnedGainYCol = null;
     let pinnedGainYDir = null;
     let reorderingForGainY = false;

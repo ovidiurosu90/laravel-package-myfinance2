@@ -11,8 +11,8 @@ use stdClass;
 
 /**
  * Locks down the pure "P&L if sold at this window's peak" math that the quadrant per-period
- * table shows next to "From peak". Valuing the held shares at the window peak (recovered from
- * the proximity_pct that "From peak" reports) and comparing against their true cost is all pure
+ * table shows next to "From peak". Valuing the held shares at the window peak (the exit zone's
+ * EUR peak price times the held quantity) and comparing against their cost is all pure
  * arithmetic, so no database is needed.
  */
 class PeakExitPnlBuilderTest extends TestCase
@@ -32,65 +32,55 @@ class PeakExitPnlBuilderTest extends TestCase
         return $m->invokeArgs($this->builder, $args);
     }
 
-    private function _position(string $currency, float $mvalue, float $cost2): array
+    private function _position(string $currency, float $quantity, float $cost2): array
     {
         $account           = new stdClass();
         $account->currency = new stdClass();
         $account->currency->iso_code = $currency;
 
         return [
-            'accountModel'                     => $account,
-            'market_value_in_account_currency' => $mvalue,
-            'cost2_in_account_currency'        => $cost2,
+            'accountModel'              => $account,
+            'quantity'                  => $quantity,
+            'cost2_in_account_currency' => $cost2,
         ];
     }
 
     // ---- _pnlAtPeak ---------------------------------------------------------
 
-    public function testPnlAtPeakNullProximityIsNull(): void
+    public function testPnlAtPeakNullPeakIsNull(): void
     {
-        $this->assertNull($this->_invoke('_pnlAtPeak', [1000.0, 1300.0, null]));
+        $this->assertNull($this->_invoke('_pnlAtPeak', [null, 10.0, 1300.0]));
     }
 
-    public function testPnlAtPeakBelowMinusHundredIsNull(): void
+    public function testPnlAtPeakNonPositivePeakIsNull(): void
     {
-        $this->assertNull($this->_invoke('_pnlAtPeak', [1000.0, 1300.0, -100.0]));
+        $this->assertNull($this->_invoke('_pnlAtPeak', [0.0, 10.0, 1300.0]));
     }
 
-    public function testPnlAtPeakRecoversHigherPeakAsSmallerLoss(): void
+    public function testPnlAtPeakComputesGain(): void
     {
-        // Down 23% now (mvalue 1000 vs cost 1300); price is 10% below the window peak, so at the
-        // peak the held shares are worth 1000 / 0.9 = 1111.11, a -188.89 EUR / -14.53% loss.
-        $pnl = $this->_invoke('_pnlAtPeak', [1000.0, 1300.0, -10.0]);
+        // 10 shares valued at the 150 EUR peak = 1500 proceeds, a +200 EUR / +15.38% gain vs 1300 cost.
+        $pnl = $this->_invoke('_pnlAtPeak', [150.0, 10.0, 1300.0]);
 
-        $this->assertSame(-188.89, $pnl['eur']);
-        $this->assertSame(-14.53, $pnl['pct']);
+        $this->assertSame(200.0, $pnl['eur']);
+        $this->assertSame(15.38, $pnl['pct']);
     }
 
-    public function testPnlAtPeakAtPeakEqualsCurrentUnrealized(): void
+    public function testPnlAtPeakComputesLoss(): void
     {
-        // proximity 0 => price is at the peak, so P&L is just the current unrealized gain.
-        $pnl = $this->_invoke('_pnlAtPeak', [1000.0, 1300.0, 0.0]);
+        // 10 shares at the 100 EUR peak = 1000 proceeds, a -300 EUR / -23.08% loss vs 1300 cost.
+        $pnl = $this->_invoke('_pnlAtPeak', [100.0, 10.0, 1300.0]);
 
         $this->assertSame(-300.0, $pnl['eur']);
         $this->assertSame(-23.08, $pnl['pct']);
     }
 
-    public function testPnlAtPeakDeepDrawdownCanBeProfit(): void
-    {
-        // 40% below peak: at the peak the shares are worth 1000 / 0.6 = 1666.67, a profit vs 1300.
-        $pnl = $this->_invoke('_pnlAtPeak', [1000.0, 1300.0, -40.0]);
-
-        $this->assertSame(366.67, $pnl['eur']);
-        $this->assertSame(28.21, $pnl['pct']);
-    }
-
     public function testPnlAtPeakNonPositiveCostSuppressesPercentage(): void
     {
-        // Effective cost <= 0 (sell proceeds already exceeded buy cost): amount only, no percentage.
-        $pnl = $this->_invoke('_pnlAtPeak', [1000.0, 0.0, -10.0]);
+        // Cost <= 0 (sell proceeds already exceeded buy cost): amount only, no percentage.
+        $pnl = $this->_invoke('_pnlAtPeak', [100.0, 10.0, 0.0]);
 
-        $this->assertSame(1111.11, $pnl['eur']);
+        $this->assertSame(1000.0, $pnl['eur']);
         $this->assertNull($pnl['pct']);
     }
 
@@ -105,13 +95,14 @@ class PeakExitPnlBuilderTest extends TestCase
 
     public function testForSymbolComputesPerPeriodAndNullsMissingWindow(): void
     {
+        // 10 shares, cost2 1300 (no performance windows, so the cost2 fallback is used).
         $quoteData = [
-            'open_positions' => [$this->_position('EUR', 1000.0, 1300.0)],
+            'open_positions' => [$this->_position('EUR', 10.0, 1300.0)],
             'categorization' => [
                 'periods' => [
-                    '3m' => ['exit_zone' => ['proximity_pct' => -10.0]],
+                    '3m' => ['exit_zone' => ['peak_price_eur' => 150.0]],
                     '6m' => ['exit_zone' => null],
-                    '1y' => ['exit_zone' => ['proximity_pct' => -40.0]],
+                    '1y' => ['exit_zone' => ['peak_price_eur' => 80.0]],
                     // 2y missing entirely
                 ],
             ],
@@ -119,31 +110,108 @@ class PeakExitPnlBuilderTest extends TestCase
 
         $result = $this->_invoke('_forSymbol', [$quoteData, ['EUR' => 1.0]]);
 
-        $this->assertSame(-188.89, $result['3m']['eur']);
+        // 3m: 150 * 10 - 1300 = 200; 1y: 80 * 10 - 1300 = -500.
+        $this->assertSame(200.0, $result['3m']['eur']);
         $this->assertNull($result['6m']);
-        $this->assertSame(366.67, $result['1y']['eur']);
+        $this->assertSame(-500.0, $result['1y']['eur']);
         $this->assertNull($result['2y']);
     }
 
-    public function testForSymbolAggregatesAcrossAccountsWithFxRates(): void
+    public function testForSymbolUsesWindowCostBasisWhenAvailable(): void
     {
-        // One EUR account plus one USD account (rate 0.5 USD->EUR). At the peak (proximity -10)
-        // both legs scale by 1/0.9. EUR leg: 1000; USD leg: 1000 * 0.5 = 500 EUR mvalue, 600 cost.
+        // The open window's remaining_cost_eur (1000) overrides the cost2 fallback (1300).
         $quoteData = [
-            'open_positions' => [
-                $this->_position('EUR', 1000.0, 1300.0),
-                $this->_position('USD', 1000.0, 1200.0),
+            'open_positions' => [$this->_position('EUR', 10.0, 1300.0)],
+            'performance'    => [
+                'windows' => [
+                    ['is_open' => false, 'remaining_cost_eur' => 999.0],
+                    ['is_open' => true,  'remaining_cost_eur' => 1000.0],
+                ],
             ],
             'categorization' => [
-                'periods' => ['3m' => ['exit_zone' => ['proximity_pct' => -10.0]]],
+                'periods' => ['3m' => ['exit_zone' => ['peak_price_eur' => 150.0]]],
+            ],
+        ];
+
+        $result = $this->_invoke('_forSymbol', [$quoteData, ['EUR' => 1.0]]);
+
+        // 150 * 10 - 1000 = 500; pct = 500 / 1000 = 50%.
+        $this->assertSame(500.0, $result['3m']['eur']);
+        $this->assertSame(50.0, $result['3m']['pct']);
+    }
+
+    public function testForSymbolPartialPeriodValuesAtHeldPeakWithWarning(): void
+    {
+        // Held only 10 days: well inside the 3M window, so it is a partial hold. The 3M peak (150) is
+        // higher than the held peak (145), so the figure uses the held peak and flags the shortfall.
+        $start = (new \DateTimeImmutable())->modify('-10 days');
+        $quoteData = [
+            'open_positions' => [$this->_position('EUR', 10.0, 1300.0)],
+            'performance'    => [
+                'windows' => [
+                    ['is_open' => true, 'remaining_cost_eur' => 1300.0,
+                     'start_date' => $start, 'peak_price_eur' => 145.0,
+                     'peak_gain_date' => $start->modify('+5 days')],
+                ],
+            ],
+            'categorization' => [
+                'periods' => ['3m' => ['exit_zone' => ['peak_price_eur' => 150.0]]],
+            ],
+        ];
+
+        $result = $this->_invoke('_forSymbol', [$quoteData, ['EUR' => 1.0]]);
+
+        // Valued at the held peak 145, not the 3m peak 150: 145 * 10 - 1300 = 150.
+        $this->assertSame(150.0, $result['3m']['eur']);
+        $this->assertTrue($result['3m']['incomplete']);
+        $this->assertSame(150.0, $result['3m']['period_peak_eur']);
+        $this->assertSame(145.0, $result['3m']['held_peak_eur']);
+        $this->assertSame(3.3, $result['3m']['shortfall_pct']); // (150 - 145) / 150 = 3.33%
+    }
+
+    public function testForSymbolFullPeriodValuesAtPeriodPeakNoWarning(): void
+    {
+        // Held 200 days: the whole 3M window, so the period's own peak (150) is used, no warning.
+        $start = (new \DateTimeImmutable())->modify('-200 days');
+        $quoteData = [
+            'open_positions' => [$this->_position('EUR', 10.0, 1300.0)],
+            'performance'    => [
+                'windows' => [
+                    ['is_open' => true, 'remaining_cost_eur' => 1300.0,
+                     'start_date' => $start, 'peak_price_eur' => 200.0],
+                ],
+            ],
+            'categorization' => [
+                'periods' => ['3m' => ['exit_zone' => ['peak_price_eur' => 150.0]]],
+            ],
+        ];
+
+        $result = $this->_invoke('_forSymbol', [$quoteData, ['EUR' => 1.0]]);
+
+        // 150 * 10 - 1300 = 200, valued at the 3m peak, no incomplete flag.
+        $this->assertSame(200.0, $result['3m']['eur']);
+        $this->assertArrayNotHasKey('incomplete', $result['3m']);
+    }
+
+    public function testForSymbolAggregatesQuantityAcrossAccountsWithFxRates(): void
+    {
+        // EUR account (10 shares, cost2 1300) plus USD account (5 shares, cost2 1200, rate 0.5).
+        // The peak price is in EUR, so it applies to all 15 shares; only the cost is FX-converted.
+        $quoteData = [
+            'open_positions' => [
+                $this->_position('EUR', 10.0, 1300.0),
+                $this->_position('USD', 5.0, 1200.0),
+            ],
+            'categorization' => [
+                'periods' => ['3m' => ['exit_zone' => ['peak_price_eur' => 150.0]]],
             ],
         ];
 
         $result = $this->_invoke('_forSymbol', [$quoteData, ['EUR' => 1.0, 'USD' => 0.5]]);
 
-        // mvalueEur = 1000 + 500 = 1500; costEur = 1300 + 600 = 1900.
-        // proceeds = 1500 / 0.9 = 1666.67; pnl = -233.33; pct = -233.33 / 1900 = -12.28%.
-        $this->assertSame(-233.33, $result['3m']['eur']);
-        $this->assertSame(-12.28, $result['3m']['pct']);
+        // heldQty = 15; costEur = 1300 + 1200 * 0.5 = 1900.
+        // proceeds = 150 * 15 = 2250; pnl = 350; pct = 350 / 1900 = 18.42%.
+        $this->assertSame(350.0, $result['3m']['eur']);
+        $this->assertSame(18.42, $result['3m']['pct']);
     }
 }

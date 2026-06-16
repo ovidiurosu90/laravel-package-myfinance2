@@ -106,8 +106,16 @@
 <body>
 <div class="container">
     <div class="header">
-        <h1>&#128276; <a href="{{ $yahooUrl }}" target="_blank">{{ $symbol }}</a> near peak</h1>
-        <div class="sub">{{ implode(' · ', $triggerSummary) }}</div>
+        <h1>&#128276; <a href="{{ $yahooUrl }}" target="_blank">{{ $symbol }}</a>
+            @if (!empty($tierLabel))
+                <span class="badge {{ TierCalculationService::tierBadgeClass($tier) }}">{{ $tierLabel }}</span>
+            @endif
+            near peak</h1>
+        <div class="sub">
+            @if (!empty($isReminder))Reminder &middot; @endif
+            @if (!empty($tierLabel)){{ $tierLabel }}@if (!empty($headAction)), {{ $headAction }}@endif &middot; @endif
+            {{ implode(' · ', $triggerSummary) }}
+        </div>
     </div>
     <div class="body">
 
@@ -115,6 +123,9 @@
         <div class="section" style="border-left-color:#28a745;">
             <h2>Summary</h2>
             <p>
+                @if (!empty($tierLabel))
+                    <strong>{{ $tierLabel }}@if (!empty($headAction)), {{ $headAction }}@endif.</strong>
+                @endif
                 Current price
                 <strong class="text-nowrap">{!! $price !== null ? MoneyFormat::get_formatted_price_display($cur, $price, true) : 'n/a' !!}</strong>,
                 near its peak in {{ count($peaks) }} {{ count($peaks) === 1 ? 'window' : 'windows' }}:

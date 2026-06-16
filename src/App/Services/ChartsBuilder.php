@@ -398,7 +398,31 @@ class ChartsBuilder
      */
     public static function getChartSymbolAsArray(string $symbol): array
     {
-        $literal = trim(self::getChartSymbolAsJsonString($symbol));
+        return self::_parseChartLiteral(self::getChartSymbolAsJsonString($symbol));
+    }
+
+    /**
+     * Build a symbol chart series straight from the live stats_* tables,
+     * bypassing the cached JSON file.
+     *
+     * Used as a self-healing fallback when the stored file is stale, e.g. the
+     * symbol is no longer an open position so the cron stopped rebuilding its
+     * file while the underlying stats kept updating.
+     */
+    public static function getLiveChartSymbolAsArray(string $symbol): array
+    {
+        return self::_parseChartLiteral(
+            self::getStatsAsJsonString(Stats::getQuoteStats($symbol))
+        );
+    }
+
+    /**
+     * Parse a stored or generated chart literal (a JS object-literal array) into
+     * a PHP array of ['time' => ..., 'value' => ...] points.
+     */
+    private static function _parseChartLiteral(string $literal): array
+    {
+        $literal = trim($literal);
         if ($literal === '' || $literal === '[]') {
             return [];
         }
@@ -411,6 +435,81 @@ class ChartsBuilder
         $data = json_decode($json, true);
 
         return is_array($data) ? $data : [];
+    }
+
+    /**
+     * Detect gaps in a chart series larger than expected non-trading days.
+     *
+     * Weekends are expected to be missing and are ignored. Holidays are also
+     * non-trading days but are not in a calendar here (the rest of the codebase
+     * handles holiday dates by carrying the last price forward, e.g.
+     * ReturnsQuoteProvider's 7-day fallback, rather than storing a row), so a
+     * tolerance ($maxMissingTradingDays, default 3) absorbs the longest realistic
+     * consecutive-holiday clusters on Western exchanges: Easter (Good Friday +
+     * Easter Monday) and the Christmas/Boxing Day/New Year stretch. Anything
+     * beyond that is reported as a gap, which usually means incomplete history.
+     *
+     * @param array $series Points: [['time' => 'Y-m-d', 'value' => ...], ...]
+     * @return array List of gaps: [['from' => 'Y-m-d', 'to' => 'Y-m-d', 'missing' => int], ...]
+     */
+    public static function detectSeriesGaps(array $series, int $maxMissingTradingDays = 3): array
+    {
+        // Work on a date-sorted copy so detection is robust to series ordering.
+        $dates = [];
+        foreach ($series as $point) {
+            $time = $point['time'] ?? null;
+            if ($time === null) {
+                continue;
+            }
+            $date = \DateTime::createFromFormat('Y-m-d', $time);
+            if ($date === false) {
+                continue;
+            }
+            $date->setTime(0, 0, 0);
+            $dates[] = $date;
+        }
+        usort($dates, fn(\DateTimeInterface $a, \DateTimeInterface $b) => $a <=> $b);
+
+        $gaps = [];
+        $prev = null;
+        foreach ($dates as $date) {
+            if ($prev !== null) {
+                $missing = self::_countTradingDaysBetween($prev, $date);
+                if ($missing > $maxMissingTradingDays) {
+                    $gaps[] = [
+                        'from'    => $prev->format('Y-m-d'),
+                        'to'      => $date->format('Y-m-d'),
+                        'missing' => $missing,
+                    ];
+                }
+            }
+            $prev = $date;
+        }
+
+        return $gaps;
+    }
+
+    /**
+     * Count weekdays (Mon to Fri) strictly between two dates, exclusive of both
+     * endpoints. Used to measure missing trading days between two data points.
+     */
+    private static function _countTradingDaysBetween(
+        \DateTimeInterface $start,
+        \DateTimeInterface $end
+    ): int
+    {
+        $count  = 0;
+        $cursor = (clone $start)->modify('+1 day');
+        $endTs  = $end->getTimestamp();
+
+        while ($cursor->getTimestamp() < $endTs) {
+            if ((int) $cursor->format('N') <= 5) { // 1 (Mon) .. 7 (Sun)
+                $count++;
+            }
+            $cursor->modify('+1 day');
+        }
+
+        return $count;
     }
 
     /**

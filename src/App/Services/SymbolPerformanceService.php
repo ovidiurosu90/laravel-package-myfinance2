@@ -496,6 +496,8 @@ class SymbolPerformanceService
             $window['unrealized_gain_eur'] = 0.0;
             $window['peak_gain_eur'] = null;
             $window['peak_gain_date'] = null;
+            $window['peak_price_eur'] = null;
+            $window['peak_price_native'] = null;
         }
         unset($window);
     }
@@ -592,6 +594,7 @@ class SymbolPerformanceService
             }
             $startStr = $window['start_date']->format('Y-m-d');
             $maxPriceEur = null;
+            $maxPriceNative = null;
             $maxDateStr = null;
 
             foreach ($historicalPrices as $dateStr => $priceData) {
@@ -602,6 +605,7 @@ class SymbolPerformanceService
                 $priceEur = $priceData['price'] * $eurRate;
                 if ($maxPriceEur === null || $priceEur > $maxPriceEur) {
                     $maxPriceEur = $priceEur;
+                    $maxPriceNative = (float) $priceData['price'];
                     $maxDateStr = $dateStr;
                 }
             }
@@ -610,6 +614,8 @@ class SymbolPerformanceService
                 $window['peak_gain_eur'] = ($maxPriceEur * $window['remaining_qty'])
                     - $window['remaining_cost_eur'];
                 $window['peak_gain_date'] = Carbon::parse($maxDateStr);
+                $window['peak_price_eur'] = $maxPriceEur;
+                $window['peak_price_native'] = $maxPriceNative;
             }
         }
         unset($window);
@@ -627,10 +633,14 @@ class SymbolPerformanceService
                 ? ($window['total_gain_eur'] / $window['invested_eur']) * 100.0
                 : null;
 
+            // Peak gain is the unrealized gain of the *currently held* shares at the peak, so it is a
+            // percentage of those shares' cost (remaining_cost_eur), not of everything ever invested
+            // in the window (gains on already-sold shares are booked in realized_gain_eur). This
+            // matches the position card's unrealized-gain % and the quadrant's "P&L at peak" %.
             $window['peak_gain_percentage'] = (
-                $window['peak_gain_eur'] !== null && $window['invested_eur'] > self::FLOAT_EPSILON
+                $window['peak_gain_eur'] !== null && $window['remaining_cost_eur'] > self::FLOAT_EPSILON
             )
-                ? ($window['peak_gain_eur'] / $window['invested_eur']) * 100.0
+                ? ($window['peak_gain_eur'] / $window['remaining_cost_eur']) * 100.0
                 : null;
 
             $endDate = $window['is_open'] ? $today : $window['end_date'];
