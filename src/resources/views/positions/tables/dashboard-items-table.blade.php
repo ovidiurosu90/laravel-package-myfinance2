@@ -98,6 +98,8 @@
                             'regularTimestamp'   => $item['regular_market_timestamp_formatted'] ?? null,
                             'regularDayChange'   => $item['regular_market_day_change'] ?? null,
                             'regularDayChangePct'=> $item['regular_market_day_change_pct'] ?? null,
+                            'postChange'         => $item['post_market_change'] ?? null,
+                            'postChangePct'      => $item['post_market_change_pct'] ?? null,
                             'marketOpen'         => !empty($item['marketUtils'])
                                 && $item['marketUtils']->isOpen(),
                         ],
@@ -114,6 +116,8 @@
                         'regularTimestamp'   => $item['regular_market_timestamp_formatted'] ?? null,
                         'regularDayChange'   => $item['regular_market_day_change'] ?? null,
                         'regularDayChangePct'=> $item['regular_market_day_change_pct'] ?? null,
+                        'postChange'         => $item['post_market_change'] ?? null,
+                        'postChangePct'      => $item['post_market_change_pct'] ?? null,
                         'marketOpen'         => !empty($item['marketUtils'])
                             && $item['marketUtils']->isOpen(),
                         'content'            => $item['current_unit_price_in_trade_currency_formatted'],
@@ -155,6 +159,8 @@
                         'regularTimestamp'   => $item['regular_market_timestamp_formatted'] ?? null,
                         'regularDayChange'   => $item['regular_market_day_change'] ?? null,
                         'regularDayChangePct'=> $item['regular_market_day_change_pct'] ?? null,
+                        'postChange'         => $item['post_market_change'] ?? null,
+                        'postChangePct'      => $item['post_market_change_pct'] ?? null,
                         'marketOpen'         => !empty($item['marketUtils'])
                             && $item['marketUtils']->isOpen(),
                         'content'            => $item['market_value_in_account_currency_formatted'],

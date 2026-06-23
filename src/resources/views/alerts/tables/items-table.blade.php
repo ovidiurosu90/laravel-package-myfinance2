@@ -165,6 +165,8 @@
                                 'regularTimestamp'   => $qd['regular_market_timestamp'] ?? null,
                                 'regularDayChange'   => $qd['regular_market_day_change'] ?? null,
                                 'regularDayChangePct'=> $qd['regular_market_day_change_pct'] ?? null,
+                                'postChange'         => $qd['post_market_change'] ?? null,
+                                'postChangePct'      => $qd['post_market_change_pct'] ?? null,
                                 'marketOpen'         => $qd['market_open'] ?? false,
                                 'content'            => MoneyFormat::get_formatted_price_display($currencyCode, $cp, true),
                             ])

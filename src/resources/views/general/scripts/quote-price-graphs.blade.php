@@ -2,11 +2,16 @@
 
 <script type="module">
 
+@php $liveQuotes = $liveQuotes ?? []; @endphp
 const symbolData = {
 @if(count($symbols) > 0)
 @foreach($symbols as $symbol)
     '{{ $symbol }}': {!!
-        $ChartsBuilder::getChartSymbolAsJsonString($symbol)
+        $ChartsBuilder::getChartSymbolWithLiveQuoteAsJsonString(
+            $symbol,
+            $liveQuotes[$symbol]['price'] ?? null,
+            $liveQuotes[$symbol]['quote_timestamp'] ?? null
+        )
     !!},
 @endforeach
 @endif

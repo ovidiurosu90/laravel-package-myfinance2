@@ -18,7 +18,8 @@ use ovidiuro\myfinance2\App\Services\DipBuyingPlanService;
 use ovidiuro\myfinance2\Mail\DipBuyingAlert;
 
 /**
- * Daily Dip Buying Plan email after the European close.
+ * Dip Buying Plan email on a plan state change. Run hourly from cron; the per-day throttle below
+ * caps it at one email per user per day, so an hourly cadence just surfaces a change sooner.
  *
  * Opt-in (OFF by default): only users who enabled the feature AND the email channel on
  * /dip-buying-alerts are processed. For each, the shared DipBuyingPlanService computes the plan and

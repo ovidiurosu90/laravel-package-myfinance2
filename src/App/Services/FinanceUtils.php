@@ -394,22 +394,64 @@ class FinanceUtils
                 $quotesArray[$sym]['pre_market_timestamp']  = $preMarketTs;
             }
 
-            if (!empty($quote->getPostMarketChange())) {
-                $quotesArray[$sym]['day_change']           = $quote->getPostMarketChange();
-                $quotesArray[$sym]['post_market_day_change'] = true;
-            }
-            if (!empty($quote->getPreMarketChange())) {
-                $quotesArray[$sym]['day_change']          = $quote->getPreMarketChange();
-                $quotesArray[$sym]['pre_market_day_change'] = true;
-            }
+            // Post-market: the regular session already completed today, and Yahoo's
+            // postMarketChange measures only the after-hours move (post-market price vs
+            // the regular close). Cumulate it with the regular-session move so the Day
+            // Gain columns and Today's movers reflect the complete day, recomputing the
+            // percentage against the previous close. The raw after-hours delta is kept in
+            // post_market_change / post_market_change_pct for the breakdown tooltips.
+            $postMarketChange = $quote->getPostMarketChange();
+            if (!empty($postMarketChange)) {
+                $previousClose = $quote->getRegularMarketPreviousClose();
+                if (empty($previousClose)) {
+                    $previousClose = (float) $quote->getRegularMarketPrice()
+                        - (float) $quote->getRegularMarketChange();
+                }
 
-            if (!empty($quote->getPostMarketChangePercent())) {
-                $quotesArray[$sym]['day_change_percentage']          = $quote->getPostMarketChangePercent();
+                $cumulative = self::_cumulativePostMarketDayChange(
+                    (float) $quote->getRegularMarketChange(),
+                    (float) $postMarketChange,
+                    $previousClose !== null ? (float) $previousClose : null,
+                    (float) $quote->getRegularMarketChangePercent()
+                );
+
+                $quotesArray[$sym]['day_change']             = $cumulative['change'];
+                $quotesArray[$sym]['day_change_percentage']  = $cumulative['percentage'];
+                $quotesArray[$sym]['post_market_change']     = (float) $postMarketChange;
+                $quotesArray[$sym]['post_market_change_pct'] = (float) $quote->getPostMarketChangePercent();
+                $quotesArray[$sym]['post_market_day_change'] = true;
                 $quotesArray[$sym]['post_market_day_change_percentage'] = true;
             }
-            if (!empty($quote->getPreMarketChangePercent())) {
-                $quotesArray[$sym]['day_change_percentage']         = $quote->getPreMarketChangePercent();
+
+            // Pre-market: preMarketChange is already measured against the previous close,
+            // so it is the full "today so far" move (regularMarketChange still holds the
+            // previous session until the market reopens). No cumulation needed.
+            $preMarketChange = $quote->getPreMarketChange();
+            if (!empty($preMarketChange)) {
+                $quotesArray[$sym]['day_change']           = (float) $preMarketChange;
+                $quotesArray[$sym]['pre_market_day_change'] = true;
+            }
+            $preMarketChangePct = $quote->getPreMarketChangePercent();
+            if (!empty($preMarketChangePct)) {
+                $quotesArray[$sym]['day_change_percentage']          = (float) $preMarketChangePct;
                 $quotesArray[$sym]['pre_market_day_change_percentage'] = true;
+            }
+
+            // Recompute the 52-week high/low change percentages against the effective price (which
+            // includes pre/post-market) so the watchlist "% High" / "% Low" columns stay consistent
+            // with the live price shown in the same row, instead of Yahoo's regular-close-based
+            // figures. In regular hours the effective price is the regular price, so this matches
+            // Yahoo's values; in pre/post-market it tracks the live price. Same fraction units.
+            $effectivePrice = $quotesArray[$sym]['price'] ?? null;
+            $week52High     = $quote->getFiftyTwoWeekHigh();
+            $week52Low      = $quote->getFiftyTwoWeekLow();
+            if ($effectivePrice !== null && !empty($week52High) && $week52High > 0.0) {
+                $quotesArray[$sym]['fiftyTwoWeekHighChangePercent'] =
+                    ((float) $effectivePrice - (float) $week52High) / (float) $week52High;
+            }
+            if ($effectivePrice !== null && !empty($week52Low) && $week52Low > 0.0) {
+                $quotesArray[$sym]['fiftyTwoWeekLowChangePercent'] =
+                    ((float) $effectivePrice - (float) $week52Low) / (float) $week52Low;
             }
 
             //NOTE If we provide a date, we overwrite the price and quote timestamp
@@ -431,6 +473,38 @@ class FinanceUtils
         }
 
         return $quotesArray;
+    }
+
+    /**
+     * Cumulative post-market day change (complete-day view).
+     *
+     * Yahoo's postMarketChange measures only the after-hours move (post-market
+     * price vs the regular close), so it is added to the regular-session move to
+     * describe the full day. The two raw percentages use different bases
+     * (previous close for the regular session, regular close for after hours) and
+     * cannot simply be summed, so the percentage is recomputed against the
+     * previous close. Falls back to the regular-session percentage when the
+     * previous close is unavailable.
+     *
+     * @return array{change: float, percentage: float}
+     */
+    private static function _cumulativePostMarketDayChange(
+        float $regularChange,
+        float $postMarketChange,
+        ?float $previousClose,
+        float $regularChangePercent
+    ): array
+    {
+        $cumulativeChange = $regularChange + $postMarketChange;
+
+        $percentage = !empty($previousClose)
+            ? ($cumulativeChange / $previousClose) * 100
+            : $regularChangePercent;
+
+        return [
+            'change'     => $cumulativeChange,
+            'percentage' => $percentage,
+        ];
     }
 
     /**
@@ -591,6 +665,8 @@ class FinanceUtils
                 'pre_market_price'              => $q['pre_market_price'] ?? null,
                 'pre_market_timestamp'          => null,
                 'post_market_price'             => $q['post_market_price'] ?? null,
+                'post_market_change'            => $q['post_market_change'] ?? null,
+                'post_market_change_pct'        => $q['post_market_change_pct'] ?? null,
                 'post_market_timestamp'         => null,
                 'market_open'                   => isset($q['marketUtils'])
                     && $q['marketUtils']->isOpen(),

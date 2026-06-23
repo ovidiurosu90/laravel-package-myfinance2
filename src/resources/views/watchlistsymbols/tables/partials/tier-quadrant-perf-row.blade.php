@@ -331,7 +331,7 @@ $actionColors = [
                         @endphp
                         @if($isIncomplete)
                         <i class="fa fa-exclamation-triangle text-warning me-1" aria-hidden="true"
-                           data-bs-toggle="tooltip"
+                           data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips3"
                            title="You held this for only part of the {{ $pLabel }}. The {{ $pLabel }} peak was {{ MoneyFormat::get_formatted_price_plain($pdPnl['period_peak_eur']) }}&euro; on {{ $pdPeakDate }}, before you held it. This values your shares at your holding peak {{ MoneyFormat::get_formatted_price_plain($pdPnl['held_peak_eur']) }}&euro; ({{ $heldPeakDate }}), {{ $pdPnl['shortfall_pct'] }}% below the {{ $pLabel }} peak."></i>
                         @endif
                         <span @if($pnlTitle !== '') data-bs-toggle="tooltip" title="{!! $pnlTitle !!}"@endif>

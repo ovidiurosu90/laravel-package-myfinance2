@@ -225,8 +225,25 @@ class WatchlistSymbolsDashboard
         // can still be rated instead of falling through to Unrated.
         $positionReturns = $this->_buildPositionReturns($items, $eurRates);
 
+        // Latest live prices (pre/post-market aware) in both native and EUR, so the quadrant's
+        // per-window market return and peak proximity reflect the current price, not the last close.
+        $liveEurPrices = [];
+        foreach ($items as $symbol => $quoteData) {
+            if (empty($quoteData['price']) || empty($quoteData['currency'])) {
+                continue;
+            }
+            $eurRate = $eurRates[$quoteData['currency']] ?? null;
+            if ($eurRate === null) {
+                continue;
+            }
+            $liveEurPrices[$symbol] = [
+                'native' => (float) $quoteData['price'],
+                'eur'    => (float) $quoteData['price'] * (float) $eurRate,
+            ];
+        }
+
         $categorization = (new CategorizationService())
-            ->forUser(auth()->id(), $livePerformance, $positionReturns, $performance);
+            ->forUser(auth()->id(), $livePerformance, $positionReturns, $performance, $liveEurPrices);
 
         foreach ($items as $symbol => $quoteData) {
             $items[$symbol]['categorization'] = $categorization[$symbol] ?? null;

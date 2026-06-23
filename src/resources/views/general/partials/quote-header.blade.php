@@ -34,11 +34,15 @@
     }
 
     if ($qh_extended) {
+        // Extended-hours block: pre-market uses the cumulative day_change (already the
+        // full move vs the previous close); after-hours uses the raw post-market delta.
+        $qh_extChange    = $qh_isPost ? ($postChange ?? null) : ($dayChange ?? null);
+        $qh_extChangePct = $qh_isPost ? ($postChangePct ?? null) : ($dayChangePct ?? null);
         $qh_blocks[] = [
             'label'     => $qh_isPre ? 'Pre-market' : 'After hours',
             'price'     => $price ?? null,
-            'change'    => $dayChange ?? null,
-            'changePct' => $dayChangePct ?? null,
+            'change'    => $qh_extChange,
+            'changePct' => $qh_extChangePct,
             'timestamp' => $timestamp ?? null,
         ];
     }

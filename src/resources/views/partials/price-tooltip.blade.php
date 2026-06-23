@@ -21,29 +21,50 @@
             : '';
     };
 
-    if ($isPreMarket || $isPostMarket) {
-        $label            = $isPreMarket ? 'Pre-market' : 'After hours';
-        $priceFormatted   = MoneyFormat::get_formatted_price_display($currency, (float) $price, true);
-        $changeStr        = $buildChangeStr($dayChange ?? null, $dayChangePct ?? null, $currency);
-        $tooltipLines = [
-            '<strong>' . $label . ':</strong> ' . $priceFormatted . $changeStr,
-            $timestamp ?? '',
-        ];
+    // Build one tooltip block (bold label + price + change, then an optional timestamp).
+    $buildBlock = function (string $label, $blockPrice, $change, $pct, $ts, string $currency)
+        use ($buildChangeStr)
+    {
+        $priceFormatted = MoneyFormat::get_formatted_price_display($currency, (float) $blockPrice, true);
+        $changeStr      = $buildChangeStr($change, $pct, $currency);
+        $lines = ['<strong>' . $label . ':</strong> ' . $priceFormatted . $changeStr];
+        if (!empty($ts)) {
+            $lines[] = $ts;
+        }
+        return $lines;
+    };
+
+    $blocks = [];
+    if ($isPostMarket) {
+        // After hours (raw delta) + At close (regular session) + Together (cumulative day).
+        $blocks[] = $buildBlock('After hours', $price, $postChange ?? null, $postChangePct ?? null,
+            $timestamp ?? null, $currency);
         if (!empty($regularPrice)) {
-            $regularFormatted  = MoneyFormat::get_formatted_price_display(
-                $currency, (float) $regularPrice, true
-            );
-            $regularChangeStr  = $buildChangeStr(
-                $regularDayChange ?? null, $regularDayChangePct ?? null, $currency
-            );
-            $tooltipLines[] = '';
-            $tooltipLines[] = '<strong>At close:</strong> ' . $regularFormatted . $regularChangeStr;
-            $tooltipLines[] = $regularTimestamp ?? '';
+            $blocks[] = $buildBlock('At close', $regularPrice, $regularDayChange ?? null,
+                $regularDayChangePct ?? null, $regularTimestamp ?? null, $currency);
+        }
+        $blocks[] = $buildBlock('Together', $price, $dayChange ?? null, $dayChangePct ?? null,
+            null, $currency);
+    } elseif ($isPreMarket) {
+        // Pre-market change is already the full move vs the previous close; no cumulation.
+        $blocks[] = $buildBlock('Pre-market', $price, $dayChange ?? null, $dayChangePct ?? null,
+            $timestamp ?? null, $currency);
+        if (!empty($regularPrice)) {
+            $blocks[] = $buildBlock('At close', $regularPrice, $regularDayChange ?? null,
+                $regularDayChangePct ?? null, $regularTimestamp ?? null, $currency);
         }
     } else {
-        $priceFormatted = MoneyFormat::get_formatted_price_display($currency, (float) $price, true);
-        $changeStr      = $buildChangeStr($dayChange ?? null, $dayChangePct ?? null, $currency);
-        $tooltipLines   = ['<strong>' . $regularLabel . ':</strong> ' . $priceFormatted . $changeStr, $timestamp ?? ''];
+        $blocks[] = $buildBlock($regularLabel, $price, $dayChange ?? null, $dayChangePct ?? null,
+            $timestamp ?? null, $currency);
+    }
+
+    // Join blocks with a blank line between them.
+    $tooltipLines = [];
+    foreach ($blocks as $i => $block) {
+        if ($i > 0) {
+            $tooltipLines[] = '';
+        }
+        $tooltipLines = array_merge($tooltipLines, $block);
     }
 
     $tooltipHtml = implode('<br>', $tooltipLines);

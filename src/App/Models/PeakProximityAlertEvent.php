@@ -12,9 +12,11 @@ use Illuminate\Database\Eloquent\Model;
  *
  * One OPEN event represents a symbol that is currently near peak. It is created the first time the
  * symbol triggers and persists until the user dismisses it (it is never auto-closed, even after the
- * symbol drifts off peak), so the inbox keeps showing it until acknowledged. A DISMISSED event does
- * not block a new one: if the symbol later re-triggers, a fresh OPEN event (a new episode) is opened
- * and the first email fires again.
+ * symbol drifts off peak), so the inbox keeps showing it until acknowledged. Dismissing within the
+ * same day suppresses a re-trigger of the identical near-peak condition (same triggered windows and
+ * classification), so a dismissed card does not immediately pop back into the inbox on a same-day
+ * re-run. On a later day, or if the condition changes (a new window reaches peak), the symbol
+ * re-triggers into a fresh OPEN event (a new episode) and the first email fires again.
  *
  * classification:
  *   - ACTIONABLE: a meaningful window (6M/1Y/2Y) is near peak AND the gain-based tier is exit-worthy

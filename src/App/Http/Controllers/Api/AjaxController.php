@@ -182,6 +182,8 @@ class AjaxController extends MyFinance2Controller
             'regularTimestamp'   => $fmtTs($q['regular_market_timestamp'] ?? null),
             'regularDayChange'   => $q['regular_market_day_change'] ?? null,
             'regularDayChangePct'=> $q['regular_market_day_change_pct'] ?? null,
+            'postChange'         => $q['post_market_change'] ?? null,
+            'postChangePct'      => $q['post_market_change_pct'] ?? null,
             'marketOpen'         => isset($q['marketUtils']) && $q['marketUtils']->isOpen(),
         ])->render();
 
@@ -206,18 +208,15 @@ class AjaxController extends MyFinance2Controller
             $series = ChartsBuilder::getLiveChartSymbolAsArray($symbol);
         }
 
-        // Pin the chart's final point to the live quote shown in the header. The
-        // series ends on the last persisted stat (stats_today), which can lag the
-        // freshly fetched quote by an intraday tick, so without this the chart tip
-        // and the header price disagree by that small move.
-        $headerPrice = $q['price'] ?? null;
-        $todayDate   = date(trans('myfinance2::general.date-format'));
-        if ($headerPrice !== null && !empty($series)) {
-            $lastIdx = array_key_last($series);
-            if (($series[$lastIdx]['time'] ?? null) === $todayDate) {
-                $series[$lastIdx]['value'] = (float) $headerPrice;
-            }
-        }
+        // Pin the chart's final point to the live quote shown in the header so the
+        // chart tip and the header agree. $q['price'] is the latest known price
+        // including pre/post-market, dated by $q['quote_timestamp']; the series ends on
+        // the last persisted close, so this overwrites or appends the live price.
+        $series = ChartsBuilder::pinLiveQuote(
+            $series,
+            $q['price'] ?? null,
+            ($q['quote_timestamp'] ?? null) instanceof \DateTimeInterface ? $q['quote_timestamp'] : null
+        );
 
         // Flag gaps in the series larger than expected non-trading days (weekends,
         // plus a single-holiday tolerance). Missing trading days usually signal

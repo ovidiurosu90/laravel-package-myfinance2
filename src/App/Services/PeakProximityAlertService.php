@@ -155,6 +155,16 @@ final class PeakProximityAlertService
             // Classify (tier gate + 3M-as-context) and upsert the inbox event (INFO entries too, so
             // they show in the inbox). The event also carries the email cadence state.
             $class = $this->_classify($quoteData, $triggered);
+
+            // Same-day dismissal guard: if the user already dismissed an equivalent alert for this
+            // symbol earlier today, do not re-open it (and do not re-email it). This keeps a dismissed
+            // card from immediately popping back into the inbox on a same-day re-run. A changed
+            // condition (a new window near peak) is not equivalent, so it still opens a fresh event.
+            if ($this->_dismissedTodayMatches($userId, $symbol, $triggered, $class)) {
+                $stats['skipped']++;
+                continue;
+            }
+
             $event = $this->_upsertEvent($userId, $symbol, $quoteData, $triggered, $class, $dryRun);
 
             if (!$class['actionable']) {
@@ -532,6 +542,63 @@ final class PeakProximityAlertService
             ->unique()
             ->values()
             ->toArray();
+    }
+
+    /**
+     * Whether the user already dismissed an equivalent alert for this symbol earlier today, so a
+     * same-day re-trigger should not re-open it. "Equivalent" means the same near-peak condition: the
+     * same set of triggered windows AND the same classification (actionable vs info). A genuinely
+     * changed condition (a new window reaching peak, or a flip between actionable and info) is not a
+     * match, so it still opens a fresh event. Only relevant when no OPEN event exists; an OPEN episode
+     * is always refreshed by _upsertEvent.
+     *
+     * @param int    $userId
+     * @param string $symbol
+     * @param array  $triggered  window label => exit-zone entry
+     * @param array  $class
+     *
+     * @return bool
+     */
+    private function _dismissedTodayMatches(int $userId, string $symbol, array $triggered, array $class): bool
+    {
+        $hasOpen = PeakProximityAlertEvent::where('user_id', $userId)
+            ->where('symbol', $symbol)
+            ->where('status', PeakProximityAlertEvent::STATUS_OPEN)
+            ->exists();
+
+        if ($hasOpen) {
+            return false;
+        }
+
+        $classification = $class['actionable']
+            ? PeakProximityAlertEvent::CLASS_ACTIONABLE
+            : PeakProximityAlertEvent::CLASS_INFO;
+
+        $windowsKey = $this->_windowsKey(array_keys($triggered));
+
+        return PeakProximityAlertEvent::where('user_id', $userId)
+            ->where('symbol', $symbol)
+            ->where('status', PeakProximityAlertEvent::STATUS_DISMISSED)
+            ->where('classification', $classification)
+            ->where('dismissed_at', '>=', now()->startOfDay())
+            ->get()
+            ->contains(fn ($e) => $this->_windowsKey(explode(',', (string) $e->triggered_windows)) === $windowsKey);
+    }
+
+    /**
+     * Canonical comparison key for a set of window labels: trimmed, de-duplicated and sorted, so two
+     * triggered-window sets compare equal regardless of order.
+     *
+     * @param array $windows
+     *
+     * @return string
+     */
+    private function _windowsKey(array $windows): string
+    {
+        $windows = array_values(array_unique(array_filter(array_map('trim', $windows))));
+        sort($windows);
+
+        return implode(',', $windows);
     }
 
     /**

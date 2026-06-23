@@ -36,14 +36,15 @@ final class CategorizationService
         int $userId,
         array $livePerformance = [],
         array $positionReturns = [],
-        ?array $performance = null
+        ?array $performance = null,
+        array $liveEurPrices = []
     ): array
     {
         // Caching is intentionally disabled while the categorization framework is being
         // finalised, so tier-logic changes appear on the next page load without a cache
         // clear. To re-enable, wrap this in:
-        //   Cache::remember(self::CACHE_PREFIX . $userId, self::CACHE_TTL, fn () => $this->build($userId, $livePerformance, $positionReturns, $performance));
-        return $this->build($userId, $livePerformance, $positionReturns, $performance);
+        //   Cache::remember(self::CACHE_PREFIX . $userId, self::CACHE_TTL, fn () => $this->build($userId, $livePerformance, $positionReturns, $performance, liveEurPrices: $liveEurPrices));
+        return $this->build($userId, $livePerformance, $positionReturns, $performance, liveEurPrices: $liveEurPrices);
     }
 
     public function rebuild(int $userId): array
@@ -67,7 +68,8 @@ final class CategorizationService
         array $livePerformance = [],
         array $positionReturns = [],
         ?array $performance = null,
-        bool $persistState = false
+        bool $persistState = false,
+        array $liveEurPrices = []
     ): array
     {
         // Reuse the caller's already-computed performance map when provided (the watchlist
@@ -81,6 +83,19 @@ final class CategorizationService
             $performance = array_merge($performance, $livePerformance);
         }
         $drawdown    = (new DrawdownService())->handle($userId);
+        // Overlay the latest live price (pre/post-market aware) onto the cached, pure-historical
+        // drawdown so the quadrant's market return and peak proximity reflect the current price
+        // instead of the last regular close. Only on the on-demand dashboard path (live prices
+        // supplied); the cron's persisted tier states stay on settled historical data.
+        if (!empty($liveEurPrices)) {
+            foreach ($liveEurPrices as $sym => $live) {
+                if (isset($drawdown[$sym]) && !empty($live['eur'])) {
+                    $drawdown[$sym] = DrawdownService::overlayLivePrice(
+                        $drawdown[$sym], (float) $live['eur'], $live['native'] ?? null
+                    );
+                }
+            }
+        }
         $tiers       = new TierCalculationService();
         $classifier  = new TierClassifier($tiers);
         $overrides   = $tiers->loadOverrides($userId);

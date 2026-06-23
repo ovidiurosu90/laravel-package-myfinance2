@@ -300,7 +300,7 @@ Configuration (env, all optional): `MYFINANCE2_PEAK_PROXIMITY_ENABLED` (default 
 
 ### finance:dip-buying-alerts
 
-The inverse of peak-proximity: a deploy-cash hint on the way **down**. The Dip Buying Plan paces how you spend a dip-buying cash pool as the market falls, from a fixed EUR pool, a front-loaded drawdown "ladder", a gap-to-target verdict, a VUSA-vs-200-day-MA trend rail (context only, never a "wait"), and a six-month stall backstop that releases idle cash on a slow schedule. It is behavioral damage-control for cash you keep anyway; it does **not** promise to beat staying invested. One engine (`DipBuyingPlanService`) feeds four surfaces: a panel on `/positions`, this opt-in daily email, the settings page `/dip-buying-alerts`, and the self-validation backtest at `/dip-buying-backtest`.
+The inverse of peak-proximity: a deploy-cash hint on the way **down**. The Dip Buying Plan paces how you spend a dip-buying cash pool as the market falls, from a fixed EUR pool, a front-loaded drawdown "ladder", a gap-to-target verdict, a VUSA-vs-200-day-MA trend rail (context only, never a "wait"), and a six-month stall backstop that releases idle cash on a slow schedule. It is behavioral damage-control for cash you keep anyway; it does **not** promise to beat staying invested. One engine (`DipBuyingPlanService`) feeds four surfaces: a panel on `/positions`, this opt-in email (checked hourly, capped at one per day), the settings page `/dip-buying-alerts`, and the self-validation backtest at `/dip-buying-backtest`.
 
 The drawdown axis is `effective_dd = max(VUSA.AS trailing-peak drawdown, your portfolio drawdown)`; the reserve ladder is cumulative % of the pool to have deployed at each depth (default: 10%->30%, 15%->55%, 20%->75%, 25%->90%, 30%->100%). The verdict is "no dip yet" below 10%, then behind / on plan / ahead of plan against the band target (5pp tolerance). The email fires only on a state change (the band deepens, you cross from on-plan to behind, or the stall backstop activates), throttled to one per day; there is deliberately no "the trend turned" email.
 
@@ -309,15 +309,24 @@ sudo su
 crontab -e
 
 #############
-# Purpose: Daily Dip Buying Plan email after the European close.
-# Off by default; only users who enabled the feature AND the email channel on /dip-buying-alerts
-# are processed, so a full run is a no-op for everyone else. Throttled to one email per day, and it
-# fires only on a state change. Runs at 18:10 server time, clear of the other finance crons, and
-# logs to finance-api-cron.log (WARNING+ entries surface in the logs:email-daily-errors digest).
+# Purpose: Dip Buying Plan email when the plan's state changes (the band deepens, you cross from
+# on-plan to behind, or the stall backstop activates). Checked hourly but throttled to one email per
+# user per day, so running every hour is safe; it just surfaces a state change sooner instead of
+# waiting for the close. Off by default; only users who enabled the feature AND the email channel on
+# /dip-buying-alerts are processed, so a full run is a no-op for everyone else. The command is
+# lightweight (reads the cached drawdown plan, no Yahoo API), runs at minute :33, clear of the other
+# finance crons (peak-proximity at :12, --refresh-returns at :24, app:stats-cron at :42,
+# --refresh-symbol-performance at :54), and logs to finance-api-cron.log (WARNING+ entries surface in
+# the logs:email-daily-errors digest).
 
-10 18 * * * su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Repositories/laravel-admin/ && cpulimit -l 50 -- php artisan finance:dip-buying-alerts --all-users >> [USER_HOME]/Repositories/laravel-admin/storage/logs/finance-api-cron.log 2>&1"
+33 * * * * su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Repositories/laravel-admin/ && cpulimit -l 50 -- php artisan finance:dip-buying-alerts --all-users >> [USER_HOME]/Repositories/laravel-admin/storage/logs/finance-api-cron.log 2>&1"
+
+# Run shortly after boot too (after peak-proximity at 480s), once the caches are warm
+@reboot sleep 510 && su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Repositories/laravel-admin/ && cpulimit -l 50 -- php artisan finance:dip-buying-alerts --all-users >> [USER_HOME]/Repositories/laravel-admin/storage/logs/finance-api-cron.log 2>&1"
 #############
 ```
+
+To limit hourly runs to market hours (08:00 to 22:00 server time), use `33 8-22 * * *` instead of `33 * * * *`.
 
 ```bash
 # Preview for one user without sending or recording

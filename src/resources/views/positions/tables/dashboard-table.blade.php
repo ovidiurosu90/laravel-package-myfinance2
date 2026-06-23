@@ -118,7 +118,7 @@
 @if(!empty($groupedItems))
     @include('myfinance2::positions.scripts.user-overview-graph')
     @include('myfinance2::positions.scripts.account-overview-graphs')
-    @include('myfinance2::general.scripts.quote-price-graphs')
+    @include('myfinance2::general.scripts.quote-price-graphs', ['liveQuotes' => $quotes ?? []])
     @include('myfinance2::general.modals.symbol-chart-modal')
     @include('myfinance2::general.scripts.symbol-chart-modal')
 @endif

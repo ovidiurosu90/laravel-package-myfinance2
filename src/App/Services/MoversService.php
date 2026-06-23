@@ -335,16 +335,27 @@ class MoversService
 
     /**
      * Determine the calendar date (Europe/Amsterdam) that a quote's day_change actually belongs to.
-     * Pre/post-market changes are extended-hours sessions dated to the current session; otherwise the
-     * regular-market timestamp is used. Returns 'Y-m-d' or null when no timestamp is available.
+     *
+     * Pre-market is the opening move of a fresh session, so it is dated by its own timestamp.
+     * Post-market is an extension of the regular session that just closed, so it belongs to that
+     * regular session's date, NOT the post-market timestamp: US after-hours runs until ~02:00
+     * Europe/Amsterdam, so the post-market timestamp lands on the next calendar day and would
+     * otherwise make yesterday's close + after-hours look like today's mover before today's
+     * market (pre-market or open) has produced any move. Returns 'Y-m-d' or null when no
+     * timestamp is available.
      */
     private function _effectiveQuoteDate(array $quote): ?string
     {
         if (!empty($quote['pre_market_day_change']) && !empty($quote['pre_market_timestamp'])) {
             return $quote['pre_market_timestamp']->format('Y-m-d');
         }
-        if (!empty($quote['post_market_day_change']) && !empty($quote['post_market_timestamp'])) {
-            return $quote['post_market_timestamp']->format('Y-m-d');
+        if (!empty($quote['post_market_day_change'])) {
+            if (!empty($quote['regular_market_timestamp'])) {
+                return $quote['regular_market_timestamp']->format('Y-m-d');
+            }
+            if (!empty($quote['post_market_timestamp'])) {
+                return $quote['post_market_timestamp']->format('Y-m-d');
+            }
         }
         if (!empty($quote['regular_market_timestamp'])) {
             return $quote['regular_market_timestamp']->format('Y-m-d');

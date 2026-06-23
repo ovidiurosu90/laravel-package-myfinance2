@@ -366,6 +366,10 @@ class DrawdownService
     {
         $exitZones = !empty($symPrices) ? $this->_computeAllExitZones($symPrices, $currency) : [];
 
+        // Latest stored close (EUR) so a live-price overlay can rescale the latest-price-dependent
+        // figures (momenta, exit-zone proximity) without re-running the historical compute.
+        $latestPriceEur = !empty($symPrices) ? $symPrices[max(array_keys($symPrices))] : null;
+
         $base = [
             'start_date'              => $startDate,
             'max_drawdown'            => null,
@@ -375,6 +379,7 @@ class DrawdownService
             'exit_zone'               => $exitZones['2y'] ?? null,
             'exit_zones'              => $exitZones,
             'momentum_annualized_pct' => null,
+            'latest_price_eur'        => $latestPriceEur,
             'vusa_same_window_pct'    => null,
             'vusa_same_window_raw_pct' => null,
         ];
@@ -488,6 +493,105 @@ class DrawdownService
         }
 
         return $result;
+    }
+
+    /**
+     * Overlay the latest live price (pre/post-market aware) onto a single symbol's cached
+     * drawdown entry, so the quadrant's per-window market return ("Gain") and peak proximity
+     * ("From peak") reflect the current price instead of the last stored regular close.
+     *
+     * The cached series is pure-historical and ends on the regular close, so only the
+     * latest-price-dependent figures are patched; the historical peaks (until exceeded) and
+     * drawdowns are left intact. Momenta are rescaled by the live/stored price ratio (the stored
+     * momentum already encodes latest/start, so no per-window start price is needed). Peak
+     * proximity is recomputed in the native trade currency where available (FX-free, matching the
+     * peak label shown in the UI), and a live price above a window peak becomes the new peak.
+     *
+     * @param array      $entry      A DrawdownService result entry (momenta, exit_zones, latest_price_eur).
+     * @param float      $liveEur    Latest live price in EUR.
+     * @param float|null $liveNative Latest live price in the symbol's native trade currency.
+     */
+    public static function overlayLivePrice(array $entry, float $liveEur, ?float $liveNative = null): array
+    {
+        if ($liveEur <= 0.0) {
+            return $entry;
+        }
+
+        // Per-window market return ("Gain"): the stored momentum encodes latest/start, so scaling
+        // that ratio by the live/stored move gives the live return without the start price. Needs
+        // the stored close, so this is skipped for older cache entries that predate latest_price_eur.
+        $latestEur = $entry['latest_price_eur'] ?? null;
+        if ($latestEur !== null && $latestEur > 0.0 && !empty($entry['momenta'])) {
+            $scale = $liveEur / $latestEur;
+            if (abs($scale - 1.0) >= 1e-9) {
+                $windowDays = ['3m' => 91, '6m' => 182, '1y' => 365, '2y' => 730];
+                foreach ($entry['momenta'] as $p => $pct) {
+                    if ($pct === null || !isset($windowDays[$p])) {
+                        continue;
+                    }
+                    $days        = $windowDays[$p];
+                    $storedRatio = $days < 365
+                        ? 1.0 + $pct / 100.0                       // raw return
+                        : pow(1.0 + $pct / 100.0, $days / 365.0);  // CAGR -> total ratio
+                    $liveRatio = $storedRatio * $scale;
+                    if ($liveRatio <= 0.0) {
+                        continue;
+                    }
+                    $entry['momenta'][$p] = $days < 365
+                        ? ($liveRatio - 1.0) * 100.0
+                        : (pow($liveRatio, 365.0 / $days) - 1.0) * 100.0;
+                }
+                $entry['momentum_annualized_pct'] = $entry['momenta']['1y'] ?? ($entry['momentum_annualized_pct'] ?? null);
+            }
+        }
+
+        // Per-window peak proximity ("From peak"): only needs the live price and the stored peak,
+        // so it runs independently of latest_price_eur (works even on an older cached entry).
+        if (!empty($entry['exit_zones'])) {
+            foreach ($entry['exit_zones'] as $p => $zone) {
+                if (!is_array($zone)) {
+                    continue;
+                }
+                $entry['exit_zones'][$p] = self::_overlayExitZone($zone, $liveEur, $liveNative);
+            }
+            $entry['exit_zone'] = $entry['exit_zones']['2y'] ?? ($entry['exit_zone'] ?? null);
+        }
+
+        return $entry;
+    }
+
+    /**
+     * Recompute one exit-zone entry against the live price. Prefers the native trade currency
+     * (FX-free, matches the displayed peak); a live price above the window peak becomes the new
+     * peak. Returns the zone unchanged when it has no usable peak.
+     */
+    private static function _overlayExitZone(array $zone, float $liveEur, ?float $liveNative): array
+    {
+        $peakNative = $zone['peak_price_native'] ?? null;
+        if ($liveNative !== null && !empty($peakNative) && $peakNative > 0.0) {
+            $live = $liveNative;
+            $peak = (float) $peakNative;
+        } elseif (!empty($zone['peak_price_eur']) && $zone['peak_price_eur'] > 0.0) {
+            $live = $liveEur;
+            $peak = (float) $zone['peak_price_eur'];
+        } else {
+            return $zone;
+        }
+
+        if ($live > $peak) {
+            if ($liveNative !== null) {
+                $zone['peak_price_native'] = round($liveNative, 4);
+            }
+            $zone['peak_price_eur']  = round($liveEur, 4);
+            $zone['peak_price_date'] = Carbon::today()->format('Y-m-d');
+            $zone['proximity_pct']   = 0.0;
+            $zone['in_zone']         = true;
+        } else {
+            $zone['proximity_pct'] = round(($live / $peak - 1.0) * 100.0, 2);
+            $zone['in_zone']       = $live >= self::EXIT_ZONE_THRESHOLD * $peak;
+        }
+
+        return $zone;
     }
 
     /**

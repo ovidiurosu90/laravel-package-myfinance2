@@ -369,6 +369,11 @@ class Positions
                     !empty($quote['post_market_day_change_percentage'])
                     ? $quote['post_market_day_change_percentage'] : false;
 
+                // Raw after-hours delta (post-market price vs the regular close), kept
+                // for the breakdown tooltips while day_change carries the cumulative day.
+                $position['post_market_change'] = $quote['post_market_change'] ?? null;
+                $position['post_market_change_pct'] = $quote['post_market_change_pct'] ?? null;
+
                 $position['pre_market_price'] = !empty($quote['pre_market_price']) ?
                      $quote['pre_market_price'] : false;
                 $position['pre_market_day_change'] =

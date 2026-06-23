@@ -165,8 +165,9 @@ class MoversServiceTest extends TestCase
     }
 
     /**
-     * _effectiveQuoteDate prefers a pre/post-market session date, then the regular-market
-     * timestamp, and returns null when no timestamp is present.
+     * _effectiveQuoteDate dates pre-market by its own timestamp, post-market by the regular
+     * session it extends, falls back to the regular-market timestamp, and returns null when no
+     * timestamp is present.
      */
     public function test_effective_quote_date_precedence(): void
     {
@@ -178,13 +179,22 @@ class MoversServiceTest extends TestCase
         ]]);
         $this->assertSame('2026-06-16', $pre);
 
-        // Post-market change wins over the regular timestamp.
+        // Post-market belongs to the regular session it extends, even when its own timestamp
+        // rolls into the next calendar day (US after-hours ends ~02:00 Europe/Amsterdam). The
+        // session date is the regular-market date, so yesterday's after-hours is not "today".
         $post = $this->_invokePrivate('_effectiveQuoteDate', [[
             'post_market_day_change'   => true,
-            'post_market_timestamp'    => new \DateTime('2026-06-16 22:00:00'),
-            'regular_market_timestamp' => new \DateTime('2026-06-16 17:30:00'),
+            'post_market_timestamp'    => new \DateTime('2026-06-17 01:59:59'),
+            'regular_market_timestamp' => new \DateTime('2026-06-16 22:00:00'),
         ]]);
         $this->assertSame('2026-06-16', $post);
+
+        // Post-market with no regular timestamp falls back to the post-market timestamp.
+        $postNoRegular = $this->_invokePrivate('_effectiveQuoteDate', [[
+            'post_market_day_change' => true,
+            'post_market_timestamp'  => new \DateTime('2026-06-17 01:59:59'),
+        ]]);
+        $this->assertSame('2026-06-17', $postNoRegular);
 
         // Falls back to the regular-market timestamp.
         $regular = $this->_invokePrivate('_effectiveQuoteDate', [[

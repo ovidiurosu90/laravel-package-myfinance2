@@ -402,6 +402,64 @@ class ChartsBuilder
     }
 
     /**
+     * Pin a chart series to the latest known live price so the chart ends on the
+     * current quote (including pre/post-market) rather than the last persisted close.
+     *
+     * The series ends on the last completed session's close. Given the live price and
+     * the session date it belongs to ($quoteTs, e.g. the pre/post-market timestamp):
+     *   - same date as the series tail (intraday or after-hours of that day): overwrite
+     *     the close with the live price;
+     *   - live quote newer (e.g. pre-market before today's session, or a post-market
+     *     tick on a day with no persisted stat yet): append it.
+     * Older or missing quotes leave the series untouched.
+     *
+     * @param array<int, array{time: string, value: float}> $series
+     * @return array<int, array{time: string, value: float}>
+     */
+    public static function pinLiveQuote(array $series, $price, ?\DateTimeInterface $quoteTs): array
+    {
+        if ($price === null || empty($series)) {
+            return $series;
+        }
+
+        $quoteDate = $quoteTs instanceof \DateTimeInterface
+            ? $quoteTs->format('Y-m-d')
+            : date('Y-m-d');
+
+        $lastIdx  = array_key_last($series);
+        $lastTime = $series[$lastIdx]['time'] ?? null;
+
+        if ($lastTime === $quoteDate) {
+            $series[$lastIdx]['value'] = (float) $price;
+        } elseif ($lastTime !== null && $quoteDate > $lastTime) {
+            $series[] = ['time' => $quoteDate, 'value' => (float) $price];
+        }
+
+        return $series;
+    }
+
+    /**
+     * Stored symbol chart series as a JSON string with the latest live quote pinned to
+     * its tail (see pinLiveQuote). Used when embedding the inline/expand charts so they
+     * show the current pre/post-market price. Falls back to the unmodified stored series
+     * when no live price is supplied.
+     */
+    public static function getChartSymbolWithLiveQuoteAsJsonString(
+        string $symbol,
+        $price = null,
+        ?\DateTimeInterface $quoteTs = null
+    ): string
+    {
+        if ($price === null) {
+            return self::getChartSymbolAsJsonString($symbol);
+        }
+
+        $series = self::pinLiveQuote(self::getChartSymbolAsArray($symbol), $price, $quoteTs);
+
+        return empty($series) ? '[]' : json_encode($series);
+    }
+
+    /**
      * Build a symbol chart series straight from the live stats_* tables,
      * bypassing the cached JSON file.
      *

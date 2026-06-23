@@ -195,6 +195,8 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                             'regularTimestamp'   => $wl_regTsFormatted,
                             'regularDayChange'   => $quoteData['regular_market_day_change'] ?? null,
                             'regularDayChangePct'=> $quoteData['regular_market_day_change_pct'] ?? null,
+                            'postChange'         => $quoteData['post_market_change'] ?? null,
+                            'postChangePct'      => $quoteData['post_market_change_pct'] ?? null,
                             'marketOpen'         => !empty($quoteData['marketUtils'])
                                 && $quoteData['marketUtils']->isOpen(),
                         ],
@@ -211,6 +213,8 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                         'regularTimestamp'   => $wl_regTsFormatted,
                         'regularDayChange'   => $quoteData['regular_market_day_change'] ?? null,
                         'regularDayChangePct'=> $quoteData['regular_market_day_change_pct'] ?? null,
+                        'postChange'         => $quoteData['post_market_change'] ?? null,
+                        'postChangePct'      => $quoteData['post_market_change_pct'] ?? null,
                         'marketOpen'         => !empty($quoteData['marketUtils'])
                             && $quoteData['marketUtils']->isOpen(),
                         'content'            => $wl_priceContent,
@@ -284,11 +288,14 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                 <td class="text-right text-nowrap"
                     data-order="{{ - $quoteData['fiftyTwoWeekHighChangePercent']
                                     * 100 }}">
+                    <span data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips3"
+                          title="Distance from the current price to the 52-week intraday high ({{ MoneyFormat::get_formatted_price_plain($quoteData['fiftyTwoWeekHigh']) }}&nbsp;{{ html_entity_decode($quoteData['tradeCurrencyModel']->display_code, ENT_QUOTES | ENT_HTML5) }}), the single highest price in the past year. The quadrant 'From peak' instead measures against each window's highest daily close, so the two differ when an intraday high sits above the highest close.">
                     {!! MoneyFormat
                     ::get_formatted_52wk_high_percentage(
                         - $quoteData['fiftyTwoWeekHighChangePercent'] * 100,
                         count($quoteData['open_positions']) > 0
                     ) !!}
+                    </span>
                 </td>
                 <td{!! $hasPerfRow ? ' rowspan="2"' : '' !!}>
                 @if(!empty($quoteData['open_positions']))
@@ -480,10 +487,13 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
             ) !!}
         </td>
         <td class="text-right text-nowrap">
+            <span data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips3"
+                  title="Distance from the current price to the 52-week intraday high ({{ MoneyFormat::get_formatted_price_plain($quoteData['fiftyTwoWeekHigh']) }}&nbsp;{{ html_entity_decode($quoteData['tradeCurrencyModel']->display_code, ENT_QUOTES | ENT_HTML5) }}), the single highest price in the past year. The quadrant 'From peak' instead measures against each window's highest daily close, so the two differ when an intraday high sits above the highest close.">
             {!! MoneyFormat::get_formatted_52wk_high_percentage(
                 - $quoteData['fiftyTwoWeekHighChangePercent'] * 100,
                 count($quoteData['open_positions']) > 0
             ) !!}
+            </span>
         </td>
         <td{!! $hasNwPerfRow ? ' rowspan="2"' : '' !!}>
         @if(!empty($quoteData['open_positions']))
