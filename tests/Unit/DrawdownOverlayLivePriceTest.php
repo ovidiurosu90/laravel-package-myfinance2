@@ -118,4 +118,50 @@ class DrawdownOverlayLivePriceTest extends TestCase
         // Gain is left as-is because the stored close is unavailable.
         $this->assertSame(50.0, $out['momenta']['3m']);
     }
+
+    /**
+     * Native-only live price (no live EUR rate, e.g. a foreign-currency watchlist symbol with no
+     * held position): peak proximity is still refreshed FX-free in the native currency, the market
+     * return is left untouched (it needs the live EUR price), and the cached EUR peak is preserved
+     * rather than zeroed.
+     */
+    public function test_overlay_native_only_refreshes_proximity(): void
+    {
+        // liveEur 0 (unavailable), liveNative 108 vs peak 120 => -10%, still in the exit zone.
+        $out = DrawdownService::overlayLivePrice($this->_entry(), 0.0, 108.0);
+
+        $this->assertEqualsWithDelta(-10.0, $out['exit_zones']['3m']['proximity_pct'], 0.001);
+        $this->assertTrue($out['exit_zones']['3m']['in_zone']);
+        // Gain is left as-is: rescaling needs the live EUR price, which is unavailable.
+        $this->assertSame(50.0, $out['momenta']['3m']);
+        // The cached EUR peak is kept (not overwritten with 0) since there is no live EUR price.
+        $this->assertSame(110.0, $out['exit_zones']['3m']['peak_price_eur']);
+        $this->assertSame(120.0, $out['exit_zones']['3m']['peak_price_native']);
+    }
+
+    /**
+     * Native-only live price above the stored peak sets the new native peak (dated today) at 0%
+     * from peak, while the cached EUR peak is preserved because there is no live EUR price.
+     */
+    public function test_overlay_native_only_live_high_keeps_eur_peak(): void
+    {
+        $out = DrawdownService::overlayLivePrice($this->_entry(), 0.0, 130.0);
+
+        $this->assertSame(130.0, $out['exit_zones']['3m']['peak_price_native']);
+        $this->assertSame(110.0, $out['exit_zones']['3m']['peak_price_eur']); // preserved, not zeroed
+        $this->assertSame(Carbon::today()->format('Y-m-d'), $out['exit_zones']['3m']['peak_price_date']);
+        $this->assertSame(0.0, $out['exit_zones']['3m']['proximity_pct']);
+        $this->assertTrue($out['exit_zones']['3m']['in_zone']);
+    }
+
+    /**
+     * With neither a usable EUR nor a usable native live price, the entry is returned unchanged.
+     */
+    public function test_overlay_noop_when_no_usable_price(): void
+    {
+        $entry = $this->_entry();
+
+        $this->assertSame($entry, DrawdownService::overlayLivePrice($entry, 0.0, 0.0));
+        $this->assertSame($entry, DrawdownService::overlayLivePrice($entry, 0.0, null));
+    }
 }

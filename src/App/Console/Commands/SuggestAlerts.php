@@ -15,7 +15,7 @@ use ovidiuro\myfinance2\App\Services\AlertService;
  * Auto-generate price alert suggestions from open BUY positions.
  *
  * Strategy: for each open position, suggest a PRICE_ABOVE alert (threshold)% below
- * the 52-week high, skipping symbols that already have an ACTIVE/PAUSED PRICE_ABOVE alert.
+ * the lookback closing high, skipping symbols that already have an ACTIVE/PAUSED PRICE_ABOVE alert.
  */
 class SuggestAlerts extends Command
 {

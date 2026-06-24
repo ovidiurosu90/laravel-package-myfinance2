@@ -17,7 +17,12 @@ class WatchlistTableMetaBuilder
      * @param array $items symbol => quoteData (with 'performance' and 'categorization')
      * @return array same items, each with an added 'table_meta' key
      */
-    public function attach(array $items): array
+    /**
+     * @param array $items        symbol => quote/categorization data
+     * @param array $liveEurRates trade-currency ISO => EUR rate (native * rate = EUR), used to build
+     *                            the current-price label alongside the peak labels.
+     */
+    public function attach(array $items, array $liveEurRates = []): array
     {
         foreach ($items as $symbol => $quoteData) {
             $perf = $quoteData['performance'] ?? [];
@@ -26,14 +31,21 @@ class WatchlistTableMetaBuilder
             [$gainYOrder, $gainYPctOrder] = $this->_gainYOrder($perf);
             [$quadrantLabels, $actionLabels] = $this->_filterLabels($cat);
 
+            // Built first so the gain tooltip's "latest" point reuses the same current-price label
+            // (and today's date) the "From peak" / "P&L at peak" columns show.
+            $currentPriceLabel = $this->_currentPriceLabel($quoteData, $liveEurRates, $cat);
+
             $items[$symbol]['table_meta'] = [
-                'tier_text'        => TierCalculationService::tierLabel($cat['effective_tier'] ?? null) ?? '',
-                'quadrant_labels'  => $quadrantLabels,
-                'action_labels'    => $actionLabels,
-                'gain_y_order'     => $gainYOrder,
-                'gain_y_pct_order' => $gainYPctOrder,
-                'basis_gain_eur'   => $this->_basisGainEur($cat, $perf),
-                'peak_labels'      => $this->_peakLabels($quoteData, $cat),
+                'tier_text'           => TierCalculationService::tierLabel($cat['effective_tier'] ?? null) ?? '',
+                'quadrant_labels'     => $quadrantLabels,
+                'action_labels'       => $actionLabels,
+                'gain_y_order'        => $gainYOrder,
+                'gain_y_pct_order'    => $gainYPctOrder,
+                'basis_gain_eur'      => $this->_basisGainEur($cat, $perf),
+                'peak_labels'         => $this->_peakLabels($quoteData, $cat),
+                'gain_windows'        => $this->_gainWindows($quoteData, $cat, $liveEurRates, $currentPriceLabel),
+                'closing_range'       => $this->_closingRange($quoteData, $cat),
+                'current_price_label' => $currentPriceLabel,
             ];
         }
 
@@ -158,6 +170,183 @@ class WatchlistTableMetaBuilder
         }
 
         return $eur;
+    }
+
+    /**
+     * Ready-to-display price points behind each window's "Gain", for the quadrant table's gain
+     * tooltip. The gain is measured on the EUR price series, so the percentage is reproducible from
+     * the EUR figures; each price is also shown in the native trade currency (converted with the
+     * same FX rate the peak / current-price labels use) so it mirrors the "From peak" and
+     * "P&L at peak" columns.
+     *
+     * The "latest" point is the symbol's current price as of today (the same label and date the
+     * other live columns show), not the last stored close, so all columns agree. raw_pct is the
+     * plain start->end move over the window; for the 1Y/2Y rows the badge shows the annualized
+     * (CAGR) figure instead, so the tooltip states both. Null per period when no usable price pair.
+     *
+     * @param string|null $currentPriceLabel current-price label (native + EUR), reused for "latest".
+     * @return array period => array{start_label:string,start_date:string,end_label:string,
+     *                                end_date:string,raw_pct:float|null,is_annualized:bool}|null
+     */
+    private function _gainWindows(array $quoteData, ?array $cat, array $liveEurRates, ?string $currentPriceLabel): array
+    {
+        $tradeIso  = $quoteData['currency'] ?? null;
+        $tradeCode = $quoteData['tradeCurrencyModel']->display_code ?? null;
+        // native * rate = EUR. Live rate first, else the rate implied by a cached peak (same
+        // fallback the current-price label uses), so foreign-currency symbols still get a pair.
+        $eurRate   = $liveEurRates[$tradeIso] ?? $this->_peakDerivedEurRate($cat);
+        $today     = \Carbon\Carbon::today()->format('d M Y');
+
+        $out = [];
+        foreach ($cat['periods'] ?? [] as $period => $periodData) {
+            $w     = $periodData['gain_window'] ?? null;
+            $start = $w['start_price_eur'] ?? null;
+            $end   = $w['end_price_eur'] ?? null;
+            if ($w === null || $start === null || $end === null) {
+                $out[$period] = null;
+                continue;
+            }
+
+            $rawPct = ((float) $start > 0.0)
+                ? round(((float) $end - (float) $start) / (float) $start * 100.0, 2)
+                : null;
+
+            // "Latest" mirrors the live columns: the current price as of today. Fall back to the
+            // window's own end point (last stored close) only when there is no current-price label.
+            [$endLabel, $endDate] = $currentPriceLabel !== null
+                ? [$currentPriceLabel, $today]
+                : [
+                    $this->_priceLabelFromEur((float) $end, $eurRate, $tradeIso, $tradeCode),
+                    \Carbon\Carbon::parse($w['end_date'])->format('d M Y'),
+                ];
+
+            $out[$period] = [
+                'start_label'   => $this->_priceLabelFromEur((float) $start, $eurRate, $tradeIso, $tradeCode),
+                'start_date'    => \Carbon\Carbon::parse($w['start_date'])->format('d M Y'),
+                'end_label'     => $endLabel,
+                'end_date'      => $endDate,
+                'raw_pct'       => $rawPct,
+                'is_annualized' => in_array($period, ['1y', '2y'], true),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Closing-based 52-week range for the "% High" / "% Low" / "52W Range" columns' primary
+     * (sortable) figures: the highest and lowest daily CLOSE over the trailing year, in native
+     * trade currency, each with its date and its distance from the current price. "% High" is how
+     * far the current price sits below the closing high (positive below it); "% Low" is how far it
+     * sits above the closing low. Null when no closing extremes are available.
+     *
+     * @return array{high_native:float|null,high_date:string,high_pct:float|null,
+     *                low_native:float|null,low_date:string,low_pct:float|null}|null
+     */
+    private function _closingRange(array $quoteData, ?array $cat): ?array
+    {
+        $ext = $cat['closing_extremes'] ?? null;
+        if ($ext === null) {
+            return null;
+        }
+
+        $price = $quoteData['price'] ?? null;
+        $price = ($price === null || $price === '') ? null : (float) $price;
+
+        $highNative = $ext['high_native'] ?? null;
+        $lowNative  = $ext['low_native'] ?? null;
+
+        // Distance from the live price: positive when below the closing high / above the closing low.
+        $highPct = ($price !== null && $highNative !== null && (float) $highNative > 0.0)
+            ? round(((float) $highNative - $price) / (float) $highNative * 100.0, 2)
+            : null;
+        $lowPct  = ($price !== null && $lowNative !== null && (float) $lowNative > 0.0)
+            ? round(($price - (float) $lowNative) / (float) $lowNative * 100.0, 2)
+            : null;
+
+        return [
+            'high_native' => $highNative,
+            'high_date'   => \Carbon\Carbon::parse($ext['high_date'])->format('d M Y'),
+            'high_pct'    => $highPct,
+            'low_native'  => $lowNative,
+            'low_date'    => \Carbon\Carbon::parse($ext['low_date'])->format('d M Y'),
+            'low_pct'     => $lowPct,
+        ];
+    }
+
+    /**
+     * Format an EUR price the same way as the peak / current-price labels: native trade currency
+     * first with the EUR equivalent in parentheses, or EUR only for EUR-quoted symbols (or when no
+     * FX rate is available). The native value is the EUR price divided by the same rate the other
+     * labels convert with, so historical points share the peak/current conversion.
+     */
+    private function _priceLabelFromEur(float $eur, ?float $eurRate, ?string $tradeIso, ?string $tradeCode): string
+    {
+        $eurStr = MoneyFormat::get_formatted_price_plain($eur) . '&euro;';
+
+        if ($tradeIso !== null && $tradeIso !== 'EUR' && $tradeCode !== null
+            && $eurRate !== null && (float) $eurRate > 0.0) {
+            $native = $eur / (float) $eurRate;
+            return MoneyFormat::get_formatted_price_plain($native) . $tradeCode . ' (' . $eurStr . ')';
+        }
+
+        return $eurStr;
+    }
+
+    /**
+     * The symbol's current price, formatted the same way as the peak label (native trade currency
+     * first, then the EUR equivalent in parentheses; EUR-quoted symbols show only the EUR value).
+     * Shown above the peak in the "From peak" tooltip so the proximity percentage is traceable.
+     *
+     * @return string|null HTML fragment (carries the &euro; entity), or null when no usable price.
+     */
+    private function _currentPriceLabel(array $quoteData, array $liveEurRates, ?array $cat): ?string
+    {
+        $native = $quoteData['price'] ?? null;
+        if ($native === null || $native === '' || (float) $native <= 0.0) {
+            return null;
+        }
+        $native = (float) $native;
+
+        $tradeIso  = $quoteData['currency'] ?? null;
+        $tradeCode = $quoteData['tradeCurrencyModel']->display_code ?? null;
+
+        if ($tradeIso === 'EUR' || $tradeIso === null) {
+            return MoneyFormat::get_formatted_price_plain($native) . '&euro;';
+        }
+
+        // Prefer the live FX rate; fall back to the rate implied by a cached window peak so the
+        // current price still carries a EUR figure (and shares the peak's conversion) when no live
+        // rate is available, e.g. a foreign-currency watchlist symbol with no held position.
+        $eurRate = $liveEurRates[$tradeIso] ?? $this->_peakDerivedEurRate($cat);
+        if ($eurRate === null || $tradeCode === null) {
+            return $tradeCode !== null
+                ? MoneyFormat::get_formatted_price_plain($native) . $tradeCode
+                : MoneyFormat::get_formatted_price_plain($native) . '&euro;';
+        }
+
+        $eur = MoneyFormat::get_formatted_price_plain($native * (float) $eurRate) . '&euro;';
+
+        return MoneyFormat::get_formatted_price_plain($native) . $tradeCode . ' (' . $eur . ')';
+    }
+
+    /**
+     * Native -> EUR rate implied by a cached window peak (peak EUR / peak native). Used only as a
+     * fallback for the current-price label when no live FX rate is available, so the label converts
+     * with the same rate the peak label already shows. Null when no usable peak exists.
+     */
+    private function _peakDerivedEurRate(?array $cat): ?float
+    {
+        foreach ($cat['periods'] ?? [] as $periodData) {
+            $zone   = $periodData['exit_zone'] ?? null;
+            $eur    = $zone['peak_price_eur'] ?? null;
+            $native = $zone['peak_price_native'] ?? null;
+            if ($eur !== null && $native !== null && (float) $native > 0.0) {
+                return (float) $eur / (float) $native;
+            }
+        }
+
+        return null;
     }
 
     /**

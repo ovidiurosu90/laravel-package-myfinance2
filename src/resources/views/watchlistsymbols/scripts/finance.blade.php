@@ -31,23 +31,50 @@ $(document).ready(function()
                 $fetchedSymbolName.find('span').html(data.name);
                 $fetchedSymbolName.show();
 
+                // Primary 52-week figures are closing-based (highest / lowest daily close over the
+                // past year, dated); Yahoo's intraday high/low is shown beneath as a dimmed
+                // secondary. Falls back to intraday only when no closing range is available.
+                var px = parseFloat(data.price);
+                var cHigh = data.closingHigh, cLow = data.closingLow;
+                var pctBelowCHigh = (cHigh != null && cHigh > 0)
+                    ? ((cHigh - px) / cHigh * 100).toFixed(2) : null;
+                var pctAboveCLow = (cLow != null && cLow > 0)
+                    ? ((px - cLow) / cLow * 100).toFixed(2) : null;
+                var intradayHtml = (data.fiftyTwoWeekHigh != null && data.fiftyTwoWeekLow != null)
+                    ? '<p style="opacity:0.55;font-style:italic;"><b>Intraday (Yahoo)</b>: high '
+                        + data.fiftyTwoWeekHigh + ' / low ' + data.fiftyTwoWeekLow + ' '
+                        + data.currency + ' (single intraday extremes, no date)</p>'
+                    : '';
+
+                var rangeHtml;
+                if (cHigh != null && cLow != null) {
+                    rangeHtml =
+                        '<p><b>52-Wk closing high</b>: ' + cHigh + ' ' + data.currency
+                            + (data.closingHighDate ? ' on ' + data.closingHighDate : '') + '</p>' +
+                        '<p><b>52-Wk closing low</b>: ' + cLow + ' ' + data.currency
+                            + (data.closingLowDate ? ' on ' + data.closingLowDate : '') + '</p>' +
+                        (pctBelowCHigh != null
+                            ? '<p><b>% Below closing high</b>: ' + pctBelowCHigh + ' %</p>' : '') +
+                        (pctAboveCLow != null
+                            ? '<p><b>% Above closing low</b>: ' + pctAboveCLow + ' %</p>' : '') +
+                        intradayHtml;
+                } else {
+                    rangeHtml =
+                        '<p><b>52-Wk high</b>: ' + data.fiftyTwoWeekHigh + ' '
+                            + data.currency + '</p>' +
+                        '<p><b>52-Wk low</b>: ' + data.fiftyTwoWeekLow + ' '
+                            + data.currency + '</p>' +
+                        '<p><b>% Below high</b>: '
+                            + (-data.fiftyTwoWeekHighChangePercent * 100).toFixed(2) + ' %</p>' +
+                        '<p><b>% Above low</b>: '
+                            + (data.fiftyTwoWeekLowChangePercent * 100).toFixed(2) + ' %</p>';
+                }
+
                 $fetchedSymbolData.html(
                     '<p><b>Name</b>: ' + data.name + '</p>' +
                     '<p><b>Price</b>: ' + data.price + ' ' + data.currency
                         + ' on ' + data.quote_timestamp + '</p>' +
-
-                    //NOTE These don't take into account the timestamp
-                    '<p><b>52-Wk high</b>: ' + data.fiftyTwoWeekHigh + ' '
-                        + data.currency + '</p>' +
-                    '<p><b>52-Wk low</b>: ' + data.fiftyTwoWeekLow + ' '
-                        + data.currency + '</p>' +
-                    '<p><b>% Below high</b>: '
-                        + (-data.fiftyTwoWeekHighChangePercent * 100).toFixed(2)
-                        + ' %</p>' +
-                    '<p><b>% Above low</b>: '
-                        + (data.fiftyTwoWeekLowChangePercent * 100).toFixed(2)
-                        + ' %</p>' +
-                    ''
+                    rangeHtml
                 );
                 // console.log(data);
             },

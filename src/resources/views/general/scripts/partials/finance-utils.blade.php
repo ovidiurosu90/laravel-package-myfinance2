@@ -48,8 +48,11 @@
     var storeFetchedData = function(data)
     {
         fetchedPrice = data.price;
-        fetchedHigh  = data.fiftyTwoWeekHigh;
-        fetchedLow   = data.fiftyTwoWeekLow;
+        // Prefer the closing-based 52-week high/low (highest / lowest daily close over the past
+        // year) so the note text matches the watchlist columns; fall back to Yahoo's intraday
+        // figures only when no closing range is available.
+        fetchedHigh  = data.closingHigh != null ? data.closingHigh : data.fiftyTwoWeekHigh;
+        fetchedLow   = data.closingLow  != null ? data.closingLow  : data.fiftyTwoWeekLow;
         if (tradeCurrenciesByIsoCode[data.currency]) {
             fetchedCurrencySymbol = decodeHtml(
                 tradeCurrenciesByIsoCode[data.currency]['display_code'] || '$'

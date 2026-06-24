@@ -13,6 +13,15 @@ use ovidiuro\myfinance2\App\Models\Trade;
 class FinanceUtils
 {
     /**
+     * Minimum number of daily closes required inside the trailing-365-day window before a
+     * closing-based 52-week range is reported. Mirrors DrawdownService::MIN_HISTORY_DAYS so the
+     * watchlist table (DrawdownService::_computeClosingExtremes) and the chart range bar
+     * (closingExtremesNative) agree on whether a symbol has enough history to show a range. Keep
+     * the two values in sync.
+     */
+    private const MIN_CLOSING_HISTORY_DAYS = 30;
+
+    /**
      * @param string $symbol
      * @param string|null $timestamp
      *
@@ -57,6 +66,11 @@ class FinanceUtils
         */
         self::fixTimezone($quote, $quoteTimestamp);
 
+        // Closing-based 52-week range (highest / lowest daily close over the past year, native
+        // currency, dated) so the chart modal can show it as the primary range alongside Yahoo's
+        // intraday high / low. Null fields when there is no usable history.
+        $closing = $this->closingExtremesNative($symbol);
+
         return [
             'price'           => $price,
             'currency'        => $currency,
@@ -69,6 +83,69 @@ class FinanceUtils
             'fiftyTwoWeekLow'               => $quote->getFiftyTwoWeekLow(),
             'fiftyTwoWeekLowChangePercent'  =>
                 $quote->getFiftyTwoWeekLowChangePercent(),
+
+            'closingHigh'     => $closing['high'] ?? null,
+            'closingHighDate' => $closing['high_date'] ?? null,
+            'closingLow'      => $closing['low'] ?? null,
+            'closingLowDate'  => $closing['low_date'] ?? null,
+        ];
+    }
+
+    /**
+     * Highest and lowest daily CLOSE over the trailing 52 weeks (365 days) in the symbol's native
+     * trade currency, each with the date it occurred (formatted "d M Y"). Built from the cached
+     * Yahoo daily-close history so the chart modal's range bar can show a closing-based primary
+     * range. Null when there are fewer than MIN_CLOSING_HISTORY_DAYS closes in the window.
+     *
+     * Parallel to DrawdownService::_computeClosingExtremes, which computes the same figure off the
+     * already-loaded EUR price series for the watchlist table (so the cron does not re-fetch the
+     * cache per symbol). This native-direct version backs the ad-hoc chart fetch. Both apply the
+     * same minimum-history guard so the two surfaces agree on whether a range exists; keep them
+     * consistent if either changes.
+     *
+     * @return array{high:float,high_date:string,low:float,low_date:string}|null
+     */
+    public function closingExtremesNative(string $symbol): ?array
+    {
+        $fromDate = (new \DateTime('-365 days'))->format('Y-m-d');
+        $toDate   = (new \DateTime())->format('Y-m-d');
+
+        $fetched = (new HistoricalPriceCache())->fetch($symbol, $fromDate, $toDate);
+        $prices  = $fetched['prices'] ?? [];
+        if (empty($prices)) {
+            return null;
+        }
+
+        $high = -INF;
+        $low  = INF;
+        $highDate = null;
+        $lowDate  = null;
+        $count    = 0;
+        foreach ($prices as $date => $price) {
+            if ($date < $fromDate) {
+                continue;
+            }
+            $count++;
+            if ($price > $high) {
+                $high     = $price;
+                $highDate = $date;
+            }
+            if ($price < $low) {
+                $low     = $price;
+                $lowDate = $date;
+            }
+        }
+
+        if ($count < self::MIN_CLOSING_HISTORY_DAYS
+            || $high <= 0.0 || $low <= 0.0 || $highDate === null || $lowDate === null) {
+            return null;
+        }
+
+        return [
+            'high'      => round($high, 4),
+            'high_date' => \Carbon\Carbon::parse($highDate)->format('d M Y'),
+            'low'       => round($low, 4),
+            'low_date'  => \Carbon\Carbon::parse($lowDate)->format('d M Y'),
         ];
     }
 

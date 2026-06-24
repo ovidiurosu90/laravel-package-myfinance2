@@ -99,6 +99,8 @@ class DrawdownService
 
             // Momenta lets the quadrant chart period buttons work for owned symbols too.
             $data['momenta'] = $this->_computeAllMomenta($symPrices);
+            // The start/end price points behind each window's gain, for the "Gain" tooltip.
+            $data['momentum_windows'] = $this->_computeAllMomentumWindows($symPrices);
 
             // Benchmark (VUSA.AS) CAGR over the SAME dates you were involved in this symbol
             // (first purchase through today), so the alpha answers "what would VUSA have returned
@@ -128,6 +130,7 @@ class DrawdownService
             );
             $momenta                               = $this->_computeAllMomenta($symPrices);
             $symbolData['momenta']                 = $momenta;
+            $symbolData['momentum_windows']        = $this->_computeAllMomentumWindows($symPrices);
             $symbolData['momentum_annualized_pct'] = $momenta['1y'];
             // Watchlist-only symbols are never held, so "same window" falls back to the
             // standard lookback span used for their drawdown/momentum.
@@ -150,6 +153,7 @@ class DrawdownService
             );
             $momenta                               = $this->_computeAllMomenta($symPrices);
             $symbolData['momenta']                 = $momenta;
+            $symbolData['momentum_windows']        = $this->_computeAllMomentumWindows($symPrices);
             $symbolData['momentum_annualized_pct'] = $momenta['1y'];
             // Exited positions: VUSA over the dates you were involved (first buy to last sell),
             // so the alpha reflects the index over the same span you actually held, not a fixed
@@ -378,6 +382,9 @@ class DrawdownService
             'vusa_max_drawdown'       => null,
             'exit_zone'               => $exitZones['2y'] ?? null,
             'exit_zones'              => $exitZones,
+            'closing_extremes'        => !empty($symPrices)
+                ? $this->_computeClosingExtremes($symPrices, $currency)
+                : null,
             'momentum_annualized_pct' => null,
             'latest_price_eur'        => $latestPriceEur,
             'vusa_same_window_pct'    => null,
@@ -496,6 +503,65 @@ class DrawdownService
     }
 
     /**
+     * Highest and lowest daily CLOSE over the trailing 52 weeks (365 days), for the "% High" /
+     * "% Low" columns' primary (closing-based) figures and the chart range bar. Native trade
+     * currency + EUR + the date each occurred.
+     *
+     * Pure historical and close-based, so (unlike the exit-zone peak) it is NOT bumped by a live
+     * intraday price: an intraday spike above the highest close does not move the closing high.
+     * The distance from the current price is computed by the caller against the live price, so a
+     * fresh intraday high simply reads as a small negative distance. Null when there is too little
+     * history. Prices in $symPrices are EUR; the native value divides back out the FX rate the same
+     * way the exit-zone peak does, so all columns share one conversion.
+     *
+     * Parallel to FinanceUtils::closingExtremesNative (the native-direct version backing the chart
+     * range bar). Both require at least MIN_HISTORY_DAYS closes inside the trailing-365 window so
+     * the table and the chart agree on whether a symbol has enough history to show a range; keep
+     * the guard in sync if either changes.
+     *
+     * @return array{high_eur:float,high_native:float|null,high_date:string,
+     *                low_eur:float,low_native:float|null,low_date:string}|null
+     */
+    private function _computeClosingExtremes(array $symPrices, ?string $currency): ?array
+    {
+        $cutoff = Carbon::today()->subDays(365)->format('Y-m-d');
+        $recent = array_filter($symPrices, fn($_, $d) => $d >= $cutoff, ARRAY_FILTER_USE_BOTH);
+        if (count($recent) < self::MIN_HISTORY_DAYS) {
+            return null;
+        }
+
+        $eurRate = $currency !== null ? (float) ($this->_eurRates[$currency] ?? 1.0) : 1.0;
+
+        $highEur = -INF;
+        $lowEur  = INF;
+        $highDate = null;
+        $lowDate  = null;
+        foreach ($recent as $date => $price) {
+            if ($price > $highEur) {
+                $highEur  = $price;
+                $highDate = $date;
+            }
+            if ($price < $lowEur) {
+                $lowEur  = $price;
+                $lowDate = $date;
+            }
+        }
+
+        if ($highEur <= 0.0 || $lowEur <= 0.0) {
+            return null;
+        }
+
+        return [
+            'high_eur'    => round($highEur, 4),
+            'high_native' => $eurRate > 0.0 ? round($highEur / $eurRate, 4) : null,
+            'high_date'   => $highDate,
+            'low_eur'     => round($lowEur, 4),
+            'low_native'  => $eurRate > 0.0 ? round($lowEur / $eurRate, 4) : null,
+            'low_date'    => $lowDate,
+        ];
+    }
+
+    /**
      * Overlay the latest live price (pre/post-market aware) onto a single symbol's cached
      * drawdown entry, so the quadrant's per-window market return ("Gain") and peak proximity
      * ("From peak") reflect the current price instead of the last stored regular close.
@@ -513,15 +579,22 @@ class DrawdownService
      */
     public static function overlayLivePrice(array $entry, float $liveEur, ?float $liveNative = null): array
     {
-        if ($liveEur <= 0.0) {
+        $hasEur    = $liveEur > 0.0;
+        $hasNative = $liveNative !== null && $liveNative > 0.0;
+
+        // Nothing usable to overlay. The native price alone still drives peak proximity below, so
+        // only bail when neither price is available (e.g. a foreign-currency symbol with no FX rate
+        // would otherwise be stuck on its last settled close).
+        if (!$hasEur && !$hasNative) {
             return $entry;
         }
 
         // Per-window market return ("Gain"): the stored momentum encodes latest/start, so scaling
         // that ratio by the live/stored move gives the live return without the start price. Needs
-        // the stored close, so this is skipped for older cache entries that predate latest_price_eur.
+        // the stored close in EUR, so it is skipped for older cache entries that predate
+        // latest_price_eur and for symbols with no live EUR price (FX rate unavailable).
         $latestEur = $entry['latest_price_eur'] ?? null;
-        if ($latestEur !== null && $latestEur > 0.0 && !empty($entry['momenta'])) {
+        if ($hasEur && $latestEur !== null && $latestEur > 0.0 && !empty($entry['momenta'])) {
             $scale = $liveEur / $latestEur;
             if (abs($scale - 1.0) >= 1e-9) {
                 $windowDays = ['3m' => 91, '6m' => 182, '1y' => 365, '2y' => 730];
@@ -540,6 +613,13 @@ class DrawdownService
                     $entry['momenta'][$p] = $days < 365
                         ? ($liveRatio - 1.0) * 100.0
                         : (pow($liveRatio, 365.0 / $days) - 1.0) * 100.0;
+
+                    // Keep the "Gain" tooltip's end point in step with the patched momentum: the
+                    // window now runs to the live price as of today, the start point is untouched.
+                    if (isset($entry['momentum_windows'][$p]) && is_array($entry['momentum_windows'][$p])) {
+                        $entry['momentum_windows'][$p]['end_price_eur'] = $liveEur;
+                        $entry['momentum_windows'][$p]['end_date']      = Carbon::today()->format('Y-m-d');
+                    }
                 }
                 $entry['momentum_annualized_pct'] = $entry['momenta']['1y'] ?? ($entry['momentum_annualized_pct'] ?? null);
             }
@@ -571,10 +651,12 @@ class DrawdownService
         if ($liveNative !== null && !empty($peakNative) && $peakNative > 0.0) {
             $live = $liveNative;
             $peak = (float) $peakNative;
-        } elseif (!empty($zone['peak_price_eur']) && $zone['peak_price_eur'] > 0.0) {
+        } elseif ($liveEur > 0.0 && !empty($zone['peak_price_eur']) && $zone['peak_price_eur'] > 0.0) {
             $live = $liveEur;
             $peak = (float) $zone['peak_price_eur'];
         } else {
+            // No comparable pair (e.g. native-only live price but the cached peak has no native
+            // value): leave the zone on its settled figures rather than mixing currencies.
             return $zone;
         }
 
@@ -582,7 +664,11 @@ class DrawdownService
             if ($liveNative !== null) {
                 $zone['peak_price_native'] = round($liveNative, 4);
             }
-            $zone['peak_price_eur']  = round($liveEur, 4);
+            // Keep the cached EUR peak when there is no live EUR price (FX rate unavailable),
+            // rather than zeroing it; the native peak above is what the proximity used.
+            if ($liveEur > 0.0) {
+                $zone['peak_price_eur'] = round($liveEur, 4);
+            }
             $zone['peak_price_date'] = Carbon::today()->format('Y-m-d');
             $zone['proximity_pct']   = 0.0;
             $zone['in_zone']         = true;
@@ -808,7 +894,44 @@ class DrawdownService
         ];
     }
 
+    /**
+     * The two price points behind each window's "Gain", so the view can show what the percentage
+     * was measured from: the start price (the first stored close on/after the window cutoff) and
+     * the latest price, each with its date. All prices are EUR (the same series the momentum % is
+     * computed on). Null per window when there is too little history. Keyed 3m/6m/1y/2y.
+     *
+     * @return array<string, array{start_date:string,start_price_eur:float,end_date:string,end_price_eur:float}|null>
+     */
+    private function _computeAllMomentumWindows(array $symPrices): array
+    {
+        return [
+            '3m' => $this->_momentumWindow($symPrices, 91),
+            '6m' => $this->_momentumWindow($symPrices, 182),
+            '1y' => $this->_momentumWindow($symPrices, 365),
+            '2y' => $this->_momentumWindow($symPrices, 730),
+        ];
+    }
+
     private function _computeMomentumForPeriod(array $symPrices, int $days): ?float
+    {
+        $window = $this->_momentumWindow($symPrices, $days);
+        if ($window === null) {
+            return null;
+        }
+
+        return $this->_momentumPct(
+            $window['start_price_eur'], $window['end_price_eur'], $days
+        );
+    }
+
+    /**
+     * Resolve the start/end price points that a window's momentum is measured between: the latest
+     * stored close, and the first stored close on/after the (today - $days) cutoff. Returns null
+     * when there is too little history or the start price is non-positive.
+     *
+     * @return array{start_date:string,start_price_eur:float,end_date:string,end_price_eur:float}|null
+     */
+    private function _momentumWindow(array $symPrices, int $days): ?array
     {
         if (count($symPrices) < self::MIN_HISTORY_DAYS) {
             return null;
@@ -834,13 +957,26 @@ class DrawdownService
             return null;
         }
 
-        // <1Y: raw return (no annualization — extrapolating short windows inflates numbers).
-        // >=1Y: CAGR so multi-year periods are comparable to the 1Y baseline.
+        return [
+            'start_date'      => $bestDate,
+            'start_price_eur' => (float) $priceAtCutoff,
+            'end_date'        => $latestDate,
+            'end_price_eur'   => (float) $latestPrice,
+        ];
+    }
+
+    /**
+     * Window return from a start/end price pair. <1Y: raw return (no annualization, since
+     * extrapolating short windows inflates numbers). >=1Y: CAGR so multi-year periods are
+     * comparable to the 1Y baseline.
+     */
+    private function _momentumPct(float $startPrice, float $endPrice, int $days): float
+    {
         if ($days < 365) {
-            return ($latestPrice - $priceAtCutoff) / $priceAtCutoff * 100.0;
+            return ($endPrice - $startPrice) / $startPrice * 100.0;
         }
 
-        $ratio = $latestPrice / $priceAtCutoff;
+        $ratio = $endPrice / $startPrice;
         return (pow($ratio, 365.0 / $days) - 1.0) * 100.0;
     }
 }

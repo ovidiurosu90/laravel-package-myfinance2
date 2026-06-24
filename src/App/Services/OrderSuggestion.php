@@ -40,8 +40,19 @@ class OrderSuggestion
     {
         $price         = (float) $financeData['price'];
         $tradeCurrency = (string) $financeData['currency'];
-        $pctBelowHigh  = -(float) $financeData['fiftyTwoWeekHighChangePercent'] * 100;
-        $pctAboveLow   = (float) $financeData['fiftyTwoWeekLowChangePercent'] * 100;
+
+        // Distances measured against the closing-based 52-week high/low (highest / lowest daily
+        // close over the past year), so the suggested action and the displayed percentages match
+        // the watchlist columns and the form note text. Fall back to Yahoo's intraday change
+        // percentages only when no closing range is available.
+        $closingHigh = $financeData['closingHigh'] ?? null;
+        $closingLow  = $financeData['closingLow'] ?? null;
+        $pctBelowHigh = ($closingHigh !== null && (float) $closingHigh > 0.0)
+            ? ((float) $closingHigh - $price) / (float) $closingHigh * 100
+            : -(float) $financeData['fiftyTwoWeekHighChangePercent'] * 100;
+        $pctAboveLow = ($closingLow !== null && (float) $closingLow > 0.0)
+            ? ($price - (float) $closingLow) / (float) $closingLow * 100
+            : (float) $financeData['fiftyTwoWeekLowChangePercent'] * 100;
 
         $hasStrongBuySignal = $pctBelowHigh > self::STRONG_BUY_PCT;
         $hasOpenPositions   = $openQuantity > 0;

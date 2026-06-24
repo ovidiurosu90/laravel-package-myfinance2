@@ -89,9 +89,12 @@ final class CategorizationService
         // supplied); the cron's persisted tier states stay on settled historical data.
         if (!empty($liveEurPrices)) {
             foreach ($liveEurPrices as $sym => $live) {
-                if (isset($drawdown[$sym]) && !empty($live['eur'])) {
+                // Run the overlay when either price is present. The native price alone drives peak
+                // proximity, so foreign-currency symbols with no live EUR rate still get a live
+                // proximity instead of being stuck on their last settled close.
+                if (isset($drawdown[$sym]) && (!empty($live['eur']) || !empty($live['native']))) {
                     $drawdown[$sym] = DrawdownService::overlayLivePrice(
-                        $drawdown[$sym], (float) $live['eur'], $live['native'] ?? null
+                        $drawdown[$sym], (float) ($live['eur'] ?? 0.0), $live['native'] ?? null
                     );
                 }
             }
@@ -122,9 +125,10 @@ final class CategorizationService
             $quadrant    = QuadrantClassifier::classify($decision->basisValue, $relDrawdown);
             $action      = QuadrantClassifier::getAction($quadrant, $inputs->isOwned);
 
-            $momenta   = $dd['momenta'] ?? [];
-            $relDds    = $dd['relative_drawdowns'] ?? [];
-            $exitZones = $dd['exit_zones'] ?? [];
+            $momenta    = $dd['momenta'] ?? [];
+            $momWindows = $dd['momentum_windows'] ?? [];
+            $relDds     = $dd['relative_drawdowns'] ?? [];
+            $exitZones  = $dd['exit_zones'] ?? [];
 
             // Alpha vs the S&P 500 (VUSA.AS) over the SAME window you held: your position's
             // own CAGR minus the benchmark's CAGR across the identical span. Positive means you
@@ -156,11 +160,12 @@ final class CategorizationService
                     ? QuadrantClassifier::classify($gain, $risk)
                     : null;
                 $periods[$p] = [
-                    'gain'      => $gain,
-                    'risk'      => $risk,
-                    'quadrant'  => $quad,
-                    'action'    => QuadrantClassifier::getAction($quad, $inputs->isOwned),
-                    'exit_zone' => $exitZones[$p] ?? null,
+                    'gain'        => $gain,
+                    'risk'        => $risk,
+                    'quadrant'    => $quad,
+                    'action'      => QuadrantClassifier::getAction($quad, $inputs->isOwned),
+                    'exit_zone'   => $exitZones[$p] ?? null,
+                    'gain_window' => $momWindows[$p] ?? null,
                 ];
             }
 
@@ -173,6 +178,7 @@ final class CategorizationService
                 'vusa_max_drawdown' => $dd['vusa_max_drawdown'] ?? null,
                 'exit_zone'         => $dd['exit_zone'] ?? null,
                 'exit_zones'        => $exitZones,
+                'closing_extremes'  => $dd['closing_extremes'] ?? null,
                 'momenta'           => $momenta,
                 'periods'           => $periods,
                 'vusa_same_window_pct'     => $vusaSameWindowPct,

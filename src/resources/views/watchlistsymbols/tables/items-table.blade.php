@@ -108,14 +108,17 @@
                     <span data-bs-toggle="tooltip"
                           title="Price change today, in both currency and percentage.">Day Chg</span>
                 </th>
-                <th class="text-right no-sort text-nowrap">52W Range</th>
-                <th class="text-right text-nowrap">
-                    <span data-bs-toggle="tooltip"
-                          title="How far the current price is above the 52-week low, as a percentage.">% Low</span>
+                <th class="text-right no-sort text-nowrap">
+                    <span data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips3"
+                          title="52-week range. The two figures are the lowest and highest daily close over the past year (each dated in its tooltip), not Yahoo's intraday extremes. Falls back to Yahoo's intraday low/high only when there is too little closing history.">52W Range</span>
                 </th>
                 <th class="text-right text-nowrap">
-                    <span data-bs-toggle="tooltip"
-                          title="How far the current price is below the 52-week high, as a percentage.">% High</span>
+                    <span data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips3"
+                          title="How far the current price is above the 52-week low, as a percentage. Primary is the lowest daily close over the past year (sorted / filtered on); the dimmed value beneath is Yahoo's 52-week intraday low.">% Low</span>
+                </th>
+                <th class="text-right text-nowrap">
+                    <span data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips3"
+                          title="How far the current price is below the 52-week high, as a percentage. Primary is the highest daily close over the past year (sorted / filtered on); the dimmed value beneath is Yahoo's 52-week intraday high.">% High</span>
                 </th>
                 <th class="no-sort text-nowrap">Open Positions</th>
                 <th class="no-search no-sort">Orders</th>
@@ -261,42 +264,7 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                         @endif
                     </div>
                 </td>
-                <td class="text-right">
-                    <div class="text-nowrap">
-                        {!! MoneyFormat
-                        ::get_formatted_balance(
-                            $quoteData['tradeCurrencyModel']->display_code,
-                            $quoteData['fiftyTwoWeekLow']
-                        ) !!}
-                    </div>
-                    <div class="text-nowrap">
-                        {!! MoneyFormat
-                        ::get_formatted_balance(
-                            $quoteData['tradeCurrencyModel']->display_code,
-                            $quoteData['fiftyTwoWeekHigh']
-                        ) !!}
-                    </div>
-                </td>
-                <td class="text-right text-nowrap"
-                    data-order="{{ $quoteData['fiftyTwoWeekLowChangePercent']
-                                    * 100 }}">
-                    {!! MoneyFormat
-                    ::get_formatted_52wk_low_percentage(
-                        $quoteData['fiftyTwoWeekLowChangePercent'] * 100
-                    ) !!}
-                </td>
-                <td class="text-right text-nowrap"
-                    data-order="{{ - $quoteData['fiftyTwoWeekHighChangePercent']
-                                    * 100 }}">
-                    <span data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips3"
-                          title="Distance from the current price to the 52-week intraday high ({{ MoneyFormat::get_formatted_price_plain($quoteData['fiftyTwoWeekHigh']) }}&nbsp;{{ html_entity_decode($quoteData['tradeCurrencyModel']->display_code, ENT_QUOTES | ENT_HTML5) }}), the single highest price in the past year. The quadrant 'From peak' instead measures against each window's highest daily close, so the two differ when an intraday high sits above the highest close.">
-                    {!! MoneyFormat
-                    ::get_formatted_52wk_high_percentage(
-                        - $quoteData['fiftyTwoWeekHighChangePercent'] * 100,
-                        count($quoteData['open_positions']) > 0
-                    ) !!}
-                    </span>
-                </td>
+                @include('myfinance2::watchlistsymbols.tables.partials.range-cells')
                 <td{!! $hasPerfRow ? ' rowspan="2"' : '' !!}>
                 @if(!empty($quoteData['open_positions']))
                     <div class="d-flex open-positions-cards gap-1">
@@ -403,7 +371,10 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                 <th class="text-nowrap">Symbol</th>
                 <th class="text-right no-sort text-nowrap">Price</th>
                 <th class="text-right text-nowrap">Day Chg</th>
-                <th class="text-right no-sort text-nowrap">52W Range</th>
+                <th class="text-right no-sort text-nowrap">
+                    <span data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips3"
+                          title="52-week range. The two figures are the lowest and highest daily close over the past year (each dated in its tooltip), not Yahoo's intraday extremes. Falls back to Yahoo's intraday low/high only when there is too little closing history.">52W Range</span>
+                </th>
                 <th class="text-right text-nowrap">% Low</th>
                 <th class="text-right text-nowrap">% High</th>
                 <th class="no-sort text-nowrap">Open Positions</th>
@@ -467,34 +438,7 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                 $quoteData['day_change_percentage']
             ) !!}
         </td>
-        <td class="text-right">
-            <div class="text-nowrap">
-                {!! MoneyFormat::get_formatted_balance(
-                    $quoteData['tradeCurrencyModel']->display_code,
-                    $quoteData['fiftyTwoWeekLow']
-                ) !!}
-            </div>
-            <div class="text-nowrap">
-                {!! MoneyFormat::get_formatted_balance(
-                    $quoteData['tradeCurrencyModel']->display_code,
-                    $quoteData['fiftyTwoWeekHigh']
-                ) !!}
-            </div>
-        </td>
-        <td class="text-right text-nowrap">
-            {!! MoneyFormat::get_formatted_52wk_low_percentage(
-                $quoteData['fiftyTwoWeekLowChangePercent'] * 100
-            ) !!}
-        </td>
-        <td class="text-right text-nowrap">
-            <span data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips3"
-                  title="Distance from the current price to the 52-week intraday high ({{ MoneyFormat::get_formatted_price_plain($quoteData['fiftyTwoWeekHigh']) }}&nbsp;{{ html_entity_decode($quoteData['tradeCurrencyModel']->display_code, ENT_QUOTES | ENT_HTML5) }}), the single highest price in the past year. The quadrant 'From peak' instead measures against each window's highest daily close, so the two differ when an intraday high sits above the highest close.">
-            {!! MoneyFormat::get_formatted_52wk_high_percentage(
-                - $quoteData['fiftyTwoWeekHighChangePercent'] * 100,
-                count($quoteData['open_positions']) > 0
-            ) !!}
-            </span>
-        </td>
+        @include('myfinance2::watchlistsymbols.tables.partials.range-cells')
         <td{!! $hasNwPerfRow ? ' rowspan="2"' : '' !!}>
         @if(!empty($quoteData['open_positions']))
             <div class="d-flex open-positions-cards gap-2">

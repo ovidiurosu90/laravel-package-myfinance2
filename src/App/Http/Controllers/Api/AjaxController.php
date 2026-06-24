@@ -73,7 +73,14 @@ class AjaxController extends MyFinance2Controller
             ->pluck('total', 'action');
         $openQuantity = (float) max(0, ($qtySums['BUY'] ?? 0) - ($qtySums['SELL'] ?? 0));
 
-        $currency = $financeData['currency'];
+        // Yahoo reports some currencies under non-canonical codes (e.g. London pence
+        // as "GBp"); normalize to the stored trade-currency code ("GBX") so the
+        // exchange-rate lookup, trade-currency match, and reason text line up. The
+        // rate fetch reverse-maps GBX -> GBp internally and returns it keyed by GBX.
+        $currenciesMapping      = config('general.currencies_mapping');
+        $currency               = $currenciesMapping[$financeData['currency']] ?? $financeData['currency'];
+        $financeData['currency'] = $currency;
+
         $eurRate  = 1.0;
         if ($currency !== 'EUR') {
             $rateKey = 'EUR' . $currency;
@@ -134,6 +141,12 @@ class AjaxController extends MyFinance2Controller
             'fiftyTwoWeekLow'               => $financeData['fiftyTwoWeekLow'],
             'fiftyTwoWeekLowChangePercent'  =>
                 $financeData['fiftyTwoWeekLowChangePercent'],
+
+            // Closing-based 52-week range (primary) shown alongside the intraday high/low.
+            'closingHigh'     => $financeData['closingHigh'] ?? null,
+            'closingHighDate' => $financeData['closingHighDate'] ?? null,
+            'closingLow'      => $financeData['closingLow'] ?? null,
+            'closingLowDate'  => $financeData['closingLowDate'] ?? null,
         ]);
     }
 
@@ -160,6 +173,13 @@ class AjaxController extends MyFinance2Controller
             return response()->json(['message' => 'Finance data not found!'], 400);
         }
         $q = $quotes[$symbol];
+
+        // Normalize Yahoo's non-canonical currency codes (e.g. London pence "GBp") to the stored
+        // trade-currency code ("GBX") before resolving the display code, the same way
+        // getFinanceDataBySymbol's caller does, so both chart surfaces label the range bar
+        // consistently. GBp and GBX are the same unit (pence), so the numeric figures are unchanged.
+        $currenciesMapping = config('general.currencies_mapping');
+        $q['currency']     = $currenciesMapping[$q['currency']] ?? $q['currency'];
 
         $currencyModel = (new CurrencyUtils(true))->getCurrencyByIsoCode($q['currency']);
         $displayCode   = $currencyModel ? $currencyModel->display_code : $q['currency'];
@@ -238,6 +258,10 @@ class AjaxController extends MyFinance2Controller
             Log::warning('getSymbolChart gap check for ' . $symbol . ': ' . $gapWarning);
         }
 
+        // Closing-based 52-week range for the range bar's primary high/low (Yahoo's intraday
+        // figures stay as the secondary). Null fields when there is no usable history.
+        $closing = $financeUtils->closingExtremesNative($symbol);
+
         return response()->json([
             'name'         => $q['name'],
             'currency'     => html_entity_decode($displayCode, ENT_QUOTES | ENT_HTML5),
@@ -253,6 +277,12 @@ class AjaxController extends MyFinance2Controller
             'fiftyTwoWeekHighChangePercent' => $q['fiftyTwoWeekHighChangePercent'] ?? null,
             'fiftyTwoWeekLow'               => $q['fiftyTwoWeekLow'] ?? null,
             'fiftyTwoWeekLowChangePercent'  => $q['fiftyTwoWeekLowChangePercent'] ?? null,
+
+            // Closing-based 52-week range (primary) shown alongside the intraday high/low.
+            'closingHigh'     => $closing['high'] ?? null,
+            'closingHighDate' => $closing['high_date'] ?? null,
+            'closingLow'      => $closing['low'] ?? null,
+            'closingLowDate'  => $closing['low_date'] ?? null,
         ]);
     }
 

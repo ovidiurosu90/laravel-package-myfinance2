@@ -61,65 +61,7 @@ $(document).ready(function()
         chart.timeScale().fitContent();
     }
 
-    // 52-week range bar: current price between the 52W low/high, with the
-    // distance from each end in the tooltip and a compact caption.
-    function buildRangeBar(data, cur)
-    {
-        const high  = data.fiftyTwoWeekHigh;
-        const low   = data.fiftyTwoWeekLow;
-        const price = data.price;
-        const $bar  = $('#osc-range-bar');
-
-        if (high == null || low == null || price == null || high <= low) {
-            $bar.html('');
-            return;
-        }
-
-        let pos = ((price - low) / (high - low)) * 100;
-        pos = Math.max(0, Math.min(100, pos));
-
-        const belowHigh = data.fiftyTwoWeekHighChangePercent != null
-            ? (-data.fiftyTwoWeekHighChangePercent * 100).toFixed(2) : null;
-        const aboveLow = data.fiftyTwoWeekLowChangePercent != null
-            ? (data.fiftyTwoWeekLowChangePercent * 100).toFixed(2) : null;
-
-        const lowLabel   = fmtPrice(low) + ' ' + cur;
-        const highLabel  = fmtPrice(high) + ' ' + cur;
-        const priceLabel = fmtPrice(price) + ' ' + cur;
-
-        const tip = [
-            belowHigh != null ? belowHigh + '% below 52W high' : '',
-            aboveLow != null ? aboveLow + '% above 52W low' : '',
-        ].filter(Boolean).join(' · ');
-
-        const caption = [
-            belowHigh != null ? '▼ ' + belowHigh + '% high' : '',
-            aboveLow != null ? '▲ ' + aboveLow + '% low' : '',
-        ].filter(Boolean).join(' · ');
-
-        $bar.html(
-            '<div style="padding-top:20px;">'
-          +   '<div style="display:flex;align-items:center;gap:4px;'
-          +       'font-size:0.72rem;color:#000;">'
-          +     '<span style="white-space:nowrap;">' + lowLabel + '</span>'
-          +     '<div style="flex:1;position:relative;height:5px;background:#e0e0e0;'
-          +         'border-radius:3px;min-width:60px;">'
-          +       '<span style="position:absolute;left:' + pos + '%;'
-          +           'transform:translateX(-50%);bottom:calc(100% + 5px);'
-          +           'font-size:0.875rem;white-space:nowrap;color:#555;">'
-          +         priceLabel + '</span>'
-          +       '<div data-tooltip="' + tip + '" style="position:absolute;'
-          +           'width:8px;height:8px;background:#555;border-radius:1px;'
-          +           'top:-1.5px;transform:translateX(-50%);left:' + pos + '%;"></div>'
-          +     '</div>'
-          +     '<span style="white-space:nowrap;">' + highLabel + '</span>'
-          +   '</div>'
-          +   '<div style="font-size:0.68rem;color:#6c757d;text-align:center;'
-          +       'margin-top:6px;white-space:nowrap;">'
-          +     '52W Range&nbsp;&nbsp;' + caption + '</div>'
-          + '</div>'
-        );
-    }
+    @include('myfinance2::general.scripts.partials.range-bar', ['rangeBarId' => 'osc-range-bar'])
 
     function clearPanel()
     {

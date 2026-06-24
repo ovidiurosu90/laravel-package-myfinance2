@@ -342,6 +342,13 @@ class OrdersController extends MyFinance2Controller
         $item->trade_id   = null;
         $item->save();
 
+        $alertDeleted = $this->_deleteOrderAlert($item);
+
+        $message = trans('myfinance2::orders.flash-messages.order-expired', ['id' => $item->id]);
+        if ($alertDeleted) {
+            $message .= '. Its temporary price alert was deleted.';
+        }
+
         if (request()->boolean('create_alert')) {
             $alertType = request('alert_type');
             $targetPrice = request('target_price');
@@ -355,11 +362,10 @@ class OrdersController extends MyFinance2Controller
                     'trade_currency_id' => $tradeCurrencyId,
                     'source'            => 'order',
                 ]))
-                ->with('success', trans('myfinance2::orders.flash-messages.order-expired', ['id' => $item->id]));
+                ->with('success', $message);
         }
 
-        return redirect()->route('myfinance2::orders.index', ['view' => 'all'])->with('success',
-            trans('myfinance2::orders.flash-messages.order-expired', ['id' => $item->id]));
+        return redirect()->route('myfinance2::orders.index', ['view' => 'all'])->with('success', $message);
     }
 
     /**
@@ -383,6 +389,8 @@ class OrdersController extends MyFinance2Controller
         $item->status     = 'EXPIRED';
         $item->expired_at = ($item->placed_at ?? now())->endOfDay();
         $item->save();
+
+        $this->_deleteOrderAlert($item);
 
         return redirect()->route('myfinance2::orders.create', [
             'symbol'            => $item->symbol,
@@ -418,8 +426,14 @@ class OrdersController extends MyFinance2Controller
         $item->trade_id = null;
         $item->save();
 
-        return redirect()->route('myfinance2::orders.index', ['view' => 'all'])->with('success',
-            trans('myfinance2::orders.flash-messages.order-cancelled', ['id' => $item->id]));
+        $alertDeleted = $this->_deleteOrderAlert($item);
+
+        $message = trans('myfinance2::orders.flash-messages.order-cancelled', ['id' => $item->id]);
+        if ($alertDeleted) {
+            $message .= '. Its temporary price alert was deleted.';
+        }
+
+        return redirect()->route('myfinance2::orders.index', ['view' => 'all'])->with('success', $message);
     }
 
     /**

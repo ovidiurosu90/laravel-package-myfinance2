@@ -133,7 +133,7 @@ class WatchlistSymbolsDashboard
             $items
         );
         $items = (new TechnicalIndicatorsService())->attachIndicators($items);
-        $items = (new WatchlistTableMetaBuilder())->attach($items);
+        $items = (new WatchlistTableMetaBuilder())->attach($items, $liveEurRates);
         // Adds the per-period "P&L if sold at this window's peak" to each owned symbol's table_meta;
         // runs after categorization (needs the per-period peak) and table_meta (extends its array).
         $items = (new PeakExitPnlBuilder())->attach($items, $liveEurRates);
@@ -232,13 +232,13 @@ class WatchlistSymbolsDashboard
             if (empty($quoteData['price']) || empty($quoteData['currency'])) {
                 continue;
             }
+            // Keep the native price even when the EUR rate is unavailable (e.g. a foreign-currency
+            // watchlist symbol with no held position to supply the FX rate); peak proximity is
+            // computed FX-free in the native currency, so the overlay can still refresh it.
             $eurRate = $eurRates[$quoteData['currency']] ?? null;
-            if ($eurRate === null) {
-                continue;
-            }
             $liveEurPrices[$symbol] = [
                 'native' => (float) $quoteData['price'],
-                'eur'    => (float) $quoteData['price'] * (float) $eurRate,
+                'eur'    => $eurRate !== null ? (float) $quoteData['price'] * (float) $eurRate : null,
             ];
         }
 

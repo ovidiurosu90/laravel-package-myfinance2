@@ -183,6 +183,15 @@ $actionColors = [
         // Ready-to-display peak-price labels (native trade currency + EUR), built in the BE by
         // WatchlistTableMetaBuilder. The blade only echoes them; null per period when no usable peak.
         $peakLabels = $quoteData['table_meta']['peak_labels'] ?? [];
+
+        // Current price in the same native+EUR format, shown above the peak in the "From peak"
+        // tooltips so the proximity percentage is traceable (current vs peak). Null when no price.
+        $currentPriceLabel = $quoteData['table_meta']['current_price_label'] ?? null;
+
+        // Ready-to-display start/end price points behind each window's gain (EUR), built in the BE.
+        // Used by the "Gain" tooltip so the percentage is traceable to two dated prices. Null per
+        // period when the window has no usable price pair.
+        $gainWindows = $quoteData['table_meta']['gain_windows'] ?? [];
     @endphp
     <div class="d-flex flex-wrap gap-1 align-items-start mt-1">
         <div class="text-muted" style="padding-top: 0.3rem;">
@@ -225,6 +234,27 @@ $actionColors = [
                     ? $tierCalc->getTier($pd['gain']) : null;
                 $pdTierStyle = $pdTier === TierCalculationService::BRONZE
                     ? 'background-color:#e67e22!important;' : '';
+
+                // "Gain" tooltip: the two dated EUR prices the percentage is measured between, so
+                // the figure (and the tier it drives) is traceable. The 1Y/2Y badge shows an
+                // annualized rate, so the tooltip also states the plain start->end move.
+                $gw      = $gainWindows[$pKey] ?? null;
+                $gainTip = null;
+                if ($gw !== null) {
+                    $rawPct  = $gw['raw_pct'];
+                    $rawSign = $rawPct === null ? '' : (($rawPct >= 0.0 ? '+ ' : '- ')
+                        . MoneyFormat::get_formatted_number_plain(abs($rawPct), 2) . ' %');
+                    $gainTip = 'The percentage is the EUR move from the window-start price to the '
+                        . 'latest price (native price shown for reference).'
+                        . '<br>Start: ' . $gw['start_label'] . ' on ' . $gw['start_date']
+                        . '<br>Latest: ' . $gw['end_label'] . ' on ' . $gw['end_date'];
+                    if ($rawPct !== null) {
+                        $gainTip .= $gw['is_annualized']
+                            ? '<br>Plain move over the window: ' . $rawSign
+                                . ', shown here annualized to the per-year rate in the badge.'
+                            : '<br>Gain over the window: ' . $rawSign . '.';
+                    }
+                }
             @endphp
             <tr>
                 <td class="text-muted">{{ $pLabel }}</td>
@@ -249,7 +279,14 @@ $actionColors = [
                 </td>
                 <td class="text-end text-nowrap">
                     @if($pd && $pd['gain'] !== null)
-                        {!! MoneyFormat::get_formatted_gain('%', $pd['gain']) !!}
+                        @if($gainTip !== null)
+                            <span data-bs-toggle="tooltip" data-bs-html="true"
+                                  data-bs-custom-class="big-tooltips4" title="{!! $gainTip !!}">
+                                {!! MoneyFormat::get_formatted_gain('%', $pd['gain']) !!}
+                            </span>
+                        @else
+                            {!! MoneyFormat::get_formatted_gain('%', $pd['gain']) !!}
+                        @endif
                     @else
                         <span class="text-muted small">-</span>
                     @endif
@@ -293,8 +330,8 @@ $actionColors = [
                                 ?? config('alerts.peak_proximity.threshold_pct', 5);
                             $isNearPeak = $pdEz['proximity_pct'] >= -(float) $nearThreshold;
                         @endphp
-                        <span class="text-nowrap" data-bs-toggle="tooltip"
-                              title="{{ $pLabel }} peak: {!! $peakLabels[$pKey] ?? 'n/a' !!} on {{ $pdPeakDate }}">
+                        <span class="text-nowrap" data-bs-toggle="tooltip" data-bs-html="true"
+                              title="@if($currentPriceLabel){!! $currentPriceLabel !!} current<br>@endif{{ $pLabel }} peak: {!! $peakLabels[$pKey] ?? 'n/a' !!} on {{ $pdPeakDate }}">
                             {!! MoneyFormat::get_formatted_gain('%', $pdEz['proximity_pct']) !!}
                         </span>
                         @if($isNearPeak)

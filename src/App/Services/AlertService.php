@@ -180,8 +180,8 @@ class AlertService
      *
      * Strategy: for each open BUY position, if no ACTIVE/PAUSED PRICE_ABOVE alert
      * already exists for the symbol, suggest a target $thresholdPct% below the
-     * lookback high (2Y if held 2+ years, 1Y otherwise), provided the target is
-     * above the current market price.
+     * lookback closing high (2Y if held 2+ years, 1Y otherwise), provided the target
+     * is above the current market price.
      *
      * Returns: ['created' => int, 'skipped' => int, 'symbols' => string[], 'dry_run' => bool]
      *
@@ -244,7 +244,7 @@ class AlertService
             }
 
             $lookbackYears   = $this->getLookbackYears($userId, $symbol);
-            $historicalHigh  = $this->_getHistoricalHigh($symbol, $lookbackYears);
+            $historicalHigh  = $this->_getHistoricalClosingHigh($symbol, $lookbackYears);
             $highValue       = $historicalHigh['value'];
             $highDate        = $historicalHigh['date'];
 
@@ -271,7 +271,7 @@ class AlertService
             $currencyDisplayCode = $currencyId ? ($currencyDisplayCodes[$currencyId] ?? '') : '';
             $lookbackLabel       = $lookbackYears . 'Y';
 
-            $notes = round($threshold, 1) . '% below ' . $lookbackLabel . ' high of '
+            $notes = round($threshold, 1) . '% below ' . $lookbackLabel . ' closing high of '
                 . MoneyFormat::get_formatted_price($highValue, true);
             if ($currencyDisplayCode) {
                 $notes .= ' ' . $currencyDisplayCode;
@@ -371,8 +371,10 @@ class AlertService
     }
 
     /**
-     * Fetch the highest daily high price over the past $lookbackYears years for a symbol.
-     * Uses Yahoo Finance API (split-adjusted). No execution budget — for ad-hoc use only.
+     * Fetch the highest daily CLOSE over the past $lookbackYears years for a symbol, with its date.
+     * Uses the closing price (not the intraday high) so the suggested alert target references the
+     * highest close, consistent with the watchlist 52-week figures. Yahoo Finance API
+     * (split-adjusted). No execution budget — for ad-hoc use only.
      * Returns ['value' => float|null, 'date' => string|null (Y-m-d)].
      *
      * @param string $symbol
@@ -380,7 +382,7 @@ class AlertService
      *
      * @return array
      */
-    private function _getHistoricalHigh(string $symbol, int $lookbackYears): array
+    private function _getHistoricalClosingHigh(string $symbol, int $lookbackYears): array
     {
         $financeApi = new FinanceAPI();
         $quote = $financeApi->getQuote($symbol, true, false);
@@ -401,9 +403,9 @@ class AlertService
         $high     = null;
         $highDate = null;
         foreach ($historicalData as $dayData) {
-            $dayHigh = (float) $dayData->getHigh();
-            if ($dayHigh > 0 && ($high === null || $dayHigh > $high)) {
-                $high     = $dayHigh;
+            $dayClose = (float) $dayData->getClose();
+            if ($dayClose > 0 && ($high === null || $dayClose > $high)) {
+                $high     = $dayClose;
                 $highDate = $dayData->getDate()?->format('Y-m-d');
             }
         }
