@@ -39,7 +39,9 @@
     // intraday range only when no closing range is available.
     function buildRangeBar(data, cur)
     {
-        const price = data.price;
+        // Marker sits at the current (last) price, which includes pre/post-market so it matches
+        // the live price in the quote header. Falls back to the regular price for older payloads.
+        const price = (data.current_price != null) ? data.current_price : data.price;
         const $bar  = $('#{{ $rangeBarId }}');
 
         const cHigh = data.closingHigh;

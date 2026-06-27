@@ -14,6 +14,14 @@
     $cr        = $quoteData['table_meta']['closing_range'] ?? null;
     $hasOpen   = count($quoteData['open_positions']) > 0;
 
+    // Current (live) price the "% Low" / "% High" figures are measured from. Shown in the tooltips,
+    // with the explicit division, so the percentage can be verified against the closing / intraday
+    // high and low below. This is the same pre/post-market-aware price as the row's Price column.
+    $curPrice      = (isset($quoteData['price']) && $quoteData['price'] !== '')
+        ? (float) $quoteData['price'] : null;
+    $curPriceNum   = $curPrice !== null ? MoneyFormat::get_formatted_price_plain($curPrice) : '';
+    $curPriceLabel = $curPrice !== null ? $curPriceNum . ' ' . $codePlain : '';
+
     $intraHigh    = $quoteData['fiftyTwoWeekHigh'] ?? null;
     $intraLow     = $quoteData['fiftyTwoWeekLow'] ?? null;
     $intraHighPct = isset($quoteData['fiftyTwoWeekHighChangePercent'])
@@ -32,12 +40,20 @@
             . ' ' . $codePlain . '): the single highest price touched intraday in the past year. It '
             . 'can sit above the highest daily close when the high was a brief intraday spike. '
             . 'Yahoo does not provide the date it occurred.'
+            . ($curPrice !== null && $intraHighPct !== null
+                ? ' Current price ' . $curPriceLabel . ' is '
+                    . MoneyFormat::get_formatted_pct($intraHighPct) . '% below it.'
+                : '')
         : '';
     $intraLowTip = $intraLow !== null
         ? 'Yahoo 52-week intraday low (' . MoneyFormat::get_formatted_price_plain($intraLow)
             . ' ' . $codePlain . '): the single lowest price touched intraday in the past year. It '
             . 'can sit below the lowest daily close when the low was a brief intraday dip. '
             . 'Yahoo does not provide the date it occurred.'
+            . ($curPrice !== null && $intraLowPct !== null
+                ? ' Current price ' . $curPriceLabel . ' is '
+                    . MoneyFormat::get_formatted_pct($intraLowPct) . '% above it.'
+                : '')
         : '';
 @endphp
 {{-- 52W Range: closing low/high only (primary). Falls back to the intraday range when the symbol
@@ -72,7 +88,7 @@
     @if($cr && $cr['low_pct'] !== null)
         <div>
             <span data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips3"
-                  title="How far the current price is above the lowest daily close of the past year ({{ MoneyFormat::get_formatted_price_plain($cr['low_native']) }} {{ $codePlain }} on {{ $cr['low_date'] }}). The table sorts and filters on this closing-based figure.">{!! MoneyFormat::get_formatted_52wk_low_percentage($cr['low_pct']) !!}</span>
+                  title="How far the current price ({{ $curPriceLabel }}) is above the lowest daily close of the past year ({{ MoneyFormat::get_formatted_price_plain($cr['low_native']) }} {{ $codePlain }} on {{ $cr['low_date'] }}). {{ MoneyFormat::get_formatted_pct($cr['low_pct']) }}% = (current {{ $curPriceNum }} {{ $codePlain }} - low {{ MoneyFormat::get_formatted_price_plain($cr['low_native']) }} {{ $codePlain }}) / low. The table sorts and filters on this closing-based figure.">{!! MoneyFormat::get_formatted_52wk_low_percentage($cr['low_pct']) !!}</span>
         </div>
         @if($intraLowPct !== null)
             <div class="fst-italic" style="opacity: 0.55">
@@ -90,7 +106,7 @@
     @if($cr && $cr['high_pct'] !== null)
         <div>
             <span data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips3"
-                  title="How far the current price is below the highest daily close of the past year ({{ MoneyFormat::get_formatted_price_plain($cr['high_native']) }} {{ $codePlain }} on {{ $cr['high_date'] }}). The table sorts and filters on this closing-based figure.">{!! MoneyFormat::get_formatted_52wk_high_percentage($cr['high_pct'], $hasOpen) !!}</span>
+                  title="How far the current price ({{ $curPriceLabel }}) is below the highest daily close of the past year ({{ MoneyFormat::get_formatted_price_plain($cr['high_native']) }} {{ $codePlain }} on {{ $cr['high_date'] }}). {{ MoneyFormat::get_formatted_pct($cr['high_pct']) }}% = (high {{ MoneyFormat::get_formatted_price_plain($cr['high_native']) }} {{ $codePlain }} - current {{ $curPriceNum }} {{ $codePlain }}) / high. The table sorts and filters on this closing-based figure.">{!! MoneyFormat::get_formatted_52wk_high_percentage($cr['high_pct'], $hasOpen) !!}</span>
         </div>
         @if($intraHighPct !== null)
             <div class="fst-italic" style="opacity: 0.55">

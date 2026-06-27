@@ -50,6 +50,7 @@ class Stats
             self::$_stats[$stat['symbol']]['historical'][$stat['date']] = $stat;
         }
 
+        $today = date(trans('myfinance2::general.date-format'));
         foreach ($statsToday as $stat) {
             if (empty(self::$_stats[$stat['symbol']])) {
                 self::$_stats[$stat['symbol']] = [
@@ -60,6 +61,15 @@ class Stats
             }
             self::$_stats[$stat['symbol']]['today'][] = $stat;
 
+            // Only a row genuinely dated today may become today_last. Stale intraday
+            // rows linger in stats_today until app:stats-cron prunes them (e.g. over a
+            // weekend, or when the dev box was off for a few days); the chart formatter
+            // dates the today_last point with today's date, so feeding it a stale row
+            // would draw a phantom point at a stale price on a non-trading day.
+            if (!self::_isStatFromToday($stat, $today)) {
+                continue;
+            }
+
             if (empty(self::$_stats[$stat['symbol']]['today_last']['timestamp'])
                 || self::$_stats[$stat['symbol']]['today_last']['timestamp'] <
                     $stat['timestamp']
@@ -69,6 +79,26 @@ class Stats
         }
 
         // LOG::debug(self::$_stats);
+    }
+
+    /**
+     * Whether a stats_today row genuinely belongs to $today (a date string in the
+     * configured date-format). Guards today_last against stale intraday rows that
+     * linger in stats_today until app:stats-cron prunes them. Rows without a
+     * usable timestamp are treated as not-today.
+     */
+    private static function _isStatFromToday(array $stat, string $today): bool
+    {
+        $timestamp = $stat['timestamp'] ?? null;
+        if (!is_string($timestamp) || strlen($timestamp) < 10) {
+            return false;
+        }
+
+        // The date is the leading 'Y-m-d' of the timestamp. This holds whether the
+        // value arrives as a plain datetime ('2026-06-26 17:35:34') or as the model's
+        // serialized ISO form ('2026-06-26T17:35:34.000000Z'), so it is robust to how
+        // the stats_today row was loaded. Compared against $today (the date-format).
+        return substr($timestamp, 0, 10) === $today;
     }
 
     public static function persistQuote(Quote $quote): bool
@@ -205,16 +235,20 @@ class Stats
      * Latest data date a live chart series would end on for a single symbol,
      * resolved with targeted indexed queries instead of loading the full
      * stats_* tables. Mirrors the series built by the charts formatter: today's
-     * date when an intraday (stat_today) row exists, otherwise the most recent
-     * historical date. Returns null when the symbol has no stats at all.
+     * date when an intraday (stat_today) row dated today exists, otherwise the most
+     * recent historical date. Returns null when the symbol has no stats at all.
      *
      * Used as a cheap staleness probe so the cached chart file is preferred on
      * the hot path and the expensive full build runs only when truly stale.
      */
     public static function getLatestSeriesDate(string $symbol): ?string
     {
+        // Only count rows genuinely dated today, so a stale intraday row left in
+        // stats_today does not report the series as ending today and trigger an
+        // endless "stale cache self-healed" rebuild on every chart open.
         $hasToday = StatToday::withoutGlobalScope(AssignedToUserScope::class)
             ->where('symbol', $symbol)
+            ->whereDate('timestamp', date(trans('myfinance2::general.date-format')))
             ->exists();
 
         if ($hasToday) {

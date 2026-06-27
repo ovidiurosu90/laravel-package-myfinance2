@@ -41,6 +41,12 @@ class FinanceUtils
         $name = $quote->getLongName();
         $quoteTimestamp = $quote->getRegularMarketTime();
 
+        // The current (last) price reflects pre/post-market when the live quote carries it, so
+        // surfaces that show a single current value (the range-bar marker) match the live price in
+        // the quote header instead of lagging on the regular close. For a historical lookup the
+        // close is the only meaningful "current" value.
+        $currentPrice = self::_effectiveCurrentPrice($quote, $price);
+
         if (!empty($timestamp) && // Has timestamp
             date('Ymd') > date('Ymd', strtotime($timestamp)) // in the past
         ) {
@@ -55,6 +61,7 @@ class FinanceUtils
             // LOG::debug(var_export($historicalData, true));
             $price = $historicalData->getClose();
             $quoteTimestamp = $historicalData->getDate();
+            $currentPrice = $price;
         }
 
         /*
@@ -73,6 +80,7 @@ class FinanceUtils
 
         return [
             'price'           => $price,
+            'current_price'   => $currentPrice,
             'currency'        => $currency,
             'name'            => $name,
             'quote_timestamp' => $quoteTimestamp,
@@ -89,6 +97,27 @@ class FinanceUtils
             'closingLow'      => $closing['low'] ?? null,
             'closingLowDate'  => $closing['low_date'] ?? null,
         ];
+    }
+
+    /**
+     * Effective "current" price for a live quote: the pre or post-market value when Yahoo provides
+     * one, otherwise the regular-session price. Mirrors the pre/post overwrite getQuotes() applies,
+     * so a surface showing a single current price (e.g. the 52-week range-bar marker) matches the
+     * live price in the quote header rather than lagging on the regular close. Pre and post-market
+     * never overlap; pre takes precedence to match getQuotes().
+     *
+     * @param mixed $regularPrice Regular-session price to fall back to.
+     * @return mixed
+     */
+    private static function _effectiveCurrentPrice(Quote $quote, $regularPrice)
+    {
+        if (!empty($quote->getPreMarketPrice())) {
+            return $quote->getPreMarketPrice();
+        }
+        if (!empty($quote->getPostMarketPrice())) {
+            return $quote->getPostMarketPrice();
+        }
+        return $regularPrice;
     }
 
     /**

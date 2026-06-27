@@ -18,7 +18,9 @@ $(document).ready(function()
         }
     });
 
-    let symbolChart = null;
+    let symbolChart  = null;
+    let symbolSeries = null; // the price series, kept so trade markers can attach to it
+    let tradeMarkers = null; // createSeriesMarkers primitive for the buy/sell markers
 
     @include('myfinance2::general.scripts.partials.fmt-price')
 
@@ -35,6 +37,10 @@ $(document).ready(function()
             symbolChart.remove();
             symbolChart = null;
         }
+        // The markers primitive is owned by the (now removed) series, so just drop
+        // the references; a fresh set is created on the next open.
+        symbolSeries = null;
+        tradeMarkers = null;
         chartContainer.innerHTML = '';
     }
 
@@ -80,7 +86,111 @@ $(document).ready(function()
 
         const s = symbolChart.addSeries(LightweightCharts.BaselineSeries, seriesProperties);
         s.setData(series);
+        symbolSeries = s;
         symbolChart.timeScale().fitContent();
+    }
+
+    // Snap a trade date onto an existing series day so its marker always lands on a
+    // plotted bar. Exact match when the date is a trading day in the series; otherwise
+    // the nearest earlier bar (e.g. a weekend trade falls back to the prior session).
+    // times is the series' day strings in ascending order.
+    function snapToSeriesTime(date, times)
+    {
+        if (times.indexOf(date) !== -1) {
+            return date;
+        }
+        let best = null;
+        for (let i = 0; i < times.length; i += 1) {
+            if (times[i] <= date) {
+                best = times[i];
+            } else {
+                break;
+            }
+        }
+        return best !== null ? best : times[0];
+    }
+
+    // Build buy/sell markers from the symbol's trades. Same-day, same-action trades are
+    // summed into one marker (B for buys, S for sells, in the shared success/danger
+    // colours). On /positions only the opened account's trades are kept; on
+    // /watchlist-symbols accountId is empty, so every account's trades are plotted.
+    function buildTradeMarkers(trades, accountId, seriesData)
+    {
+        if (!seriesData || !seriesData.length) {
+            return [];
+        }
+        const times     = seriesData.map((p) => p.time);
+        const firstTime  = times[0];
+        const lastTime   = times[times.length - 1];
+
+        const qtyByDayAction = {};
+        (trades || []).forEach((t) =>
+        {
+            if (accountId && String(t.account_id) !== String(accountId)) {
+                return;
+            }
+            const action = (t.action || '').toUpperCase();
+            if (action !== 'BUY' && action !== 'SELL') {
+                return;
+            }
+            const date = t.date;
+            if (!date || date < firstTime || date > lastTime) {
+                return; // outside the plotted range
+            }
+            const key = date + '|' + action;
+            qtyByDayAction[key] = (qtyByDayAction[key] || 0) + (parseFloat(t.quantity) || 0);
+        });
+
+        const markers = Object.keys(qtyByDayAction).map((key) =>
+        {
+            const parts  = key.split('|');
+            const isBuy  = parts[1] === 'BUY';
+            return {
+                time:     snapToSeriesTime(parts[0], times),
+                position: 'aboveBar',
+                color:    isBuy ? '#198754' : '#dc3545',
+                shape:    'circle',
+                text:     isBuy ? 'B' : 'S',
+            };
+        });
+
+        // Lightweight Charts requires markers in ascending time order.
+        markers.sort((a, b) => (a.time < b.time ? -1 : (a.time > b.time ? 1 : 0)));
+        return markers;
+    }
+
+    function applyTradeMarkers(markers)
+    {
+        if (!symbolSeries) {
+            return;
+        }
+        if (tradeMarkers) {
+            tradeMarkers.setMarkers(markers);
+        } else {
+            tradeMarkers = LightweightCharts.createSeriesMarkers(symbolSeries, markers);
+        }
+    }
+
+    // Fetch the symbol's trades and overlay them as buy/sell markers on the chart.
+    function loadTrades(symbol, accountId)
+    {
+        if (!symbolSeries) {
+            return;
+        }
+        $.ajax({
+            type: 'GET',
+            url: "{{ url('/get-trades') }}",
+            data: { symbol: symbol },
+            success: function(data)
+            {
+                // Ignore a late response if the modal moved to another symbol or closed.
+                if (!symbolSeries || currentSymbol !== symbol) {
+                    return;
+                }
+                const seriesData = (window.__symbolChartSeries || {})[symbol];
+                applyTradeMarkers(buildTradeMarkers(data.trades || [], accountId, seriesData));
+            },
+        });
     }
 
     function resizeChart()
@@ -199,6 +309,7 @@ $(document).ready(function()
     {
         buildChart(currentSymbol, currentBaseValue);
         loadFinanceData(currentSymbol, currentAccountId, currentCurrency);
+        loadTrades(currentSymbol, currentAccountId);
     });
 
     modalEl.addEventListener('hidden.bs.modal', function()

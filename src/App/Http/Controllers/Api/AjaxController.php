@@ -127,6 +127,9 @@ class AjaxController extends MyFinance2Controller
 
         return response()->json([
             'price'           => round($financeData['price'], 2),
+            // Current (last) price for the range-bar marker: reflects pre/post-market so it matches
+            // the live price in the quote header. Falls back to the regular price when unavailable.
+            'current_price'   => round($financeData['current_price'] ?? $financeData['price'], 2),
             'currency'        => $currency,
             'name'            => $financeData['name'],
             'quote_timestamp' => $financeData['quote_timestamp']
@@ -272,6 +275,9 @@ class AjaxController extends MyFinance2Controller
             // Raw price (number) for the 52W range bar; the formatted price is
             // already shown in the quote header.
             'price'        => $q['regular_market_price'] ?? $q['price'] ?? null,
+            // Current (last) price for the range-bar marker: $q['price'] already includes
+            // pre/post-market, so the marker matches the live price in the quote header.
+            'current_price' => $q['price'] ?? $q['regular_market_price'] ?? null,
 
             'fiftyTwoWeekHigh'              => $q['fiftyTwoWeekHigh'] ?? null,
             'fiftyTwoWeekHighChangePercent' => $q['fiftyTwoWeekHighChangePercent'] ?? null,
@@ -382,6 +388,7 @@ class AjaxController extends MyFinance2Controller
             return [
                 'id'             => $trade->id,
                 'account'        => $account,
+                'account_id'     => $trade->account_id,
                 'date'           => $trade->timestamp?->format('Y-m-d') ?? '',
                 'action'         => $trade->action,
                 'quantity'       => (float) $trade->quantity,
