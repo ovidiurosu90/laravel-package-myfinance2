@@ -92,6 +92,13 @@
         <div class="body">
             <div class="section {{ $verdict['key'] }}">
                 <h2>{{ $verdict['label'] }}</h2>
+                @if ($trigger === 'new_episode')
+                    <p style="font-weight:600;color:#0d6efd;">
+                        New dip cycle: {!! $vusaLink !!} reached a new high and is pulling back again.<br>
+                        At -{{ $dd }}% drawdown, your plan calls for
+                        {{ (int) round($plan['target_pct']) }}% of the pool deployed.
+                    </p>
+                @endif
                 <p>{{ $verdict['banner'] }}</p>
                 @if (!is_null($above))
                     <p class="text-muted">

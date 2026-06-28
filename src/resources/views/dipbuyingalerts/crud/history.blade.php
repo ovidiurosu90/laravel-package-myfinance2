@@ -69,7 +69,24 @@
                                                 data-order="{{ $notif->sent_at ? $notif->sent_at->timestamp : 0 }}">
                                                 {{ $notif->sent_at ? $notif->sent_at->timezone(config('app.timezone'))->format('Y-m-d H:i') : '-' }}
                                             </td>
-                                            <td class="text-nowrap">{{ $notif->trigger }}</td>
+                                            <td class="text-nowrap">
+                                                @switch($notif->trigger)
+                                                    @case('new_episode')
+                                                        <span class="badge bg-info">New episode</span>
+                                                        @break
+                                                    @case('band_deepened')
+                                                        <span class="badge bg-primary">Band deepened</span>
+                                                        @break
+                                                    @case('crossed_behind')
+                                                        <span class="badge bg-danger">Crossed behind</span>
+                                                        @break
+                                                    @case('stall')
+                                                        <span class="badge bg-warning text-dark">Stall</span>
+                                                        @break
+                                                    @default
+                                                        {{ $notif->trigger }}
+                                                @endswitch
+                                            </td>
                                             <td class="text-end text-nowrap">
                                                 -{{ MoneyFormat::get_formatted_pct((float) $notif->effective_dd_pct) }}%
                                             </td>

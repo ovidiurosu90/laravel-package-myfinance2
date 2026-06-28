@@ -150,25 +150,35 @@ class DipBuyingAlerts extends Command
     }
 
     /**
-     * Which of the three triggers fires, or null when nothing changed. New users (no prior alert)
-     * fire on the first actionable state (behind, or the stall backstop being active).
+     * Which trigger fires, or null when nothing changed. Priority: new_episode > band_deepened >
+     * crossed_behind > stall. New users (no prior alert) fire on the first actionable state.
      *
      * @param array                          $plan
      * @param DipBuyingNotification|null     $last
      *
-     * @return string|null  band_deepened | crossed_behind | stall
+     * @return string|null  new_episode | band_deepened | crossed_behind | stall
      */
     private function _resolveTrigger(array $plan, ?DipBuyingNotification $last): ?string
     {
         $targetPct   = (float) $plan['target_pct'];
         $verdict     = $plan['verdict'];
         $stallActive = (bool) ($plan['stall_active'] ?? false);
+        $anchorDate  = $plan['anchor_date'] ?? null;
 
         if ($last === null) {
             if ($stallActive) {
                 return 'stall';
             }
             return $verdict === DipBuyingPlanService::VERDICT_BEHIND ? 'crossed_behind' : null;
+        }
+
+        // New dip episode: anchor changed and we are inside an actionable band.
+        if ($anchorDate !== null
+            && $last->anchor_date !== null
+            && $anchorDate !== $last->anchor_date->format('Y-m-d')
+            && $targetPct > 1e-9
+        ) {
+            return 'new_episode';
         }
 
         if ($targetPct > (float) $last->target_pct + 1e-9) {
@@ -213,6 +223,7 @@ class DipBuyingAlerts extends Command
             'vusa_dd_pct'           => $plan['vusa_dd_pct'] ?? null,
             'portfolio_dd_pct'      => $plan['portfolio_dd_pct'] ?? null,
             'driver'                => $plan['driver'] ?? null,
+            'anchor_date'           => $plan['anchor_date'] ?? null,
             'target_pct'            => (int) round($plan['target_pct']),
             'deployed_pct'          => $plan['deployed_pct'],
             'deployed_eur'          => $plan['deployed_eur'],
