@@ -63,7 +63,7 @@
                                     <div class="text-muted small text-nowrap"
                                          data-bs-toggle="tooltip"
                                          data-bs-placement="top"
-                                         data-bs-custom-class="big-tooltips"
+                                         data-bs-custom-class="tooltip-md"
                                          data-bs-html="true"
                                          data-bs-title="Windows: {{ $notif->triggered_windows }}
                                             @if ($notif->closest_proximity_pct !== null)

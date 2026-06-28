@@ -91,14 +91,21 @@ class SymbolPerformanceTooltips
         $provisional = ' Held under a year, this rate annualizes a sub-year window and is provisional;'
             . ' it firms up once the position has been held a full year.';
 
+        $windowCount = (int) ($symbolPerf['window_count'] ?? 1);
         $openBase = 'Money-weighted annualized return (XIRR): how your actual euros did, crediting the'
             . ' timing and size of every buy, sell and dividend. The gain/y above is the time-weighted'
             . ' CAGR (the asset\'s performance while held), the figure comparable to an index; XIRR'
             . ' answers the separate question of how your money did.';
-        $overallBase = 'Money-weighted annualized return (XIRR) across all windows: how your actual'
-            . ' euros did, crediting the timing and size of every buy, sell and dividend. The gain/y'
-            . ' above is the time-weighted CAGR (asset performance while held), the figure comparable'
-            . ' to an index; the two diverge when capital was added or trimmed at different times.';
+        $overallBase = $windowCount > 1
+            ? 'Money-weighted annualized return (XIRR) across all windows: how your actual euros did,'
+                . ' crediting the timing and size of every buy, sell and dividend. The gain/y above is'
+                . ' a capital-and-time-weighted average of per-window returns (CAGR for windows held a'
+                . ' year or more, raw cumulative return for shorter ones); XIRR and gain/y answer'
+                . ' related but distinct questions and will typically differ.'
+            : 'Money-weighted annualized return (XIRR) across all windows: how your actual'
+                . ' euros did, crediting the timing and size of every buy, sell and dividend. The gain/y'
+                . ' above is the time-weighted CAGR (asset performance while held), the figure comparable'
+                . ' to an index; the two diverge when capital was added or trimmed at different times.';
 
         $compose = static function (string $base) use ($xirr, $short, $naReason, $provisional): string
         {
@@ -196,7 +203,7 @@ class SymbolPerformanceTooltips
         $years = round($durationDays / 365.0, 1);
 
         return "Annualized return (CAGR) appears once a position has been held a full year"
-            . " (this one: {$durationDays} days, about {$years}y). Compounding a sub-year return"
+            . " (this one: {$durationDays} days). Compounding a sub-year return"
             . ' would extrapolate and inflate the yearly rate, so the raw cumulative gain shown in'
             . ' the gain badge is used instead. A CAGR is shown automatically once the holding'
             . ' period reaches one year.';
@@ -208,17 +215,14 @@ class SymbolPerformanceTooltips
         $formatted = MoneyFormat::get_formatted_number_plain($totalGainEur, 0);
 
         if ($windowCount > 1) {
-            // Multi-window: blended total return annualized over the time held. The windows are
-            // NOT geometrically chained (that would compound separate buy/sell episodes that were
-            // never reinvested and inflate the rate); instead total profit over all capital
-            // deployed is CAGR-annualized over the days actually held (gaps excluded).
-            return "Annualized return (CAGR) across {$windowCount} holding windows"
-                . " ({$years} years held, total gain: {$formatted} EUR)."
-                . ' Total profit relative to all capital deployed, annualized over the time you'
-                . ' actually held the position (gaps when you held nothing are excluded). The'
-                . ' windows are not compounded together, since each was funded by fresh capital.'
-                . ' The money-weighted view that accounts for your euro timing is the separate'
-                . ' XIRR figure.';
+            return "Annualized return across {$windowCount} holding windows"
+                . " (total gain: {$formatted} EUR)."
+                . ' Each window contributes its CAGR if held a year or more, or its raw cumulative'
+                . ' return if held less (not extrapolated, to avoid inflating short high-return'
+                . ' episodes). Returns are weighted by capital deployed and time held; a longer,'
+                . ' larger deployment carries more weight than a brief one. The EUR figure is the'
+                . ' actual average annual gain (total gain divided by total years held).'
+                . ' The money-weighted XIRR is the companion figure that credits each cash flow.';
         }
 
         // Single window: CAGR, the steady compound yearly rate that reproduces the period return.

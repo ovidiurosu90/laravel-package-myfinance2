@@ -120,16 +120,13 @@ class SymbolPerformanceService
             $result[$symbol]['percentage_gain']            = $percentageGain;
             $tooShortSymbol = $totalDays < self::MIN_ANNUALIZED_DAYS;
             $result[$symbol]['annualized_gain_short_window'] = $tooShortSymbol;
-            // Recompute the overall annualized return with the live-priced windows, using the
-            // same blended CAGR as the cron build (total return annualized over time held; never
-            // chained, so multi-window positions are not inflated). The money-weighted XIRR is
-            // recomputed too, so the open window's live market value is reflected in both figures.
-            $overallAnn = $this->_annualizeReturn(
-                $percentageGain,
-                $totalDays,
-                $totalGainEur,
-                $totalInvestedEur
-            );
+            // Recompute overall annualized return with live-priced windows.
+            // Single window: CAGR. Multiple windows: euro-year-weighted average (same as cron build).
+            // XIRR is recomputed too, so the live market value is reflected in both figures.
+            $windowCountLive = count($windows);
+            $overallAnn      = ($windowCountLive === 1)
+                ? $this->_annualizeReturn($percentageGain, $totalDays, $totalGainEur, $totalInvestedEur)
+                : $this->_multiWindowAnnualized($windows, $totalDays, $totalGainEur);
             $result[$symbol]['annualized_gain_eur']        = $overallAnn['eur'];
             $result[$symbol]['annualized_percentage_gain'] = $overallAnn['pct'];
             $result[$symbol]['xirr_pct']                   = $this->_symbolXirr($windows, $totalDays);
@@ -261,6 +258,41 @@ class SymbolPerformanceService
         $cagr  = (pow(1.0 + $pct / 100.0, 1.0 / $years) - 1.0) * 100.0;
         $eur   = $investedEur > self::FLOAT_EPSILON ? $investedEur * ($cagr / 100.0) : null;
         return ['pct' => $cagr, 'eur' => $eur];
+    }
+
+    /**
+     * Euro-year-weighted average of per-window effective annual rates (multi-window gain/y).
+     *
+     * Each window contributes its CAGR if held >= MIN_CAGR_DAYS, or its raw cumulative return
+     * if sub-year (not extrapolated, so a 37% gain in 9 months is not inflated to ~51%/y).
+     * Contributions are weighted by capital * holding period in years (euro-years), so a larger
+     * or longer deployment carries proportionally more weight than a brief one.
+     *
+     * EUR/y is the actual average annual gain (totalGainEur / total years held), giving the
+     * concrete per-year pace rather than a theoretical rate applied to all-time deployed capital.
+     */
+    private function _multiWindowAnnualized(array $windows, int $totalDays, float $totalGainEur): array
+    {
+        $totalEuroYears  = 0.0;
+        $weightedRateSum = 0.0;
+        foreach ($windows as $w) {
+            $winYears     = $w['duration_days'] / 365.0;
+            $winEuroYears = $w['invested_eur'] * $winYears;
+            $winRate      = ($w['duration_days'] >= self::MIN_CAGR_DAYS)
+                ? ($w['annualized_percentage_gain'] ?? $w['percentage_gain'])
+                : $w['percentage_gain'];
+            if ($winRate !== null) {
+                $weightedRateSum += $winRate * $winEuroYears;
+            }
+            $totalEuroYears += $winEuroYears;
+        }
+        if ($totalEuroYears <= self::FLOAT_EPSILON) {
+            return ['pct' => null, 'eur' => null];
+        }
+        $pct        = $weightedRateSum / $totalEuroYears;
+        $totalYears = $totalDays / 365.0;
+        $eur        = $totalYears > self::FLOAT_EPSILON ? $totalGainEur / $totalYears : null;
+        return ['pct' => $pct, 'eur' => $eur];
     }
 
     /**
@@ -723,26 +755,17 @@ class SymbolPerformanceService
         $hasOpenWindow = count(array_filter($windows, fn($w) => $w['is_open'])) > 0;
         $totalDays = (int) array_sum(array_column($windows, 'duration_days'));
 
-        // Overall annualized return (CAGR), multi-window safe.
-        //
-        // The figure is the BLENDED total return annualized over the time held: take the total
-        // profit relative to all capital ever deployed (percentage_gain = totalGain/totalInvested)
-        // and CAGR-annualize it over totalDays (the sum of the windows' own durations, so the gaps
-        // when nothing was held are excluded). This is the same formula used for a single window.
-        //
-        // We deliberately do NOT geometrically chain the windows (product of (1 + r_i)). Chaining
-        // is correct only when each window's proceeds compound into the next, like a fund's NAV.
-        // Here the windows are separate buy/sell episodes funded by fresh capital, not reinvested
-        // proceeds, so chaining would compound returns that never actually compounded and inflate
-        // the rate (e.g. two +50% episodes would read as 50%/yr instead of the real ~22.5%/yr).
-        // The money-weighted XIRR below is the rigorous "your euros" answer across the same flows.
-        $tooShort                 = $totalDays < self::MIN_ANNUALIZED_DAYS;
-        $overallAnn               = $this->_annualizeReturn(
-            $percentageGain,
-            $totalDays,
-            $totalGainEur,
-            $totalInvestedEur
-        );
+        // Overall annualized return. Single window: CAGR (same formula as per-window).
+        // Multiple windows: euro-year-weighted average of per-window effective rates — each window
+        // contributes its CAGR (>= 1 year held) or raw cumulative return (sub-year, not
+        // extrapolated), weighted by capital * time. This replaces the old blended-total formula
+        // (total return annualized over total days), which treated all capital as simultaneously
+        // deployed for the full history and produced misleadingly low rates when most windows are
+        // short and high-returning. The money-weighted XIRR is the rigorous companion figure.
+        $tooShort   = $totalDays < self::MIN_ANNUALIZED_DAYS;
+        $overallAnn = ($windowCount === 1)
+            ? $this->_annualizeReturn($percentageGain, $totalDays, $totalGainEur, $totalInvestedEur)
+            : $this->_multiWindowAnnualized($windows, $totalDays, $totalGainEur);
         $annualizedGainEur        = $overallAnn['eur'];
         $annualizedPercentageGain = $overallAnn['pct'];
 

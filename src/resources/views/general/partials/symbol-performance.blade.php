@@ -43,7 +43,7 @@
         @endif
         <span class="badge bg-transparent border {{ $openWin['total_gain_eur'] >= 0 ? 'border-success' : 'border-danger' }}"
               data-bs-toggle="tooltip"
-              @if ($tt['open_gain_big']) data-bs-custom-class="big-tooltips" @endif
+              @if ($tt['open_gain_big']) data-bs-custom-class="tooltip-md" @endif
               title="{{ $tt['open_gain'] }}">
             <span class="text-body">gain:</span>
             {!! MoneyFormat::get_formatted_gain('&euro;', $openWin['total_gain_eur']) !!}
@@ -53,7 +53,7 @@
         </span>
         @if ($tt['open_annualized_short'])
         <span class="badge bg-transparent border border-secondary"
-              data-bs-toggle="tooltip"
+              data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
               title="{{ $tt['open_annualized_short'] }}">
             <span class="text-body">gain/y:</span>
             <span class="text-muted">n/a</span><sup>*</sup>
@@ -137,7 +137,7 @@
         @if ($tt['overall_annualized_short'])
         <span class="badge bg-transparent border border-secondary"
               style="border-style: dotted !important;"
-              data-bs-toggle="tooltip"
+              data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
               title="{{ $tt['overall_annualized_short'] }}">
             <span class="text-body">gain/y:</span>
             <span class="text-muted">n/a</span><sup>*</sup>
@@ -145,7 +145,7 @@
         @elseif ($tt['overall_annualized'])
         <span class="badge bg-transparent border {{ $symbolPerf['annualized_gain_eur'] >= 0 ? 'border-success' : 'border-danger' }}"
               style="border-style: dotted !important;"
-              data-bs-toggle="tooltip"
+              data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
               title="{{ $tt['overall_annualized'] }}">
             <span class="text-body">gain/y:</span>
             {!! MoneyFormat::get_formatted_gain('&euro;', $symbolPerf['annualized_gain_eur']) !!}

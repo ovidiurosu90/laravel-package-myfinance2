@@ -17,7 +17,7 @@
                 style="font-size: 0.8rem; cursor: pointer; color: #6c757d;"
                 data-bs-toggle="tooltip"
                 data-bs-html="true"
-                data-bs-custom-class="big-tooltips"
+                data-bs-custom-class="tooltip-md"
                 data-bs-title="{{ $withdrawalsInfoTooltip }}"></i>
         @endif
         @if(count($data['withdrawals']['items']) > 0)
@@ -180,7 +180,7 @@
                             data-usd-tooltip="{{ $tooltipUSD }}">
                             <span data-bs-toggle="tooltip"
                                 data-bs-placement="top"
-                                data-bs-custom-class="big-tooltips"
+                                data-bs-custom-class="tooltip-md"
                                 data-bs-html="true"
                                 data-bs-title="{{ $currentTooltip }}">
                                 {!! $currentValue !!}
@@ -195,7 +195,7 @@
                                 || ($withdrawal['USD']['fee'] ?? 0) > 0)
                                 <span data-bs-toggle="tooltip"
                                     data-bs-placement="top"
-                                    data-bs-custom-class="big-tooltips"
+                                    data-bs-custom-class="tooltip-md"
                                     data-bs-html="true"
                                     data-bs-title="{{ $currentTooltip }}">
                                 <small>

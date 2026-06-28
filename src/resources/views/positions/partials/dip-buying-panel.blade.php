@@ -82,7 +82,7 @@
                     <span class="label text-muted text-uppercase fw-bold">
                         Drawdown now
                         <i class="fa fa-info-circle" aria-hidden="true"
-                           data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips3"
+                           data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
                            title="Behavioral pacing for a dip fund you keep anyway. It does not promise to beat staying invested; it stops deploying too early and holding cash too long. The trend rail is context, never a wait signal."></i>
                     </span>
                     <span class="d-flex align-items-baseline gap-2">
@@ -108,11 +108,11 @@
                             <tr class="text-muted">
                                 <th>Basis</th>
                                 <th class="text-end">
-                                    <span data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips3"
+                                    <span data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
                                           title="How far below the running peak (over the lookback window) this basis is now.">Drawdown</span>
                                 </th>
                                 <th class="text-end">
-                                    <span data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips3"
+                                    <span data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
                                           title="How far below the most recent local peak this basis is now: a near-term pullback, shown even when small. Each basis uses its own local peak, so these are not comparable across rows (unlike Drawdown).">Down now</span>
                                 </th>
                             </tr>
@@ -122,7 +122,7 @@
                             <tr>
                                 <td class="text-nowrap" style="color: {{ $r['color'] }};">
                                     @if ($r['is_effective'])
-                                        <span data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips3"
+                                        <span data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
                                               title="Effective drawdown: the worse of your portfolio's own drawdown and VUSA.AS's at each date. This is the axis the Dip Buying ladder acts on.">{{ $r['label'] }}</span>
                                     @else
                                         {{ $r['label'] }}
@@ -132,7 +132,7 @@
                                     @if ($r['is_effective'])
                                         <strong>{{ $r['dd_fmt'] }}</strong>
                                         <i class="fa fa-check-circle text-success" aria-hidden="true"
-                                           data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips3"
+                                           data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
                                            title="This is the effective drawdown the ladder on the right actually deploys on."></i>
                                     @else
                                         {{ $r['dd_fmt'] }}
@@ -141,7 +141,7 @@
                                 <td class="text-end {{ $r['down_now_pct'] > 0.005 ? 'text-danger' : 'text-muted' }}">
                                     {{ $r['down_now_fmt'] }}
                                     <i class="fa fa-info-circle text-muted" aria-hidden="true"
-                                       data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips3"
+                                       data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
                                        title="{{ $r['down_now_tip'] }}"></i>
                                 </td>
                             </tr>
@@ -196,11 +196,11 @@
                             <tr class="text-muted">
                                 <th>Drawdown</th>
                                 <th class="text-end">
-                                    <span data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips3"
+                                    <span data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
                                           title="{{ $ladderPoolNote }}">Target</span>
                                 </th>
                                 <th class="text-end">
-                                    <span data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips3"
+                                    <span data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
                                           title="This band's target minus what you have deployed so far. Positive means room to deploy more to reach this band; negative means you are already past it.">Gap</span>
                                 </th>
                                 <th>Status</th>
@@ -225,7 +225,7 @@
                                 </td>
                                 <td class="{{ $cls['status'] }}">
                                     @if ($row['status_tip'])
-                                        <span data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips3"
+                                        <span data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
                                               title="{{ $row['status_tip'] }}">{{ $row['status_label'] }}</span>
                                     @else
                                         {{ $row['status_label'] }}

@@ -237,7 +237,7 @@
                             <div class="text-muted small text-nowrap"
                                 data-bs-toggle="tooltip"
                                 data-bs-placement="top"
-                                data-bs-custom-class="big-tooltips"
+                                data-bs-custom-class="tooltip-md"
                                 data-bs-html="true"
                                 data-bs-title="Price: {{ MoneyFormat::get_formatted_price_plain($notif['current_price'], true) }}
                                     @if ($notif['projected_gain_eur'] !== null)

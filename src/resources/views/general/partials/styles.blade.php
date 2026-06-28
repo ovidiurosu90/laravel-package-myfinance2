@@ -203,21 +203,12 @@ table.data-table {
 .selectize-control.single .selectize-input:after {
     right: 12px;
 }
-.big-tooltips .tooltip-inner {
-    min-width: 246px;
+.tooltip-md .tooltip-inner {
+    min-width: 250px;
 }
-.big-tooltips2 .tooltip-inner {
-    min-width: 266px;
-}
-.big-tooltips3 .tooltip-inner {
+.tooltip-wide .tooltip-inner {
     min-width: 420px;
     text-align: left;
-}
-.big-tooltips4 .tooltip-inner {
-    min-width: 340px;
-    max-width: 340px !important;
-    text-align: left;
-    white-space: normal;
 }
 .card-body.open-positions hr {
     margin-top: 0.5rem;

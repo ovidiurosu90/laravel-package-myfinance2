@@ -138,7 +138,7 @@
                             data-usd-show-warning="{{ $purchase['USD']['showMissingRateWarning'] ? 'true' : 'false' }}">
                             <span data-bs-toggle="tooltip"
                                 data-bs-placement="top"
-                                data-bs-custom-class="big-tooltips"
+                                data-bs-custom-class="tooltip-md"
                                 data-bs-html="true"
                                 data-bs-title="{{ $tooltipEUR }}"
                                 class="principal-amount-value">
@@ -164,7 +164,7 @@
                             @if($purchase['EUR']['fee'] > 0 || $purchase['USD']['fee'] > 0)
                                 <span data-bs-toggle="tooltip"
                                     data-bs-placement="top"
-                                    data-bs-custom-class="big-tooltips"
+                                    data-bs-custom-class="tooltip-md"
                                     data-bs-html="true"
                                     data-bs-title="{{ $tooltipEUR }}">
                                 <small>
@@ -256,7 +256,7 @@
                                     style="font-size: 0.75rem; cursor: pointer;"
                                     data-bs-toggle="tooltip"
                                     data-bs-placement="top"
-                                    data-bs-custom-class="big-tooltips3"
+                                    data-bs-custom-class="tooltip-wide"
                                     data-bs-title="{{ $transferTooltip }}"></i>
                             </em></small>
                         </td>

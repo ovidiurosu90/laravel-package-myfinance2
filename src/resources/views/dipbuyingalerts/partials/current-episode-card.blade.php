@@ -35,7 +35,7 @@
                 from local peak on {{ DipBuyingPresenter::shortDate($ce['peak_date']) }}@if ($ce['max_dd'] > $ce['current_dd']); deepest -{{ $ce['max_dd'] }}% on {{ DipBuyingPresenter::shortDate($ce['low_date']) }}@endif.
                 Cash pool &euro;{{ $num($ce['pool_eur']) }} as of {{ DipBuyingPresenter::shortDate($ce['peak_date']) }}
                 <i class="fa fa-info-circle" aria-hidden="true"
-                   data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips3"
+                   data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
                    title="The pool here is your actual cash across all accounts on {{ DipBuyingPresenter::shortDate($ce['peak_date']) }}, this dip's local peak, read from your overview cash series. It is the cash you had available to deploy when the dip began, so every target on the ladder is priced on it. It is not the pool you set on the Dip Buying settings page: that configured pool is only a fallback, used when no cash is recorded for this date. So the ladder here can differ from the settings page, which always prices on the configured pool."></i>.
             </span>
             <span class="badge bg-primary ms-auto" data-bs-toggle="tooltip"

@@ -240,7 +240,7 @@
                                                color: #6c757d;"
                                         data-bs-toggle="tooltip"
                                         data-bs-placement="top"
-                                        data-bs-custom-class="big-tooltips"
+                                        data-bs-custom-class="tooltip-md"
                                         data-bs-html="true"
                                         data-bs-title="{{ trans(
                                             'myfinance2::overview'
@@ -389,7 +389,7 @@
                                                color: #6c757d;"
                                         data-bs-toggle="tooltip"
                                         data-bs-placement="top"
-                                        data-bs-custom-class="big-tooltips"
+                                        data-bs-custom-class="tooltip-md"
                                         data-bs-html="true"
                                         data-bs-title="{{ $accTransTooltip }}">
                                     </i>
@@ -413,7 +413,7 @@
                                         @if($accTooltip)
                                             data-bs-toggle="tooltip"
                                             data-bs-placement="top"
-                                            data-bs-custom-class="big-tooltips"
+                                            data-bs-custom-class="tooltip-md"
                                             data-bs-html="true"
                                             data-bs-title="{!! $accTooltip !!}"
                                         @endif>
@@ -444,7 +444,7 @@
                                         @if($accTooltip)
                                             data-bs-toggle="tooltip"
                                             data-bs-placement="top"
-                                            data-bs-custom-class="big-tooltips"
+                                            data-bs-custom-class="tooltip-md"
                                             data-bs-html="true"
                                             data-bs-title="{!! $accTooltip !!}"
                                         @endif>
@@ -464,7 +464,7 @@
                                         @if($accTooltip)
                                             data-bs-toggle="tooltip"
                                             data-bs-placement="top"
-                                            data-bs-custom-class="big-tooltips"
+                                            data-bs-custom-class="tooltip-md"
                                             data-bs-html="true"
                                             data-bs-title="{!! $accTooltip !!}"
                                         @endif>
@@ -520,7 +520,7 @@
                                                color: #6c757d;"
                                         data-bs-toggle="tooltip"
                                         data-bs-placement="top"
-                                        data-bs-custom-class="big-tooltips"
+                                        data-bs-custom-class="tooltip-md"
                                         data-bs-html="true"
                                         data-bs-title="{{ trans(
                                             'myfinance2::overview'
@@ -542,7 +542,7 @@
                                                color: #6c757d;"
                                         data-bs-toggle="tooltip"
                                         data-bs-placement="top"
-                                        data-bs-custom-class="big-tooltips4"
+                                        data-bs-custom-class="tooltip-wide"
                                         data-bs-html="true"
                                         data-bs-title="{{ $partialTooltipRow }}">
                                     </i>
@@ -563,7 +563,7 @@
                                         @if($accTooltip)
                                             data-bs-toggle="tooltip"
                                             data-bs-placement="top"
-                                            data-bs-custom-class="big-tooltips"
+                                            data-bs-custom-class="tooltip-md"
                                             data-bs-html="true"
                                             data-bs-title="{!! $accTooltip !!}"
                                         @endif>
@@ -590,7 +590,7 @@
                                         @if($accTooltip)
                                             data-bs-toggle="tooltip"
                                             data-bs-placement="top"
-                                            data-bs-custom-class="big-tooltips"
+                                            data-bs-custom-class="tooltip-md"
                                             data-bs-html="true"
                                             data-bs-title="{!! $accTooltip !!}"
                                         @endif>
@@ -608,7 +608,7 @@
                                         @if($accTooltip)
                                             data-bs-toggle="tooltip"
                                             data-bs-placement="top"
-                                            data-bs-custom-class="big-tooltips"
+                                            data-bs-custom-class="tooltip-md"
                                             data-bs-html="true"
                                             data-bs-title="{!! $accTooltip !!}"
                                         @endif>

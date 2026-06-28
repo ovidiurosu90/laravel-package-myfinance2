@@ -109,15 +109,15 @@
                           title="Price change today, in both currency and percentage.">Day Chg</span>
                 </th>
                 <th class="text-right no-sort text-nowrap">
-                    <span data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips3"
+                    <span data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
                           title="52-week range. The two figures are the lowest and highest daily close over the past year (each dated in its tooltip), not Yahoo's intraday extremes. Falls back to Yahoo's intraday low/high only when there is too little closing history.">52W Range</span>
                 </th>
                 <th class="text-right text-nowrap">
-                    <span data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips3"
+                    <span data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
                           title="How far the current price is above the 52-week low, as a percentage. Primary is the lowest daily close over the past year (sorted / filtered on); the dimmed value beneath is Yahoo's 52-week intraday low.">% Low</span>
                 </th>
                 <th class="text-right text-nowrap">
-                    <span data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips3"
+                    <span data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
                           title="How far the current price is below the 52-week high, as a percentage. Primary is the highest daily close over the past year (sorted / filtered on); the dimmed value beneath is Yahoo's 52-week intraday high.">% High</span>
                 </th>
                 <th class="no-sort text-nowrap">Open Positions</th>
@@ -153,7 +153,7 @@
                     <a href="https://finance.yahoo.com/quote/{{ $symbol }}"
                         target="_blank"
                         data-bs-toggle="tooltip" data-bs-placement="top"
-                        data-bs-custom-class="big-tooltips" data-bs-html="true"
+                        data-bs-custom-class="tooltip-md" data-bs-html="true"
                         data-bs-title="<p class='text-left'>
 Id: {{ $quoteData['item']->id }}<br />
 Name: {!! !empty($quoteData['name']) ? $quoteData['name'] : $symbol !!}
@@ -372,7 +372,7 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                 <th class="text-right no-sort text-nowrap">Price</th>
                 <th class="text-right text-nowrap">Day Chg</th>
                 <th class="text-right no-sort text-nowrap">
-                    <span data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips3"
+                    <span data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
                           title="52-week range. The two figures are the lowest and highest daily close over the past year (each dated in its tooltip), not Yahoo's intraday extremes. Falls back to Yahoo's intraday low/high only when there is too little closing history.">52W Range</span>
                 </th>
                 <th class="text-right text-nowrap">% Low</th>

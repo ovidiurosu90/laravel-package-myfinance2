@@ -234,7 +234,7 @@ class MarketUtils
 
         $output = $warning . '<div class="col-md-auto p-0">'
             . '<span class="market_status text-left badge rounded-pill ' . $class
-            . '" data-bs-toggle="tooltip" data-bs-custom-class="big-tooltips2" '
+            . '" data-bs-toggle="tooltip" data-bs-custom-class="tooltip-md" '
             . 'data-bs-html="true" title="<p class=\'text-left\'>'
             . $tooltip . '</p>">' . $text
             . '</span></div> <div class="p-0">' . $countdown . "</div>";

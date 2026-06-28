@@ -88,7 +88,7 @@
                                         style="font-size: 0.75rem; color: #6c757d;"
                                         data-bs-toggle="tooltip"
                                         data-bs-placement="top"
-                                        data-bs-custom-class="big-tooltips4"
+                                        data-bs-custom-class="tooltip-wide"
                                         data-bs-html="true"
                                         data-bs-title="{{ $partialTooltip }}"></i>
                                 @endif

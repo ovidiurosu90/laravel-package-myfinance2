@@ -390,7 +390,7 @@ $(document).ready(function()
                 + ' style="font-size: 0.7rem; color: #6c757d;"'
                 + ' data-bs-toggle="tooltip"'
                 + ' data-bs-placement="top"'
-                + ' data-bs-custom-class="big-tooltips"'
+                + ' data-bs-custom-class="tooltip-md"'
                 + ' data-bs-html="true"'
                 + ' data-bs-title="' + tooltipText + '">'
                 + '</i>';
@@ -456,7 +456,7 @@ $(document).ready(function()
                     + ' style="font-size: 0.7rem; color: #6c757d;"'
                     + ' data-bs-toggle="tooltip"'
                     + ' data-bs-placement="top"'
-                    + ' data-bs-custom-class="big-tooltips"'
+                    + ' data-bs-custom-class="tooltip-md"'
                     + ' data-bs-html="true"'
                     + ' data-bs-title="' + tooltipText + '">'
                     + '</i>';

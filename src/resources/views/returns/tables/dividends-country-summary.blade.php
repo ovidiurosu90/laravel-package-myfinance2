@@ -42,7 +42,7 @@
                             style="font-size: 0.75rem; color: #6c757d;"
                             data-bs-toggle="tooltip"
                             data-bs-placement="top"
-                            data-bs-custom-class="big-tooltips"
+                            data-bs-custom-class="tooltip-md"
                             data-bs-title="No withholding tax applies for this country. This is configured via dividend_withholding_tax_countries in trades.php."></i>
                     @endif
                 </td>

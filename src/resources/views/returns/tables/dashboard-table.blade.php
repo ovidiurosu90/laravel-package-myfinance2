@@ -44,7 +44,7 @@
                             data-bs-toggle="tooltip"
                             data-bs-placement="bottom"
                             data-bs-html="true"
-                            data-bs-custom-class="big-tooltips3"
+                            data-bs-custom-class="tooltip-wide"
                             data-bs-title="{{ trans($formulaTooltipKey) }}"></i>
                     </small>
                 </div>

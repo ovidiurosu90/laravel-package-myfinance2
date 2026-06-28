@@ -306,7 +306,10 @@ final class TierClassifier
         return match ($basis)
         {
             TierDecision::BASIS_ANNUALIZED_RETURN =>
-                'Annualized return (CAGR) ' . $pct . ' on your position (held over a year).',
+                $inputs->priorClosedWindows > 0
+                    ? 'Annualized return ' . $pct . ' on your position ('
+                        . ($inputs->priorClosedWindows + 1) . ' windows, capital-and-time-weighted).'
+                    : 'Annualized return (CAGR) ' . $pct . ' on your position (held over a year).',
             TierDecision::BASIS_RAW_RETURN => $this->_rawExplanation($inputs, $pct),
             TierDecision::BASIS_MARKET_MOMENTUM => $inputs->isOwned
                 ? 'Market 1Y return ' . $pct . ' (position too new for a return figure).'

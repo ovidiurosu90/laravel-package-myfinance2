@@ -60,7 +60,7 @@
                                                color: #6c757d;"
                                         data-bs-toggle="tooltip"
                                         data-bs-placement="top"
-                                        data-bs-custom-class="big-tooltips"
+                                        data-bs-custom-class="tooltip-md"
                                         data-bs-html="true"
                                         data-bs-title="{{ trans(
                                             'myfinance2::overview'
@@ -84,7 +84,7 @@
                                     @if($tooltip)
                                         data-bs-toggle="tooltip"
                                         data-bs-placement="top"
-                                        data-bs-custom-class="big-tooltips"
+                                        data-bs-custom-class="tooltip-md"
                                         data-bs-html="true"
                                         data-bs-title="{!! $tooltip !!}"
                                     @endif>

@@ -111,7 +111,7 @@
                             data-usd-show-warning="{{ $dividend['USD']['showMissingRateWarning'] ? 'true' : 'false' }}">
                             <span @if($dividend['EUR']['conversionExchangeRateClean']) data-bs-toggle="tooltip"
                                 data-bs-placement="top"
-                                data-bs-custom-class="big-tooltips"
+                                data-bs-custom-class="tooltip-md"
                                 data-bs-html="true"
                                 data-bs-title="{{ $tooltipEUR }}" @endif>
                             {!! $dividend['EUR']['formatted'] !!}</span>

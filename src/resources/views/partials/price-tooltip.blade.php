@@ -70,6 +70,6 @@
     $tooltipHtml = implode('<br>', $tooltipLines);
 @endphp
 <span data-bs-toggle="tooltip"
-      data-bs-custom-class="big-tooltips"
+      data-bs-custom-class="tooltip-md"
       data-bs-html="true"
       data-bs-title="{!! $tooltipHtml !!}">{!! $content !!}</span>

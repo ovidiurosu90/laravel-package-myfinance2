@@ -107,7 +107,7 @@
                             <i class="fa-solid fa-circle-info me-1 {{ $priceIconColor }}"
                                 data-bs-toggle="tooltip"
                                 data-bs-placement="top"
-                                data-bs-custom-class="big-tooltips"
+                                data-bs-custom-class="tooltip-md"
                                 data-bs-html="true"
                                 data-bs-title="{!! $priceTooltipAttr !!}">
                             </i>
@@ -138,7 +138,7 @@
                             <i class="fa-solid fa-circle-info me-1 {{ $fxIconColor }}"
                                 data-bs-toggle="tooltip"
                                 data-bs-placement="top"
-                                data-bs-custom-class="big-tooltips"
+                                data-bs-custom-class="tooltip-md"
                                 data-bs-html="true"
                                 data-bs-title="{!! $fxTooltipAttr !!}"></i>
                             {{ $position['exchangeRateClean'] }}
@@ -161,7 +161,7 @@
                         data-usd-tooltip="{{ $tooltipUSD }}">
                         <span data-bs-toggle="tooltip"
                             data-bs-placement="top"
-                            data-bs-custom-class="big-tooltips"
+                            data-bs-custom-class="tooltip-md"
                             data-bs-html="true"
                             data-bs-title="{{ $tooltipEUR }}">
                         {!! $position['EUR']['marketValueFormatted'] !!}</span>
@@ -197,7 +197,7 @@
                     style="font-size: 0.8rem; cursor: pointer; color: #6c757d;"
                     data-bs-toggle="tooltip"
                     data-bs-html="true"
-                    data-bs-custom-class="big-tooltips"
+                    data-bs-custom-class="tooltip-md"
                     data-bs-title="Cash movements (e.g. bank to broker cash account) are not counted towards the return.&lt;br&gt;In-kind security transfers are counted under Purchases &amp; Sales instead.">
                 </i>
             @endif
