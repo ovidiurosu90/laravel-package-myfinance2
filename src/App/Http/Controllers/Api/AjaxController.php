@@ -263,7 +263,8 @@ class AjaxController extends MyFinance2Controller
 
         // Closing-based 52-week range for the range bar's primary high/low (Yahoo's intraday
         // figures stay as the secondary). Null fields when there is no usable history.
-        $closing = $financeUtils->closingExtremesNative($symbol);
+        $livePrice = is_numeric($q['price'] ?? null) ? (float) $q['price'] : null;
+        $closing = $financeUtils->closingExtremesNative($symbol, $livePrice);
 
         return response()->json([
             'name'         => $q['name'],

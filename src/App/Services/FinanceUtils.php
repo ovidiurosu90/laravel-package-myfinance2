@@ -76,7 +76,8 @@ class FinanceUtils
         // Closing-based 52-week range (highest / lowest daily close over the past year, native
         // currency, dated) so the chart modal can show it as the primary range alongside Yahoo's
         // intraday high / low. Null fields when there is no usable history.
-        $closing = $this->closingExtremesNative($symbol);
+        $livePrice = is_numeric($currentPrice) ? (float) $currentPrice : null;
+        $closing = $this->closingExtremesNative($symbol, $livePrice);
 
         return [
             'price'           => $price,
@@ -132,9 +133,11 @@ class FinanceUtils
      * same minimum-history guard so the two surfaces agree on whether a range exists; keep them
      * consistent if either changes.
      *
+     * @param float|null $currentPrice Live price to consider as a candidate extreme (bumps the
+     *                                  closing high/low when it exceeds the historical range).
      * @return array{high:float,high_date:string,low:float,low_date:string}|null
      */
-    public function closingExtremesNative(string $symbol): ?array
+    public function closingExtremesNative(string $symbol, ?float $currentPrice = null): ?array
     {
         $fromDate = (new \DateTime('-365 days'))->format('Y-m-d');
         $toDate   = (new \DateTime())->format('Y-m-d');
@@ -168,6 +171,15 @@ class FinanceUtils
         if ($count < self::MIN_CLOSING_HISTORY_DAYS
             || $high <= 0.0 || $low <= 0.0 || $highDate === null || $lowDate === null) {
             return null;
+        }
+
+        if ($currentPrice !== null && $currentPrice > $high) {
+            $high     = $currentPrice;
+            $highDate = (new \DateTime())->format('Y-m-d');
+        }
+        if ($currentPrice !== null && $currentPrice < $low) {
+            $low     = $currentPrice;
+            $lowDate = (new \DateTime())->format('Y-m-d');
         }
 
         return [

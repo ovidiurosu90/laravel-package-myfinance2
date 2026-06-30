@@ -255,6 +255,19 @@ class WatchlistTableMetaBuilder
 
         $highNative = $ext['high_native'] ?? null;
         $lowNative  = $ext['low_native'] ?? null;
+        $highDate   = $ext['high_date'];
+        $lowDate    = $ext['low_date'];
+
+        // Bump extremes with the current live price so that a price that is a new high or low
+        // (whether the market is open or the day has just closed) is reflected immediately.
+        if ($price !== null && $highNative !== null && $price > (float) $highNative) {
+            $highNative = $price;
+            $highDate   = \Carbon\Carbon::today()->format('Y-m-d');
+        }
+        if ($price !== null && $lowNative !== null && $price < (float) $lowNative) {
+            $lowNative = $price;
+            $lowDate   = \Carbon\Carbon::today()->format('Y-m-d');
+        }
 
         // Distance from the live price: positive when below the closing high / above the closing low.
         $highPct = ($price !== null && $highNative !== null && (float) $highNative > 0.0)
@@ -266,10 +279,10 @@ class WatchlistTableMetaBuilder
 
         return [
             'high_native' => $highNative,
-            'high_date'   => \Carbon\Carbon::parse($ext['high_date'])->format('d M Y'),
+            'high_date'   => \Carbon\Carbon::parse($highDate)->format('d M Y'),
             'high_pct'    => $highPct,
             'low_native'  => $lowNative,
-            'low_date'    => \Carbon\Carbon::parse($ext['low_date'])->format('d M Y'),
+            'low_date'    => \Carbon\Carbon::parse($lowDate)->format('d M Y'),
             'low_pct'     => $lowPct,
         ];
     }
