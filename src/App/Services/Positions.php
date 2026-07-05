@@ -441,8 +441,20 @@ class Positions
                 $recentSuccess = $lastSuccess !== null && (time() - $lastSuccess) <= 10 * 60;
             }
 
-            if (!empty($quote) && !empty($quote['day_change'])) {
-                $position['day_change'] = $quote['day_change'];
+            // A present quote with a genuine 0.0 change is valid data (a flat symbol),
+            // not missing data. Test for presence (!== null), not truthiness, so a
+            // legitimate zero is not misread as missing: it is stored as-is and records
+            // a success, which also throttles any later transient nulls for this symbol.
+            // A missing quote or a genuinely absent (null) change keeps the original
+            // signal: WARNING, downgraded to DEBUG only when a recent success is cached.
+            // We deliberately do NOT blanket-silence a null change, so a holding that
+            // unexpectedly stops reporting its day change still surfaces.
+            $dayChange = !empty($quote) ? ($quote['day_change'] ?? null) : null;
+            $dayChangePercentage =
+                !empty($quote) ? ($quote['day_change_percentage'] ?? null) : null;
+
+            if ($dayChange !== null) {
+                $position['day_change'] = $dayChange;
                 $position['pre_market_day_change'] =
                     !empty($quote['pre_market_day_change'])
                     ? $quote['pre_market_day_change'] : false;
@@ -456,8 +468,8 @@ class Positions
                         : LOG::warning("No quote day change for symbol $symbol! Defaulting to 0...");
                 }
             }
-            if (!empty($quote) && !empty($quote['day_change_percentage'])) {
-                $position['day_change_percentage'] = $quote['day_change_percentage'];
+            if ($dayChangePercentage !== null) {
+                $position['day_change_percentage'] = $dayChangePercentage;
                 $position['pre_market_day_change_percentage'] =
                     !empty($quote['pre_market_day_change_percentage'])
                     ? $quote['pre_market_day_change_percentage'] : false;

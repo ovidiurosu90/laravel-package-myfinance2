@@ -7,6 +7,8 @@ namespace ovidiuro\myfinance2\App\Services;
 use Cache;
 
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\ConnectException;
+use GuzzleHttp\Exception\ServerException;
 use Illuminate\Support\Facades\Log;
 use Scheb\YahooFinanceApi\UserAgent;
 use Scheb\YahooFinanceApi\ApiClient;
@@ -23,6 +25,10 @@ class FinanceAPI
     private const SECTOR_CACHE_KEY_PREFIX = 'SECTOR_';
     private const SECTOR_CACHE_TTL = 604800; // 7 days
 
+    // Transient-failure retry policy for Yahoo Finance calls.
+    private const RETRY_MAX_ATTEMPTS = 3;    // total tries (initial + 2 retries)
+    private const RETRY_BASE_DELAY_MS = 300; // exponential backoff base per retry
+
     public function __construct()
     {
         // Deal with '429 Too Many Requests' errors, use curl_impersonate
@@ -34,6 +40,39 @@ class FinanceAPI
         $options = [/*...*/];
         $guzzleClient = new Client($options);
         return ApiClientFactory::createApiClient($guzzleClient);
+    }
+
+    /**
+     * Execute a Yahoo Finance client call, retrying only transient failures
+     * (5xx responses and connection resets/timeouts) with exponential backoff.
+     * These are Yahoo-side blips that typically clear within a second, so a
+     * short in-run retry avoids escalating a single hiccup to WARNING/ERROR.
+     * Non-transient errors (4xx, including 429, and decode errors) are not
+     * retried; the last exception is rethrown so the caller handles it as before.
+     *
+     * @throws \Exception the last exception when all attempts fail
+     */
+    private function _withRetry(callable $operation, string $context)
+    {
+        $attempt = 0;
+        while (true) {
+            try {
+                return $operation();
+            } catch (ConnectException | ServerException $e) {
+                $attempt++;
+                if ($attempt >= self::RETRY_MAX_ATTEMPTS) {
+                    throw $e;
+                }
+
+                $delayMs = self::RETRY_BASE_DELAY_MS * (2 ** ($attempt - 1));
+                Log::info(
+                    "FinanceAPI retry $attempt/" . (self::RETRY_MAX_ATTEMPTS - 1)
+                    . " for $context after transient error (waiting {$delayMs}ms): "
+                    . $e->getMessage()
+                );
+                usleep($delayMs * 1000);
+            }
+        }
     }
 
     public static function isUnlisted(string $symbol): bool
@@ -82,7 +121,10 @@ class FinanceAPI
             $client = $this->getClient();
 
             try {
-                $quote = $client->getQuote($symbol);
+                $quote = $this->_withRetry(
+                    fn () => $client->getQuote($symbol),
+                    "getQuote($symbol)"
+                );
                 if (!empty($quote)) {
                     $this->cacheQuote($quote, $persistStats);
                 }
@@ -143,7 +185,10 @@ class FinanceAPI
             $client = $this->getClient();
 
             try {
-                $apiQuotes = $client->getQuotes($missingCachedSymbols);
+                $apiQuotes = $this->_withRetry(
+                    fn () => $client->getQuotes($missingCachedSymbols),
+                    'getQuotes(' . join(', ', $missingCachedSymbols) . ')'
+                );
                 $this->cacheQuotes($apiQuotes, $persistStats);
                 $quotes = array_merge($quotes, $apiQuotes);
             } catch (\Exception $e) {
@@ -202,7 +247,10 @@ class FinanceAPI
             $client = $this->getClient();
 
             try {
-                $quotes = $client->getExchangeRates($currencyPairs);
+                $quotes = $this->_withRetry(
+                    fn () => $client->getExchangeRates($currencyPairs),
+                    'getExchangeRates(' . implode(', ', $symbols) . ')'
+                );
                 $this->cacheQuotes($quotes, $persistStats);
             } catch (\Exception $e) {
                 Log::warning(

@@ -297,7 +297,10 @@ class MoversService
         $total = 0.0;
         foreach ($positions as $symbol => $position) {
             if (empty($quotes[$symbol]['price'])) {
-                Log::warning("MoversService: no quote price for {$symbol}, excluded from portfolio total");
+                // Root cause is reported once up front in refreshAllMovers(); keep the
+                // per-computation trace at DEBUG so one missing symbol does not emit
+                // a WARNING from every mover calculation.
+                Log::debug("MoversService: no quote price for {$symbol}, excluded from portfolio total");
                 continue;
             }
             $eurRate = $this->_getEurRate($position['trade_currency'], $currentDate, $symbol);
@@ -424,7 +427,7 @@ class MoversService
 
         foreach ($positions as $symbol => $position) {
             if (!isset($quotes[$symbol])) {
-                Log::warning("MoversService: no quote for {$symbol} in today movers, skipping");
+                Log::debug("MoversService: no quote for {$symbol} in today movers, skipping");
                 continue;
             }
 
@@ -512,7 +515,7 @@ class MoversService
             $earliestTradeDate = $position['earliest_trade_date'] ?? null;
             $isLateOpen = ($earliestTradeDate !== null && $earliestTradeDate > $refDateStr);
             if (empty($quotes[$symbol]['price'])) {
-                Log::warning("MoversService: no quote price for {$symbol} in historical movers, skipping");
+                Log::debug("MoversService: no quote price for {$symbol} in historical movers, skipping");
                 continue;
             }
 
@@ -628,7 +631,7 @@ class MoversService
                 continue;
             }
             if (empty($quotes[$symbol]['price'])) {
-                Log::warning("MoversService: no quote price for {$symbol} in all-time movers, skipping");
+                Log::debug("MoversService: no quote price for {$symbol} in all-time movers, skipping");
                 continue;
             }
             $earliestTradeDate = $position['earliest_trade_date'] ?? null;
@@ -705,6 +708,29 @@ class MoversService
                 Log::warning("MoversService: unlisted symbol {$symbol} has no FMV config, skipping");
             }
         }
+
+        // Report symbols with no current quote once, up front. Each mover computation
+        // below independently skips these (at DEBUG), so warning per-computation would
+        // turn a single missing symbol into six or seven WARNING lines. Delisted and
+        // unlisted symbols are expected to lack a live quote and are excluded here.
+        $delistedSymbols = config('trades.delisted_symbols', []);
+        $missingQuoteSymbols = [];
+        foreach ($positions as $symbol => $position) {
+            if (UnlistedSymbol::isUnlisted($symbol)
+                || in_array($symbol, $delistedSymbols, true)
+            ) {
+                continue;
+            }
+            if (empty($quotes[$symbol]['price'])) {
+                $missingQuoteSymbols[] = $symbol;
+            }
+        }
+        if (!empty($missingQuoteSymbols)) {
+            Log::warning('MoversService: no current quote for '
+                . implode(', ', $missingQuoteSymbols)
+                . '; excluded from movers and portfolio total');
+        }
+
         $totalPortfolioEur = $this->_computeTotalPortfolioValueEur($positions, $quotes, $currentDate);
 
         // _computeTodayMovers resolves the session date itself (today, or the last completed session
