@@ -122,7 +122,7 @@
                                             </td>
                                             <td>
                                                 <span class="badge
-                                                    {{ $notif->alert_type === 'PRICE_ABOVE' ? 'bg-danger' : 'bg-primary' }}">
+                                                    {{ $notif->alert_type === 'PRICE_ABOVE' ? 'bg-success' : 'bg-danger' }}">
                                                     {{ $notif->alert_type === 'PRICE_ABOVE' ? '▲ Above' : '▼ Below' }}
                                                 </span>
                                             </td>

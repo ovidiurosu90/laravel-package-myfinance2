@@ -118,6 +118,69 @@ class PriceAlert extends MyFinance2Model
         };
     }
 
+    /**
+     * Short countdown label for the expiry (e.g. "in 2d", "today", "expired"),
+     * or null when the alert has no expiry. Shared by every view that surfaces
+     * an alert so the wording stays identical.
+     */
+    public function getExpiryLabel(): ?string
+    {
+        if ($this->expires_at === null) {
+            return null;
+        }
+
+        $expLocal = $this->expires_at->timezone(config('app.timezone'));
+        if ($expLocal->isPast()) {
+            return 'expired';
+        }
+
+        $daysLeft = (int) now(config('app.timezone'))->diffInDays($expLocal);
+
+        return match (true) {
+            $daysLeft === 0 => 'today',
+            $daysLeft === 1 => 'tmrw',
+            default         => "in {$daysLeft}d",
+        };
+    }
+
+    /**
+     * Bootstrap badge class for the expiry countdown, or null when there is no
+     * expiry. Red once past, amber within three days, muted otherwise.
+     */
+    public function getExpiryBadgeClass(): ?string
+    {
+        if ($this->expires_at === null) {
+            return null;
+        }
+
+        $expLocal = $this->expires_at->timezone(config('app.timezone'));
+        if ($expLocal->isPast()) {
+            return 'bg-danger';
+        }
+
+        $daysLeft = (int) now(config('app.timezone'))->diffInDays($expLocal);
+
+        return $daysLeft <= 3 ? 'bg-warning text-dark' : 'bg-secondary';
+    }
+
+    /**
+     * Human phrase for the expiry, ready for a tooltip (e.g. "Expires in 2d
+     * (2026-07-07)" or "Expired (2026-07-01)"), or null when there is no expiry.
+     */
+    public function getExpiryTooltip(): ?string
+    {
+        $label = $this->getExpiryLabel();
+        if ($label === null) {
+            return null;
+        }
+
+        $date = $this->expires_at->timezone(config('app.timezone'))->format('Y-m-d');
+
+        return $label === 'expired'
+            ? "Expired ({$date})"
+            : "Expires {$label} ({$date})";
+    }
+
     public function getFormattedTargetPrice(): string
     {
         if (empty($this->tradeCurrencyModel)) {

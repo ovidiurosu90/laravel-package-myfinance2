@@ -317,13 +317,21 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                     </a>
                     @if (!empty($quoteData['active_alerts']))
                         @foreach ($quoteData['active_alerts'] as $activeAlert)
-                        @php $alertColor = str_replace('bg-', '', $activeAlert->getAlertTypeBadgeClass()); @endphp
+                        @php
+                            $alertColor = str_replace('bg-', '', $activeAlert->getAlertTypeBadgeClass());
+
+                            $alertTip = ['<strong>Edit alert</strong>', 'Symbol: ' . e($symbol)];
+                            if ($activeAlert->getExpiryTooltip()) {
+                                $alertTip[] = e($activeAlert->getExpiryTooltip());
+                            }
+                        @endphp
                         <a href="{{ route('myfinance2::price-alerts.edit', $activeAlert->id) }}"
                             class="d-block text-center w-100 mb-1 status-badge-link"
                             data-bs-toggle="tooltip"
-                            title="Edit alert for {{ $symbol }}">
+                            data-bs-html="true"
+                            title="{!! implode('<br>', $alertTip) !!}">
                             <span class="badge d-block w-100 text-center border border-{{ $alertColor }} text-{{ $alertColor }}">
-                                {{ $activeAlert->alert_type === 'PRICE_ABOVE' ? '▲ Above' : '▼ Below' }}
+                                {{ $activeAlert->alert_type === 'PRICE_ABOVE' ? '▲ Above' : '▼ Below' }}@if ($activeAlert->expires_at) <i class="fa fa-clock-o fa-xs" aria-hidden="true"></i>@endif
                                 <br>{!! MoneyFormat::get_formatted_price_display(
                                     $quoteData['tradeCurrencyModel']->display_code,
                                     (float) $activeAlert->target_price,

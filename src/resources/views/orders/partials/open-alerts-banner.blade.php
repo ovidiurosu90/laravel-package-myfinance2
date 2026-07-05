@@ -12,16 +12,13 @@
         @foreach ($openAlerts as $alert)
             @php
                 $currencyCode = $alert->tradeCurrencyModel?->display_code ?? '';
-                $expiresAt = $alert->expires_at?->timezone(config('app.timezone'));
             @endphp
             <li class="small">
                 <span class="badge {{ $alert->getAlertTypeBadgeClass() }}">
                     {{ $alert->alert_type === 'PRICE_ABOVE' ? '▲ Above' : '▼ Below' }}
                 </span>
                 {!! MoneyFormat::get_formatted_price_display($currencyCode, (float) $alert->target_price, true) !!}
-                @if ($expiresAt)
-                    <span class="text-muted">(expires {{ $expiresAt->format('Y-m-d') }})</span>
-                @endif
+                @include('myfinance2::partials.alert-expiry-badge', ['alert' => $alert])
                 <a href="{{ route('myfinance2::price-alerts.edit', $alert->id) }}"
                    class="ms-1"
                    target="_blank">edit</a>

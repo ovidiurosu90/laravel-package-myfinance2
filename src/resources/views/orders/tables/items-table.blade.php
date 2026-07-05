@@ -64,14 +64,28 @@
                 <td>
                     {{ $item->action }}
                     @if (!empty($activeAlerts[$item->symbol]))
+                        @php $limitPrice = $item->limit_price !== null ? (float) $item->limit_price : null; @endphp
                         @foreach ($activeAlerts[$item->symbol] as $activeAlert)
+                        @php
+                            $alertTiedToOrder = $limitPrice !== null
+                                && abs((float) $activeAlert->target_price - $limitPrice) < 0.0001;
+
+                            $alertTip = ['<strong>Edit alert</strong>', 'Symbol: ' . e($activeAlert->symbol)];
+                            if ($activeAlert->getExpiryTooltip()) {
+                                $alertTip[] = e($activeAlert->getExpiryTooltip());
+                            }
+                            if ($alertTiedToOrder) {
+                                $alertTip[] = 'Linked to this order';
+                            }
+                        @endphp
                         <a href="{{ route('myfinance2::price-alerts.edit', $activeAlert->id) }}"
                             class="d-block mt-1"
                             data-bs-toggle="tooltip"
-                            title="Edit alert for {{ $item->symbol }}">
+                            data-bs-html="true"
+                            title="{!! implode('<br>', $alertTip) !!}">
                             <span class="badge d-block w-100 text-center
                                 {{ $activeAlert->getAlertTypeBadgeClass() }}">
-                                {{ $activeAlert->alert_type === 'PRICE_ABOVE' ? '▲ Above' : '▼ Below' }}
+                                {{ $activeAlert->alert_type === 'PRICE_ABOVE' ? '▲ Above' : '▼ Below' }}@if ($alertTiedToOrder) <i class="fa fa-link fa-xs" aria-hidden="true"></i>@endif @if ($activeAlert->expires_at)<i class="fa fa-clock-o fa-xs" aria-hidden="true"></i>@endif
                                 <br>{!! MoneyFormat::get_formatted_price_display(
                                     $activeAlert->tradeCurrencyModel?->display_code ?? $currencyCode,
                                     (float) $activeAlert->target_price,

@@ -119,28 +119,10 @@
                         <span class="badge bg-light text-dark border">{{ $item->source }}</span>
                     </div>
                     @if ($item->expires_at)
-                        @php
-                            $expiresAt = $item->expires_at->timezone(config('app.timezone'));
-                            if ($expiresAt->isPast()) {
-                                $expBadgeClass = 'bg-danger';
-                                $expLabel = 'expired';
-                            } else {
-                                $daysLeft = (int) now(config('app.timezone'))->diffInDays($expiresAt);
-                                $expBadgeClass = $daysLeft <= 3 ? 'bg-warning text-dark' : 'bg-secondary';
-                                $expLabel = match(true) {
-                                    $daysLeft === 0 => 'today',
-                                    $daysLeft === 1 => 'tmrw',
-                                    default         => "in {$daysLeft}d",
-                                };
-                            }
-                        @endphp
                         <div class="mt-1">
-                            <span class="badge {{ $expBadgeClass }}"
-                                  data-bs-toggle="tooltip"
-                                  data-bs-placement="top"
-                                  title="Expires: {{ $expiresAt->format('Y-m-d') }}">
-                                <i class="fa fa-clock-o" aria-hidden="true"></i> {{ $expLabel }}
-                            </span>
+                            @include('myfinance2::partials.alert-expiry-badge', [
+                                'alert' => $item,
+                            ])
                         </div>
                     @endif
                 </td>
