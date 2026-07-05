@@ -368,6 +368,28 @@ class ChartsBuilder
             fn() => self::getOverviewUserMetricPath($userId, $metric));
     }
 
+    /**
+     * Stored user overview series as date => value, ascending. Shared server-side accessor so
+     * consumers (DipBuyingPlanService, PortfolioPeakAlertService) do not each carry their own
+     * regex copy of the JS-literal parser.
+     *
+     * @return array<string, float>
+     */
+    public static function getChartOverviewUserAsArray(int $userId, string $metric): array
+    {
+        $points = self::_parseChartLiteral(self::getChartOverviewUserAsJsonString($userId, $metric));
+
+        $series = [];
+        foreach ($points as $point) {
+            if (isset($point['time'], $point['value'])) {
+                $series[(string) $point['time']] = (float) $point['value'];
+            }
+        }
+        ksort($series);
+
+        return $series;
+    }
+
     public static function getChartAccountAsJsonString(array $accountData,
         string $metric): string
     {

@@ -103,4 +103,44 @@ return [
 
         'email_to' => env('MYFINANCE2_DIP_BUYING_EMAIL_TO', null),
     ],
+
+    // Portfolio Peak Alerts: email when the portfolio's EUR gain or return on cost is within N% of
+    // its 6M/1Y/2Y high. Portfolio-level "consider exiting / starting over" hint, complementary to
+    // the per-symbol peak-proximity alerts. Negative window peaks are in scope (a book that keeps
+    // selling winners can be underwater at its best); change_EUR proximity is measured against
+    // |peak| with a magnitude floor, change_pct on the value index (1 + cp/100).
+    'portfolio_peak' => [
+        'enabled' => env('MYFINANCE2_PORTFOLIO_PEAK_ENABLED', true),
+        // Windows that can actually fire the alert. 3M is deliberately excluded (too short for a
+        // "consider a full exit" signal), but it is still shown in the email as context (see
+        // display_windows), mirroring how the per-symbol peak-proximity alert treats 3M.
+        'windows' => ['6m', '1y', '2y'],
+        // Windows rendered in the email's per-window breakdown table, in display order. 3M is
+        // context only here; it never gates a send.
+        'display_windows' => ['3m', '6m', '1y', '2y'],
+        // Per-metric, per-window proximity thresholds (%). They differ by metric on purpose: EUR gain
+        // proximity is measured against |peak| and is contribution-sensitive (adding capital moves the
+        // absolute euro P&L independently of performance), so its bands are wide; Return % proximity is
+        // on the normalized value index, so its bands are tight. 3M is a reference line only (never
+        // fires; see windows vs display_windows).
+        'window_thresholds' => [
+            'change_eur' => [
+                '3m' => env('MYFINANCE2_PORTFOLIO_PEAK_EUR_THRESHOLD_3M', 5),
+                '6m' => env('MYFINANCE2_PORTFOLIO_PEAK_EUR_THRESHOLD_6M', 10),
+                '1y' => env('MYFINANCE2_PORTFOLIO_PEAK_EUR_THRESHOLD_1Y', 20),
+                '2y' => env('MYFINANCE2_PORTFOLIO_PEAK_EUR_THRESHOLD_2Y', 30),
+            ],
+            'change_pct' => [
+                '3m' => env('MYFINANCE2_PORTFOLIO_PEAK_PCT_THRESHOLD_3M', 0.5),
+                '6m' => env('MYFINANCE2_PORTFOLIO_PEAK_PCT_THRESHOLD_6M', 1),
+                '1y' => env('MYFINANCE2_PORTFOLIO_PEAK_PCT_THRESHOLD_1Y', 3),
+                '2y' => env('MYFINANCE2_PORTFOLIO_PEAK_PCT_THRESHOLD_2Y', 5),
+            ],
+        ],
+        // change_EUR windows whose peak magnitude is under this floor (EUR) are skipped; a
+        // threshold band around a near-zero peak would flip on noise.
+        'min_peak_abs_eur' => env('MYFINANCE2_PORTFOLIO_PEAK_MIN_PEAK_ABS_EUR', 1000),
+        'reminder_days'    => env('MYFINANCE2_PORTFOLIO_PEAK_REMINDER_DAYS', 7),
+        'email_to'         => env('MYFINANCE2_PORTFOLIO_PEAK_EMAIL_TO', null),
+    ],
 ];

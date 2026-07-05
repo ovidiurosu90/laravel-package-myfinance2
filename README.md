@@ -343,6 +343,49 @@ php artisan finance:dip-buying-backtest --user-id=1 --from=2025-01-01 --pool=100
 These alerts are **off by default**. Set the pool, enable the feature and the email channel at `/dip-buying-alerts` (an optional advanced JSON override replaces the default ladder). Configuration (env, all optional): `MYFINANCE2_DIP_BUYING_ENABLED` (default true); `MYFINANCE2_DIP_BUYING_TOLERANCE_PCT` (default 5); `MYFINANCE2_DIP_BUYING_PEAK_LOOKBACK_YEARS` (default 3); `MYFINANCE2_DIP_BUYING_MA_TREND_PERIOD` (default 200); `MYFINANCE2_DIP_BUYING_STALL_BACKSTOP_MONTHS` (default 6); `MYFINANCE2_DIP_BUYING_MIN_EPISODE_DD_PCT` (default 10); `MYFINANCE2_DIP_BUYING_RSI_NOTE_ENABLED` (default false) with `MYFINANCE2_DIP_BUYING_RSI_OVERSOLD_LEVEL` (default 30); `MYFINANCE2_DIP_BUYING_EMAIL_TO` (defaults to the alerts email, then the user's email). Migrations add the `dip_buying_settings` opt-in table and the `dip_buying_notifications` audit/throttle table; run `php artisan migrate` to apply them. The per-user plan is cached 2h (like `DrawdownService`); a settings change clears it, and editing the ladder defaults or the drawdown formula needs a `cache:clear`.
 
 
+### finance:portfolio-peak-alerts
+
+The mirror image of the dip-buying alert, at the **portfolio** level and on the way **up**. It emails when your whole portfolio's EUR gain (`change_EUR`) or return on cost (`changePercentage_EUR`) has rallied back to within N% of its rolling 6M / 1Y / 2Y high, a "consider reducing exposure, taking some profit, or rebalancing" hint that complements the per-symbol `finance:peak-proximity-alerts`. Both series are read from the stored daily overview chart through the shared `ChartsBuilder::getChartOverviewUserAsArray()` accessor; the VUSA.AS 2Y distance is included in the email for context only and never gates the trigger.
+
+Each metric can be enabled or disabled independently per user. **Negative window peaks are in scope**: a book that keeps selling winners can be left holding losers and sit underwater even at its window high, so `change_EUR` proximity is measured against `|peak|` (with a `min_peak_abs_eur` magnitude floor to skip near-zero peaks that would flip on noise) and `changePercentage_EUR` proximity is measured on the value index `1 + return/100` (the same transform the Dip Buying engine uses), so the "drawdown from the window high" reading stays sane whether the peak return is +40% or -3%. The alert fires when **any** enabled (metric, window) pair is within its **per-metric** window threshold (Return % defaults 1 / 3 / 5% for 6M / 1Y / 2Y; EUR gain defaults 10 / 20 / 30%, wider because its proximity is measured against `|peak|` and moves with contributions), capped at one email per user per day, then re-sent every `reminder_days` (default 7) while the condition holds.
+
+The email renders a **full per-window breakdown table** (metric x window), not just the windows that fired: for each metric it shows the current value, the window peak and its date, how far below the peak the value sits, the window's threshold, and whether that window fires. This is a calibration aid, so you can see how close each window is and whether a threshold needs tuning. A **3M window** is included in the table for context only (it is shown for awareness and never fires on its own, mirroring the per-symbol peak-proximity alert's treatment of 3M).
+
+```bash
+sudo su
+crontab -e
+
+#############
+# Purpose: Portfolio Peak Alert email when the portfolio's EUR gain or return on cost is near its
+# rolling 6M/1Y/2Y high. Checked hourly but throttled to one email per user per day, so running
+# every hour is safe; it just surfaces a trigger sooner. Off by default; only users who enabled the
+# feature AND the email channel on /portfolio-peak-alerts are processed, so a full run is a no-op
+# for everyone else. The command is lightweight (reads the cached overview chart series, no Yahoo
+# API), runs at minute :48, clear of the other finance crons (peak-proximity at :12,
+# --refresh-returns at :24, dip-buying at :33, app:stats-cron at :42, --refresh-symbol-performance
+# at :54), and logs to finance-api-cron.log (WARNING+ entries surface in the
+# logs:email-daily-errors digest).
+
+48 * * * * su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Repositories/laravel-admin/ && cpulimit -l 50 -- php artisan finance:portfolio-peak-alerts --all-users >> [USER_HOME]/Repositories/laravel-admin/storage/logs/finance-api-cron.log 2>&1"
+
+# Run shortly after boot too (after dip-buying at 510s), once the caches are warm
+@reboot sleep 540 && su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd [USER_HOME]/Repositories/laravel-admin/ && cpulimit -l 50 -- php artisan finance:portfolio-peak-alerts --all-users >> [USER_HOME]/Repositories/laravel-admin/storage/logs/finance-api-cron.log 2>&1"
+#############
+```
+
+To limit hourly runs to market hours (08:00 to 22:00 server time), use `48 8-22 * * *` instead of `48 * * * *`.
+
+```bash
+# Preview for one user without sending or recording
+php artisan finance:portfolio-peak-alerts --user-id=1 --dry-run
+
+# All users with the feature + email enabled
+php artisan finance:portfolio-peak-alerts --all-users
+```
+
+These alerts are **off by default**. Enable the feature, the email channel and the per-metric toggles at `/portfolio-peak-alerts`. That page also renders the same per-window breakdown table live as a "Current standing" card (the same `PortfolioPeakAlertService` computation the email uses), so you can see where each window sits against its threshold without waiting for an email. Configuration (env, all optional): `MYFINANCE2_PORTFOLIO_PEAK_ENABLED` (default true); per-metric window thresholds `MYFINANCE2_PORTFOLIO_PEAK_EUR_THRESHOLD_3M` / `_6M` / `_1Y` / `_2Y` (defaults 5 / 10 / 20 / 30) and `MYFINANCE2_PORTFOLIO_PEAK_PCT_THRESHOLD_3M` / `_6M` / `_1Y` / `_2Y` (defaults 0.5 / 1 / 3 / 5); the 3M values are a reference line for the context row only, since 3M never fires; `MYFINANCE2_PORTFOLIO_PEAK_MIN_PEAK_ABS_EUR` (default 1000); `MYFINANCE2_PORTFOLIO_PEAK_REMINDER_DAYS` (default 7, `0` means every run that finds a trigger, still capped at one email per day); `MYFINANCE2_PORTFOLIO_PEAK_EMAIL_TO` (defaults to the alerts email, then the user's email). Migrations add the `portfolio_peak_settings` opt-in table and the `portfolio_peak_notifications` audit/throttle table; run `php artisan migrate` to apply them.
+
+
 ### Running tests
 
 NOTE That there are 2 types of tests, in 2 locations:

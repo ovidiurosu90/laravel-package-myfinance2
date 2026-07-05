@@ -82,10 +82,11 @@
                             @if ($actionable->isNotEmpty())
                                 <form method="POST"
                                       action="{{ route('myfinance2::peak-proximity-alerts.dismiss-all') }}"
-                                      onsubmit="return confirm('Dismiss all actionable alerts?');">
+                                      onsubmit="return confirm('Dismiss all action-suggested alerts?');">
                                     @csrf
+                                    <input type="hidden" name="scope" value="actionable">
                                     <button type="submit" class="btn btn-sm btn-outline-secondary">
-                                        Dismiss all
+                                        Dismiss all suggested
                                     </button>
                                 </form>
                             @endif

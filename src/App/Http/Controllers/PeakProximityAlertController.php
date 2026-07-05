@@ -224,8 +224,9 @@ class PeakProximityAlertController extends MyFinance2Controller
     }
 
     /**
-     * Dismiss every OPEN event for the user, or only the informational ones when scope=info (keeping
-     * the actionable ones in the inbox).
+     * Dismiss every OPEN event for the user, or only one section when scope is given: scope=actionable
+     * keeps the informational ones, scope=info keeps the actionable ones. Each of the inbox's two
+     * "Dismiss all" buttons targets its own section, so they no longer overlap.
      *
      * @param Request $request
      *
@@ -233,14 +234,20 @@ class PeakProximityAlertController extends MyFinance2Controller
      */
     public function dismissAll(Request $request)
     {
-        $userId   = (int) auth()->user()->id;
-        $onlyInfo = $request->input('scope') === 'info';
+        $userId = (int) auth()->user()->id;
+        $scope  = $request->input('scope');
+        $scope  = is_string($scope) ? $scope : null; // e.g. scope[]=... would fatal the array lookups
+
+        $classification = [
+            'actionable' => PeakProximityAlertEvent::CLASS_ACTIONABLE,
+            'info'       => PeakProximityAlertEvent::CLASS_INFO,
+        ][$scope] ?? null;
 
         $query = PeakProximityAlertEvent::where('user_id', $userId)
             ->where('status', PeakProximityAlertEvent::STATUS_OPEN);
 
-        if ($onlyInfo) {
-            $query->where('classification', PeakProximityAlertEvent::CLASS_INFO);
+        if ($classification !== null) {
+            $query->where('classification', $classification);
         }
 
         $count = $query->update([
@@ -248,7 +255,10 @@ class PeakProximityAlertController extends MyFinance2Controller
             'dismissed_at' => now(),
         ]);
 
-        $what = $onlyInfo ? 'informational alert(s)' : 'alert(s)';
+        $what = [
+            'actionable' => 'action-suggested alert(s)',
+            'info'       => 'informational alert(s)',
+        ][$scope] ?? 'alert(s)';
 
         return redirect()->route('myfinance2::peak-proximity-alerts.inbox')
             ->with('success', "{$count} {$what} dismissed.");

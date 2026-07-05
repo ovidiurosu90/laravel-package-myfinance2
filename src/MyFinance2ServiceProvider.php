@@ -69,6 +69,7 @@ class MyFinance2ServiceProvider extends ServiceProvider
             \ovidiuro\myfinance2\App\Console\Commands\PeakProximityAlerts::class,
             \ovidiuro\myfinance2\App\Console\Commands\DipBuyingAlerts::class,
             \ovidiuro\myfinance2\App\Console\Commands\DipBuyingBacktest::class,
+            \ovidiuro\myfinance2\App\Console\Commands\PortfolioPeakAlerts::class,
         ]);
     }
 

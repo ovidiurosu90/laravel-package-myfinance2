@@ -2,6 +2,7 @@
 @use('ovidiuro\myfinance2\App\Models\PeakProximityAlertSetting')
 @use('ovidiuro\myfinance2\App\Models\PeakProximityAlertEvent')
 @use('ovidiuro\myfinance2\App\Models\DipBuyingSetting')
+@use('ovidiuro\myfinance2\App\Models\PortfolioPeakSetting')
 @use('ovidiuro\myfinance2\App\Models\Order')
 @role(['admin', 'financeadmin'])
 @php
@@ -22,10 +23,14 @@
         ->where('status', DipBuyingSetting::ENABLED)
         ->where('pool_amount_eur', '>', 0)
         ->exists();
+    $portfolioPeakEnabled = PortfolioPeakSetting::where('user_id', auth()->id())
+        ->where('status', PortfolioPeakSetting::ENABLED)
+        ->exists();
 
     $alertsActive = Request::is('price-alerts') || Request::is('price-alerts/*')
         || Request::is('peak-proximity-alerts') || Request::is('peak-proximity-alerts/*')
-        || Request::is('dip-buying-alerts') || Request::is('dip-buying-alerts/*');
+        || Request::is('dip-buying-alerts') || Request::is('dip-buying-alerts/*')
+        || Request::is('portfolio-peak-alerts') || Request::is('portfolio-peak-alerts/*');
     $tradingActive = Request::is('orders') || Request::is('orders/*')
         || Request::is('trades')
         || Request::is('stock-splits') || Request::is('stock-splits/*')
@@ -141,6 +146,20 @@
                 <a class="dropdown-item ps-4
                     {{ Request::is('dip-buying-alerts/history') ? 'active' : null }}"
                    href="{{ url('/dip-buying-alerts/history') }}">
+                    History
+                </a>
+                <div class="dropdown-divider"></div>
+                <a class="dropdown-item
+                    {{ Request::is('portfolio-peak-alerts') ? 'active' : null }}"
+                   href="{{ url('/portfolio-peak-alerts') }}">
+                    Portfolio Peak Alerts
+                    @if ($portfolioPeakEnabled)
+                        <span class="badge bg-success ms-1">on</span>
+                    @endif
+                </a>
+                <a class="dropdown-item ps-4
+                    {{ Request::is('portfolio-peak-alerts/history') ? 'active' : null }}"
+                   href="{{ url('/portfolio-peak-alerts/history') }}">
                     History
                 </a>
             </div>

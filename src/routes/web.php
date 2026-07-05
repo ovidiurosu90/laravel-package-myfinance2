@@ -70,6 +70,19 @@ Route::group([
     Route::post('dip-buying-alerts',
                 'DipBuyingAlertController@save')->name('dip-buying-alerts.save');
 
+    Route::get('portfolio-peak-alerts/history',
+               'PortfolioPeakNotificationController@index')->name('portfolio-peak-alerts.history');
+    Route::delete('portfolio-peak-alerts/history/{id}',
+                  'PortfolioPeakNotificationController@destroy')
+        ->name('portfolio-peak-alerts.history.destroy');
+    Route::post('portfolio-peak-alerts/history/bulk-action',
+                'PortfolioPeakNotificationController@bulkAction')
+        ->name('portfolio-peak-alerts.history.bulk-action');
+    Route::get('portfolio-peak-alerts',
+               'PortfolioPeakAlertController@index')->name('portfolio-peak-alerts.index');
+    Route::post('portfolio-peak-alerts',
+                'PortfolioPeakAlertController@save')->name('portfolio-peak-alerts.save');
+
     #NOTE Orders custom action routes must be before Route::resource
     Route::post('orders/{id}/place',
                 'OrdersController@place')->name('orders.place');
