@@ -6,6 +6,7 @@ namespace ovidiuro\myfinance2\App\Http\Controllers;
 
 use Illuminate\Http\Request;
 
+use ovidiuro\myfinance2\App\Models\PeakProximityAlertEvent;
 use ovidiuro\myfinance2\App\Models\PeakProximityNotification;
 use ovidiuro\myfinance2\App\Services\PeakProximityAlertService;
 
@@ -67,22 +68,33 @@ class PeakProximityNotificationController extends MyFinance2Controller
     }
 
     /**
-     * Clear all of today's SENT/FAILED notification records for the logged-in user, re-arming every
-     * symbol that already alerted today so the next run (or the Re-run button) can email them again.
-     * Older history is left intact. Scoped to auth()->id().
+     * Re-arm every symbol that already alerted today so the next run (or the Re-run button) can email
+     * them again. This clears both same-day guards for the logged-in user: the SENT/FAILED
+     * notification audit rows (the once-per-day double-send guard) and any events dismissed today (the
+     * same-day dismissal guard that otherwise refuses to reopen an alert you already dismissed today).
+     * Older history and still-open events are left intact. Scoped to auth()->id().
      *
      * @return \Illuminate\Http\RedirectResponse
      */
     public function clearToday(): \Illuminate\Http\RedirectResponse
     {
-        $userId = (int) auth()->user()->id;
+        $userId    = (int) auth()->user()->id;
+        $startOfDay = now()->startOfDay();
 
         $deleted = PeakProximityNotification::where('user_id', $userId)
-            ->where('sent_at', '>=', now()->startOfDay())
+            ->where('sent_at', '>=', $startOfDay)
+            ->delete();
+
+        // Also drop today's dismissals so a re-run can reopen and re-email them; a still-near-peak
+        // symbol gets a fresh OPEN event on the next run.
+        $undismissed = PeakProximityAlertEvent::where('user_id', $userId)
+            ->where('status', PeakProximityAlertEvent::STATUS_DISMISSED)
+            ->where('dismissed_at', '>=', $startOfDay)
             ->delete();
 
         return redirect()->route('myfinance2::peak-proximity-alerts.history')
-            ->with('success', "{$deleted} of today's record(s) cleared; those symbols can alert again today.");
+            ->with('success', "{$deleted} record(s) and {$undismissed} of today's dismissal(s) cleared;"
+                . ' those symbols can alert again today.');
     }
 
     /**

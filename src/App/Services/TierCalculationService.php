@@ -20,8 +20,8 @@ class TierCalculationService
 
     // The benchmark the whole framework measures against (Vanguard S&P 500 UCITS ETF, EUR).
     // Its 10% Gold line is anchored to its LONG-RUN return, not its trailing realized one, so
-    // the benchmark is always pinned to at least Gold (see TierClassifier) and never appears as
-    // Silver just because the market has been soft over a given window.
+    // the benchmark is always pinned to exactly Gold (see TierClassifier): it defines the reference
+    // line and cannot out- or under-perform itself, whatever its noisy trailing return does.
     public const BENCHMARK_SYMBOL = 'VUSA.AS';
 
     // The Gold/Silver boundary. A fixed structural anchor (long-run S&P 500 EUR expectation),

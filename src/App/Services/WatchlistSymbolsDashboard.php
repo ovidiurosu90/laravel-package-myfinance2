@@ -54,13 +54,7 @@ class WatchlistSymbolsDashboard
         }
 
         $quoteSymbols = array_keys($positionsData['quotes']);
-        $activeAlerts = PriceAlert::whereIn('symbol', $quoteSymbols)
-            ->where('status', 'ACTIVE')
-            ->get();
-        $activeAlertsBySymbol = [];
-        foreach ($activeAlerts as $alert) {
-            $activeAlertsBySymbol[$alert->symbol][] = $alert;
-        }
+        $activeAlertsBySymbol = PriceAlert::activeBySymbols($quoteSymbols);
 
         $stockSplits = StockSplit::whereIn('symbol', $quoteSymbols)
             ->orderBy('split_date', 'desc')
@@ -252,6 +246,10 @@ class WatchlistSymbolsDashboard
             // which also folds in dividends and realized gains. Null when the symbol is not held.
             $items[$symbol]['unrealized_gain_eur'] = $positionReturns[$symbol]['gain_eur'] ?? null;
             $items[$symbol]['unrealized_gain_pct'] = $positionReturns[$symbol]['raw_pct'] ?? null;
+            // Today's move on the held shares: the day's P&L in EUR and the symbol's daily price
+            // change %. Surfaced in the peak-proximity email to explain "why now".
+            $items[$symbol]['today_gain_eur'] = $positionReturns[$symbol]['today_gain_eur'] ?? null;
+            $items[$symbol]['today_gain_pct'] = $positionReturns[$symbol]['today_gain_pct'] ?? null;
         }
 
         return [$items, $categorization];
@@ -271,14 +269,21 @@ class WatchlistSymbolsDashboard
                 continue;
             }
 
-            $mvalue   = 0.0;
-            $cost     = 0.0;
-            $earliest = null;
+            $mvalue    = 0.0;
+            $cost      = 0.0;
+            $todayEur  = 0.0;
+            $todayPct  = null;
+            $earliest  = null;
             foreach ($positions as $position) {
-                $currency = $position['accountModel']->currency->iso_code ?? 'EUR';
-                $rate     = (float) ($eurRates[$currency] ?? 1.0);
-                $mvalue  += (float) ($position['market_value_in_account_currency'] ?? 0.0) * $rate;
-                $cost    += (float) ($position['cost2_in_account_currency'] ?? 0.0) * $rate;
+                $currency  = $position['accountModel']->currency->iso_code ?? 'EUR';
+                $rate      = (float) ($eurRates[$currency] ?? 1.0);
+                $mvalue   += (float) ($position['market_value_in_account_currency'] ?? 0.0) * $rate;
+                $cost     += (float) ($position['cost2_in_account_currency'] ?? 0.0) * $rate;
+                $todayEur += (float) ($position['day_change_in_account_currency'] ?? 0.0) * $rate;
+                // Same daily price move across every account holding the symbol; keep the first seen.
+                if ($todayPct === null && ($position['day_change_percentage'] ?? null) !== null) {
+                    $todayPct = (float) $position['day_change_percentage'];
+                }
                 foreach ($position['trades'] ?? [] as $trade) {
                     if ($earliest === null || $trade->timestamp < $earliest) {
                         $earliest = $trade->timestamp;
@@ -287,9 +292,11 @@ class WatchlistSymbolsDashboard
             }
 
             $returns[$symbol] = [
-                'raw_pct'  => $cost > 0.0 ? ($mvalue - $cost) / $cost * 100.0 : null,
-                'gain_eur' => round($mvalue - $cost, 2),
-                'days'     => $earliest !== null ? (int) $earliest->diffInDays(now()) : 0,
+                'raw_pct'        => $cost > 0.0 ? ($mvalue - $cost) / $cost * 100.0 : null,
+                'gain_eur'       => round($mvalue - $cost, 2),
+                'today_gain_eur' => round($todayEur, 2),
+                'today_gain_pct' => $todayPct,
+                'days'           => $earliest !== null ? (int) $earliest->diffInDays(now()) : 0,
             ];
         }
 

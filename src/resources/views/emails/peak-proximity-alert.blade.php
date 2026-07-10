@@ -1,6 +1,4 @@
 @use('ovidiuro\myfinance2\App\Services\MoneyFormat')
-@use('ovidiuro\myfinance2\App\Services\TierCalculationService')
-@use('ovidiuro\myfinance2\App\Services\QuadrantClassifier')
 <!DOCTYPE html>
 <html>
 <head>
@@ -45,20 +43,13 @@
     </style>
 </head>
 @php
-    $decode     = fn ($s) => html_entity_decode((string) $s, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-    $eur        = '€';
-    $perf       = $quoteData['performance'] ?? [];
-    $cat        = $quoteData['categorization'] ?? [];
-    $tech       = $quoteData['technical_indicators'] ?? [];
-    $tableMeta  = $quoteData['table_meta'] ?? [];
-    $exitZones  = $cat['exit_zones'] ?? [];
-    $periods    = $cat['periods'] ?? [];
-    $peakPnlMap = $tableMeta['period_peak_pnl'] ?? [];
-    $periodMap  = ['3m' => '3M', '6m' => '6M', '1y' => '1Y', '2y' => '2Y'];
-
-    $cur        = $decode($quoteData['tradeCurrencyModel']->display_code ?? $eur);
-    $price      = isset($quoteData['price']) ? (float) $quoteData['price'] : null;
-    $openWin    = !empty($perf['has_data']) ? collect($perf['windows'] ?? [])->firstWhere('is_open', true) : null;
+    // Presentation helpers only; every derived value is prepared in the PeakProximityAlert mailable.
+    $decode = fn ($s) => html_entity_decode((string) $s, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $eur    = '€';
+    $perf   = $quoteData['performance'] ?? [];
+    $tech   = $quoteData['technical_indicators'] ?? [];
+    $cur    = $decode($quoteData['tradeCurrencyModel']->display_code ?? $eur);
+    $price  = isset($quoteData['price']) ? (float) $quoteData['price'] : null;
 
     $signedPct = function (?float $v): string {
         if ($v === null) {
@@ -66,49 +57,13 @@
         }
         return ($v > 0 ? '+' : '') . MoneyFormat::get_formatted_pct($v) . '%';
     };
-
-    // Every triggered window, largest first, with its peak expressed in the symbol's native
-    // currency (derived from the proximity, so it is comparable to the live price shown beside it).
-    $peaks = [];
-    foreach ($orderedWindows as $w) {
-        $prox = $triggeredWindows[$w]['proximity_pct'] ?? null;
-        $peaks[] = [
-            'label' => $periodMap[$w] ?? strtoupper($w),
-            'prox'  => $prox,
-            'date'  => $triggeredWindows[$w]['peak_price_date'] ?? null,
-            'peak'  => ($price !== null && $prox !== null && (1.0 + $prox / 100.0) != 0.0)
-                ? $price / (1.0 + $prox / 100.0)
-                : null,
-        ];
-    }
-
-    // Per-window summary line, largest window first (matches the subject order).
-    $triggerSummary = [];
-    foreach ($orderedWindows as $w) {
-        $prox = $triggeredWindows[$w]['proximity_pct'] ?? null;
-        $triggerSummary[] = ($periodMap[$w] ?? strtoupper($w))
-            . ($prox !== null ? ' ' . $signedPct($prox) . ' from peak' : '');
-    }
-
-    $quadrantColors = [
-        QuadrantClassifier::STEADY_GROWERS   => 'bg-success',
-        QuadrantClassifier::VOLATILE_WINNERS => 'bg-warning text-dark',
-        QuadrantClassifier::DEAD_WEIGHT      => 'bg-secondary',
-        QuadrantClassifier::DANGER_ZONE      => 'bg-danger',
-    ];
-    $actionColors = [
-        'ACCUMULATE' => 'bg-success',
-        'HOLD'       => 'bg-info text-dark',
-        'REDUCE'     => 'bg-warning text-dark',
-        'EXIT'       => 'bg-danger',
-    ];
 @endphp
 <body>
 <div class="container">
     <div class="header">
         <h1>&#128276; <a href="{{ $yahooUrl }}" target="_blank">{{ $symbol }}</a>
             @if (!empty($tierLabel))
-                <span class="badge {{ TierCalculationService::tierBadgeClass($tier) }}">{{ $tierLabel }}</span>
+                <span class="badge {{ $tierClass }}">{{ $tierLabel }}</span>
             @endif
             near peak</h1>
         <div class="sub">
@@ -128,7 +83,9 @@
                 @endif
                 Current price
                 <strong class="text-nowrap">{!! $price !== null ? MoneyFormat::get_formatted_price_display($cur, $price, true) : 'n/a' !!}</strong>,
-                near its peak in {{ count($peaks) }} {{ count($peaks) === 1 ? 'window' : 'windows' }}:
+                near its peak in {{ $nearCount }} {{ $nearCount === 1 ? 'window' : 'windows' }}.
+                Every window is shown below with the target price that would put it near peak
+                (its threshold below the peak) and how far the price still has to run.
             </p>
             <table>
                 <tr>
@@ -136,25 +93,44 @@
                     <th>From peak</th>
                     <th>Peak price</th>
                     <th>Peak date</th>
+                    <th>Trigger target</th>
+                    <th>To go</th>
                 </tr>
-                @foreach ($peaks as $p)
-                <tr>
-                    <td class="text-nowrap">{{ $p['label'] }}</td>
+                @foreach ($summaryWindows as $p)
+                <tr @if ($p['near']) class="near-peak" @endif>
+                    <td class="text-nowrap">{{ $p['label'] }}@if ($p['near']) <span class="badge bg-success">near peak</span>@endif</td>
                     <td class="text-nowrap">{{ $signedPct($p['prox']) }}</td>
                     <td class="text-nowrap">
                         @if ($p['peak'] !== null){!! MoneyFormat::get_formatted_price_display($cur, $p['peak'], true) !!}@else <span class="text-muted">n/a</span>@endif
                     </td>
                     <td class="text-nowrap">{{ $p['date'] ?? 'n/a' }}</td>
+                    <td class="text-nowrap">
+                        @if ($p['target'] !== null)
+                        {!! MoneyFormat::get_formatted_price_display($cur, $p['target'], true) !!}
+                        @if ($p['thr'] !== null)<span class="text-muted">({{ $signedPct(-$p['thr']) }})</span>@endif
+                        @else
+                        <span class="text-muted">n/a</span>
+                        @endif
+                    </td>
+                    <td class="text-nowrap">
+                        @if ($p['near'])
+                        <span class="text-success">in zone</span>
+                        @elseif ($p['to_go'] !== null)
+                        {{ $signedPct($p['to_go']) }}
+                        @else
+                        <span class="text-muted">n/a</span>
+                        @endif
+                    </td>
                 </tr>
                 @endforeach
             </table>
-            @php
-                // Unrealized gain on held shares (market value minus cost), the true "sell now"
-                // figure. Not the performance card's lifetime total gain, which adds dividends and
-                // realized gains.
-                $sellGainEur = $quoteData['unrealized_gain_eur'] ?? null;
-                $sellGainPct = $quoteData['unrealized_gain_pct'] ?? null;
-            @endphp
+            @if ($todayGainEur !== null)
+            <p style="margin-top:8px;">
+                Today's move:
+                <span class="text-nowrap">{!! MoneyFormat::get_formatted_gain($eur, $todayGainEur) !!}</span>@if ($todayGainPct !== null) (<span class="text-nowrap">{!! MoneyFormat::get_formatted_gain('%', $todayGainPct) !!}</span>)@endif,
+                which nudged the position toward its peak today.
+            </p>
+            @endif
             @if ($sellGainEur !== null)
             <p style="margin-top:8px;">
                 Your position's current unrealized gain is
@@ -178,22 +154,22 @@
                     <th>Money/y (XIRR)</th>
                     <th>Holding period</th>
                 </tr>
-                @if ($openWin)
+                @if ($openWindow)
                 <tr>
                     <td class="text-muted">Current</td>
-                    <td class="text-nowrap">{!! MoneyFormat::get_formatted_price_display($eur, $openWin['remaining_cost_eur']) !!}</td>
-                    <td>{!! MoneyFormat::get_formatted_gain($eur, $openWin['dividends_eur'] ?? 0) !!}</td>
+                    <td class="text-nowrap">{!! MoneyFormat::get_formatted_price_display($eur, $openWindow['remaining_cost_eur']) !!}</td>
+                    <td>{!! MoneyFormat::get_formatted_gain($eur, $openWindow['dividends_eur'] ?? 0) !!}</td>
                     <td>
-                        {!! MoneyFormat::get_formatted_gain($eur, $openWin['total_gain_eur']) !!}
-                        @if (($openWin['percentage_gain'] ?? null) !== null)
-                        ({!! MoneyFormat::get_formatted_gain('%', $openWin['percentage_gain']) !!})
+                        {!! MoneyFormat::get_formatted_gain($eur, $openWindow['total_gain_eur']) !!}
+                        @if (($openWindow['percentage_gain'] ?? null) !== null)
+                        ({!! MoneyFormat::get_formatted_gain('%', $openWindow['percentage_gain']) !!})
                         @endif
                     </td>
                     <td>
-                        @if (($openWin['annualized_gain_eur'] ?? null) !== null)
-                        {!! MoneyFormat::get_formatted_gain($eur, $openWin['annualized_gain_eur']) !!}
-                        @if (($openWin['annualized_percentage_gain'] ?? null) !== null)
-                        ({!! MoneyFormat::get_formatted_gain('%', $openWin['annualized_percentage_gain']) !!})
+                        @if (($openWindow['annualized_gain_eur'] ?? null) !== null)
+                        {!! MoneyFormat::get_formatted_gain($eur, $openWindow['annualized_gain_eur']) !!}
+                        @if (($openWindow['annualized_percentage_gain'] ?? null) !== null)
+                        ({!! MoneyFormat::get_formatted_gain('%', $openWindow['annualized_percentage_gain']) !!})
                         @endif
                         @else
                         <span class="text-muted">n/a</span>
@@ -206,10 +182,10 @@
                         <span class="text-muted">n/a</span>
                         @endif
                     </td>
-                    <td class="text-nowrap">{{ $openWin['period_display'] ?? '' }} (open)</td>
+                    <td class="text-nowrap">{{ $openWindow['period_display'] ?? '' }} (open)</td>
                 </tr>
                 @endif
-                @if (!$openWin || ($perf['window_count'] ?? 1) > 1)
+                @if (!$openWindow || ($perf['window_count'] ?? 1) > 1)
                 <tr>
                     <td class="text-muted">Overall</td>
                     <td class="text-nowrap">{!! MoneyFormat::get_formatted_price_display($eur, $perf['capital_deployed_eur'] ?? 0) !!}</td>
@@ -307,43 +283,34 @@
         </div>
 
         {{-- Card 2: Quadrant --}}
-        @if (!empty($cat))
+        @if ($quadrant)
         <div class="section" style="border-left-color:#6f42c1;">
             <h2>Quadrant</h2>
-            @php
-                $tier      = $cat['effective_tier'] ?? null;
-                $tierLabel = $tier ? TierCalculationService::tierLabel($tier) : 'Unrated';
-                $tierClass = $tier ? TierCalculationService::tierBadgeClass($tier) : 'bg-light text-dark';
-                $gainEur   = $tableMeta['basis_gain_eur'] ?? null;
-                $basisVal  = $cat['basis_value'] ?? null;
-                $headAction = $cat['action'] ?? null;
-                $tierCalc  = new TierCalculationService();
-            @endphp
             <div style="margin-bottom:8px;">
                 <span class="text-muted">Tier:</span>
-                <span class="badge {{ $tierClass }}">{{ $tierLabel }}</span>
-                @if ($basisVal !== null)
+                <span class="badge {{ $quadrant['tier_class'] }}">{{ $quadrant['tier_label'] }}</span>
+                @if ($quadrant['basis_val'] !== null)
                 <span class="text-muted">based on</span>
-                @if ($gainEur !== null)<span class="text-nowrap">{!! MoneyFormat::get_formatted_gain($eur, $gainEur) !!}</span>@endif
-                (<span class="text-nowrap">{!! MoneyFormat::get_formatted_gain('%', $basisVal) !!}</span>)
+                @if ($quadrant['gain_eur'] !== null)<span class="text-nowrap">{!! MoneyFormat::get_formatted_gain($eur, $quadrant['gain_eur']) !!}</span>@endif
+                (<span class="text-nowrap">{!! MoneyFormat::get_formatted_gain('%', $quadrant['basis_val']) !!}</span>)
                 @endif
-                @if ($headAction !== null)
-                &middot; <span class="badge {{ $actionColors[$headAction] ?? 'bg-secondary' }}">{{ $headAction }}</span>
+                @if ($quadrant['action'] !== null)
+                &middot; <span class="badge {{ $quadrant['action_class'] }}">{{ $quadrant['action'] }}</span>
                 @endif
             </div>
-            @if (($cat['xirr_pct'] ?? null) !== null || ($cat['alpha_vs_vusa_pct'] ?? null) !== null)
+            @if ($quadrant['xirr_pct'] !== null || $quadrant['alpha_pct'] !== null)
             <div style="margin-bottom:8px;" class="text-muted">
-                @if (($cat['xirr_pct'] ?? null) !== null)
-                Money-weighted XIRR <span class="text-nowrap">{!! MoneyFormat::get_formatted_gain('%', $cat['xirr_pct']) !!}/y</span>
+                @if ($quadrant['xirr_pct'] !== null)
+                Money-weighted XIRR <span class="text-nowrap">{!! MoneyFormat::get_formatted_gain('%', $quadrant['xirr_pct']) !!}/y</span>
                 @endif
-                @if (($cat['alpha_vs_vusa_pct'] ?? null) !== null)
+                @if ($quadrant['alpha_pct'] !== null)
                 &middot; vs <a class="sym-link" href="{{ $vusaUrl }}" target="_blank">VUSA.AS</a>
-                <span class="text-nowrap">{!! MoneyFormat::get_formatted_gain('%', $cat['alpha_vs_vusa_pct']) !!}</span>
+                <span class="text-nowrap">{!! MoneyFormat::get_formatted_gain('%', $quadrant['alpha_pct']) !!}</span>
                 @endif
             </div>
             @endif
 
-            @if (!empty($periods))
+            @if (!empty($quadrant['rows']))
             <table>
                 <tr>
                     <th></th>
@@ -355,60 +322,49 @@
                     <th>From peak</th>
                     <th>P&amp;L at peak</th>
                 </tr>
-                @foreach ($periodMap as $pKey => $pLabel)
-                @php
-                    $pd       = $periods[$pKey] ?? null;
-                    $pdGain   = $pd['gain'] ?? null;
-                    $pdRisk   = $pd['risk'] ?? null;
-                    $pdAction = $pd['action'] ?? null;
-                    $pdQuad   = $pd['quadrant'] ?? null;
-                    $ez       = $exitZones[$pKey] ?? null;
-                    $pnl      = $peakPnlMap[$pKey] ?? null;
-                    $pdTier   = $pdGain !== null ? $tierCalc->getTier($pdGain) : null;
-                    $isNear   = array_key_exists($pKey, $triggeredWindows);
-                @endphp
-                <tr @if ($isNear) class="near-peak" @endif>
-                    <td class="text-muted text-nowrap">{{ $pLabel }}@if ($isNear) <span class="badge bg-success">near peak</span>@endif</td>
+                @foreach ($quadrant['rows'] as $row)
+                <tr @if ($row['near']) class="near-peak" @endif>
+                    <td class="text-muted text-nowrap">{{ $row['label'] }}@if ($row['near']) <span class="badge bg-success">near peak</span>@endif</td>
                     <td>
-                        @if ($pdTier !== null)
-                        <span class="badge {{ TierCalculationService::tierBadgeClass($pdTier) }}">{{ TierCalculationService::tierLabel($pdTier) }}</span>
+                        @if ($row['tier_label'] !== null)
+                        <span class="badge {{ $row['tier_class'] }}">{{ $row['tier_label'] }}</span>
                         @else
                         <span class="text-muted">-</span>
                         @endif
                     </td>
                     <td>
-                        @if ($pdQuad !== null)
-                        <span class="badge {{ $quadrantColors[$pdQuad] ?? 'bg-secondary' }}">{{ QuadrantClassifier::label($pdQuad) }}</span>
+                        @if ($row['quadrant_label'] !== null)
+                        <span class="badge {{ $row['quadrant_class'] }}">{{ $row['quadrant_label'] }}</span>
                         @else
                         <span class="text-muted">-</span>
                         @endif
                     </td>
                     <td>
-                        @if ($pdGain !== null){!! MoneyFormat::get_formatted_gain('%', $pdGain) !!}@else <span class="text-muted">-</span>@endif
+                        @if ($row['gain'] !== null){!! MoneyFormat::get_formatted_gain('%', $row['gain']) !!}@else <span class="text-muted">-</span>@endif
                     </td>
                     <td class="text-nowrap">
-                        @if ($pdRisk !== null){{ MoneyFormat::get_formatted_number_plain($pdRisk, 2) }}x @else <span class="text-muted">-</span>@endif
+                        @if ($row['risk'] !== null){{ MoneyFormat::get_formatted_number_plain($row['risk'], 2) }}x @else <span class="text-muted">-</span>@endif
                     </td>
                     <td>
-                        @if ($pdAction !== null)
-                        <span class="badge {{ $actionColors[$pdAction] ?? 'bg-secondary' }}">{{ $pdAction }}</span>
+                        @if ($row['action'] !== null)
+                        <span class="badge {{ $row['action_class'] }}">{{ $row['action'] }}</span>
                         @else
                         <span class="text-muted">-</span>
                         @endif
                     </td>
                     <td class="text-nowrap">
-                        @if ($ez !== null && ($ez['proximity_pct'] ?? null) !== null)
-                        {!! MoneyFormat::get_formatted_gain('%', $ez['proximity_pct']) !!}
-                        <span class="text-muted">(peak {{ $ez['peak_price_date'] ?? 'n/a' }})</span>
+                        @if ($row['prox'] !== null)
+                        {!! MoneyFormat::get_formatted_gain('%', $row['prox']) !!}
+                        <span class="text-muted">(peak {{ $row['peak_date'] ?? 'n/a' }})</span>
                         @else
                         <span class="text-muted">-</span>
                         @endif
                     </td>
                     <td>
-                        @if ($pnl !== null)
-                        {!! MoneyFormat::get_formatted_gain($eur, $pnl['eur']) !!}
-                        @if (($pnl['pct'] ?? null) !== null)
-                        ({!! MoneyFormat::get_formatted_gain('%', $pnl['pct']) !!})
+                        @if ($row['pnl_eur'] !== null)
+                        {!! MoneyFormat::get_formatted_gain($eur, $row['pnl_eur']) !!}
+                        @if ($row['pnl_pct'] !== null)
+                        ({!! MoneyFormat::get_formatted_gain('%', $row['pnl_pct']) !!})
                         @endif
                         @else
                         <span class="text-muted">-</span>
@@ -422,10 +378,10 @@
         @endif
 
         {{-- Card 3: Open positions --}}
-        @if (!empty($quoteData['open_positions']))
+        @if (!empty($openPositions))
         <div class="section" style="border-left-color:#28a745;">
             <h2>Open positions</h2>
-            @foreach ($quoteData['open_positions'] as $openPosition)
+            @foreach ($openPositions as $openPosition)
             <div class="acct-block">
                 <div class="acct-title">
                     Account: {{ $openPosition['accountModel']->name }}
@@ -457,17 +413,6 @@
                     </tr>
                 </table>
 
-                @php
-                    $symbolSplits = $quoteData['stock_splits'] ?? [];
-                    $timeline = [];
-                    foreach ($openPosition['trades'] as $trade) {
-                        $timeline[] = ['type' => 'trade', 'ts' => $trade->timestamp, 'data' => $trade];
-                    }
-                    foreach ($symbolSplits as $split) {
-                        $timeline[] = ['type' => 'split', 'ts' => $split->split_date, 'data' => $split];
-                    }
-                    usort($timeline, fn ($a, $b) => $b['ts'] <=> $a['ts']);
-                @endphp
                 <table>
                     <tr>
                         <th>Date</th>
@@ -475,7 +420,7 @@
                         <th>Quantity</th>
                         <th>Unit price</th>
                     </tr>
-                    @foreach ($timeline as $event)
+                    @foreach ($openPosition['timeline'] as $event)
                     @if ($event['type'] === 'split')
                     @php $splitItem = $event['data']; @endphp
                     <tr class="text-muted">

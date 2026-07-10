@@ -21,10 +21,10 @@ class MoversServiceTest extends TestCase
         $this->_service = new MoversService();
         $this->_reflection = new ReflectionClass(MoversService::class);
 
-        // Provide a no-op logger so Log::warning() calls don't throw in unit tests.
+        // Provide a no-op logger so Log calls (debug, warning, ...) don't throw in unit tests.
         $app = new Container();
         $app->instance('log', new class {
-            public function warning(string $message, array $context = []): void
+            public function __call(string $method, array $args): void
             {
             }
         });

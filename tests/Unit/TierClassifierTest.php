@@ -373,9 +373,11 @@ class TierClassifierTest extends TestCase
         $this->assertSame(9.8, $decision->basisValue); // real trailing CAGR preserved for context
     }
 
-    public function test_benchmark_running_hot_can_still_show_platinum(): void
+    public function test_benchmark_running_hot_is_still_pinned_to_gold(): void
     {
-        // The pin is a floor, not a clamp: a genuinely hot benchmark keeps its earned Platinum.
+        // The benchmark defines the Gold line; it is the reference and cannot out-perform itself.
+        // A hot trailing return (Platinum range) does not promote it: it stays exactly Gold, and
+        // the real figure is preserved as context only.
         $decision = $this->classifier->classify(
             TierInputs::fromData(
                 TierCalculationService::BENCHMARK_SYMBOL,
@@ -391,8 +393,9 @@ class TierClassifierTest extends TestCase
             null
         );
 
-        $this->assertSame(TierCalculationService::PLATINUM, $decision->tier);
+        $this->assertSame(TierCalculationService::GOLD, $decision->tier);
         $this->assertTrue($decision->isBenchmark);
+        $this->assertSame(18.0, $decision->basisValue); // real trailing CAGR preserved for context
     }
 
     public function test_previous_tier_drives_hysteresis_through_the_classifier(): void

@@ -195,7 +195,7 @@ final class PeakProximityAlertService
             // First email of an episode vs a cadence reminder (a previously emailed open event).
             $isReminder = $event !== null && (int) $event->email_count > 0;
 
-            if ($this->_sendEmail($symbol, $quoteData, $triggered, $userId, $isReminder)) {
+            if ($this->_sendEmail($symbol, $quoteData, $triggered, $userId, $isReminder, $thresholdPct)) {
                 $this->_recordEmailOnEvent($event, $class);
                 $stats['triggered']++;
                 $stats['symbols'][] = $symbol;
@@ -283,31 +283,75 @@ final class PeakProximityAlertService
             ? html_entity_decode((string) $quoteData['tradeCurrencyModel']->display_code, ENT_QUOTES | ENT_HTML5, 'UTF-8')
             : '€';
 
-        $labels  = ['3m' => '3M', '6m' => '6M', '1y' => '1Y', '2y' => '2Y'];
-        $windows = [];
-        foreach (['2y', '1y', '6m', '3m'] as $w) {
-            if (!array_key_exists($w, $triggered)) {
-                continue;
-            }
-            $prox = $triggered[$w]['proximity_pct'] ?? null;
-            $peak = ($price !== null && $prox !== null && (1.0 + $prox / 100.0) != 0.0)
-                ? $price / (1.0 + $prox / 100.0)
-                : null;
-            $windows[] = [
-                'label' => $labels[$w] ?? strtoupper($w),
-                'prox'  => $prox !== null ? (float) $prox : null,
-                'peak'  => $peak,
-                'date'  => $triggered[$w]['peak_price_date'] ?? null,
-            ];
+        // Every window (not just the triggered ones) with its trigger target, mirroring the email.
+        $thresholds = [];
+        foreach (config('alerts.peak_proximity.windows', ['3m', '6m', '1y', '2y']) as $window) {
+            $thresholds[$window] = $this->_windowThreshold($window, null);
         }
+        $exitZones = $quoteData['categorization']['exit_zones'] ?? [];
+        $windows   = self::buildSummaryWindows($price, $exitZones, array_keys($triggered), $thresholds);
 
         return [
             'currency'            => $cur,
             'price'               => $price,
             'windows'             => $windows,
+            'near_count'          => count($triggered),
             'unrealized_gain_eur' => $quoteData['unrealized_gain_eur'] ?? null,
             'unrealized_gain_pct' => $quoteData['unrealized_gain_pct'] ?? null,
+            'today_gain_eur'      => $quoteData['today_gain_eur'] ?? null,
+            'today_gain_pct'      => $quoteData['today_gain_pct'] ?? null,
         ];
+    }
+
+    /**
+     * Build the per-window rows shown in the email and the inbox Summary: every window (shortest
+     * first, 3M -> 2Y), triggered or not, with its native-currency peak (derived from proximity so it
+     * is comparable to the live price), its trigger target (the window threshold % below the peak) and
+     * how far the price still has to run to reach it. Pure and side-effect free, shared by the
+     * mailable and the inbox snapshot so the math lives in one place.
+     *
+     * @param float|null $price            current native price
+     * @param array      $exitZones        window key => exit-zone entry (proximity_pct, peak date)
+     * @param array      $triggeredKeys    window keys currently near peak
+     * @param array      $windowThresholds window key => trigger threshold (%)
+     *
+     * @return array
+     */
+    public static function buildSummaryWindows(
+        ?float $price,
+        array $exitZones,
+        array $triggeredKeys,
+        array $windowThresholds
+    ): array
+    {
+        $labels = ['3m' => '3M', '6m' => '6M', '1y' => '1Y', '2y' => '2Y'];
+
+        $rows = [];
+        foreach (['3m', '6m', '1y', '2y'] as $window) {
+            $zone   = $exitZones[$window] ?? null;
+            $prox   = isset($zone['proximity_pct']) ? (float) $zone['proximity_pct'] : null;
+            $peak   = ($price !== null && $prox !== null && (1.0 + $prox / 100.0) != 0.0)
+                ? $price / (1.0 + $prox / 100.0)
+                : null;
+            $thr    = isset($windowThresholds[$window]) ? (float) $windowThresholds[$window] : null;
+            $target = ($peak !== null && $thr !== null) ? $peak * (1.0 - $thr / 100.0) : null;
+            $toGo   = ($target !== null && $price !== null && $price > 0.0)
+                ? ($target / $price - 1.0) * 100.0
+                : null;
+
+            $rows[] = [
+                'label'  => $labels[$window] ?? strtoupper($window),
+                'prox'   => $prox,
+                'peak'   => $peak,
+                'date'   => $zone['peak_price_date'] ?? null,
+                'near'   => in_array($window, $triggeredKeys, true),
+                'thr'    => $thr,
+                'target' => $target,
+                'to_go'  => $toGo,
+            ];
+        }
+
+        return $rows;
     }
 
     /**
@@ -608,8 +652,9 @@ final class PeakProximityAlertService
      * @param string $symbol
      * @param array  $quoteData
      * @param array  $triggered   window label => exit-zone entry
-     * @param int    $userId
-     * @param bool   $isReminder  true for a cadence reminder (vs the first email of the episode)
+     * @param int        $userId
+     * @param bool       $isReminder  true for a cadence reminder (vs the first email of the episode)
+     * @param float|null $override    uniform --threshold override, else per-window config thresholds
      *
      * @return bool
      */
@@ -618,7 +663,8 @@ final class PeakProximityAlertService
         array $quoteData,
         array $triggered,
         int $userId,
-        bool $isReminder = false
+        bool $isReminder = false,
+        ?float $override = null
     ): bool
     {
         $emailTo = config('alerts.peak_proximity.email_to')
@@ -641,8 +687,17 @@ final class PeakProximityAlertService
             'status'                => 'SENT',
         ]);
 
+        // Resolve the trigger threshold for every configured window (not just the fired ones) so the
+        // email can show each window's target, i.e. the price at which it would go near peak.
+        $windowThresholds = [];
+        foreach (config('alerts.peak_proximity.windows', ['3m', '6m', '1y', '2y']) as $window) {
+            $windowThresholds[$window] = $this->_windowThreshold($window, $override);
+        }
+
         try {
-            Mail::to($emailTo)->send(new PeakProximityAlert($symbol, $quoteData, $triggered, $isReminder));
+            Mail::to($emailTo)->send(
+                new PeakProximityAlert($symbol, $quoteData, $triggered, $isReminder, $windowThresholds)
+            );
         } catch (\Throwable $e) {
             Log::error("PeakProximityAlertService: email send failed for {$symbol}: " . $e->getMessage());
             $notification->update(['status' => 'FAILED', 'error_message' => substr($e->getMessage(), 0, 500)]);

@@ -100,12 +100,13 @@ final class TierClassifier
             ? null
             : $this->tiers->getTierWithHysteresis($value, $previousTier);
 
-        // The benchmark does not compete in its own tournament: pin it to at least Gold so a
-        // soft trailing return never renders VUSA.AS below its own 10% line. A genuinely hot
-        // benchmark can still show Platinum.
+        // The benchmark does not compete in its own tournament: it defines the 10% Gold line, so it
+        // is the reference and sits exactly on that line. Its own noisy, timing-dependent trailing
+        // return never promotes it above (or below) Gold; every other symbol is tiered relative to
+        // this fixed reference. The real trailing figure is preserved as context in the explanation.
         $isBenchmark = $inputs->symbol === TierCalculationService::BENCHMARK_SYMBOL;
         if ($isBenchmark) {
-            $computedTier = $this->_pinToGold($computedTier);
+            $computedTier = TierCalculationService::GOLD;
         }
 
         // A soft label sitting on a tier line. Suppressed for the benchmark, whose tier is pinned
@@ -142,26 +143,6 @@ final class TierClassifier
             isBenchmark:  $isBenchmark,
             isBorderline: $isBorderline
         );
-    }
-
-    /**
-     * Raise a computed tier to at least Gold (the benchmark floor). A null computed tier (e.g. the
-     * benchmark briefly without a usable return) still becomes Gold so the reference line holds.
-     */
-    private function _pinToGold(?string $computedTier): string
-    {
-        $order = [
-            TierCalculationService::RUST     => 0,
-            TierCalculationService::BRONZE   => 1,
-            TierCalculationService::SILVER   => 2,
-            TierCalculationService::GOLD     => 3,
-            TierCalculationService::PLATINUM => 4,
-        ];
-        $rank = $computedTier !== null ? ($order[$computedTier] ?? 0) : 0;
-
-        return $rank >= $order[TierCalculationService::GOLD]
-            ? $computedTier
-            : TierCalculationService::GOLD;
     }
 
     /**

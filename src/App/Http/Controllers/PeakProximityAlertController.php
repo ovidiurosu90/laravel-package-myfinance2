@@ -154,17 +154,24 @@ class PeakProximityAlertController extends MyFinance2Controller
         $show   = $request->query('show') === 'dismissed' ? 'dismissed' : 'open';
 
         if ($show === 'dismissed') {
-            $dismissed = PeakProximityAlertEvent::where('user_id', $userId)
+            $dismissedEvents = PeakProximityAlertEvent::where('user_id', $userId)
                 ->where('status', PeakProximityAlertEvent::STATUS_DISMISSED)
                 ->orderByDesc('dismissed_at')
                 ->limit(500)
                 ->get();
 
+            // Group by dismissal day (newest first, since the rows are already ordered desc) so the
+            // view can show "Today / Yesterday / <date>" sections and you can see what you dismissed today.
+            $dismissed = $dismissedEvents->groupBy(
+                fn ($event) => $event->dismissed_at?->toDateString() ?? 'unknown'
+            );
+
             return view('myfinance2::peakproximityalerts.inbox.dashboard', [
-                'show'       => 'dismissed',
-                'actionable' => collect(),
-                'info'       => collect(),
-                'dismissed'  => $dismissed,
+                'show'           => 'dismissed',
+                'actionable'     => collect(),
+                'info'           => collect(),
+                'dismissed'      => $dismissed,
+                'dismissedCount' => $dismissedEvents->count(),
             ]);
         }
 

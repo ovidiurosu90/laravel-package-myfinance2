@@ -23,6 +23,21 @@
         $parts = array_filter(array_map('trim', explode(',', (string) $csv)));
         return collect($parts)->map(fn ($w) => $periodMap[$w] ?? strtoupper($w))->implode(', ');
     };
+
+    // Friendly heading for a dismissal-day group key (a Y-m-d string, or 'unknown').
+    $dateLabel = function (string $key) {
+        if ($key === 'unknown') {
+            return 'Unknown date';
+        }
+        $date = \Illuminate\Support\Carbon::parse($key);
+        if ($date->isToday()) {
+            return 'Today, ' . $date->format('M j');
+        }
+        if ($date->isYesterday()) {
+            return 'Yesterday, ' . $date->format('M j');
+        }
+        return $date->format('D, M j, Y');
+    };
 @endphp
 @section('content')
     <div class="container-fluid">
@@ -59,15 +74,26 @@
                         @if ($show === 'dismissed')
                             <h5 class="mt-3 mb-2">
                                 Dismissed
-                                <span class="badge bg-secondary ms-1">{{ $dismissed->count() }}</span>
+                                <span class="badge bg-secondary ms-1">{{ $dismissedCount }}</span>
                             </h5>
-                            @forelse ($dismissed as $event)
-                                @include('myfinance2::peakproximityalerts.inbox.partials.card', [
-                                    'event'         => $event,
-                                    'severityClass' => $severityClass,
-                                    'actionClass'   => $actionClass,
-                                    'windowsLabel'  => $windowsLabel,
-                                ])
+                            @forelse ($dismissed as $day => $events)
+                                <div class="d-flex align-items-center gap-2 mt-3 mb-2 pb-1 border-bottom">
+                                    <h6 class="mb-0">{{ $dateLabel($day) }}</h6>
+                                    <span class="badge bg-light text-dark">{{ $events->count() }}</span>
+                                </div>
+                                {{-- Two cards per row on wide (xl, >=1200px) screens; one otherwise. --}}
+                                <div class="row g-3">
+                                    @foreach ($events as $event)
+                                        <div class="col-12 col-xl-6">
+                                            @include('myfinance2::peakproximityalerts.inbox.partials.card', [
+                                                'event'         => $event,
+                                                'severityClass' => $severityClass,
+                                                'actionClass'   => $actionClass,
+                                                'windowsLabel'  => $windowsLabel,
+                                            ])
+                                        </div>
+                                    @endforeach
+                                </div>
                             @empty
                                 <p class="text-muted small">No dismissed alerts yet.</p>
                             @endforelse
@@ -92,19 +118,26 @@
                             @endif
                         </div>
 
-                        @forelse ($actionable as $event)
-                            @include('myfinance2::peakproximityalerts.inbox.partials.card', [
-                                'event'         => $event,
-                                'severityClass' => $severityClass,
-                                'actionClass'   => $actionClass,
-                                'windowsLabel'  => $windowsLabel,
-                            ])
-                        @empty
-                            <p class="text-muted small">
-                                No actionable alerts. A symbol lands here when a weak-tier (Rust or
-                                Bronze) holding is near its 6M, 1Y or 2Y peak.
-                            </p>
-                        @endforelse
+                        {{-- Two cards per row on wide (xl, >=1200px) screens; one otherwise. --}}
+                        <div class="row g-3">
+                            @forelse ($actionable as $event)
+                                <div class="col-12 col-xl-6">
+                                    @include('myfinance2::peakproximityalerts.inbox.partials.card', [
+                                        'event'         => $event,
+                                        'severityClass' => $severityClass,
+                                        'actionClass'   => $actionClass,
+                                        'windowsLabel'  => $windowsLabel,
+                                    ])
+                                </div>
+                            @empty
+                                <div class="col-12">
+                                    <p class="text-muted small">
+                                        No actionable alerts. A symbol lands here when a weak-tier (Rust or
+                                        Bronze) holding is near its 6M, 1Y or 2Y peak.
+                                    </p>
+                                </div>
+                            @endforelse
+                        </div>
 
                         {{-- For your awareness --}}
                         <div class="d-flex align-items-center justify-content-between mt-4 mb-2">
@@ -125,19 +158,26 @@
                             @endif
                         </div>
 
-                        @forelse ($info as $event)
-                            @include('myfinance2::peakproximityalerts.inbox.partials.card', [
-                                'event'         => $event,
-                                'severityClass' => $severityClass,
-                                'actionClass'   => $actionClass,
-                                'windowsLabel'  => $windowsLabel,
-                            ])
-                        @empty
-                            <p class="text-muted small">
-                                No informational alerts. Strong holdings near a peak (which do not
-                                email) would show up here.
-                            </p>
-                        @endforelse
+                        {{-- Two cards per row on wide (xl, >=1200px) screens; one otherwise. --}}
+                        <div class="row g-3">
+                            @forelse ($info as $event)
+                                <div class="col-12 col-xl-6">
+                                    @include('myfinance2::peakproximityalerts.inbox.partials.card', [
+                                        'event'         => $event,
+                                        'severityClass' => $severityClass,
+                                        'actionClass'   => $actionClass,
+                                        'windowsLabel'  => $windowsLabel,
+                                    ])
+                                </div>
+                            @empty
+                                <div class="col-12">
+                                    <p class="text-muted small">
+                                        No informational alerts. Strong holdings near a peak (which do not
+                                        email) would show up here.
+                                    </p>
+                                </div>
+                            @endforelse
+                        </div>
                         @endif
                     </div>
                 </div>

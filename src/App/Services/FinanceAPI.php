@@ -322,11 +322,17 @@ class FinanceAPI
         foreach ($symbols as $symbol) {
             try {
                 $quote = $this->getQuote($symbol); //LATER Get rid of this!
+                if (!($quote instanceof Quote)) {
+                    // getQuote() returns null when the upstream fetch fails
+                    // (e.g. Yahoo outage). Bail here so the catch below handles
+                    // it gracefully instead of a TypeError escaping uncaught.
+                    throw new \RuntimeException("No quote for symbol $symbol");
+                }
                 $historicalData = $this->getHistoricalQuoteData(
                     $quote, $date, persistStats: $persistStats
                 );
                 $historicalDataItems[] = $historicalData;
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 // Check if it's a weekend (expected failure)
                 $dayOfWeek = $date->format('N'); // 1 (Mon) to 7 (Sun)
                 $isWeekend = ($dayOfWeek >= 6);

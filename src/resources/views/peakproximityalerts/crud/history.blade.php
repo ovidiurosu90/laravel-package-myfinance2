@@ -21,11 +21,11 @@
                             <form method="POST"
                                   action="{{ route('myfinance2::peak-proximity-alerts.history.clear-today') }}"
                                   class="mb-0"
-                                  onsubmit="return confirm('Clear all of today\'s alert records for your account? Those symbols will be able to alert again today.');">
+                                  onsubmit="return confirm('Clear all of today\'s alert records and dismissals for your account? Those symbols will be able to alert again today.');">
                                 @csrf
                                 <button type="submit" class="btn btn-outline-warning btn-sm"
                                         data-bs-toggle="tooltip"
-                                        title="Delete today's records so those symbols can alert again today">
+                                        title="Delete today's records and dismissals so those symbols can alert again today">
                                     <i class="fa fa-fw fa-eraser" aria-hidden="true"></i> Clear today
                                 </button>
                             </form>

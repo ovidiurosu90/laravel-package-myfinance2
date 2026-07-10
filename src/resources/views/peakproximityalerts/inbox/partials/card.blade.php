@@ -40,12 +40,19 @@
     $sumPrice   = $summary['price'] ?? null;
     $gainEur    = $summary['unrealized_gain_eur'] ?? null;
     $gainPct    = $summary['unrealized_gain_pct'] ?? null;
+    $todayEur   = $summary['today_gain_eur'] ?? null;
+    $todayPct   = $summary['today_gain_pct'] ?? null;
+
+    // Near-peak window count. Newer snapshots list every window and carry near_count; older ones
+    // stored only the triggered windows (each implicitly near), so fall back to their row count.
+    $nearCount  = $summary['near_count']
+        ?? count(array_filter($sumWindows, fn ($w) => $w['near'] ?? true));
 
     $signedPct = fn ($v) => $v === null
         ? 'n/a'
         : (($v > 0 ? '+' : '') . MoneyFormat::get_formatted_pct((float) $v) . '%');
 @endphp
-<div class="card mb-2">
+<div class="card h-100">
     <div class="card-body py-2">
         <div class="d-flex align-items-start justify-content-between flex-wrap gap-2">
             <div>
@@ -77,7 +84,8 @@
                         <span>
                             Current price
                             <strong class="text-nowrap">{!! $sumPrice !== null ? MoneyFormat::get_formatted_price_display($cur, $sumPrice, true) : 'n/a' !!}</strong>,
-                            near its peak in {{ count($sumWindows) }} {{ count($sumWindows) === 1 ? 'window' : 'windows' }}:
+                            near its peak in {{ $nearCount }} {{ $nearCount === 1 ? 'window' : 'windows' }}.
+                            Each window's trigger target is the price that would put it near peak.
                         </span>
                         <table class="table table-sm table-borderless mb-1 mt-1" style="width:auto;">
                             <thead>
@@ -85,20 +93,46 @@
                                     <th class="pe-3 fw-semibold">Window</th>
                                     <th class="pe-3 fw-semibold">From peak</th>
                                     <th class="pe-3 fw-semibold">Peak price</th>
-                                    <th class="fw-semibold">Peak date</th>
+                                    <th class="pe-3 fw-semibold">Peak date</th>
+                                    <th class="pe-3 fw-semibold">Trigger target</th>
+                                    <th class="fw-semibold">To go</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach ($sumWindows as $w)
-                                    <tr class="text-nowrap">
-                                        <td class="pe-3">{{ $w['label'] }}</td>
+                                    @php $isNear = $w['near'] ?? true; @endphp
+                                    <tr class="text-nowrap @if ($isNear) table-success @endif">
+                                        <td class="pe-3">{{ $w['label'] }}@if ($isNear) <span class="badge bg-success ms-1">near peak</span>@endif</td>
                                         <td class="pe-3">{{ $signedPct($w['prox'] ?? null) }}</td>
                                         <td class="pe-3">{!! ($w['peak'] ?? null) !== null ? MoneyFormat::get_formatted_price_display($cur, $w['peak'], true) : 'n/a' !!}</td>
-                                        <td>{{ $w['date'] ?? 'n/a' }}</td>
+                                        <td class="pe-3">{{ $w['date'] ?? 'n/a' }}</td>
+                                        <td class="pe-3">
+                                            @if (($w['target'] ?? null) !== null)
+                                                {!! MoneyFormat::get_formatted_price_display($cur, $w['target'], true) !!}@if (($w['thr'] ?? null) !== null) <span class="text-muted">({{ $signedPct(-(float) $w['thr']) }})</span>@endif
+                                            @else
+                                                n/a
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if ($isNear)
+                                                <span class="text-success">in zone</span>
+                                            @elseif (($w['to_go'] ?? null) !== null)
+                                                {{ $signedPct($w['to_go']) }}
+                                            @else
+                                                n/a
+                                            @endif
+                                        </td>
                                     </tr>
                                 @endforeach
                             </tbody>
                         </table>
+                        @if ($todayEur !== null)
+                            <span class="d-block">
+                                Today's move
+                                <span class="text-nowrap">{!! MoneyFormat::get_formatted_gain('€', $todayEur) !!}</span>@if ($todayPct !== null) (<span class="text-nowrap">{!! MoneyFormat::get_formatted_gain('%', $todayPct) !!}</span>)@endif,
+                                which nudged the position toward its peak today.
+                            </span>
+                        @endif
                         @if ($gainEur !== null)
                             <span class="d-block">
                                 Unrealized gain
