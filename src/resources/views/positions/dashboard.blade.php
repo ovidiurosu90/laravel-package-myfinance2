@@ -12,6 +12,7 @@
 
         <div class="row">
             <div class="col-sm-12">
+                @include('myfinance2::positions.partials.reconciliation-alerts')
                 @include('myfinance2::positions.tables.dashboard-table')
             </div>
         </div>

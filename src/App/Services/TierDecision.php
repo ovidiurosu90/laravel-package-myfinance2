@@ -45,7 +45,13 @@ final class TierDecision
         public readonly bool    $isBenchmark = false,
         // True when the deciding value sits within the borderline band of a tier line, so the
         // label is soft. Cosmetic only; never changes the tier.
-        public readonly bool    $isBorderline = false
+        public readonly bool    $isBorderline = false,
+        // True when the symbol's 1Y market return was the proxy we would otherwise have used to
+        // tier it, but it fell outside the trusted band and was rejected as a data artifact, so the
+        // tier fell back to the position's own (or realized) return. An irregularity worth flagging.
+        public readonly bool    $marketArtifact = false,
+        // Human-readable explanation of that irregularity (empty when $marketArtifact is false).
+        public readonly string  $marketArtifactNote = ''
     )
     {
     }
@@ -89,6 +95,8 @@ final class TierDecision
             'is_stale'       => $this->isStale,
             'is_benchmark'   => $this->isBenchmark,
             'is_borderline'  => $this->isBorderline,
+            'market_artifact'      => $this->marketArtifact,
+            'market_artifact_note' => $this->marketArtifactNote,
         ];
     }
 }

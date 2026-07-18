@@ -334,7 +334,7 @@ class SymbolPerformanceService
     {
         return Trade::withoutGlobalScope(AssignedToUserScope::class)
             ->where('user_id', $userId)
-            ->with(['accountModel', 'accountModel.currency'])
+            ->with(['accountModel', 'accountModel.currency', 'tradeCurrencyModel'])
             ->orderBy('timestamp')
             ->get();
     }
@@ -343,7 +343,7 @@ class SymbolPerformanceService
     {
         return Dividend::withoutGlobalScope(AssignedToUserScope::class)
             ->where('user_id', $userId)
-            ->with(['accountModel', 'accountModel.currency'])
+            ->with(['accountModel', 'accountModel.currency', 'dividendCurrencyModel'])
             ->orderBy('timestamp')
             ->get();
     }
@@ -484,7 +484,12 @@ class SymbolPerformanceService
 
                 $accountCurrency = $trade->accountModel->currency->iso_code;
                 $eurRate = $this->_eurRates[$accountCurrency] ?? 1.0;
-                $exchangeRate = (float) $trade->exchange_rate;
+                // A same-currency trade converts at rate 1 by definition. A stored non-1 rate on
+                // one is a data artifact (e.g. the reporting-currency rate captured at entry) that
+                // would understate the invested amount and inflate the return, so pin it to 1.
+                $exchangeRate = $trade->tradeCurrencyModel->iso_code === $accountCurrency
+                    ? 1.0
+                    : (float) $trade->exchange_rate;
                 $qty = (float) $trade->quantity;
 
                 $amountAc = ($exchangeRate > 0)
@@ -540,7 +545,11 @@ class SymbolPerformanceService
             $divTime = $dividend->timestamp;
             $accountCurrency = $dividend->accountModel->currency->iso_code;
             $eurRate = $this->_eurRates[$accountCurrency] ?? 1.0;
-            $exchangeRate = (float) $dividend->exchange_rate;
+            // Same-currency dividend converts at rate 1; pin it so an artifact rate cannot skew the
+            // amount (mirrors the same-currency guard applied to trades above).
+            $exchangeRate = $dividend->dividendCurrencyModel->iso_code === $accountCurrency
+                ? 1.0
+                : (float) $dividend->exchange_rate;
             $amountAc = ($exchangeRate > 0)
                 ? (float) $dividend->amount / $exchangeRate - (float) $dividend->fee
                 : 0.0;

@@ -9,6 +9,7 @@ use ovidiuro\myfinance2\App\Services\DipBuyingPlanService;
 use ovidiuro\myfinance2\App\Services\DipBuyingPresenter;
 use ovidiuro\myfinance2\App\Services\MoversService;
 use ovidiuro\myfinance2\App\Services\Positions;
+use ovidiuro\myfinance2\App\Services\PositionsReconciliationService;
 
 class PositionsController extends MyFinance2Controller
 {
@@ -72,6 +73,23 @@ class PositionsController extends MyFinance2Controller
                 }
             } catch (\Throwable $e) {
                 Log::warning('Dip Buying Plan panel skipped: ' . $e->getMessage());
+            }
+        }
+
+        // Reconciliation safety net: cross-check the live position rows against the shown
+        // account and User Overview summaries, only on the live view (the historical view does
+        // not persist stats). Must never break /positions, so failures are swallowed.
+        $data['reconAlerts'] = [];
+        if (empty($dateInput)) {
+            try {
+                $userId = auth()->id() !== null ? (int) auth()->id() : null;
+                $data['reconAlerts'] = (new PositionsReconciliationService())->reconcile(
+                    $data['groupedItems'] ?? [],
+                    $data['accountData'] ?? [],
+                    $userId
+                );
+            } catch (\Throwable $e) {
+                Log::warning('Positions reconciliation panel skipped: ' . $e->getMessage());
             }
         }
 

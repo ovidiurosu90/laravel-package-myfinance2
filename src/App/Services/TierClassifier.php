@@ -70,7 +70,7 @@ final class TierClassifier
     // broken price reference, which can produce returns in the thousands of percent)
     // and are not trusted as a tier basis.
     private const MARKET_1Y_MAX_PCT = 200.0;
-    private const MARKET_1Y_MIN_PCT = -50.0;
+    private const MARKET_1Y_MIN_PCT = -75.0;
 
     // How far the lifetime overall return must diverge from the current open window's own return
     // before the headline figure is called stale. A few points is just the prior window's small
@@ -123,6 +123,11 @@ final class TierClassifier
             $inputs, $basis, $value, $override, $computedTier, $isStale, $isBenchmark
         );
 
+        // Flag the trusted-band clamp only when it actually changed the basis, and not when a manual
+        // override or the pinned benchmark tier already replaces the computed decision.
+        $marketArtifact = $overrideTier === null && !$isBenchmark
+            && $this->_marketArtifactApplied($inputs);
+
         return new TierDecision(
             tier:         $effectiveTier,
             computedTier: $computedTier,
@@ -141,7 +146,9 @@ final class TierClassifier
             explanation:  $explanation,
             isStale:      $isStale,
             isBenchmark:  $isBenchmark,
-            isBorderline: $isBorderline
+            isBorderline: $isBorderline,
+            marketArtifact:     $marketArtifact,
+            marketArtifactNote: $marketArtifact ? $this->_marketArtifactNote($inputs) : ''
         );
     }
 
@@ -311,24 +318,58 @@ final class TierClassifier
         }
 
         // Held < 3 months: market 1Y was the preferred proxy but could not be trusted.
-        $market = $inputs->marketMomentumPct;
-        if ($market === null)
-        {
-            $why = 'market 1Y is unavailable';
-        }
-        elseif ($market > self::MARKET_1Y_MAX_PCT)
-        {
-            $why = 'market 1Y of ' . $this->_fmt($market) . ' is treated as a data artifact'
-                . ' because it exceeds the trusted ceiling of ' . $this->_fmt(self::MARKET_1Y_MAX_PCT);
-        }
-        else
-        {
-            $why = 'market 1Y of ' . $this->_fmt($market) . ' is treated as a data artifact'
-                . ' because it is below the trusted floor of ' . $this->_fmt(self::MARKET_1Y_MIN_PCT);
-        }
+        $why = $inputs->marketMomentumPct === null
+            ? 'market 1Y is unavailable'
+            : 'market 1Y of ' . $this->_fmt($inputs->marketMomentumPct) . ' is treated as a data'
+                . ' artifact because ' . $this->_marketRejectionReason($inputs->marketMomentumPct);
 
         return 'Raw return ' . $pct . ' on your position (held under 3 months; '
             . $why . '; not annualized).';
+    }
+
+    /**
+     * Why a present-but-untrusted 1Y market return was rejected: which side of the plausible band it
+     * fell outside. Returns null when the value is missing or actually inside the band.
+     */
+    private function _marketRejectionReason(?float $market): ?string
+    {
+        if ($market === null || $this->_marketUsable($market))
+        {
+            return null;
+        }
+
+        return $market > self::MARKET_1Y_MAX_PCT
+            ? 'it exceeds the trusted ceiling of ' . $this->_fmt(self::MARKET_1Y_MAX_PCT)
+            : 'it is below the trusted floor of ' . $this->_fmt(self::MARKET_1Y_MIN_PCT);
+    }
+
+    /**
+     * Whether the 1Y market proxy was rejected as an artifact on a symbol where it would otherwise
+     * have decided the tier: a new owned position (no settled annualized figure, held under 3
+     * months) or a watchlist/exited symbol. In those cases the tier falls back to the raw return, so
+     * the clamp actually changed the outcome and is worth flagging as an irregularity.
+     */
+    private function _marketArtifactApplied(TierInputs $inputs): bool
+    {
+        if ($inputs->marketMomentumPct === null || $this->_marketUsable($inputs->marketMomentumPct))
+        {
+            return false;
+        }
+
+        return $inputs->isOwned
+            ? $inputs->annualizedReturnPct === null && $inputs->holdingDays < self::MATURE_HOLDING_DAYS
+            : true;
+    }
+
+    private function _marketArtifactNote(TierInputs $inputs): string
+    {
+        $reason = $this->_marketRejectionReason($inputs->marketMomentumPct);
+
+        return 'Irregularity: the 1Y market return of ' . $this->_fmt($inputs->marketMomentumPct)
+            . ' falls outside the trusted band (' . $this->_fmt(self::MARKET_1Y_MIN_PCT) . ' to '
+            . $this->_fmt(self::MARKET_1Y_MAX_PCT) . '), so ' . $reason
+            . '; it was rejected as a data artifact and the tier falls back to '
+            . ($inputs->isOwned ? "this position's own return" : 'the realized return') . ' instead.';
     }
 
     private function _marketUsable(?float $market): bool

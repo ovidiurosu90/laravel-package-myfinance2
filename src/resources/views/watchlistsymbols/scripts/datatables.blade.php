@@ -232,6 +232,11 @@ $(document).ready(function()
         }, 200);
     });
 
+    // The real toolbar is now in place; drop the reserved-height placeholder. This runs in the
+    // same synchronous task as the toolbar build, so the browser paints the real toolbar and the
+    // placeholder removal together, keeping the table from shifting.
+    $('.dt-toolbar-placeholder').remove();
+
     $tbody.on('mouseenter', 'tr', function()
     {
         $(this).addClass('dt-row-hover');

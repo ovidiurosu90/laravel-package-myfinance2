@@ -47,6 +47,13 @@
     }
     .watchlist-symbol-items-table th:nth-child(n+11),
     .watchlist-symbol-items-table td:nth-child(n+11) { display: none; }
+    /* DataTables builds the whole sort/filter/search toolbar in JS during init, so on a cold
+       load the raw table paints first and the toolbar is injected a beat later, pushing the
+       table (and everything below it) down. This placeholder reserves the exact toolbar height
+       up front: it carries the same wrapper classes and holds an invisible small select, so its
+       box matches the real toolbar to the pixel. The script removes it once the real toolbar is
+       in place, so nothing shifts. */
+    .dt-toolbar-placeholder .form-select { pointer-events: none; }
     .watchlist-symbol-items-table tfoot input {
         min-width: 0;
         width: 100%;
@@ -99,6 +106,15 @@
     }
 @endphp
 <div class="table-responsive">
+    {{-- Reserves the toolbar's height before DataTables injects the real one, so the table
+         below never shifts down on init. Same wrapper classes + an invisible small select make
+         its height match the real toolbar exactly. Removed by the datatables script once ready. --}}
+    <div class="dt-toolbar-placeholder d-flex align-items-center px-2 py-2 border-bottom bg-body-tertiary"
+         aria-hidden="true">
+        <select class="form-select form-select-sm invisible" style="width:auto" tabindex="-1">
+            <option></option>
+        </select>
+    </div>
     <table class="table table-sm data-table watchlist-symbol-items-table">
         <thead class="thead">
             <tr role="row">
@@ -167,6 +183,10 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                     <i class="fa fa-anchor fa-xs text-muted ms-1" aria-hidden="true"
                        data-bs-toggle="tooltip"
                        title="{{ $symbol }} is the benchmark; the 10% Gold line is anchored to it, so it is pinned to Gold."></i>
+                    @endif
+                    @if(!empty($quoteData['name']) && $quoteData['name'] !== $symbol)
+                    {{-- Full symbol name, shown only on big screens (xl, >=1200px). --}}
+                    <div class="d-none d-xl-block small text-muted">{{ $quoteData['name'] }}</div>
                     @endif
                 </td>
                 <td class="text-right">

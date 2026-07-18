@@ -483,6 +483,7 @@ class MoversService
             ? ($portfolioTotalEur / $totalPortfolioEur) * 100
             : 0;
         $ranked['date_label'] = (new \DateTime($sessionDate))->format('M j');
+        $ranked['date_weekday'] = (new \DateTime($sessionDate))->format('l');
         return $ranked;
     }
 

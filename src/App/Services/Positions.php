@@ -131,9 +131,20 @@ class Positions
                 }
             }
 
+            // When the trade currency matches the account currency the rate is 1 by
+            // definition. A stored non-1 rate on a same-currency trade is a data
+            // artifact (e.g. the reporting-currency rate captured at entry) that would
+            // otherwise distort the account-currency cost, so we pin it to 1 here. This
+            // mirrors getExchangeRate(), which already pins same-currency positions to 1
+            // for the market value, keeping cost and market value consistent.
+            $exchangeRate = $trade->tradeCurrencyModel->iso_code
+                === $trade->accountModel->currency->iso_code
+                    ? 1.0
+                    : (float) $trade->exchange_rate;
+
             //NOTE We use the inversed exchange rate
             $principleAmount = 1 /
-                $trade->exchange_rate * $trade->quantity * $trade->unit_price;
+                $exchangeRate * $trade->quantity * $trade->unit_price;
             $principleAmountInTradeCurrency = $trade->quantity * $trade->unit_price;
 
             switch ($trade->action) {
@@ -144,7 +155,7 @@ class Positions
                         $principleAmount + $trade->fee;
                     $positions[$accountId][$symbol]['cost_in_trade_currency'] +=
                         $principleAmountInTradeCurrency +
-                        ($trade->fee * $trade->exchange_rate);
+                        ($trade->fee * $exchangeRate);
 
                     // We compute cost2 that won't be affected by the sell actions
                     // The other cost has gains factored in
@@ -156,7 +167,7 @@ class Positions
                         $principleAmount + $trade->fee;
                     $positions[$accountId][$symbol]['cost2_in_trade_currency'] +=
                         $principleAmountInTradeCurrency +
-                        ($trade->fee * $trade->exchange_rate);
+                        ($trade->fee * $exchangeRate);
 
                     break;
                 case 'SELL':
@@ -166,7 +177,7 @@ class Positions
                         $principleAmount - $trade->fee;
                     $positions[$accountId][$symbol]['cost_in_trade_currency'] -=
                         $principleAmountInTradeCurrency -
-                        ($trade->fee * $trade->exchange_rate);
+                        ($trade->fee * $exchangeRate);
 
                     break;
                 default:

@@ -15,6 +15,7 @@
         if ($col['key'] === 'today' && !empty($colData['date_label'])) {
             $col['sub_label'] = $colData['date_label'];
             if ($colData['date_label'] !== date('M j')) {
+                $col['label'] = $colData['date_weekday'] ?? $col['label'];
                 $col['sub_label_tooltip'] = 'Your markets have not opened yet today (before the'
                     . ' opening bell, weekend, or holiday). Showing the last completed trading'
                     . ' session (' . $colData['date_label'] . ').';

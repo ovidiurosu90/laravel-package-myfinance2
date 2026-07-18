@@ -390,6 +390,45 @@ class ChartsBuilder
         return $series;
     }
 
+    /**
+     * Last (most recent) value of a stored account metric series, i.e. the exact figure the
+     * account-overview-summary header renders via getLastStatValue in the browser. Returns
+     * null when the series is empty or missing. Used by PositionsReconciliationService to
+     * cross-check the shown summary against the live sum of the open-position rows.
+     */
+    public static function getChartAccountLastValue(array $accountData, string $metric): ?float
+    {
+        $points = self::_parseChartLiteral(
+            self::getChartAccountAsJsonString($accountData, $metric)
+        );
+
+        return self::_lastPointValue($points);
+    }
+
+    /**
+     * Last (most recent) value of a stored user overview metric series, matching what the
+     * User Overview header shows. $metric is currency-suffixed (e.g. 'cost_EUR').
+     */
+    public static function getChartOverviewUserLastValue(int $userId, string $metric): ?float
+    {
+        $points = self::_parseChartLiteral(
+            self::getChartOverviewUserAsJsonString($userId, $metric)
+        );
+
+        return self::_lastPointValue($points);
+    }
+
+    private static function _lastPointValue(array $points): ?float
+    {
+        if (empty($points)) {
+            return null;
+        }
+
+        $last = end($points);
+
+        return isset($last['value']) ? (float) $last['value'] : null;
+    }
+
     public static function getChartAccountAsJsonString(array $accountData,
         string $metric): string
     {

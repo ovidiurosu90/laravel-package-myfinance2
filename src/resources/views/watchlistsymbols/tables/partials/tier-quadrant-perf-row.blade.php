@@ -14,7 +14,14 @@ $explanation  = $cat['explanation'] ?? '';
 $basis        = $cat['basis'] ?? null;
 $basisValue   = $cat['basis_value'] ?? null;
 $action       = $cat['action'] ?? null;
-$showWarn     = $cat !== null && !$hasOverride && $confidence === TierDecision::CONFIDENCE_LOW;
+// The 1Y market proxy was rejected by the trusted band and the tier fell back: an irregularity
+// worth flagging on its own, with a specific note explaining the clamp.
+$marketArtifact     = !empty($cat['market_artifact']);
+$marketArtifactNote = $cat['market_artifact_note'] ?? '';
+// Generic low-confidence warning. Suppressed when the artifact icon already explains the fallback,
+// so the same fallback is not flagged twice.
+$showWarn     = $cat !== null && !$hasOverride && !$marketArtifact
+                && $confidence === TierDecision::CONFIDENCE_LOW;
 $isStale      = !empty($cat['is_stale']);
 $isOwned      = !empty($quoteData['open_positions']);
 $isBenchmark  = !empty($cat['is_benchmark']);
@@ -102,6 +109,12 @@ $actionColors = [
             <span data-bs-toggle="tooltip" title="{{ $explanation }}"
                   style="line-height:1;vertical-align:middle;">
                 <i class="fa fa-clock-o fa-xs text-warning" aria-hidden="true"></i>
+            </span>
+            @endif
+            @if($marketArtifact)
+            <span data-bs-toggle="tooltip" title="{{ $marketArtifactNote }}"
+                  style="line-height:1;vertical-align:middle;">
+                <i class="fa fa-exclamation-triangle fa-xs text-danger" aria-hidden="true"></i>
             </span>
             @endif
             @php

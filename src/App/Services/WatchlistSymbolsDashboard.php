@@ -133,7 +133,38 @@ class WatchlistSymbolsDashboard
         $items = (new PeakExitPnlBuilder())->attach($items, $liveEurRates);
         $quadrant = (new QuadrantChartBuilder())->build($items);
 
+        // Emit rows already in the table's default order (% High desc, DataTables column 5) so the
+        // server-rendered order matches what DataTables sorts to on init and the table does not
+        // visibly reshuffle a moment after load.
+        $items = $this->_sortByDefaultHighPct($items);
+
         return ['items' => $items, 'health_score' => $healthScore, 'quadrant' => $quadrant];
+    }
+
+    /**
+     * Order items by the "% High" sort value (closing-based distance below the 52-week high, falling
+     * back to Yahoo's intraday figure, then a floor), descending. This mirrors the data-order the
+     * range-cells partial emits for column 5 and the DataTable's default order of [[5, 'desc']], so
+     * the client never has to reorder the server-rendered rows. Keyed by symbol, so uasort preserves
+     * the keys; the sort is stable, leaving equal-value rows in their existing order.
+     */
+    private function _sortByDefaultHighPct(array $items): array
+    {
+        $highOrder = static function (array $quoteData): float {
+            $cr = $quoteData['table_meta']['closing_range'] ?? null;
+            if (isset($cr['high_pct'])) {
+                return (float) $cr['high_pct'];
+            }
+            if (isset($quoteData['fiftyTwoWeekHighChangePercent'])) {
+                return - (float) $quoteData['fiftyTwoWeekHighChangePercent'] * 100.0;
+            }
+
+            return -9999999.0;
+        };
+
+        uasort($items, static fn (array $a, array $b): int => $highOrder($b) <=> $highOrder($a));
+
+        return $items;
     }
 
     private function _attachPerformance(
