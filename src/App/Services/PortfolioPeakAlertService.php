@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ovidiuro\myfinance2\App\Services;
 
 use App\Models\User;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -18,8 +19,9 @@ use ovidiuro\myfinance2\Mail\PortfolioPeakAlert;
  * to within N% of its rolling 6M/1Y/2Y high, a portfolio-level "review a full exit / rebalance"
  * hint complementary to the per-symbol peak-proximity alerts.
  *
- * Modelled after the Dip Buying alert flow: opt-in per user (settings row), one email per user per
- * day, a flat reminder interval while the condition holds. Negative window peaks are in scope, so
+ * Modelled after the Dip Buying alert flow: opt-in per user (settings row), at most one email per
+ * user per day, repeated every reminder_days calendar days (1 by default, so daily) for as long as
+ * a window stays inside its threshold. Negative window peaks are in scope, so
  * change_EUR proximity is measured against |peak| (with a magnitude floor) and change_pct on the
  * value index (1 + cp/100), the same transform DipBuyingPlanService uses for portfolio drawdown.
  */
@@ -28,6 +30,17 @@ final class PortfolioPeakAlertService
     use LoadsBenchmarkPrices;
 
     private const WINDOW_DAYS = ['3m' => 91, '6m' => 182, '1y' => 365, '2y' => 730];
+
+    // Display labels for a breakdown row. Shared so the email subject, its intro and its table can
+    // never name the same (metric, window) pair differently.
+    public const METRIC_LABELS = ['change_eur' => 'EUR gain', 'change_pct' => 'Return %'];
+    public const WINDOW_LABELS = ['3m' => '3M', '6m' => '6M', '1y' => '1Y', '2y' => '2Y'];
+
+    // The nav badge renders on every page, so the count is cached rather than rebuilt each time.
+    // The TTL matches ChartsBuilder::CHART_CACHE_TTL, the series the count is derived from, so the
+    // badge is never staler than its own input.
+    private const FIRES_CACHE_PREFIX = 'MYFINANCE2_PORTFOLIO_PEAK_FIRES_';
+    private const FIRES_CACHE_TTL = 120;
 
     /**
      * User IDs with the feature ENABLED, the email channel on, and at least one metric enabled.
@@ -119,6 +132,46 @@ final class PortfolioPeakAlertService
             'change_eur_current' => !empty($eur) ? (float) end($eur) : null,
             'change_pct_current' => !empty($pct) ? (float) end($pct) : null,
         ];
+    }
+
+    /**
+     * One breakdown row named the way the email table names it, e.g. "EUR gain 6M".
+     *
+     * @param array $row
+     *
+     * @return string
+     */
+    public static function pairLabel(array $row): string
+    {
+        $metric = self::METRIC_LABELS[$row['metric']] ?? (string) $row['metric'];
+        $window = self::WINDOW_LABELS[$row['window']] ?? strtoupper((string) $row['window']);
+
+        return $metric . ' ' . $window;
+    }
+
+    /**
+     * How many windows are inside their threshold right now, i.e. the "yes" rows of the settings
+     * page's Fires? column. Context rows (3M) and skipped ones never count, so this is exactly the
+     * set that would send an email on the next run.
+     *
+     * @param int $userId
+     *
+     * @return int
+     */
+    public function getTriggeredCount(int $userId): int
+    {
+        return (int) Cache::remember(
+            self::FIRES_CACHE_PREFIX . $userId,
+            self::FIRES_CACHE_TTL,
+            function () use ($userId)
+            {
+                $breakdown = $this->previewForUser($userId)['breakdown'];
+                return count(array_filter(
+                    $breakdown,
+                    fn ($row) => !empty($row['triggered'])
+                ));
+            }
+        );
     }
 
     /**
@@ -267,8 +320,12 @@ final class PortfolioPeakAlertService
     }
 
     /**
-     * True when a reminder may be sent: no prior SENT notification, or the last one is at least
-     * reminder_days old.
+     * True when a reminder may be sent: no prior SENT notification, or the last one went out at
+     * least reminder_days calendar days ago.
+     *
+     * The comparison is on calendar days, not elapsed hours, so a daily cadence (reminder_days = 1)
+     * stays anchored to the first hourly run of each day. Comparing raw timestamps would push each
+     * send an hour later than the previous one until a day was skipped entirely.
      *
      * @param int $userId
      *
@@ -285,8 +342,9 @@ final class PortfolioPeakAlertService
             return true;
         }
 
-        $reminderDays = (int) config('alerts.portfolio_peak.reminder_days', 7);
-        return $last->sent_at->lte(now()->subDays($reminderDays));
+        $reminderDays = (int) config('alerts.portfolio_peak.reminder_days', 1);
+        return $last->sent_at->copy()->startOfDay()
+            ->lte(now()->startOfDay()->subDays($reminderDays));
     }
 
     /**

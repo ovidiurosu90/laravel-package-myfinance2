@@ -74,8 +74,15 @@
                                                id="ppa-email" name="email_enabled" value="1"
                                                {{ $setting->email_enabled ? 'checked' : '' }}>
                                         <label class="form-check-label" for="ppa-email">
-                                            Email alerts (checked hourly, capped at one per day, then a weekly reminder while near a high)
+                                            Email alerts (checked hourly, at most one email a day)
                                         </label>
+                                    </div>
+                                    <div class="form-text ms-3">
+                                        Checked every hour. The first run of the day that finds an
+                                        enabled metric inside its window threshold sends the email;
+                                        later runs that day stay quiet. While the condition holds you
+                                        get one email per day, and nothing at all on days when no
+                                        window is inside its threshold.
                                     </div>
                                 </div>
 

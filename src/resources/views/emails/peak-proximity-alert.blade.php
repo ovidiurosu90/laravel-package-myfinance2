@@ -90,7 +90,7 @@
             <table>
                 <tr>
                     <th>Window</th>
-                    <th>From peak</th>
+                    <th class="text-nowrap">From peak</th>
                     <th>Peak price</th>
                     <th>Peak date</th>
                     <th>Trigger target</th>
@@ -319,7 +319,7 @@
                     <th>Gain</th>
                     <th>Risk</th>
                     <th>Action</th>
-                    <th>From peak</th>
+                    <th class="text-nowrap">From peak</th>
                     <th>P&amp;L at peak</th>
                 </tr>
                 @foreach ($quadrant['rows'] as $row)

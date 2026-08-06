@@ -40,7 +40,7 @@
                     <th class="text-end">Current</th>
                     <th class="text-end">Window peak</th>
                     <th>Peak date</th>
-                    <th class="text-end">From peak</th>
+                    <th class="text-end text-nowrap">From peak</th>
                     <th class="text-end">Threshold</th>
                     <th>Fires?</th>
                 </tr>

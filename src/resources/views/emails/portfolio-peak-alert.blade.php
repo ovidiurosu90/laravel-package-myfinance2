@@ -1,4 +1,5 @@
 @use('ovidiuro\myfinance2\App\Services\MoneyFormat')
+@use('ovidiuro\myfinance2\App\Services\PortfolioPeakAlertService')
 <!DOCTYPE html>
 <html>
 <head>
@@ -22,6 +23,7 @@
         td, th { padding: 6px 8px; border: 1px solid #dee2e6; font-size: 13px; text-align: left; }
         th { background: #e9ecef; font-weight: 600; }
         .num { text-align: right; }
+        .text-nowrap { white-space: nowrap; }
         .footer { padding: 16px 24px; background: #f8f9fa; border-top: 1px solid #ddd; font-size: 12px; color: #6c757d; }
         .action-link { display: inline-block; margin: 8px 8px 0 0; padding: 8px 16px; border-radius: 4px; background: #0d6efd; color: #fff !important; font-size: 13px; font-weight: 600; text-decoration: none; }
         .action-link.secondary { background: #6c757d; }
@@ -33,8 +35,9 @@
     // percentage formatter. Proximity is <= 0 by construction (current is always inside the window).
     $eur       = fn ($v) => '&euro;' . MoneyFormat::get_formatted_number_plain((float) $v, 0);
     $pct       = fn ($v) => MoneyFormat::get_formatted_pct((float) $v);
-    $windowLbl = ['3m' => '3M', '6m' => '6M', '1y' => '1Y', '2y' => '2Y'];
-    $metricLbl = ['change_eur' => 'EUR gain', 'change_pct' => 'Return %'];
+    // Same labels the subject line uses, so the two can never disagree.
+    $windowLbl = PortfolioPeakAlertService::WINDOW_LABELS;
+    $metricLbl = PortfolioPeakAlertService::METRIC_LABELS;
 
     // A row's peak/current columns are EUR for change_eur and a raw return % for change_pct.
     $cellVal = function (array $row, string $key) use ($eur, $pct)
@@ -58,8 +61,20 @@
     // EUR-gain magnitude floor, shown in the legend so the "n/a" rows are self-explanatory.
     $minPeakAbs = (float) config('alerts.portfolio_peak.min_peak_abs_eur', 1000);
 
-    $closest   = max(array_column($pairs, 'proximity_pct'));
     $hasPctRow = in_array('change_pct', array_column($breakdown, 'metric'), true);
+
+    // What actually fired, named and quantified. Every figure in a given entry comes from the same
+    // row, so the intro can never splice one window's name onto another window's proximity.
+    $firesCount = count($pairs);
+    $firesNoun  = $firesCount === 1 ? 'window' : 'windows';
+    $fireNames  = array_map(fn ($row) => PortfolioPeakAlertService::pairLabel($row), $pairs);
+    $fireDetails = array_map(function ($row) use ($pct, $thrLbl)
+    {
+        // Proximity is <= 0 by construction, so it reads as a distance below the peak.
+        return PortfolioPeakAlertService::pairLabel($row) . ', '
+            . $pct(abs((float) $row['proximity_pct'])) . '% below peak (threshold '
+            . $thrLbl($row['threshold_pct']) . ')';
+    }, $pairs);
 
     $vusaLink = '<a href="' . e($vusaUrl) . '" target="_blank" style="color:#0d6efd;text-decoration:none;">VUSA.AS</a>';
 @endphp
@@ -68,14 +83,20 @@
         <div class="header">
             <h1>Portfolio Peak Alert</h1>
             <div class="sub">
-                Your portfolio is within {{ $closest }}% of a multi-period high.
+                {{ $firesCount }} {{ $firesNoun }} inside their threshold:
+                {{ implode(', ', $fireNames) }}.
             </div>
         </div>
         <div class="body">
             <div class="section peak">
-                <h2>Portfolio near a rolling high</h2>
+                <h2>{{ $firesCount }} {{ $firesNoun }} inside their threshold</h2>
+                <ul style="margin:0 0 8px; padding-left: 18px;">
+                    @foreach ($fireDetails as $detail)
+                    <li>{{ $detail }}</li>
+                    @endforeach
+                </ul>
                 <p>
-                    Your portfolio has rallied back to a multi-period high on the metrics below. This
+                    Your portfolio has rallied back to a multi-period high on those windows. This
                     is a moment to review whether to reduce exposure, take some profit, or rebalance,
                     not an instruction to sell.
                 </p>
@@ -90,7 +111,7 @@
                         <th class="num">Current</th>
                         <th class="num">Window peak</th>
                         <th>Peak date</th>
-                        <th class="num">From peak</th>
+                        <th class="num text-nowrap">From peak</th>
                         <th class="num">Threshold</th>
                         <th>Fires?</th>
                     </tr>

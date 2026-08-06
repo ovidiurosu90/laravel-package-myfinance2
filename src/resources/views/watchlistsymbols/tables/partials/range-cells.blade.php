@@ -1,4 +1,5 @@
 @php
+    use ovidiuro\myfinance2\App\Services\MarketUtils;
     use ovidiuro\myfinance2\App\Services\MoneyFormat;
 
     // Three columns shared by the watchlist and non-watchlist tables: "52W Range", "% Low", "% High".
@@ -19,6 +20,10 @@
     // high and low below. This is the same pre/post-market-aware price as the row's Price column.
     $curPrice      = (isset($quoteData['price']) && $quoteData['price'] !== '')
         ? (float) $quoteData['price'] : null;
+    // Derived here rather than inherited from the caller, so the partial behaves the
+    // same in both the watchlist and the non-watchlist table. The 52W Range column
+    // itself is historical, so only the two percentage columns carry the marker.
+    $rangeSession  = MarketUtils::getQuoteSession($quoteData);
     $curPriceNum   = $curPrice !== null ? MoneyFormat::get_formatted_price_plain($curPrice) : '';
     $curPriceLabel = $curPrice !== null ? $curPriceNum . ' ' . $codePlain : '';
 
@@ -88,7 +93,8 @@
     @if($cr && $cr['low_pct'] !== null)
         <div>
             <span data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
-                  title="How far the current price ({{ $curPriceLabel }}) is above the lowest daily close of the past year ({{ MoneyFormat::get_formatted_price_plain($cr['low_native']) }} {{ $codePlain }} on {{ $cr['low_date'] }}). {{ MoneyFormat::get_formatted_pct($cr['low_pct']) }}% = (current {{ $curPriceNum }} {{ $codePlain }} - low {{ MoneyFormat::get_formatted_price_plain($cr['low_native']) }} {{ $codePlain }}) / low. The table sorts and filters on this closing-based figure.">{!! MoneyFormat::get_formatted_52wk_low_percentage($cr['low_pct']) !!}</span>
+                  title="How far the current price ({{ $curPriceLabel }}) is above the lowest daily close of the past year ({{ MoneyFormat::get_formatted_price_plain($cr['low_native']) }} {{ $codePlain }} on {{ $cr['low_date'] }}). {{ MoneyFormat::get_formatted_pct($cr['low_pct']) }}% = (current {{ $curPriceNum }} {{ $codePlain }} - low {{ MoneyFormat::get_formatted_price_plain($cr['low_native']) }} {{ $codePlain }}) / low. The table sorts and filters on this closing-based figure.">{!! MoneyFormat::get_formatted_52wk_low_percentage($cr['low_pct']) !!}</span>@include(
+                'myfinance2::general.partials.session-marker', ['session' => $rangeSession])
         </div>
         @if($intraLowPct !== null)
             <div class="fst-italic" style="opacity: 0.55">
@@ -98,7 +104,10 @@
         @endif
     @elseif($intraLowPct !== null)
         <span data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
-              title="{{ $intraLowTip }}">{!! MoneyFormat::get_formatted_52wk_low_percentage($intraLowPct) !!}</span>
+              title="{{ $intraLowTip }}">{!!
+            MoneyFormat::get_formatted_52wk_low_percentage($intraLowPct)
+        !!}</span>@include('myfinance2::general.partials.session-marker',
+            ['session' => $rangeSession])
     @endif
 </td>
 {{-- % High: closing-based distance below the high (primary) + Yahoo intraday distance (secondary) --}}
@@ -106,7 +115,8 @@
     @if($cr && $cr['high_pct'] !== null)
         <div>
             <span data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
-                  title="How far the current price ({{ $curPriceLabel }}) is below the highest daily close of the past year ({{ MoneyFormat::get_formatted_price_plain($cr['high_native']) }} {{ $codePlain }} on {{ $cr['high_date'] }}). {{ MoneyFormat::get_formatted_pct($cr['high_pct']) }}% = (high {{ MoneyFormat::get_formatted_price_plain($cr['high_native']) }} {{ $codePlain }} - current {{ $curPriceNum }} {{ $codePlain }}) / high. The table sorts and filters on this closing-based figure.">{!! MoneyFormat::get_formatted_52wk_high_percentage($cr['high_pct'], $hasOpen) !!}</span>
+                  title="How far the current price ({{ $curPriceLabel }}) is below the highest daily close of the past year ({{ MoneyFormat::get_formatted_price_plain($cr['high_native']) }} {{ $codePlain }} on {{ $cr['high_date'] }}). {{ MoneyFormat::get_formatted_pct($cr['high_pct']) }}% = (high {{ MoneyFormat::get_formatted_price_plain($cr['high_native']) }} {{ $codePlain }} - current {{ $curPriceNum }} {{ $codePlain }}) / high. The table sorts and filters on this closing-based figure.">{!! MoneyFormat::get_formatted_52wk_high_percentage($cr['high_pct'], $hasOpen) !!}</span>@include(
+                'myfinance2::general.partials.session-marker', ['session' => $rangeSession])
         </div>
         @if($intraHighPct !== null)
             <div class="fst-italic" style="opacity: 0.55">
@@ -116,6 +126,9 @@
         @endif
     @elseif($intraHighPct !== null)
         <span data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
-              title="{{ $intraHighTip }}">{!! MoneyFormat::get_formatted_52wk_high_percentage($intraHighPct, $hasOpen) !!}</span>
+              title="{{ $intraHighTip }}">{!!
+            MoneyFormat::get_formatted_52wk_high_percentage($intraHighPct, $hasOpen)
+        !!}</span>@include('myfinance2::general.partials.session-marker',
+            ['session' => $rangeSession])
     @endif
 </td>

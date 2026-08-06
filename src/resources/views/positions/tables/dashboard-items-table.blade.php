@@ -1,4 +1,15 @@
 @use('ovidiuro\myfinance2\App\Services\FinanceAPI')
+@use('ovidiuro\myfinance2\App\Services\MarketUtils')
+@php
+    // Extended-hours state is a row-level fact: it is shown once per row next to
+    // the market status, and each affected figure only carries a small marker.
+    $hasPreSession = false;
+    $hasPostSession = false;
+    foreach ($items as $sessionItem) {
+        $hasPreSession = $hasPreSession || !empty($sessionItem['pre_market_price']);
+        $hasPostSession = $hasPostSession || !empty($sessionItem['post_market_price']);
+    }
+@endphp
 <div class="table-responsive">
     <table class="table table-sm table-striped data-table
                   positions-dashboard-items-table">
@@ -41,6 +52,9 @@
         <tbody class="table-body">
         @if(count($items) > 0)
             @foreach($items as $item)
+            @php
+                $rowSession = MarketUtils::getQuoteSession($item);
+            @endphp
             <tr>
                 <td class="text-nowrap">
                     @if (!FinanceAPI::isUnlisted($item['symbol']))
@@ -121,6 +135,8 @@
                         'marketOpen'         => !empty($item['marketUtils'])
                             && $item['marketUtils']->isOpen(),
                         'content'            => $item['current_unit_price_in_trade_currency_formatted'],
+                    ])@include('myfinance2::general.partials.session-marker', [
+                        'session' => $rowSession,
                     ])<br>
                     <div class="chart-symbol"
                         data-account_id="{{ $accountId }}"
@@ -132,17 +148,11 @@
                         !!}"
                         style="position: relative; float: right;"></div>
                     <div class="clearfix"></div>
-                    @if(!empty($item['pre_market_price']))
-                    <span class="badge rounded-pill bg-info opacity-50">pre-market</span>
-                    @endif
-                    @if(!empty($item['post_market_price']))
-                    <span class="badge rounded-pill bg-info opacity-50">post-market</span>
-                    @endif
                 </td>
                 <td class="text-nowrap">
                     <div class="row m-0">
                         {!! !empty($item['marketUtils'])
-                            ? $item['marketUtils']->getMarketStatusFormatted()
+                            ? $item['marketUtils']->getMarketStatusFormatted($rowSession)
                             : '' !!}
                     </div>
                 </td>
@@ -208,35 +218,28 @@
                 <td class="text-right text-nowrap"
                     data-order="{{
                         $item['day_change_in_account_currency'] }}">
-                    {!! $item['day_change_in_account_currency_formatted'] !!}
-                    @if(!empty($item['pre_market_day_change']))
-                    <br />
-                    <span class="badge rounded-pill bg-info opacity-50">pre-market</span>
-                    @endif
-                    @if(!empty($item['post_market_day_change']))
-                    <br />
-                    <span class="badge rounded-pill bg-info opacity-50">post-market</span>
-                    @endif
+                    {!! $item['day_change_in_account_currency_formatted'] !!}@include(
+                        'myfinance2::general.partials.session-marker',
+                        ['session' => $rowSession]
+                    )
                 </td>
                 <td class="text-right text-nowrap"
                     data-order="{{
                         $item['day_change_percentage'] }}">
-                    {!! $item['day_change_in_percentage_formatted'] !!}
-                    @if(!empty($item['pre_market_day_change_percentage']))
-                    <br />
-                    <span class="badge rounded-pill bg-info opacity-50">pre-market</span>
-                    @endif
-                    @if(!empty($item['post_market_day_change_percentage']))
-                    <br />
-                    <span class="badge rounded-pill bg-info opacity-50">post-market</span>
-                    @endif
+                    {!! $item['day_change_in_percentage_formatted'] !!}@include(
+                        'myfinance2::general.partials.session-marker',
+                        ['session' => $rowSession]
+                    )
                 </td>
                 <td class="text-right text-nowrap"
                     data-order="{{ $item['overall_change2_in_account_currency_formatted']
                         ? $item['overall_change2_in_account_currency']
                         : $item['overall_change_in_account_currency'] }}">
                     @if($item['overall_change2_in_account_currency_formatted'])
-                    {!! $item['overall_change2_in_account_currency_formatted'] !!}
+                    {!! $item['overall_change2_in_account_currency_formatted'] !!}@include(
+                        'myfinance2::general.partials.session-marker',
+                        ['session' => $rowSession]
+                    )
                     <br />
                     <span class="fst-italic" style="opacity: 0.55"
                           data-bs-toggle="tooltip"
@@ -244,21 +247,19 @@
                         {!! $item['overall_change_in_account_currency_formatted'] !!}
                     </span>
                     @else
-                    {!! $item['overall_change_in_account_currency_formatted'] !!}
-                    @endif
-                    @if(!empty($item['pre_market_price']))
-                    <br />
-                    <span class="badge rounded-pill bg-info opacity-50">pre-market</span>
-                    @endif
-                    @if(!empty($item['post_market_price']))
-                    <br />
-                    <span class="badge rounded-pill bg-info opacity-50">post-market</span>
+                    {!! $item['overall_change_in_account_currency_formatted'] !!}@include(
+                        'myfinance2::general.partials.session-marker',
+                        ['session' => $rowSession]
+                    )
                     @endif
                 </td>
                 <td class="text-right text-nowrap"
                     data-order="{{ $item['overall_change2_in_percentage'] ?? $item['overall_change_in_percentage'] }}">
                     @if($item['overall_change2_in_percentage_formatted'])
-                    {!! $item['overall_change2_in_percentage_formatted'] !!}
+                    {!! $item['overall_change2_in_percentage_formatted'] !!}@include(
+                        'myfinance2::general.partials.session-marker',
+                        ['session' => $rowSession]
+                    )
                     <br />
                     <span class="fst-italic" style="opacity: 0.55"
                           data-bs-toggle="tooltip"
@@ -271,20 +272,15 @@
                         @endif
                     </span>
                     @else
-                    {!! $item['overall_change_in_percentage_formatted'] !!}
+                    {!! $item['overall_change_in_percentage_formatted'] !!}@include(
+                        'myfinance2::general.partials.session-marker',
+                        ['session' => $rowSession]
+                    )
                     @if($item['overall_change_in_percentage'] === null && $item['quantity'])
                     <i class="fas fa-info-circle text-muted ms-1"
                        data-bs-toggle="tooltip"
                        title="N/A: effective cost is negative (sell proceeds exceeded total buy cost), so a percentage cannot be meaningfully calculated."></i>
                     @endif
-                    @endif
-                    @if(!empty($item['pre_market_price']))
-                    <br />
-                    <span class="badge rounded-pill bg-info opacity-50">pre-market</span>
-                    @endif
-                    @if(!empty($item['post_market_price']))
-                    <br />
-                    <span class="badge rounded-pill bg-info opacity-50">post-market</span>
                     @endif
                 </td>
             </tr>
@@ -343,6 +339,11 @@
             </tr>
         </tfoot>
     </table>
+
+    @include('myfinance2::general.partials.session-legend', [
+        'hasPreSession'  => $hasPreSession,
+        'hasPostSession' => $hasPostSession,
+    ])
 
     <div class="clearfix mb-3"></div>
 </div>

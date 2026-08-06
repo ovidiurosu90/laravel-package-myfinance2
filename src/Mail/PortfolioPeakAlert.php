@@ -9,6 +9,7 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Route;
 
+use ovidiuro\myfinance2\App\Services\PortfolioPeakAlertService;
 use ovidiuro\myfinance2\Mail\Concerns\HasAppLabel;
 
 /**
@@ -22,6 +23,10 @@ class PortfolioPeakAlert extends Mailable
 
     private const BENCHMARK_SYMBOL = 'VUSA.AS';
     private const YAHOO_QUOTE_URL  = 'https://finance.yahoo.com/quote/';
+
+    // Up to six pairs can fire at once (three trigger windows x two metrics); listing them all
+    // would push the subject past what any mail client shows, so the tail is summarised.
+    private const SUBJECT_MAX_NAMES = 4;
 
     /**
      * @param array      $pairs            triggered (metric, window) pairs
@@ -45,20 +50,26 @@ class PortfolioPeakAlert extends Mailable
     {
         $label = $this->_appLabel();
 
-        // Subject leads with the longest triggered window and the closest proximity, matching the
-        // existing alert subject style. No dashes in generated text.
-        $order   = ['2y' => 3, '1y' => 2, '6m' => 1];
-        $windows = array_unique(array_column($this->pairs, 'window'));
-        usort($windows, fn ($a, $b) => ($order[$b] ?? 0) <=> ($order[$a] ?? 0));
-        $longestWindow = strtoupper($windows[0] ?? '');
-        $closest       = max(array_column($this->pairs, 'proximity_pct'));
+        // Subject states how many windows fired and names them, in the same order (and with the
+        // same labels) as the email's table. An earlier version paired the longest triggered window
+        // with the closest proximity, which described a row that did not exist whenever those came
+        // from different pairs. No dashes in generated text.
+        $names  = array_map(
+            fn (array $pair) => PortfolioPeakAlertService::pairLabel($pair),
+            $this->pairs
+        );
+        $count  = count($names);
+        $shown  = array_slice($names, 0, self::SUBJECT_MAX_NAMES);
+        $hidden = $count - count($shown);
+        $list   = implode(', ', $shown) . ($hidden > 0 ? ", +{$hidden} more" : '');
+        $noun   = $count === 1 ? 'window' : 'windows';
 
         $settingsUrl = Route::has('myfinance2::portfolio-peak-alerts.index')
             ? route('myfinance2::portfolio-peak-alerts.index')
             : url('/portfolio-peak-alerts');
 
         return $this->subject(
-                "{$label} Portfolio near {$longestWindow} high => {$closest}% from peak"
+                "{$label} Portfolio near highs => {$count} {$noun} ({$list})"
             )
             ->view('myfinance2::emails.portfolio-peak-alert')
             ->with([

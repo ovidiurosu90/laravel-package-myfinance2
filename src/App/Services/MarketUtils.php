@@ -157,7 +157,11 @@ class MarketUtils
         return $returnData;
     }
 
-    public function getMarketStatusFormatted()
+    /**
+     * @param string|null $session 'pre' or 'post' to flag that the displayed
+     *                             quote comes from an extended-hours session.
+     */
+    public function getMarketStatusFormatted(?string $session = null)
     {
         $text = 'UNKNOWN';
         $class = 'bg-danger';
@@ -237,9 +241,52 @@ class MarketUtils
             . '" data-bs-toggle="tooltip" data-bs-custom-class="tooltip-md" '
             . 'data-bs-html="true" title="<p class=\'text-left\'>'
             . $tooltip . '</p>">' . $text
-            . '</span></div> <div class="p-0">' . $countdown . "</div>";
+            . '</span>' . self::getSessionBadgeFormatted($session)
+            . '</div> <div class="p-0">' . $countdown . "</div>";
 
         return $output;
+    }
+
+    /**
+     * The extended-hours session a quote's price comes from, or null when the
+     * price is a regular-session one. Views use it to flag, once per row, that
+     * every live-price figure in that row is an extended-hours figure.
+     *
+     * @param array $quote position or watchlist row data
+     */
+    public static function getQuoteSession(array $quote): ?string
+    {
+        if (!empty($quote['post_market_price'])) {
+            return 'post';
+        }
+
+        if (!empty($quote['pre_market_price'])) {
+            return 'pre';
+        }
+
+        return null;
+    }
+
+    /**
+     * Compact pill naming the extended-hours session a quote comes from. In the
+     * positions table it is rendered inside the market status wrapper, so it
+     * sits on the same line as the status itself instead of taking a row of its
+     * own; tables without a market status column render it on its own.
+     */
+    public static function getSessionBadgeFormatted(?string $session): string
+    {
+        if ($session !== 'pre' && $session !== 'post') {
+            return '';
+        }
+
+        $text = $session === 'pre' ? 'PRE' : 'AH';
+        $title = $session === 'pre'
+            ? 'Pre-market: quotes update before the regular session opens.'
+            : 'After hours: quotes update after the regular session closed.';
+
+        return '<span class="badge rounded-pill bg-info opacity-50 ms-1" '
+            . 'data-bs-toggle="tooltip" title="' . $title . '">' . $text
+            . '</span>';
     }
 }
 

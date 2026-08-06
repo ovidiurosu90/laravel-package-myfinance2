@@ -223,7 +223,7 @@ $actionColors = [
                         title="Market return over the window, measured from the price at the window start to the latest price (just those two points). 3M and 6M are raw returns; 1Y and 2Y are annualized (CAGR), so the 2Y figure is a per-year rate comparable to 1Y, not the full two-year total.">Gain</span></th>
                     <th class="text-end">Risk</th>
                     <th>Action</th>
-                    <th class="text-end">From peak</th>
+                    <th class="text-end text-nowrap">From peak</th>
                     <th class="text-end"><span data-bs-toggle="tooltip"
                         title="P&L on your held shares if sold at this window's peak price, versus your purchase cost. The 3M figure is your realistic near-term ceiling.">P&amp;L at peak</span></th>
                 </tr>
@@ -333,7 +333,7 @@ $actionColors = [
                         <span class="text-muted small">-</span>
                     @endif
                 </td>
-                <td class="text-end">
+                <td class="text-end text-nowrap">
                     @if($pdEz !== null && ($pdEz['proximity_pct'] ?? null) !== null)
                         @php
                             // Same per-window thresholds as the peak-proximity exit-hint email

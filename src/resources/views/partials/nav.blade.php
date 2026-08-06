@@ -4,6 +4,7 @@
 @use('ovidiuro\myfinance2\App\Models\DipBuyingSetting')
 @use('ovidiuro\myfinance2\App\Models\PortfolioPeakSetting')
 @use('ovidiuro\myfinance2\App\Models\Order')
+@use('ovidiuro\myfinance2\App\Services\PortfolioPeakAlertService')
 @role(['admin', 'financeadmin'])
 @php
     $activeOrdersCount = Order::whereIn('status', ['DRAFT', 'PLACED'])->count();
@@ -26,6 +27,11 @@
     $portfolioPeakEnabled = PortfolioPeakSetting::where('user_id', auth()->id())
         ->where('status', PortfolioPeakSetting::ENABLED)
         ->exists();
+    // Windows currently inside their threshold (the settings table's "Fires? = yes" rows). Only
+    // computed for users who opted in; the service caches it, so the nav stays cheap.
+    $portfolioPeakFires = $portfolioPeakEnabled
+        ? (new PortfolioPeakAlertService())->getTriggeredCount((int) auth()->id())
+        : 0;
 
     $alertsActive = Request::is('price-alerts') || Request::is('price-alerts/*')
         || Request::is('peak-proximity-alerts') || Request::is('peak-proximity-alerts/*')
@@ -91,6 +97,10 @@
                     <span class="badge bg-secondary ms-1"
                           data-bs-toggle="tooltip" title="For your awareness">{{ $openPeakInfo }}</span>
                 @endif
+                @if ($portfolioPeakFires > 0)
+                    <span class="badge bg-warning text-dark ms-1" data-bs-toggle="tooltip"
+                          title="Portfolio peak windows inside their threshold">{{ $portfolioPeakFires }}</span>
+                @endif
             </span>
             <i class="fa fa-chevron-right myfinance2-submenu-caret"></i>
             <div class="dropdown-menu myfinance2-submenu-menu">
@@ -155,6 +165,10 @@
                     Portfolio Peak Alerts
                     @if ($portfolioPeakEnabled)
                         <span class="badge bg-success ms-1">on</span>
+                    @endif
+                    @if ($portfolioPeakFires > 0)
+                        <span class="badge bg-warning text-dark ms-1" data-bs-toggle="tooltip"
+                              title="Windows inside their threshold now (Fires? = yes)">{{ $portfolioPeakFires }}</span>
                     @endif
                 </a>
                 <a class="dropdown-item ps-4

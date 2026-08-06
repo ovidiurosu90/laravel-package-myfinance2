@@ -1,4 +1,5 @@
 @php use ovidiuro\myfinance2\App\Services\MoneyFormat; @endphp
+@php use ovidiuro\myfinance2\App\Services\MarketUtils; @endphp
 <style>
     .open-positions {
         padding: 0.35rem 0.6rem;
@@ -93,6 +94,15 @@
     $watchlistItems    = array_filter($items, fn($q) => $q['is_on_watchlist']);
     $nonWatchlistItems = array_filter($items, fn($q) => !$q['is_on_watchlist']);
 
+    // Extended-hours state is a row-level fact: the row carries one compact pill
+    // in the Price cell, and each affected figure only carries a small marker.
+    $hasPreSession = false;
+    $hasPostSession = false;
+    foreach ($items as $sessionItem) {
+        $hasPreSession = $hasPreSession || !empty($sessionItem['pre_market_price']);
+        $hasPostSession = $hasPostSession || !empty($sessionItem['post_market_price']);
+    }
+
     $healthSymbolIndex = [];
     if (!empty($health_score)) {
         foreach (array_merge(
@@ -159,6 +169,7 @@
                     || !empty($quoteData['categorization']);
                 // Sort keys and filter labels are built in the BE (WatchlistTableMetaBuilder).
                 $meta = $quoteData['table_meta'] ?? [];
+                $rowSession = MarketUtils::getQuoteSession($quoteData);
             @endphp
             <tr data-symbol="{{ $symbol }}"
                 data-tier="{{ $meta['tier_text'] ?? '' }}"
@@ -242,7 +253,10 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                         'marketOpen'         => !empty($quoteData['marketUtils'])
                             && $quoteData['marketUtils']->isOpen(),
                         'content'            => $wl_priceContent,
-                    ])<br>
+                    ]){{-- No market status column here, so the row-level session pill rides
+                          alongside the price instead of taking a row of its own. It stands in
+                          for the marker here, which would only repeat what the pill says. --}}
+                    {!! MarketUtils::getSessionBadgeFormatted($rowSession) !!}<br>
                     <div class="chart-symbol"
                         data-symbol="{{ $symbol }}"
                         data-symbol_name="{{ $quoteData['name'] }}"
@@ -252,14 +266,6 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                         !!}"
                         style="position: relative; float: right;"></div>
                     <div class="clearfix"></div>
-                    <div>
-                        @if(!empty($quoteData['pre_market_price']))
-                        <span class="badge rounded-pill bg-info opacity-50">pre-market</span>
-                        @endif
-                        @if(!empty($quoteData['post_market_price']))
-                        <span class="badge rounded-pill bg-info opacity-50">post-market</span>
-                        @endif
-                    </div>
                 </td>
                 <td class="text-right text-nowrap"
                     data-order="{{ $quoteData['day_change_percentage'] }}">
@@ -267,22 +273,16 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                         {!! MoneyFormat
                         ::get_formatted_gain_percentage(
                             $quoteData['day_change_percentage']
-                        ) !!}
+                        ) !!}@include('myfinance2::general.partials.session-marker',
+                            ['session' => $rowSession])
                     </div>
                     <div style="line-height: 24px">
                         {!! MoneyFormat
                         ::get_formatted_gain(
                             $quoteData['tradeCurrencyModel']->display_code,
                             $quoteData['day_change']
-                        ) !!}
-                    </div>
-                    <div>
-                        @if(!empty($quoteData['pre_market_day_change_percentage']))
-                        <span class="badge rounded-pill bg-info opacity-50">pre-market</span>
-                        @endif
-                        @if(!empty($quoteData['post_market_day_change_percentage']))
-                        <span class="badge rounded-pill bg-info opacity-50">post-market</span>
-                        @endif
+                        ) !!}@include('myfinance2::general.partials.session-marker',
+                            ['session' => $rowSession])
                     </div>
                 </td>
                 @include('myfinance2::watchlistsymbols.tables.partials.range-cells')
@@ -415,6 +415,10 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
             </tr>
         </tfoot>
     </table>
+    @include('myfinance2::general.partials.session-legend', [
+        'hasPreSession'  => $hasPreSession,
+        'hasPostSession' => $hasPostSession,
+    ])
     <div class="clearfix mb-3"></div>
 </div>
 
@@ -450,22 +454,25 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
             || !empty($quoteData['performance']['sector'])
             || $hasNwTechInd
             || !empty($quoteData['categorization']);
+        $rowSession = MarketUtils::getQuoteSession($quoteData);
     @endphp
     <tr data-symbol="{{ $symbol }}-nw"@if(count($quoteData['open_positions']) > 0) class="table-info"@endif>
         <td>
             <a href="https://finance.yahoo.com/quote/{{ $symbol }}"
                 target="_blank">{{ $symbol }}</a>
         </td>
-        <td class="text-right">
+        <td class="text-right text-nowrap">
             {!! MoneyFormat::get_formatted_balance(
                 $quoteData['tradeCurrencyModel']->display_code,
                 $quoteData['price']
-            ) !!}
+            ) !!}{!! MarketUtils::getSessionBadgeFormatted($rowSession) !!}
         </td>
         <td class="text-right text-nowrap">
             {!! MoneyFormat::get_formatted_gain_percentage(
                 $quoteData['day_change_percentage']
-            ) !!}
+            ) !!}@include('myfinance2::general.partials.session-marker',
+                ['session' => $rowSession]
+            )
         </td>
         @include('myfinance2::watchlistsymbols.tables.partials.range-cells')
         <td{!! $hasNwPerfRow ? ' rowspan="2"' : '' !!}>

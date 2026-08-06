@@ -24,6 +24,8 @@ return [
         'show'   => '<span class="hidden-xs hidden-sm">Show </span><i class="fa fa-eye fa-fw" aria-hidden="true"></i>',
         'edit'   => '<span class="hidden-xs hidden-sm">Edit </span><i class="fa fa-pencil fa-fw" aria-hidden="true"></i>',
         'delete' => '<span class="hidden-xs hidden-sm">Delete </span><i class="fa fa-trash-o fa-fw" aria-hidden="true"></i>',
+        // Abbreviated label for narrow action columns, where "Delete" costs width the table needs.
+        'delete-short' => '<span class="hidden-xs hidden-sm">Del </span><i class="fa fa-trash-o fa-fw" aria-hidden="true"></i>',
         'clear-cache' => 'Clear Cache',
     ],
     'tooltips' => [

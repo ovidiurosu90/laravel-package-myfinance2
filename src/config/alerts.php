@@ -140,7 +140,10 @@ return [
         // change_EUR windows whose peak magnitude is under this floor (EUR) are skipped; a
         // threshold band around a near-zero peak would flip on noise.
         'min_peak_abs_eur' => env('MYFINANCE2_PORTFOLIO_PEAK_MIN_PEAK_ABS_EUR', 1000),
-        'reminder_days'    => env('MYFINANCE2_PORTFOLIO_PEAK_REMINDER_DAYS', 7),
+        // Calendar days between emails while the condition keeps holding. 1 = one per day, the
+        // first hourly run of each day that still has a triggered window. Raise it (e.g. 7) for a
+        // weekly reminder instead.
+        'reminder_days'    => env('MYFINANCE2_PORTFOLIO_PEAK_REMINDER_DAYS', 1),
         'email_to'         => env('MYFINANCE2_PORTFOLIO_PEAK_EMAIL_TO', null),
     ],
 ];
