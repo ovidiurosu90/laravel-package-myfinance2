@@ -58,7 +58,7 @@ $(document).ready(function()
     }
 
     // ── Build all controls before DataTable init ──
-    const $gainYEurSelect = makeGainYSelect('gain-y-eur-sort-dir');
+    // The Gain/y € sort is intentionally not exposed; sorting is offered on Gain/y % only.
     const $gainYPctSelect = makeGainYSelect('gain-y-pct-sort-dir');
 
     const tierValues     = ['Platinum', 'Gold', 'Silver', 'Bronze', 'Rust'];
@@ -75,6 +75,13 @@ $(document).ready(function()
     const $tierFilter     = buildFilterSelect('All tiers',     'tier-filter',     tierValues);
     const $quadrantFilter = buildFilterSelect('All quadrants', 'quadrant-filter', quadrantValues);
     const $actionFilter   = buildFilterSelect('All actions',   'action-filter',   actionValues);
+
+    // Boolean filter: keep only symbols flagged (data-near-peak="1" in the BE) as within the
+    // "near peak" range in at least one quadrant window (3M / 6M / 1Y / 2Y).
+    const $nearPeakFilter = $('<div>', { class: 'form-check form-check-inline m-0' })
+        .append($('<input>', { type: 'checkbox', class: 'form-check-input', id: 'near-peak-filter' }))
+        .append($('<label>', { class: 'form-check-label small text-nowrap', for: 'near-peak-filter' })
+            .text('Near peak'));
 
     const dt = $('.watchlist-symbol-items-table.data-table').DataTable({
         'paging': false,
@@ -110,17 +117,13 @@ $(document).ready(function()
     $('<span>', { class: 'text-muted small fw-semibold text-uppercase' }).text('Sort')
         .appendTo($bar);
     $('<div>', { class: 'd-flex align-items-center gap-1' })
-        .append($('<label>', { for: 'gain-y-eur-sort-dir', class: 'mb-0 small text-nowrap' }).text('Gain/y €'))
-        .append($gainYEurSelect)
-        .appendTo($bar);
-    $('<div>', { class: 'd-flex align-items-center gap-1' })
         .append($('<label>', { for: 'gain-y-pct-sort-dir', class: 'mb-0 small text-nowrap' }).text('Gain/y %'))
         .append($gainYPctSelect)
         .appendTo($bar);
 
     $('<span>', { class: 'text-muted small fw-semibold text-uppercase' }).text('Filter')
         .appendTo($bar);
-    $bar.append($tierFilter).append($quadrantFilter).append($actionFilter);
+    $bar.append($tierFilter).append($quadrantFilter).append($actionFilter).append($nearPeakFilter);
 
     // ── Style the DataTables search label to match Sort / Filter section headers ──
     const $dtSearch = $(dt.table().container()).find('.dt-search');
@@ -138,11 +141,12 @@ $(document).ready(function()
     // overall), so the filter matches if the selected value appears in ANY horizon.
     $.fn.dataTable.ext.search.push(function(settings, searchData, dataIndex)
     {
-        const tierVal     = $tierFilter.val();
-        const quadrantVal = $quadrantFilter.val().toLowerCase();
-        const actionVal   = $actionFilter.val(); // e.g. "" | "ACCUMULATE" | "HOLD|WATCH"
+        const tierVal      = $tierFilter.val();
+        const quadrantVal  = $quadrantFilter.val().toLowerCase();
+        const actionVal    = $actionFilter.val(); // e.g. "" | "ACCUMULATE" | "HOLD|WATCH"
+        const nearPeakOnly = $nearPeakFilter.find('input').is(':checked');
 
-        if (!tierVal && !quadrantVal && !actionVal) return true;
+        if (!tierVal && !quadrantVal && !actionVal && !nearPeakOnly) return true;
 
         const $row      = $(dt.row(dataIndex).node());
         const tier      = ($row.data('tier') || '').toLowerCase();
@@ -156,10 +160,15 @@ $(document).ready(function()
             const actionParts = actionVal.split('|');
             if (!actions.some(a => actionParts.includes(a))) return false;
         }
+        if (nearPeakOnly && $row.attr('data-near-peak') !== '1') return false;
         return true;
     });
 
     $tierFilter.add($quadrantFilter).add($actionFilter).on('change', function()
+    {
+        dt.draw();
+    });
+    $nearPeakFilter.find('input').on('change', function()
     {
         dt.draw();
     });
@@ -183,15 +192,8 @@ $(document).ready(function()
         dt.order(newOrder).draw(false);
     }
 
-    $gainYEurSelect.on('change', function()
-    {
-        $gainYPctSelect.val('');
-        applyGainYSort(GAIN_Y_EUR_COL, $(this).val() || null);
-    });
-
     $gainYPctSelect.on('change', function()
     {
-        $gainYEurSelect.val('');
         applyGainYSort(GAIN_Y_PCT_COL, $(this).val() || null);
     });
 

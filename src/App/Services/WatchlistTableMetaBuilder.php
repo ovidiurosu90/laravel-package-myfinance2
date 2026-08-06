@@ -46,6 +46,7 @@ class WatchlistTableMetaBuilder
                 'gain_windows'        => $this->_gainWindows($quoteData, $cat, $liveEurRates, $currentPriceLabel),
                 'closing_range'       => $this->_closingRange($quoteData, $cat),
                 'current_price_label' => $currentPriceLabel,
+                'has_near_peak'       => $this->_hasNearPeak($cat),
             ];
         }
 
@@ -360,6 +361,34 @@ class WatchlistTableMetaBuilder
         }
 
         return null;
+    }
+
+    /**
+     * Whether the symbol is within the "near peak" range in at least one quadrant window
+     * (3M / 6M / 1Y / 2Y), used by the table's "Near peak" filter. Mirrors the per-window test the
+     * quadrant table renders in tier-quadrant-perf-row.blade.php (proximity_pct within the same
+     * per-window threshold that fires a peak-proximity email); keep the two in sync.
+     */
+    private function _hasNearPeak(?array $cat): bool
+    {
+        if ($cat === null) {
+            return false;
+        }
+
+        foreach ($cat['periods'] ?? [] as $period => $periodData) {
+            $proximityPct = $periodData['exit_zone']['proximity_pct'] ?? null;
+            if ($proximityPct === null) {
+                continue;
+            }
+
+            $threshold = config("alerts.peak_proximity.window_thresholds.{$period}")
+                ?? config('alerts.peak_proximity.threshold_pct', 5);
+            if ((float) $proximityPct >= -(float) $threshold) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

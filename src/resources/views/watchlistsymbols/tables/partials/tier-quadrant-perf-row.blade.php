@@ -350,7 +350,10 @@ $actionColors = [
                         @if($isNearPeak)
                             {{-- Drop the badge to its own line on smaller screens; keep inline on xl+ (>=1200px) --}}
                             <br class="d-xl-none">
-                            <span class="badge bg-success"
+                            {{-- Full opacity only when the position is held; dimmed (like the unowned
+                                 action badges) when it is a watch-only symbol, so held near-peak
+                                 signals stand out from watchlist noise. --}}
+                            <span class="badge bg-success{{ $isOwned ? '' : ' opacity-50' }}"
                                   data-bs-toggle="tooltip"
                                   title="Within {{ $nearThreshold }}% of the {{ $pLabel }} peak {!! $peakLabels[$pKey] ?? 'n/a' !!} on {{ $pdPeakDate }}, the same range that triggers a peak-proximity email.">
                                 near peak

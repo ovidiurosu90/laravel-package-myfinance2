@@ -15,6 +15,7 @@ use ovidiuro\myfinance2\App\Services\QuadrantChartBuilder;
 use ovidiuro\myfinance2\App\Services\WatchlistTableMetaBuilder;
 use ovidiuro\myfinance2\App\Services\PeakExitPnlBuilder;
 use ovidiuro\myfinance2\App\Services\Positions;
+use ovidiuro\myfinance2\App\Services\StaleQuoteService;
 use ovidiuro\myfinance2\App\Services\SymbolPerformanceService;
 use ovidiuro\myfinance2\App\Services\TechnicalIndicatorsService;
 use ovidiuro\myfinance2\App\Services\FinanceUtils;
@@ -24,7 +25,8 @@ class WatchlistSymbolsDashboard
     /**
      * Build the watchlist symbols dashboard data.
      *
-     * Returns ['items' => (symbol => quoteData), 'health_score' => array, 'quadrant' => array].
+     * Returns ['items' => (symbol => quoteData), 'health_score' => array, 'quadrant' => array,
+     * 'staleQuotes' => array].
      * Each item includes:
      *   - 'is_on_watchlist'  (bool)
      *   - 'performance'      (array) from SymbolPerformanceService
@@ -44,7 +46,7 @@ class WatchlistSymbolsDashboard
         $positionsService->setPersistStats(false);
         $positionsData = $positionsService->handle();
         if (empty($positionsData['quotes'])) {
-            return ['items' => [], 'health_score' => null, 'quadrant' => null];
+            return ['items' => [], 'health_score' => null, 'quadrant' => null, 'staleQuotes' => []];
         }
 
         $openOrders = Order::whereIn('status', ['DRAFT', 'PLACED'])->get();
@@ -138,7 +140,16 @@ class WatchlistSymbolsDashboard
         // visibly reshuffle a moment after load.
         $items = $this->_sortByDefaultHighPct($items);
 
-        return ['items' => $items, 'health_score' => $healthScore, 'quadrant' => $quadrant];
+        // Stale-data safety net: warn when a market is open but its live prices have frozen. Built
+        // from the pristine quotes map (the same source these rows are built from). Never throws.
+        $staleQuotes = (new StaleQuoteService())->detect($positionsData['quotes']);
+
+        return [
+            'items'        => $items,
+            'health_score' => $healthScore,
+            'quadrant'     => $quadrant,
+            'staleQuotes'  => $staleQuotes,
+        ];
     }
 
     /**

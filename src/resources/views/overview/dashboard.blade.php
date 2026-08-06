@@ -12,6 +12,8 @@
 
     <div class="container-fluid">
 
+        @include('myfinance2::general.partials.stale-quote-alerts')
+
         {{-- Row 1: Funding Sources | Open Positions --}}
         <div class="row">
             @include('myfinance2::overview.cards.funding-sources')

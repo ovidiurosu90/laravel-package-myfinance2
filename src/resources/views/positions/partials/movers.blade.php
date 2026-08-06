@@ -32,11 +32,16 @@
         $ptEur = $colData['portfolio_total_eur'] ?? null;
         $ptPct = $colData['portfolio_total_pct'] ?? null;
         if ($ptEur !== null && $ptPct !== null) {
+            // Reuse the (possibly weekday-adjusted) column label so the collapsed summary strip and
+            // the expanded cards agree: on a normal trading day both read "Today"; before the
+            // opening bell (weekend/holiday) both read the last completed session's weekday
+            // (e.g. "Monday"), instead of the summary saying "Today" while the card says "Monday".
+            $summaryLabel = $col['label'];
+            if ($col['key'] === 'today' && $col['label'] !== 'Today' && !empty($col['sub_label'])) {
+                $summaryLabel .= ' (' . $col['sub_label'] . ')';
+            }
             $summaryItems[] = [
-                'label'   => $col['key'] === 'today' ? 'Today'
-                    : ($col['key'] === 'weekly'  ? '1 Week'
-                    : ($col['key'] === 'monthly' ? '1 Month'
-                    : ($col['key'] === 'yearly'  ? '1 Year' : 'All-time'))),
+                'label'   => $summaryLabel,
                 'eur'     => $ptEur,
                 'pct'     => $ptPct,
                 'color'   => $ptEur >= 0 ? 'text-success' : 'text-danger',

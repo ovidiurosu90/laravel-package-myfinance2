@@ -12,6 +12,7 @@
 
         <div class="row">
             <div class="col-sm-12">
+                @include('myfinance2::general.partials.stale-quote-alerts')
                 @include('myfinance2::watchlistsymbols.tables.partials.health-score-card',
                     ['health_score' => $health_score ?? null])
                 @include('myfinance2::watchlistsymbols.tables.partials.quadrant-chart',

@@ -65,6 +65,12 @@ class OverviewDashboard
             'dividendsPerYear'     => $dividendsPerYear,
             'eurRatesPerYear'      => $eurRatesPerYear,
             'topWinners'           => $topWinners,
+
+            // Stale-data safety net: warn when a market is open but its live prices have frozen.
+            // The Overview's account market values are built from these same live quotes. Never
+            // throws, so it cannot break the page.
+            'staleQuotes'          => (new StaleQuoteService())
+                ->detect($positionsData['quotes'] ?? []),
         ];
     }
 

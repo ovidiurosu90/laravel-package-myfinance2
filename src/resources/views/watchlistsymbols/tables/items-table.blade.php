@@ -164,6 +164,7 @@
                 data-tier="{{ $meta['tier_text'] ?? '' }}"
                 data-quadrants="{{ json_encode($meta['quadrant_labels'] ?? []) }}"
                 data-actions="{{ json_encode($meta['action_labels'] ?? []) }}"
+                data-near-peak="{{ !empty($meta['has_near_peak']) ? '1' : '0' }}"
                 @if(count($quoteData['open_positions']) > 0) class="table-info"@endif>
                 <td>
                     <a href="https://finance.yahoo.com/quote/{{ $symbol }}"
@@ -264,13 +265,13 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                     data-order="{{ $quoteData['day_change_percentage'] }}">
                     <div>
                         {!! MoneyFormat
-                        ::get_formatted_balance_percentage(
+                        ::get_formatted_gain_percentage(
                             $quoteData['day_change_percentage']
                         ) !!}
                     </div>
                     <div style="line-height: 24px">
                         {!! MoneyFormat
-                        ::get_formatted_balance(
+                        ::get_formatted_gain(
                             $quoteData['tradeCurrencyModel']->display_code,
                             $quoteData['day_change']
                         ) !!}
@@ -462,7 +463,7 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
             ) !!}
         </td>
         <td class="text-right text-nowrap">
-            {!! MoneyFormat::get_formatted_balance_percentage(
+            {!! MoneyFormat::get_formatted_gain_percentage(
                 $quoteData['day_change_percentage']
             ) !!}
         </td>

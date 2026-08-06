@@ -49,5 +49,16 @@ return [
         // the percentage test on a small base. Real regressions produce far larger gaps.
         'absolute_floor' => env('MYFINANCE2_RECON_ABSOLUTE_FLOOR', 5.0),
     ],
+
+    // Stale live-quote detection for the pages that render live positions (/positions,
+    // /watchlist-symbols, /overview). When a market should be open but the freshest price
+    // timestamp for that market is older than the threshold, a banner warns that prices may be
+    // stale so decisions are not made on frozen data. See StaleQuoteService.
+    'stale_quote' => [
+        'enabled' => env('MYFINANCE2_STALE_QUOTE_ENABLED', true),
+        // Age (in seconds) past which an open market's freshest price is treated as stale.
+        // Set to 5 minutes; raise toward 10 (600) if it proves too sensitive.
+        'threshold_seconds' => env('MYFINANCE2_STALE_QUOTE_THRESHOLD', 300),
+    ],
 ];
 

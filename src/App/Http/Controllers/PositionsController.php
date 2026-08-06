@@ -10,6 +10,7 @@ use ovidiuro\myfinance2\App\Services\DipBuyingPresenter;
 use ovidiuro\myfinance2\App\Services\MoversService;
 use ovidiuro\myfinance2\App\Services\Positions;
 use ovidiuro\myfinance2\App\Services\PositionsReconciliationService;
+use ovidiuro\myfinance2\App\Services\StaleQuoteService;
 
 class PositionsController extends MyFinance2Controller
 {
@@ -47,6 +48,13 @@ class PositionsController extends MyFinance2Controller
         $data['moversData'] = empty($dateInput)
             ? (new MoversService())->getMovers(auth()->id())
             : null;
+
+        // Stale-data safety net: warn when a market is open but its live prices have stopped
+        // advancing (frozen Yahoo feed). Only meaningful on the live view; the historical view
+        // deliberately shows dated closes. detect() never throws, so this cannot break the page.
+        $data['staleQuotes'] = empty($dateInput)
+            ? (new StaleQuoteService())->detect($data['quotes'] ?? [])
+            : [];
 
         // Dip Buying Plan panel: only on the live view, and only when the user has opted in (the
         // engine returns null otherwise). The whole panel reads one render-ready view model built in
