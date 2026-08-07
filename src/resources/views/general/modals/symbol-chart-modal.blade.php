@@ -17,6 +17,17 @@
         max-width: 100%;
     }
 </style>
+@inject('HistoricalBackfill', 'ovidiuro\myfinance2\App\Services\HistoricalBackfill')
+@php
+    // Tooltip for the header's backfill button. Spells out the overwrite, since
+    // the button is meant to be used on symbols that already have (incomplete)
+    // history, e.g. after a stock split removed the pre-split prices.
+    $scm_populateTip = "Refetches this symbol's daily closing prices from "
+        . $HistoricalBackfill::DEFAULT_START_DATE
+        . ' to today and rebuilds its chart. Days already stored are overwritten'
+        . ' with the prices the data provider returns now, so a history left'
+        . ' incomplete by a stock split is replaced by the split-adjusted one.';
+@endphp
 <div class="modal fade" id="symbol-chart-modal" tabindex="-1"
      aria-labelledby="symbol-chart-modal-label" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -27,10 +38,18 @@
                        class="text-decoration-none fw-bold"></a>
                     <span id="symbol-chart-modal-name" class="text-secondary ms-2"></span>
                 </h5>
+                <button type="button" id="scm-populate-historical"
+                        class="btn btn-sm btn-outline-secondary ms-auto me-2"
+                        data-bs-toggle="tooltip" data-bs-placement="bottom"
+                        title="{{ $scm_populateTip }}">
+                    <i class="fas fa-clock-rotate-left me-1"></i>Populate historical data
+                </button>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"
                         aria-label="Close"></button>
             </div>
             <div class="modal-body">
+                <div id="scm-populate-status" class="small mb-2"
+                     style="display: none;"></div>
                 <div class="d-flex flex-wrap justify-content-between
                             align-items-start gap-3 mb-3">
                     <div id="scm-quote-details" class="flex-grow-1"></div>

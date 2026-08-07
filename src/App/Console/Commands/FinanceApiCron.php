@@ -43,6 +43,7 @@ class FinanceApiCron extends Command
         {--force}
         {--start=}
         {--end=}
+        {--symbol=}
         {--skip-alerts}';
 
     /**
@@ -87,7 +88,9 @@ class FinanceApiCron extends Command
 
         try {
             if ($historical) {
-                $this->fetchHistorical($start, $end);
+                // --symbol limits the backfill to one ticker (e.g. refilling the
+                // history a stock split removed) instead of the whole portfolio.
+                $this->fetchHistorical($start, $end, $this->option('symbol'));
                 return Command::SUCCESS;
             }
 

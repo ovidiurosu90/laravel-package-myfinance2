@@ -10,6 +10,7 @@ use ovidiuro\myfinance2\App\Models\PriceAlert;
 use ovidiuro\myfinance2\App\Models\Trade;
 use ovidiuro\myfinance2\App\Models\WatchlistSymbol;
 use ovidiuro\myfinance2\App\Services\FinanceAPI;
+use ovidiuro\myfinance2\App\Services\HistoricalBackfill;
 use ovidiuro\myfinance2\App\Services\Stats;
 
 /**
@@ -126,46 +127,42 @@ trait FinanceApiCronQuotesTrait
         }
     }
 
-    public function fetchHistorical(string $start, string $end): void
+    /**
+     * Backfill raw historical daily closes.
+     *
+     * Without $symbol every used symbol is fetched, along with the historical
+     * exchange rates for the range. With $symbol only that one is refetched (the
+     * rates are portfolio-wide, so they stay out of a single-symbol run); this is
+     * the same path the chart modal's "Populate historical data" button takes.
+     */
+    public function fetchHistorical(string $start, string $end, ?string $symbol = null): void
     {
-        Log::info("START app:finance-api-cron fetchHistorical($start, $end)");
+        Log::info("START app:finance-api-cron fetchHistorical($start, $end"
+            . (!empty($symbol) ? ", $symbol" : '') . ')');
 
-        $symbols = $this->getAllUsedSymbols();
+        // Single symbol: also rebuild its chart file, so the refilled history is
+        // visible right away instead of only after the next charts run.
+        if (!empty($symbol)) {
+            $numEntries = HistoricalBackfill::rebuildSymbol(
+                strtoupper(trim($symbol)),
+                $start,
+                $end
+            );
+            Log::info('END app:finance-api-cron '
+                . "fetchHistorical() => $numEntries data entries");
+            return;
+        }
+
         $financeAPI = new FinanceAPI();
-        $delistedSymbols = config('trades.delisted_symbols', []);
         $numHistoricalDataEntries = 0;
 
-        foreach ($symbols as $symbol) {
-            // Skip delisted symbols - they won't have valid quotes from the API
-            if (in_array($symbol, $delistedSymbols, true)) {
-                continue;
-            }
-
-            // Skip unlisted symbols - they use FMV data from config, not API
-            if (FinanceAPI::isUnlisted($symbol)) {
-                continue;
-            }
-
-            $quote = $financeAPI->getQuote($symbol);
-            if (empty($quote)) {
-                continue;
-            }
-
-            $historicalDataArray = $financeAPI->getHistoricalPeriodQuoteData(
-                $quote,
-                new \DateTime($start),
-                new \DateTime($end)
-            );
-
-            if (empty($historicalDataArray)) {
-                continue;
-            }
-
-            foreach ($historicalDataArray as $historicalData) {
-                if (Stats::persistHistoricalData($quote, $historicalData)) {
-                    $numHistoricalDataEntries++;
-                }
-            }
+        foreach ($this->getAllUsedSymbols() as $usedSymbol) {
+            $numHistoricalDataEntries += HistoricalBackfill::persistSymbol(
+                $financeAPI,
+                $usedSymbol,
+                $start,
+                $end
+            ) ?? 0;
         }
 
         // Fetch historical exchange rates for the date range

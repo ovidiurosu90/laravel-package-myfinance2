@@ -25,11 +25,23 @@ use Illuminate\Support\Facades\Log;
  * Using the freshest timestamp (not each symbol's own) also avoids false positives from a single
  * thinly traded symbol that merely had no recent trade: a healthy market always has at least one
  * liquid symbol printing within the last minute.
+ *
+ * One market group is not like the others: Yahoo delivers US quotes in real time but the European
+ * exchange feeds (Euronext Paris/Amsterdam, XETRA, LSE) on a built-in ~15 minute delay, which no
+ * amount of refreshing on our side can shorten. A healthy European price is therefore always about
+ * 15 minutes old, so those markets are measured against their own, larger threshold instead of
+ * warning on every page load.
  */
 class StaleQuoteService
 {
     // Fallback when config is unavailable. The configured value (myfinance2.stale_quote) wins.
     private const _DEFAULT_THRESHOLD_SECONDS = 600; // 10 minutes
+
+    // Fallback threshold for the exchanges Yahoo serves with a built-in delay (see class doc).
+    private const _DEFAULT_DELAYED_FEED_THRESHOLD_SECONDS = 1800; // 30 minutes
+
+    // Yahoo's own delay on the European feeds, quoted in the banner to explain the larger threshold.
+    private const _DELAYED_FEED_DELAY_HUMAN = '15m';
 
     // Friendly market labels keyed by MarketUtils::getMarketName().
     private const _MARKET_LABELS = [
@@ -46,7 +58,8 @@ class StaleQuoteService
      *
      * @param array $quotes            symbol => quote array (must carry 'marketUtils' and a
      *                                 regular-market timestamp to be considered)
-     * @param int|null $thresholdSeconds override for the configured staleness threshold
+     * @param int|null $thresholdSeconds override for the configured staleness threshold; when
+     *                                 given it applies to every market, delayed feeds included
      * @return array<int, array<string, mixed>> one entry per stale market, most stale first
      */
     public function detect(array $quotes, ?int $thresholdSeconds = null): array
@@ -72,6 +85,10 @@ class StaleQuoteService
         if ($threshold <= 0) {
             return [];
         }
+        $delayedThreshold = $thresholdSeconds ?? (int) config(
+            'myfinance2.stale_quote.delayed_feed_threshold_seconds',
+            self::_DEFAULT_DELAYED_FEED_THRESHOLD_SECONDS
+        );
 
         $byMarket = $this->_groupOpenMarkets($quotes);
 
@@ -79,8 +96,13 @@ class StaleQuoteService
         $fmt    = trans('myfinance2::general.datetime-format');
         $alerts = [];
         foreach ($byMarket as $key => $market) {
+            $marketThreshold = $market['delayed_feed'] ? $delayedThreshold : $threshold;
+            if ($marketThreshold <= 0) {
+                continue;
+            }
+
             $ageSeconds = $now - $market['latest']->getTimestamp();
-            if ($ageSeconds < $threshold) {
+            if ($ageSeconds < $marketThreshold) {
                 continue;
             }
 
@@ -94,8 +116,10 @@ class StaleQuoteService
                 'last_update_formatted' => $market['latest']->format($fmt),
                 'age_seconds'           => $ageSeconds,
                 'age_human'             => self::humanizeDuration($ageSeconds),
-                'threshold_seconds'     => $threshold,
-                'threshold_human'       => self::humanizeDuration($threshold),
+                'threshold_seconds'     => $marketThreshold,
+                'threshold_human'       => self::humanizeDuration($marketThreshold),
+                'delayed_feed'          => $market['delayed_feed'],
+                'delayed_feed_human'    => self::_DELAYED_FEED_DELAY_HUMAN,
             ];
         }
 
@@ -106,11 +130,12 @@ class StaleQuoteService
     }
 
     /**
-     * Group the open markets and track, per market, the freshest regular-market timestamp and the
-     * symbols seen. Symbols without a live quote (unlisted / missing) or whose market is not open
-     * right now are skipped.
+     * Group the open markets and track, per market, the freshest regular-market timestamp, the
+     * symbols seen and whether the exchange is one Yahoo serves on a delayed feed. Symbols without
+     * a live quote (unlisted / missing) or whose market is not open right now are skipped.
      *
-     * @return array<string, array{label: string, symbols: array<int, string>, latest: \DateTimeInterface}>
+     * @return array<string, array{label: string, symbols: array<int, string>,
+     *                             latest: \DateTimeInterface, delayed_feed: bool}>
      */
     private function _groupOpenMarkets(array $quotes): array
     {
@@ -132,9 +157,10 @@ class StaleQuoteService
             $key = $this->_marketKey($marketUtils);
             if (empty($byMarket[$key])) {
                 $byMarket[$key] = [
-                    'label'   => $this->_marketLabel($marketUtils),
-                    'symbols' => [],
-                    'latest'  => $timestamp,
+                    'label'        => $this->_marketLabel($marketUtils),
+                    'symbols'      => [],
+                    'latest'       => $timestamp,
+                    'delayed_feed' => self::isDelayedFeed($marketUtils->getExchangeTimezone()),
                 ];
             }
             $byMarket[$key]['symbols'][] = (string) $symbol;
@@ -197,6 +223,16 @@ class StaleQuoteService
         }
 
         return (string) $marketUtils->getName() ?: 'UNKNOWN';
+    }
+
+    /**
+     * Whether the exchange behind a quote is one Yahoo serves with a built-in delay. Keyed off the
+     * exchange timezone rather than a list of exchange codes, so a newly held symbol on any
+     * European venue (Milan, Madrid, Zurich, ...) is covered without touching this class.
+     */
+    public static function isDelayedFeed(?string $exchangeTimezone): bool
+    {
+        return str_starts_with((string) $exchangeTimezone, 'Europe/');
     }
 
     private function _marketLabel(MarketUtils $marketUtils): string

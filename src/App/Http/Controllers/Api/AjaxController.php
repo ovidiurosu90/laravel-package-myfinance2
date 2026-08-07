@@ -14,6 +14,7 @@ use ovidiuro\myfinance2\App\Services\CashBalancesUtils;
 use ovidiuro\myfinance2\App\Services\CurrencyUtils;
 use ovidiuro\myfinance2\App\Services\OrderSuggestion;
 use ovidiuro\myfinance2\App\Services\ChartsBuilder;
+use ovidiuro\myfinance2\App\Services\HistoricalBackfill;
 use ovidiuro\myfinance2\App\Services\Stats;
 use ovidiuro\myfinance2\App\Http\Requests\GetCurrencyExchangeGainEstimate;
 use ovidiuro\myfinance2\App\Http\Controllers\MyFinance2Controller;
@@ -290,6 +291,89 @@ class AjaxController extends MyFinance2Controller
             'closingHighDate' => $closing['high_date'] ?? null,
             'closingLow'      => $closing['low'] ?? null,
             'closingLowDate'  => $closing['low_date'] ?? null,
+        ]);
+    }
+
+    /**
+     * Refetch and persist a symbol's historical daily closes, then rebuild its
+     * chart file. Backs the "Populate historical data" button in the symbol chart
+     * modal, whose main use is refilling the history a stock split removed.
+     *
+     * Days already stored in the range are overwritten with the prices the API
+     * returns now, so a split-adjusted history replaces the pre-split one.
+     *
+     * @param \Illuminate\Http\Request $request
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function populateHistoricalData(Request $request)
+    {
+        $request->validate([
+            'symbol' => 'required|string|max:32',
+            'start'  => 'nullable|date_format:Y-m-d',
+            'end'    => 'nullable|date_format:Y-m-d',
+        ]);
+
+        $symbol = strtoupper(trim($request->symbol));
+
+        // Only the portfolio's own symbols, so the endpoint cannot be pointed at
+        // an arbitrary ticker to drive API calls.
+        if (!HistoricalBackfill::isKnownSymbol($symbol)) {
+            return response()->json([
+                'message' => 'Unknown symbol ' . $symbol . '!',
+            ], 422);
+        }
+
+        // Delisted and unlisted symbols are priced from config, not the API, so
+        // there is no history to fetch; say that rather than reporting it below
+        // as an empty result from a fetch that never happened.
+        if (!HistoricalBackfill::isBackfillable($symbol)) {
+            return response()->json([
+                'message' => $symbol . ' has no price history to fetch'
+                    . ' (delisted or unlisted symbols are priced from config).',
+            ], 422);
+        }
+
+        $start = $request->filled('start')
+            ? $request->start
+            : HistoricalBackfill::DEFAULT_START_DATE;
+        $end = $request->filled('end')
+            ? $request->end
+            : date(trans('myfinance2::general.date-format'));
+
+        if ($start > $end) {
+            return response()->json([
+                'message' => 'Start date must not be after the end date!',
+            ], 422);
+        }
+
+        // One API call plus a daily upsert per trading day; comfortably done well
+        // inside this, but the default web limit is tight for a multi-year range.
+        @set_time_limit(300);
+
+        try {
+            $numEntries = HistoricalBackfill::rebuildSymbol($symbol, $start, $end);
+        } catch (\Throwable $e) {
+            Log::error('populateHistoricalData(' . $symbol . ') failed: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Could not populate the historical data for ' . $symbol . '!',
+            ], 500);
+        }
+
+        if ($numEntries === 0) {
+            return response()->json([
+                'message' => 'No historical data returned for ' . $symbol
+                    . ' between ' . $start . ' and ' . $end . '.',
+            ], 400);
+        }
+
+        return response()->json([
+            'symbol'  => $symbol,
+            'start'   => $start,
+            'end'     => $end,
+            'entries' => $numEntries,
+            'message' => $numEntries . ' data point(s) populated for ' . $symbol
+                . ' (' . $start . ' to ' . $end . ').',
         ]);
     }
 

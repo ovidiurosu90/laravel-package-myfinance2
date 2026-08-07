@@ -12,5 +12,6 @@ Route::group([
     Route::get('get-currency-exchange-gain-estimate',
                     'AjaxController@getCurrencyExchangeGainEstimate');
     Route::get('get-trades', 'AjaxController@getTrades');
+    Route::post('populate-historical-data', 'AjaxController@populateHistoricalData');
 });
 

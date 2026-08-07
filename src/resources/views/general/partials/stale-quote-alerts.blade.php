@@ -19,6 +19,12 @@
             <span class="text-decoration-underline"
                 data-bs-toggle="tooltip" data-bs-custom-class="tooltip-md"
                 data-bs-title="{{ implode(', ', $alert['symbols']) }}">{{ $alert['symbol_count'] }} {{ \Illuminate\Support\Str::plural('symbol', $alert['symbol_count']) }}</span>)
+            @if(!empty($alert['delayed_feed']))
+            <span class="text-muted">
+                Yahoo Finance serves this exchange with a built-in
+                {{ $alert['delayed_feed_human'] }} delay, so the threshold here is wider.
+            </span>
+            @endif
         </li>
         @endforeach
     </ul>

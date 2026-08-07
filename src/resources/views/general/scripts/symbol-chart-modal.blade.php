@@ -202,6 +202,8 @@ $(document).ready(function()
 
     @include('myfinance2::general.scripts.partials.range-bar', ['rangeBarId' => 'scm-range-bar'])
 
+    @include('myfinance2::general.scripts.partials.populate-historical')
+
     // Compact, two-column position metrics from the trigger's formatted
     // data-attrs: market figures on the left, gains (value + %) on the right.
     function buildPositionOverview($icon)
@@ -270,6 +272,10 @@ $(document).ready(function()
             return;
         }
         const $icon = $(icon);
+
+        // Drop any backfill feedback left from the previously opened symbol.
+        setPopulateBusy(false);
+        setPopulateStatus('');
 
         currentSymbol    = $icon.data('symbol');
         currentBaseValue = parseFloat($icon.data('base-value')) || null;

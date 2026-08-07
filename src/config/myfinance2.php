@@ -39,8 +39,9 @@ return [
         // Per account (same currency): live sum of the open-position rows vs the
         // account-overview-summary the card header shows. cost is an exact invariant here;
         // mvalue/gain carry live-vs-snapshot price drift (larger on small, volatile positions),
-        // so this is looser and paired with the absolute floor below.
-        'account_tolerance_pct' => env('MYFINANCE2_RECON_ACCOUNT_TOLERANCE_PCT', 1.5),
+        // so this is looser and paired with the absolute floor below. Raised from 1.5 to 2.0 after
+        // an open-market change figure on a small base drifted to 1.60% with no computation error.
+        'account_tolerance_pct' => env('MYFINANCE2_RECON_ACCOUNT_TOLERANCE_PCT', 2.0),
         // Whole portfolio: live positions converted to EUR vs the User Overview total. cost and
         // cash match near-exactly (same rate, no drift); mvalue/change only drift with prices
         // since the last snapshot, smoothed by the large portfolio base, so this can stay tight.
@@ -59,6 +60,12 @@ return [
         // Age (in seconds) past which an open market's freshest price is treated as stale.
         // Set to 5 minutes; raise toward 10 (600) if it proves too sensitive.
         'threshold_seconds' => env('MYFINANCE2_STALE_QUOTE_THRESHOLD', 300),
+        // Yahoo Finance streams US quotes in real time but serves the European exchange feeds
+        // (Euronext, XETRA, LSE) with a built-in ~15 minute delay, so a perfectly healthy European
+        // price is always around 15 minutes old and would trip the threshold above on every page
+        // load. Markets on a European exchange timezone therefore get this larger threshold: below
+        // it the age is Yahoo's own delay, above it the feed really has stopped advancing.
+        'delayed_feed_threshold_seconds' => env('MYFINANCE2_STALE_QUOTE_DELAYED_THRESHOLD', 1800),
     ],
 ];
 

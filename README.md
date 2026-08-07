@@ -121,7 +121,19 @@ sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd /home/$USER/Re
 # NOTE This command expects data to be already in, so run the command from above
 # NOTE If we use the same start & end dates for both commands, it may fail if there is no failover. To go around that, extend the first command to the left with a few days
 sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd /home/$USER/Repositories/laravel-admin/ && php artisan app:finance-api-cron --historical-account-overview --start=$(date +%Y-%m-%d --date '-8 day') --end=$(date +%Y-%m-%d --date '-1 day')"
+
+# Purpose: Backfills one symbol only, e.g. to refill the history removed by a stock split
+# - Same fetch & persist as --historical, restricted to --symbol
+# - Skips the portfolio-wide historical exchange rates (nothing to do for a single symbol)
+# - Rebuilds that symbol's chart file, so the refilled history shows up without waiting for the charts run
+# - Existing days in the range are overwritten with the prices Yahoo Finance returns now (split-adjusted)
+sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd /home/$USER/Repositories/laravel-admin/ && php artisan app:finance-api-cron --historical --symbol=SYMBOL --start=2025-01-01"
 ```
+
+The same single-symbol backfill is available from the UI: open a symbol's expand-chart
+modal (on positions or on the watchlist) and click **Populate historical data** in the
+modal header. It backfills from 2025-01-01 to today, overwrites the days already stored, and
+redraws the chart with the refilled series.
 
 
 ### Refresh returns data
