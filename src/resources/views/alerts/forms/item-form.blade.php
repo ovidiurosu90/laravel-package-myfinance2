@@ -28,3 +28,5 @@
         @include('myfinance2::alerts.forms.partials.notes-input')
     </div>
 </div>
+
+@include('myfinance2::general.partials.symbol-chart-panel')

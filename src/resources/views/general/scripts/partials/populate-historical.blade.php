@@ -6,9 +6,10 @@
     the chart from the refilled series.
 
     Included inside the modal's <script type="module">, so it reuses that scope's
-    currentSymbol / currentBaseValue / currentAccountId and its buildChart() and
-    loadTrades() helpers, and expects the modal's #scm-populate-historical button
-    and #scm-populate-status line.
+    currentSymbol / currentBaseValue / currentAccountId / symbolSeries, its
+    buildChart() helper and the shared loadTradeMarkers() (see
+    general.scripts.partials.trade-markers), and expects the modal's
+    #scm-populate-historical button and #scm-populate-status line.
 
     Usage:
         @include('myfinance2::general.scripts.partials.populate-historical')
@@ -64,7 +65,19 @@ function reloadSymbolSeries(symbol, doneMessage)
                 $('#scm-quote-details').html(data.quote_header);
             }
             buildChart(symbol, currentBaseValue);
-            loadTrades(symbol, currentAccountId);
+
+            const series = symbolSeries;
+            loadTradeMarkers({
+                symbol:     symbol,
+                accountId:  currentAccountId,
+                series:     series,
+                seriesData: window.__symbolChartSeries[symbol],
+                // Drop a late response if the modal closed or moved to another symbol.
+                isCurrent:  function()
+                {
+                    return symbolSeries === series && currentSymbol === symbol;
+                },
+            });
             // This payload also carries the 52W range figures, so redraw the bar
             // from it rather than leaving the one /get-finance-data drew on open.
             buildRangeBar(data, currentCurrency || data.currency || '');

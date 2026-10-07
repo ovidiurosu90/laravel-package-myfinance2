@@ -48,3 +48,5 @@
 </div>
 @endif
 
+@include('myfinance2::general.partials.symbol-chart-panel')
+

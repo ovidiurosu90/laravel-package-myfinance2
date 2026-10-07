@@ -274,6 +274,10 @@ class AjaxController extends MyFinance2Controller
             'stale'        => $isStale,
             'gap_warning'  => $gapWarning,
             'quote_header' => $quoteHeader,
+            // Purchase average of the open position, so the chart's baseline splits
+            // green/red the way the positions and watchlist charts do. Null when there
+            // is no open position, which leaves the series fully green.
+            'base_value'   => Trade::openBuyAverageUnitPrice($symbol),
             // Raw price (number) for the 52W range bar; the formatted price is
             // already shown in the quote header.
             'price'        => $q['regular_market_price'] ?? $q['price'] ?? null,

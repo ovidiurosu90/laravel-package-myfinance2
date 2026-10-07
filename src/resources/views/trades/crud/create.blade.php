@@ -46,5 +46,6 @@
     @include('myfinance2::general.scripts.tooltips')
     @include('myfinance2::general.scripts.available-quantity')
     @include('myfinance2::trades.scripts.finance')
+    @include('myfinance2::general.scripts.symbol-chart-panel')
 @endsection
 

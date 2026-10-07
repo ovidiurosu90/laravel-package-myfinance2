@@ -64,4 +64,4 @@
     </div>
 </div>
 
-@include('myfinance2::orders.forms.partials.symbol-chart-panel')
+@include('myfinance2::general.partials.symbol-chart-panel')

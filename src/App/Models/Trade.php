@@ -89,6 +89,38 @@ class Trade extends MyFinance2Model
         return $this->hasMany(Order::class, 'trade_id', 'id');
     }
 
+    /**
+     * Quantity-weighted average unit price of the symbol's open BUY trades, in the trade
+     * currency, across every account. Used as the baseline price of the symbol chart on
+     * the forms that take a symbol: closes above it render green, closes below it red.
+     *
+     * This is the purchase average, the same figure the orders form's projected-gain
+     * banner compares against, so the chart and the banner agree. It is not the
+     * positions cost basis (Positions::addCost), which also folds in fees and the
+     * proceeds of earlier sells.
+     *
+     * @param string $symbol
+     *
+     * @return float|null Null when there is no open position in the symbol.
+     */
+    public static function openBuyAverageUnitPrice(string $symbol): ?float
+    {
+        $openBuys = static::where('symbol', $symbol)
+            ->where('status', 'OPEN')
+            ->where('action', 'BUY')
+            ->get(['quantity', 'unit_price']);
+
+        $totalQty  = 0.0;
+        $totalCost = 0.0;
+        foreach ($openBuys as $trade) {
+            $qty        = (float) $trade->quantity;
+            $totalQty  += $qty;
+            $totalCost += $qty * (float) $trade->unit_price;
+        }
+
+        return $totalQty > 0 ? $totalCost / $totalQty : null;
+    }
+
     public function getShortLabel(): string
     {
         $date  = $this->timestamp ? $this->timestamp->format('Y-m-d') : '—';

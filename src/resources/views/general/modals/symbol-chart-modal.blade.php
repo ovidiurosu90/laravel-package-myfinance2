@@ -1,14 +1,18 @@
 <style>
-    /* Wider dialog for the watchlist account-cards view (Bootstrap's modal-xl
-       only widens at >=1200px, so use an explicit max-width). */
-    .modal-dialog.scm-wide {
+    /* One dialog size for every surface that opens this modal (/positions and
+       /watchlist-symbols), so the chart is as large in both. Bootstrap's modal-xl
+       only widens at >=1200px, so use an explicit max-width. */
+    .modal-dialog.scm-dialog {
         max-width: min(1200px, 95vw);
     }
     /* Cloned open-position cards: shrink each card to its content (the inner
        Bootstrap tables are width:100%, which otherwise stretches the card to
-       the full row) so multiple accounts sit side by side. */
+       the full row) so multiple accounts sit side by side. The same applies to
+       the positions metrics tables, which would otherwise spread across the
+       whole dialog. */
     #scm-overall .open-positions .metrics,
-    #scm-overall .open-positions .trades {
+    #scm-overall .open-positions .trades,
+    #scm-overall .scm-metrics {
         width: auto;
     }
     #scm-overall .d-flex > .card {
@@ -30,7 +34,7 @@
 @endphp
 <div class="modal fade" id="symbol-chart-modal" tabindex="-1"
      aria-labelledby="symbol-chart-modal-label" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered scm-dialog">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="symbol-chart-modal-label">
