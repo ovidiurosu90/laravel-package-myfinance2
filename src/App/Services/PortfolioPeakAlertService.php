@@ -7,7 +7,6 @@ namespace ovidiuro\myfinance2\App\Services;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 use ovidiuro\myfinance2\App\Models\PortfolioPeakNotification;
 use ovidiuro\myfinance2\App\Models\PortfolioPeakSetting;
@@ -69,7 +68,7 @@ final class PortfolioPeakAlertService
      * @param int  $userId
      * @param bool $dryRun
      *
-     * @return string  'sent' | 'skipped'
+     * @return string  'sent' | 'skipped' | 'failed'
      */
     public function evaluateForUser(int $userId, bool $dryRun = false): string
     {
@@ -108,9 +107,7 @@ final class PortfolioPeakAlertService
             return 'sent';
         }
 
-        return $this->_send($userId, $pairs, $breakdown, $changePctSeries, $changeEurSeries)
-            ? 'sent'
-            : 'skipped';
+        return $this->_send($userId, $pairs, $breakdown, $changePctSeries, $changeEurSeries);
     }
 
     /**
@@ -372,7 +369,7 @@ final class PortfolioPeakAlertService
      * @param array $changePctSeries
      * @param array $changeEurSeries
      *
-     * @return bool
+     * @return string  'sent', 'skipped' (no recipient) or 'failed' (the email did not go out)
      */
     private function _send(
         int $userId,
@@ -380,7 +377,7 @@ final class PortfolioPeakAlertService
         array $breakdown,
         array $changePctSeries,
         array $changeEurSeries
-    ): bool
+    ): string
     {
         $emailTo = config('alerts.portfolio_peak.email_to')
             ?: config('alerts.email_to')
@@ -388,7 +385,7 @@ final class PortfolioPeakAlertService
 
         if (empty($emailTo)) {
             Log::warning("PortfolioPeakAlertService: no email for user {$userId}, skipping.");
-            return false;
+            return 'skipped';
         }
 
         $changePctCurrent = !empty($changePctSeries) ? (float) end($changePctSeries) : null;
@@ -408,10 +405,12 @@ final class PortfolioPeakAlertService
         ]);
 
         try {
-            Mail::to($emailTo)->send(
+            AlertMailer::send(
+                $emailTo,
                 new PortfolioPeakAlert(
                     $pairs, $changePctCurrent, $changeEurCurrent, $vusaChangePct, $breakdown
-                )
+                ),
+                'PortfolioPeakAlertService'
             );
         } catch (\Throwable $e) {
             Log::error("PortfolioPeakAlertService: email failed for user {$userId}: "
@@ -420,11 +419,11 @@ final class PortfolioPeakAlertService
                 'status'        => 'FAILED',
                 'error_message' => substr($e->getMessage(), 0, 500),
             ]);
-            return false;
+            return 'failed';
         }
 
         Log::info("PortfolioPeakAlertService: alert sent to {$emailTo} for user {$userId}");
-        return true;
+        return 'sent';
     }
 
     /**

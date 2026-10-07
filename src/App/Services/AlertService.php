@@ -7,7 +7,6 @@ namespace ovidiuro\myfinance2\App\Services;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 use ovidiuro\myfinance2\Mail\PriceAlertTriggered;
 use ovidiuro\myfinance2\App\Models\Currency;
@@ -540,7 +539,7 @@ class AlertService
 
         try {
             $mailable = new PriceAlertTriggered($alert, $currentPrice, $projectedGain);
-            Mail::to($emailTo)->send($mailable);
+            AlertMailer::send($emailTo, $mailable, 'AlertService');
         } catch (\Throwable $e) {
             Log::error("AlertService: email send failed for alert #{$alert->id}: " . $e->getMessage());
             $notification->update(['status' => 'FAILED', 'error_message' => substr($e->getMessage(), 0, 500)]);
@@ -573,7 +572,7 @@ class AlertService
 
         try {
             $mailable = new PriceAlertTriggered($alert, $currentPrice, null, true);
-            Mail::to($emailTo)->send($mailable);
+            AlertMailer::send($emailTo, $mailable, 'AlertService');
             Log::warning("AlertService: split anomaly detected for alert #{$alert->id} ({$alert->symbol})"
                 . " — maintenance email sent");
             return true;

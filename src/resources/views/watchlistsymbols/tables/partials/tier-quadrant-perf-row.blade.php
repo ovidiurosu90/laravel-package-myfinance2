@@ -29,7 +29,9 @@ $isAnn        = $basis === TierDecision::BASIS_ANNUALIZED_RETURN;
 $basisLabel   = match($basis) {
     TierDecision::BASIS_ANNUALIZED_RETURN,
     TierDecision::BASIS_RAW_RETURN        => 'overall return',
-    TierDecision::BASIS_MARKET_MOMENTUM   => '1Y market return',
+    TierDecision::BASIS_MARKET_MOMENTUM   => !empty($cat['is_exited'])
+        ? '1Y market return, position closed'
+        : '1Y market return',
     default                               => null,
 };
 

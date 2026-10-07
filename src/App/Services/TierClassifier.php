@@ -138,6 +138,7 @@ final class TierClassifier
             basisValue:   $value,
             confidence:   $overrideTier !== null ? TierDecision::CONFIDENCE_HIGH : $confidence,
             isOwned:      $inputs->isOwned,
+            isExited:     $this->_isExited($inputs),
             candidates:   [
                 'annualized_pct' => $inputs->isOwned ? $inputs->annualizedReturnPct : null,
                 'raw_pct'        => $inputs->rawReturnPct,
@@ -301,9 +302,33 @@ final class TierClassifier
             TierDecision::BASIS_RAW_RETURN => $this->_rawExplanation($inputs, $pct),
             TierDecision::BASIS_MARKET_MOMENTUM => $inputs->isOwned
                 ? 'Market 1Y return ' . $pct . ' (position too new for a return figure).'
-                : 'Market 1Y return ' . $pct . '.',
+                : 'Market 1Y return ' . $pct . '.' . $this->_exitedNote($inputs),
             default => 'Unrated: no return or market data available.',
         };
+    }
+
+    /**
+     * For an exited position tiered on the market, surface the realized result so it is clear the
+     * tier deliberately ignores it. Empty for watchlist-only symbols or when no return is known.
+     */
+    private function _exitedNote(TierInputs $inputs): string
+    {
+        if (!$this->_isExited($inputs))
+        {
+            return '';
+        }
+        $realized = $inputs->annualizedReturnPct !== null
+            ? $this->_fmt($inputs->annualizedReturnPct) . '/y'
+            : $this->_fmt($inputs->rawReturnPct);
+
+        return ' Your realized return was ' . $realized
+            . '; exited positions are tiered on the market, not your past result.';
+    }
+
+    private function _isExited(TierInputs $inputs): bool
+    {
+        return !$inputs->isOwned && $inputs->ownedEver
+            && ($inputs->annualizedReturnPct !== null || $inputs->rawReturnPct !== null);
     }
 
     private function _rawExplanation(TierInputs $inputs, string $pct): string

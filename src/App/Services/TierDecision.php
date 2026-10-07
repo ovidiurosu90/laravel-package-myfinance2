@@ -51,7 +51,10 @@ final class TierDecision
         // tier fell back to the position's own (or realized) return. An irregularity worth flagging.
         public readonly bool    $marketArtifact = false,
         // Human-readable explanation of that irregularity (empty when $marketArtifact is false).
-        public readonly string  $marketArtifactNote = ''
+        public readonly string  $marketArtifactNote = '',
+        // True when the symbol was held before but every position is now closed (it has a realized
+        // return, yet is tiered like a watchlist symbol). Lets the view say why the market decides.
+        public readonly bool    $isExited = false
     )
     {
     }
@@ -90,6 +93,7 @@ final class TierDecision
             'basis_value'    => $this->basisValue,
             'confidence'     => $this->confidence,
             'is_owned'       => $this->isOwned,
+            'is_exited'      => $this->isExited,
             'candidates'     => $this->candidates,
             'explanation'    => $this->explanation,
             'is_stale'       => $this->isStale,

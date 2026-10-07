@@ -7,12 +7,12 @@ namespace ovidiuro\myfinance2\App\Console\Commands;
 use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 use ovidiuro\myfinance2\App\Models\DipBuyingNotification;
 use ovidiuro\myfinance2\App\Models\DipBuyingSetting;
 use ovidiuro\myfinance2\App\Models\Scopes\AssignedToUserScope;
 use ovidiuro\myfinance2\App\Models\Trade;
+use ovidiuro\myfinance2\App\Services\AlertMailer;
 use ovidiuro\myfinance2\App\Services\DipBuyingBacktestService;
 use ovidiuro\myfinance2\App\Services\DipBuyingPlanService;
 use ovidiuro\myfinance2\Mail\DipBuyingAlert;
@@ -101,6 +101,8 @@ class DipBuyingAlerts extends Command
                 $sent++;
                 $verb = $dryRun ? 'Would alert' : 'Alerted';
                 $this->line("  User #{$id}: {$verb}.");
+            } elseif ($result === 'failed') {
+                $failed++;
             } else {
                 $skipped++;
             }
@@ -115,7 +117,7 @@ class DipBuyingAlerts extends Command
     }
 
     /**
-     * Evaluate and (unless dry-run) send the alert for one user. Returns 'sent' or 'skipped'.
+     * Evaluate and (unless dry-run) send the alert for one user. Returns 'sent', 'skipped' or 'failed'.
      *
      * @param DipBuyingPlanService $engine
      * @param int                  $userId
@@ -146,7 +148,7 @@ class DipBuyingAlerts extends Command
             return 'sent';
         }
 
-        return $this->_send($plan, $trigger, $userId) ? 'sent' : 'skipped';
+        return $this->_send($plan, $trigger, $userId);
     }
 
     /**
@@ -204,9 +206,9 @@ class DipBuyingAlerts extends Command
      * @param string $trigger
      * @param int    $userId
      *
-     * @return bool
+     * @return string  'sent', 'skipped' (no recipient) or 'failed' (the email did not go out)
      */
-    private function _send(array $plan, string $trigger, int $userId): bool
+    private function _send(array $plan, string $trigger, int $userId): string
     {
         $emailTo = config('alerts.dip_buying.email_to')
             ?: config('alerts.email_to')
@@ -214,7 +216,7 @@ class DipBuyingAlerts extends Command
 
         if (empty($emailTo)) {
             Log::warning("DipBuyingAlerts: no email address for user {$userId}, skipping.");
-            return false;
+            return 'skipped';
         }
 
         $notification = DipBuyingNotification::create([
@@ -251,15 +253,19 @@ class DipBuyingAlerts extends Command
         }
 
         try {
-            Mail::to($emailTo)->send(new DipBuyingAlert($plan, $trigger, $regime, $current, $firstBand));
+            AlertMailer::send(
+                $emailTo,
+                new DipBuyingAlert($plan, $trigger, $regime, $current, $firstBand),
+                'DipBuyingAlerts'
+            );
         } catch (\Throwable $e) {
             Log::error("DipBuyingAlerts: email send failed for user {$userId}: " . $e->getMessage());
             $notification->update(['status' => 'FAILED', 'error_message' => substr($e->getMessage(), 0, 500)]);
-            return false;
+            return 'failed';
         }
 
         Log::info("DipBuyingAlerts: alert sent to {$emailTo} for user {$userId} (trigger={$trigger})");
-        return true;
+        return 'sent';
     }
 
     /**

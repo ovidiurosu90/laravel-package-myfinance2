@@ -6,7 +6,6 @@ namespace ovidiuro\myfinance2\App\Services;
 
 use App\Models\User;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 use ovidiuro\myfinance2\App\Models\PeakProximityAlertEvent;
 use ovidiuro\myfinance2\App\Models\PeakProximityAlertSetting;
@@ -695,8 +694,10 @@ final class PeakProximityAlertService
         }
 
         try {
-            Mail::to($emailTo)->send(
-                new PeakProximityAlert($symbol, $quoteData, $triggered, $isReminder, $windowThresholds)
+            AlertMailer::send(
+                $emailTo,
+                new PeakProximityAlert($symbol, $quoteData, $triggered, $isReminder, $windowThresholds),
+                'PeakProximityAlertService'
             );
         } catch (\Throwable $e) {
             Log::error("PeakProximityAlertService: email send failed for {$symbol}: " . $e->getMessage());

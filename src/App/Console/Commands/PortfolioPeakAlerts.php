@@ -95,6 +95,8 @@ class PortfolioPeakAlerts extends Command
                 $sent++;
                 $verb = $dryRun ? 'Would alert' : 'Alerted';
                 $this->line("  User #{$id}: {$verb}.");
+            } elseif ($result === 'failed') {
+                $failed++;
             } else {
                 $skipped++;
             }

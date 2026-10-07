@@ -583,6 +583,20 @@ class Positions
     {
         // We compute cost2 that won't be affected by the sell actions
         // cost2 and quantity2 only measure BUY actions
+        if ($position['quantity2'] <= 0) {
+            // No OPEN buy behind this position (e.g. a SELL still OPEN while its BUYs are already
+            // CLOSED, mid-way through closing a position). There is no buy-side cost to scale, so
+            // fall back to the net cost; hasCost2 stays false and the cost2 figures render empty.
+            LOG::warning('Positions::addCost2(): no OPEN buy quantity for accountId: '
+                . $position['accountModel']->id . ', symbol: ' . $position['symbol']
+                . ', quantity: ' . $position['quantity'] . '; check the trade statuses.');
+            $position['cost2_in_account_currency'] = $position['cost_in_account_currency'];
+            $position['cost2_in_trade_currency']   = $position['cost_in_trade_currency'];
+            $position['cost2_in_account_currency_formatted']             = '';
+            $position['average_unit_cost2_in_trade_currency_formatted'] = '';
+
+            return;
+        }
         $position['cost2_in_account_currency'] = $position['quantity'] *
             $position['cost2_in_account_currency'] / $position['quantity2'];
         $position['cost2_in_trade_currency'] = $position['quantity'] *

@@ -76,7 +76,7 @@
                     <span class="text-muted text-nowrap">{{ $item['label'] }}</span>
                     <span class="{{ $item['color'] }} text-nowrap fw-semibold">
                         {{ $item['sign'] }}{!! MoneyFormat::get_formatted_price_display('&euro;', abs($item['eur'])) !!}
-                        <small>({{ $item['sign'] }}{{ MoneyFormat::get_formatted_pct(abs($item['pct'])) }}%)</small>
+                        <small class="d-none d-xl-inline">({{ $item['sign'] }}{{ MoneyFormat::get_formatted_pct(abs($item['pct'])) }}%)</small>
                     </span>
                 @endforeach
             </div>
