@@ -60,6 +60,12 @@
     #biggest-movers-title.collapsed .fa-chevron-down {
         transform: rotate(90deg);
     }
+    /* Per-symbol % is hidden below xl (see movers-entry), so drop the notes that explain it */
+    @media (max-width: 1199.98px) {
+        #biggest-movers .movers-pct-note {
+            display: none;
+        }
+    }
 </style>
 <div class="card">
     <div class="card-header">
@@ -101,7 +107,9 @@
                 <div class="row g-3">
                     @foreach($moverColumns as $col)
                         @php $periodData = $moversData[$col['key']] ?? null; @endphp
-                        <div class="col-12 col-md-6 col-lg">
+                        {{-- min-width: 0 keeps the 5 columns equal; otherwise the nowrap mover rows widen
+                             columns with long "since ..." labels and squeeze the others --}}
+                        <div class="col-12 col-md-6 col-lg" style="min-width: 0;">
                             @php
                                 $subLabelHtml = '';
                                 if (!empty($col['sub_label'])) {
@@ -130,14 +138,18 @@
                                     $ptSign = ($ptEur !== null && $ptEur >= 0) ? '+' : '-';
                                 @endphp
                                 @if($ptEur !== null)
-                                <div class="d-flex justify-content-between align-items-baseline
+                                <div class="d-flex justify-content-between align-items-baseline text-nowrap
                                     border rounded px-2 py-1 mb-3 {{ $ptColorClass }}"
                                     style="font-size: 0.82rem;">
-                                    <small class="text-muted fw-semibold"
-                                        style="font-size: 0.7rem; letter-spacing: 0.05em;">Portfolio</small>
-                                    <span class="fw-semibold">
+                                    <small class="text-muted fw-semibold text-truncate me-2"
+                                        style="font-size: 0.7rem; letter-spacing: 0.05em; min-width: 0;">
+                                        Portfolio
+                                    </small>
+                                    <span class="fw-semibold flex-shrink-0">
                                         {{ $ptSign }}{!! MoneyFormat::get_formatted_price_display('&euro;', abs($ptEur)) !!}
-                                        <small>({{ $ptSign }}{{ MoneyFormat::get_formatted_pct(abs($ptPct)) }}%)</small>
+                                        <small class="d-none d-xl-inline">
+                                            ({{ $ptSign }}{{ MoneyFormat::get_formatted_pct(abs($ptPct)) }}%)
+                                        </small>
                                     </span>
                                 </div>
                                 @endif
@@ -153,7 +165,7 @@
                                             'mover' => $periodData['losers'][$i],
                                         ])
                                     @else
-                                        <div class="mb-2" style="min-height: 2.85rem;"></div>
+                                        <div class="mb-1 invisible">&nbsp;</div>
                                     @endif
                                 @endfor
 
@@ -171,49 +183,39 @@
                                             'mover' => $periodData['gainers'][$i],
                                         ])
                                     @else
-                                        <div class="mb-2" style="min-height: 2.85rem;"></div>
+                                        <div class="mb-1 invisible">&nbsp;</div>
                                     @endif
                                 @endfor
 
                                 @if($col['key'] === 'today')
                                     <ul class="d-lg-none text-muted mt-2 mb-0"
                                         style="font-size: 0.72rem; line-height: 1.5; padding-left: 1rem;">
-                                        <li><strong>Ref:</strong> today's day change &times; qty
-                                            (from live quote)</li>
-                                        <li>Matches <em>Day gain</em> in Open Positions below</li>
-                                        <li>Small &euro; differences: Movers sums across all accounts
-                                            and converts at today's EUR rate; Open Positions shows
-                                            per-account values in account currency</li>
+                                        <li><strong>Ref:</strong> day change &times; qty (live quote); matches
+                                            <em>Day gain</em> in Open Positions</li>
+                                        <li>Small &euro; gaps: Movers sums all accounts at today&rsquo;s EUR rate;
+                                            Open Positions is per account, in its currency</li>
                                     </ul>
                                 @endif
 
                                 @if(in_array($col['key'], ['weekly', 'monthly', 'yearly']))
                                     <ul class="d-lg-none text-muted mt-2 mb-0"
                                         style="font-size: 0.72rem; line-height: 1.5; padding-left: 1rem;">
-                                        <li><strong>Ref:</strong> market price at period start
-                                            &times; qty &mdash; not avg cost (can differ from
-                                            All-time)</li>
-                                        <li>E.g.: avg cost $200, period started at $250, now $180
-                                            &rarr; $7,000 here vs $2,000 all-time
-                                            (both &times; 100 shares)</li>
-                                        <li>Positions opened mid-period use avg cost instead</li>
-                                        <li>User Overview&rsquo;s mvalue delta also includes the
-                                            full market value of new positions added during the
-                                            period &mdash; numbers won&rsquo;t match when new
-                                            capital was deployed</li>
+                                        <li><strong>Ref:</strong> price at period start &times; qty, not avg cost
+                                            (avg cost if opened mid-period)</li>
+                                        <li>E.g. avg cost $200, start $250, now $180: -$7,000 here vs -$2,000
+                                            all-time (100 shares)</li>
+                                        <li>User Overview&rsquo;s mvalue delta also counts new positions&rsquo; full
+                                            value, so it differs when capital was added</li>
                                     </ul>
                                 @endif
 
                                 @if($col['key'] === 'alltime')
                                     <ul class="d-lg-none text-muted mt-2 mb-0"
                                         style="font-size: 0.72rem; line-height: 1.5; padding-left: 1rem;">
-                                        <li><strong>Ref:</strong> avg cost &times; qty &mdash;
-                                            conceptually matches <em>Gain</em> in Open Positions
-                                            (summed across accounts, converted to &euro;)</li>
-                                        <li>Movers uses today&rsquo;s EUR rate; Open Positions uses
-                                            the rate at each trade&rsquo;s execution time</li>
-                                        <li>The gap grows with EUR/USD movement since your positions
-                                            were opened</li>
+                                        <li><strong>Ref:</strong> avg cost &times; qty; matches <em>Gain</em> in
+                                            Open Positions (all accounts, in &euro;)</li>
+                                        <li>Movers uses today&rsquo;s EUR rate, Open Positions the rate at each
+                                            trade; the gap grows with EUR/USD moves</li>
                                     </ul>
                                 @endif
                             @endif
@@ -225,37 +227,30 @@
                     <div style="flex: 1 0 0%;">
                         <ul class="text-muted mb-0"
                             style="font-size: 0.72rem; line-height: 1.5; padding-left: 1rem;">
-                            <li><strong>Ref:</strong> today's day change &times; qty
-                                (from live quote)</li>
-                            <li>Matches <em>Day gain</em> in Open Positions below</li>
-                            <li>Small &euro; differences: Movers sums across all accounts and
-                                converts at today's EUR rate; Open Positions shows per-account
-                                values in account currency</li>
+                            <li><strong>Ref:</strong> day change &times; qty (live quote); matches <em>Day gain</em>
+                                in Open Positions</li>
+                            <li>Small &euro; gaps: Movers sums all accounts at today&rsquo;s EUR rate; Open
+                                Positions is per account, in its currency</li>
                         </ul>
                     </div>
                     <div style="flex: 3 0 0%;">
                         <ul class="text-muted mb-0"
                             style="font-size: 0.72rem; line-height: 1.5; padding-left: 1rem;">
-                            <li><strong>Ref:</strong> market price at period start &times; qty
-                                &mdash; not avg cost (can differ from All-time)</li>
-                            <li>E.g.: avg cost $200, period started at $250, now $180 &rarr;
-                                $7,000 here vs $2,000 all-time (both &times; 100 shares)</li>
-                            <li>Positions opened mid-period use avg cost instead</li>
-                            <li>User Overview&rsquo;s mvalue delta also includes the full market
-                                value of new positions added during the period &mdash; numbers
-                                won&rsquo;t match when new capital was deployed</li>
+                            <li><strong>Ref:</strong> price at period start &times; qty, not avg cost (avg cost if
+                                opened mid-period)</li>
+                            <li>E.g. avg cost $200, start $250, now $180: -$7,000 here vs -$2,000 all-time (100
+                                shares)</li>
+                            <li>User Overview&rsquo;s mvalue delta also counts new positions&rsquo; full value, so
+                                it differs when capital was added</li>
                         </ul>
                     </div>
                     <div style="flex: 1 0 0%;">
                         <ul class="text-muted mb-0"
                             style="font-size: 0.72rem; line-height: 1.5; padding-left: 1rem;">
-                            <li><strong>Ref:</strong> avg cost &times; qty &mdash; conceptually
-                                matches <em>Gain</em> in Open Positions (summed across accounts,
-                                converted to &euro;)</li>
-                            <li>Movers uses today&rsquo;s EUR rate; Open Positions uses the rate
-                                at each trade&rsquo;s execution time</li>
-                            <li>The gap grows with EUR/USD movement since your positions were
-                                opened</li>
+                            <li><strong>Ref:</strong> avg cost &times; qty; matches <em>Gain</em> in Open Positions
+                                (all accounts, in &euro;)</li>
+                            <li>Movers uses today&rsquo;s EUR rate, Open Positions the rate at each trade; the gap
+                                grows with EUR/USD moves</li>
                         </ul>
                     </div>
                 </div>
@@ -267,21 +262,18 @@
                             break;
                         }
                     }
+                    $totalPortfolioValueHtml = $totalPortfolioEur !== null
+                        ? ' (' . MoneyFormat::get_formatted_price_display('&euro;', $totalPortfolioEur) . ')'
+                        : '';
                 @endphp
                 <ul class="text-muted mt-3 mb-0"
                     style="font-size: 0.72rem; line-height: 1.5; padding-left: 1rem;">
-                    <li><strong>&euro;</strong> &mdash; total position gain/loss in EUR</li>
-                    <li>
-                        <strong>%</strong> &mdash; each position&rsquo;s &euro; gain/loss as a
-                        share of today&rsquo;s total portfolio market value
-                        @if($totalPortfolioEur !== null)
-                            ({!! MoneyFormat::get_formatted_price_display('&euro;', $totalPortfolioEur) !!})
-                        @endif
-                        &mdash; a weight, not a return rate
+                    <li><strong>&euro;:</strong> total position gain/loss in EUR</li>
+                    <li class="movers-pct-note">
+                        <strong>%:</strong> &euro; gain/loss as a share of today&rsquo;s portfolio
+                        value{!! $totalPortfolioValueHtml !!}; a weight, not a return (unlike User
+                        Overview&nbsp;%, not relative to cost)
                     </li>
-                    <li>Unlike User Overview&nbsp;% (e.g. +81.3% for mvalue = your holdings are
-                        currently worth 81.3% of what you paid), Movers&nbsp;% is not relative
-                        to cost</li>
                 </ul>
             @endif
         </div>
