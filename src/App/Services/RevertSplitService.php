@@ -58,6 +58,9 @@ class RevertSplitService
             }
         );
 
+        // The wiped history must not linger in the relative-alert reference cache.
+        (new AlertReferenceResolver())->forget($split->symbol);
+
         return $summary;
     }
 
@@ -79,6 +82,7 @@ class RevertSplitService
                 ->count(),
             'alerts_found' => PriceAlert::where('symbol', $split->symbol)
                 ->where('status', 'ACTIVE')
+                ->where('target_mode', 'FIXED')
                 ->where('notes', 'LIKE', '%' . $annotation . '%')
                 ->count(),
         ];
@@ -112,7 +116,8 @@ class RevertSplitService
     }
 
     /**
-     * Revert ACTIVE price alerts that carry the split annotation in their notes.
+     * Revert ACTIVE, FIXED price alerts that carry the split annotation in their notes (RELATIVE
+     * alerts were never adjusted, see ApplySplitService::_applyToAlerts).
      * Multiplies target_price by ratio (inverse of apply).
      *
      * @param StockSplit $split
@@ -126,6 +131,7 @@ class RevertSplitService
 
         $alerts = PriceAlert::where('symbol', $split->symbol)
             ->where('status', 'ACTIVE')
+            ->where('target_mode', 'FIXED')
             ->where('notes', 'LIKE', '%' . $annotation . '%')
             ->get();
 

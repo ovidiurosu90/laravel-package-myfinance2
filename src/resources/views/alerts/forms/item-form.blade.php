@@ -13,6 +13,15 @@
 
 <div class="row">
     <div class="col-12 col-md-4">
+        @include('myfinance2::alerts.forms.partials.target_mode-select')
+    </div>
+    <div class="col-12 col-md-8">
+        @include('myfinance2::alerts.forms.partials.relative-target-inputs')
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12 col-md-4">
         @include('myfinance2::alerts.forms.partials.target_price-input')
     </div>
     <div class="col-12 col-md-4">

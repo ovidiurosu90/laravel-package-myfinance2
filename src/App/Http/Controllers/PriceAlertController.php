@@ -14,6 +14,8 @@ use ovidiuro\myfinance2\App\Models\Trade;
 use ovidiuro\myfinance2\App\Services\AlertFormFields;
 use ovidiuro\myfinance2\App\Services\AlertService;
 use ovidiuro\myfinance2\App\Services\FinanceUtils;
+use ovidiuro\myfinance2\App\Services\MoneyFormat;
+use ovidiuro\myfinance2\App\Services\RelativeAlertTargetService;
 use ovidiuro\myfinance2\Mail\PriceAlertCreated;
 use ovidiuro\myfinance2\Mail\PriceAlertStateChanged;
 use ovidiuro\myfinance2\App\Http\Requests\StoreAlert;
@@ -97,6 +99,8 @@ class PriceAlertController extends MyFinance2Controller
             $data['source'] = $sourcePrefill;
         }
 
+        $data = array_merge($data, $this->_relativeTargetPrefill($request, $data['source'] ?? 'manual'));
+
         $data['symbolPrefill'] = $symbolPrefill;
 
         return view('myfinance2::alerts.crud.create', $data);
@@ -111,8 +115,11 @@ class PriceAlertController extends MyFinance2Controller
      */
     public function store(StoreAlert $request)
     {
-        $data = $request->fillData();
-        $item = PriceAlert::create($data);
+        $item = new PriceAlert($request->fillData());
+        if ($item->isRelative()) {
+            app(RelativeAlertTargetService::class)->resolveForSave($item);
+        }
+        $item->save();
         $item->load('tradeCurrencyModel');
         $this->_sendCreatedEmail([$item], 'manual');
 
@@ -147,8 +154,10 @@ class PriceAlertController extends MyFinance2Controller
     public function update(UpdateAlert $request, int $id)
     {
         $item = PriceAlert::findOrFail($id);
-        $data = $request->fillData($id);
-        $item->fill($data);
+        $item->fill($request->fillData($id));
+        if ($item->isRelative()) {
+            app(RelativeAlertTargetService::class)->resolveForSave($item);
+        }
         $item->save();
 
         return redirect()->route('myfinance2::price-alerts.index')->with('success',
@@ -215,6 +224,7 @@ class PriceAlertController extends MyFinance2Controller
 
         $item->status = 'ACTIVE';
         $item->save();
+        app(RelativeAlertTargetService::class)->refreshResumed([$item]);
         $this->_sendStateChangedEmail([$item], 'resumed');
 
         return redirect()->route('myfinance2::price-alerts.index')->with('success',
@@ -260,6 +270,10 @@ class PriceAlertController extends MyFinance2Controller
             }
         }
 
+        if ($action === 'resume') {
+            app(RelativeAlertTargetService::class)->refreshResumed($affectedAlerts);
+        }
+
         if (!empty($affectedAlerts)) {
             $emailAction = $action === 'pause' ? 'paused' : 'resumed';
             $this->_sendStateChangedEmail($affectedAlerts, $emailAction);
@@ -273,6 +287,24 @@ class PriceAlertController extends MyFinance2Controller
 
         return redirect()->route('myfinance2::price-alerts.index')
             ->with('success', "{$affected} alert(s) {$label}.");
+    }
+
+    /**
+     * JSON preview data for a relative target on the alert form: the live price and the closing
+     * high / low of every window, with dates and coverage flags.
+     *
+     * @param Request $request
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function references(Request $request)
+    {
+        $symbol = strtoupper(trim((string) $request->query('symbol', '')));
+        if ($symbol === '' || strlen($symbol) > 16) {
+            return response()->json(['message' => 'A valid symbol is required.'], 422);
+        }
+
+        return response()->json(app(RelativeAlertTargetService::class)->previewData($symbol));
     }
 
     /**
@@ -502,6 +534,42 @@ class PriceAlertController extends MyFinance2Controller
 
         $avgCost = $totalCost / $totalQty;
         return (float) $currentPrice >= $avgCost ? 'PRICE_ABOVE' : 'PRICE_BELOW';
+    }
+
+    /**
+     * Relative-target prefill from the query string (target_mode, reference_type,
+     * reference_window, offset_pct), validated like the other prefill params. Order alerts follow
+     * the order's limit price, so they never prefill a relative target.
+     *
+     * @param Request $request
+     * @param string  $source
+     *
+     * @return array
+     */
+    private function _relativeTargetPrefill(Request $request, string $source): array
+    {
+        if ($request->query('target_mode') !== 'RELATIVE' || $source === 'order') {
+            return [];
+        }
+
+        $prefill = ['target_mode' => 'RELATIVE'];
+
+        $type = $request->query('reference_type');
+        if (in_array($type, PriceAlert::REFERENCE_TYPES, true)) {
+            $prefill['reference_type'] = $type;
+        }
+
+        $window = $request->query('reference_window');
+        if (is_string($window) && isset(PriceAlert::REFERENCE_WINDOW_DAYS[$window])) {
+            $prefill['reference_window'] = $window;
+        }
+
+        $offset = $request->query('offset_pct');
+        if (is_numeric($offset) && (float) $offset >= 0.0) {
+            $prefill['offset_pct'] = MoneyFormat::get_formatted_pct_compact($offset);
+        }
+
+        return $prefill;
     }
 
     /**

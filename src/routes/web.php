@@ -23,6 +23,8 @@ Route::group([
                   'PriceAlertNotificationController@destroy')->name('price-alerts.history.destroy');
     Route::post('price-alerts/history/bulk-action',
                 'PriceAlertNotificationController@bulkAction')->name('price-alerts.history.bulk-action');
+    Route::get('price-alerts/references',
+               'PriceAlertController@references')->name('price-alerts.references');
     Route::post('price-alerts/suggest',
                 'PriceAlertController@suggest')->name('price-alerts.suggest');
     Route::post('price-alerts/bulk-action',

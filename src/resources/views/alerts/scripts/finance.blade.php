@@ -73,8 +73,15 @@ $(document).ready(function()
                     );
                 }
 
-                if (urlParamsPrefilled) {
+                // A relative target is computed by alerts/scripts/relative-target, never suggested.
+                var relativeTarget = $('input[name="target_mode"]:checked').val() === 'RELATIVE';
+
+                if (urlParamsPrefilled || relativeTarget) {
                     showFetchedCurrentPrice(data);
+                    // Only fills an empty (or auto-set) currency, so a URL prefill is kept.
+                    if (relativeTarget) {
+                        setFetchedTradeCurrency(data);
+                    }
                 } else {
                     $targetPriceInput.val(s.limit_price);
                     setFetchedTradeCurrency(data);

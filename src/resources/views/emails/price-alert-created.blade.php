@@ -24,6 +24,10 @@
         th { background: #e9ecef; font-weight: 600; }
         td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
         a.sym-link { color: #0d6efd; text-decoration: none; }
+        /* Notes get their own full-width line under the alert row, joined to it visually. */
+        tr.has-notes td { border-bottom: none; }
+        td.notes { border-top: none; padding-top: 0; color: #495057; }
+        td.notes .label { display: inline; margin: 0 4px 0 0; }
     </style>
 </head>
 <body>
@@ -66,7 +70,6 @@
                     <th>Type</th>
                     <th class="num">Target Price</th>
                     <th>Account(s)</th>
-                    <th>Notes</th>
                 </tr>
             </thead>
             <tbody>
@@ -77,7 +80,7 @@
                     $badgeClass = $alert->alert_type === 'PRICE_ABOVE' ? 'badge-danger' : 'badge-primary';
                     $accounts   = $accountNames[$alert->symbol] ?? [];
                 @endphp
-                <tr>
+                <tr @if (!empty($alert->notes)) class="has-notes" @endif>
                     <td>{{ $alert->id }}</td>
                     <td>
                         <a class="sym-link"
@@ -90,6 +93,10 @@
                     <td class="num">
                         {{ MoneyFormat::get_formatted_price((float) $alert->target_price, true) }}
                         @if ($currency) {{ $currency }} @endif
+                        @include('myfinance2::emails.partials.price-alert-relative-target', [
+                            'alert'    => $alert,
+                            'currency' => $currency,
+                        ])
                     </td>
                     <td>
                         @if (!empty($accounts))
@@ -100,8 +107,12 @@
                             <span style="color:#6c757d">—</span>
                         @endif
                     </td>
-                    <td>{{ $alert->notes ?? '—' }}</td>
                 </tr>
+                @if (!empty($alert->notes))
+                <tr>
+                    <td class="notes" colspan="5"><span class="label">Notes</span> {{ $alert->notes }}</td>
+                </tr>
+                @endif
                 @endforeach
             </tbody>
         </table>

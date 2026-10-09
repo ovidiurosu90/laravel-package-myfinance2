@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace ovidiuro\myfinance2\App\Services;
 
 use App\Models\User;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -32,6 +34,14 @@ class AlertService
 
     /** Per-instance open position cache: userId:symbol → array|null */
     private array $_positionCache = [];
+
+    /** Resolves the targets of RELATIVE alerts (DB only, cached per symbol per day). */
+    private AlertReferenceResolver $_referenceResolver;
+
+    public function __construct(?AlertReferenceResolver $referenceResolver = null)
+    {
+        $this->_referenceResolver = $referenceResolver ?? new AlertReferenceResolver();
+    }
 
     /**
      * Evaluate active alerts for a user.
@@ -63,6 +73,10 @@ class AlertService
         $symbols = $activeAlerts->pluck('symbol')->unique()->values()->toArray();
         $quotes = $this->_getQuotes($symbols);
 
+        $this->_referenceResolver->load(
+            $activeAlerts->filter(fn (PriceAlert $a) => $a->isRelative())->pluck('symbol')->unique()->all()
+        );
+
         foreach ($activeAlerts as $alert) {
             $stats['processed']++;
 
@@ -71,6 +85,19 @@ class AlertService
                 $stats['deferred'] += $remaining;
                 Log::info("AlertService: budget exceeded ({$maxSeconds}s), deferring {$remaining} alerts");
                 break;
+            }
+
+            $currentPrice = isset($quotes[$alert->symbol])
+                ? (float) $quotes[$alert->symbol]['price']
+                : null;
+
+            // Before the throttle and the market-hours check, so the stored target (shown on the
+            // alerts table, watchlist and orders) stays fresh even when the alert cannot fire now.
+            // An expired alert keeps the target it expired with (canFire() skips it below).
+            if ($alert->isRelative() && !$alert->isExpired()
+                && !$this->_refreshRelativeTarget($alert, $currentPrice)) {
+                $stats['skipped']++;
+                continue;
             }
 
             if (in_array($alert->id, $notifiedToday, true)) {
@@ -82,10 +109,6 @@ class AlertService
                 $stats['skipped']++;
                 continue;
             }
-
-            $currentPrice = isset($quotes[$alert->symbol])
-                ? (float) $quotes[$alert->symbol]['price']
-                : null;
 
             if ($currentPrice === null) {
                 $stats['skipped']++;
@@ -145,6 +168,32 @@ class AlertService
 
         $stats['time_ms'] = (int) ((microtime(true) - $startTime) * 1000);
         return $stats;
+    }
+
+    /**
+     * Re-resolve the target of a RELATIVE alert from its window's closing high / low and the live
+     * price, writing it back to the row when it moved. When the window lacks stored history (e.g.
+     * right after a stock split wiped it) the alert is skipped, never evaluated against a stale or
+     * partial reference; that is logged once per alert per day.
+     *
+     * @param PriceAlert $alert
+     * @param float|null $livePrice
+     *
+     * @return bool False when the alert must be skipped.
+     */
+    private function _refreshRelativeTarget(PriceAlert $alert, ?float $livePrice): bool
+    {
+        if ($this->_referenceResolver->refresh($alert, $livePrice)) {
+            return true;
+        }
+
+        $logKey = 'price_alert_ref_skip_' . $alert->id . '_' . Carbon::today()->format('Y-m-d');
+        if (Cache::add($logKey, 1, Carbon::today()->endOfDay())) {
+            Log::warning("AlertService: alert #{$alert->id} ({$alert->symbol}) skipped: not enough stored"
+                . " history for its {$alert->reference_window} {$alert->reference_type} reference");
+        }
+
+        return false;
     }
 
     /**
@@ -609,6 +658,7 @@ class AlertService
             'notification_channel' => $alert->notification_channel,
             'current_price'      => $currentPrice,
             'target_price'       => $alert->target_price,
+            'target_label'       => $alert->getTargetLabelSnapshot(),
             'alert_type'         => $alert->alert_type,
             'projected_gain_eur' => $projectedGain['gain_eur'] ?? null,
             'projected_gain_pct' => $projectedGain['gain_pct'] ?? null,
@@ -620,12 +670,13 @@ class AlertService
     /**
      * Get current quotes for an array of symbols, reusing FinanceAPI 2-min cache.
      * Returns: symbol => ['price' => float, ...]
+     * Protected so feature tests can stub the live quotes of synthetic symbols.
      *
      * @param array $symbols
      *
      * @return array
      */
-    private function _getQuotes(array $symbols): array
+    protected function _getQuotes(array $symbols): array
     {
         if (empty($symbols)) {
             return [];

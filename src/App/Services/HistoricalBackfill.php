@@ -95,6 +95,8 @@ class HistoricalBackfill
             // in-request stats cache before reading the symbol's stats back.
             Stats::clearCache();
             ChartsBuilder::buildChartSymbol($symbol, Stats::getQuoteStats($symbol));
+            // Relative price alerts skipped for missing history resolve again on the next tick.
+            (new AlertReferenceResolver())->forget($symbol);
         }
 
         Log::info("END HistoricalBackfill::rebuildSymbol($symbol) => $numEntries data entries");

@@ -164,6 +164,7 @@
                             → {!! MoneyFormat::get_formatted_price_display($currencyCode, (float) $item->target_price, true) !!}
                         </div>
                     @endif
+                    @include('myfinance2::alerts.tables.partials.relative-target-info', ['alert' => $item])
                 </td>
                 @php
                     $multiAccount = isset($accountNames[$item->symbol])

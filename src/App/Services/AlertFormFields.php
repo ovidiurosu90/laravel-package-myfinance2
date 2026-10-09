@@ -19,6 +19,10 @@ class AlertFormFields extends MyFormFields
         'symbol'               => '',
         'alert_type'           => 'PRICE_ABOVE',
         'target_price'         => '',
+        'target_mode'          => 'FIXED',
+        'reference_type'       => 'HIGH',
+        'reference_window'     => '1y',
+        'offset_pct'           => '5',
         'trade_currency_id'    => null,
         'status'               => 'ACTIVE',
         'source'               => 'manual',
@@ -40,6 +44,11 @@ class AlertFormFields extends MyFormFields
                 'PAUSED' => 'Paused',
             ],
             'watchlistSymbols' => WatchlistSymbol::orderBy('symbol')->get(),
+            'targetModes'      => [
+                'FIXED'    => 'Fixed price',
+                'RELATIVE' => 'Relative to high/low',
+            ],
+            'referenceOptions' => PriceAlert::referenceOptions(),
         ];
     }
 
@@ -59,6 +68,14 @@ class AlertFormFields extends MyFormFields
                 $fields[$field] = $item->expires_at
                     ? $item->expires_at->format('Y-m-d H:i:s')
                     : '';
+            } elseif ($field === 'offset_pct') {
+                $fields[$field] = $item->offset_pct !== null
+                    ? MoneyFormat::get_formatted_pct_compact($item->offset_pct)
+                    : $this->fieldList[$field];
+            } elseif (in_array($field, ['target_mode', 'reference_type', 'reference_window'], true)) {
+                // A FIXED alert has no reference yet; keep the defaults so switching it to
+                // RELATIVE in the form starts from a sensible choice.
+                $fields[$field] = $item->{$field} ?? $this->fieldList[$field];
             } else {
                 $fields[$field] = $item->{$field};
             }

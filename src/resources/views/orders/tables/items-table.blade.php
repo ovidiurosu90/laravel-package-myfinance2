@@ -67,8 +67,17 @@
                         @php $limitPrice = $item->limit_price !== null ? (float) $item->limit_price : null; @endphp
                         @foreach ($activeAlerts[$item->symbol] as $activeAlert)
                         @php
+                            // Only the order's own companion alert: a RELATIVE target moves and can
+                            // equal the limit price by chance.
                             $alertTiedToOrder = $limitPrice !== null
+                                && $activeAlert->source === 'order'
+                                && !$activeAlert->isRelative()
                                 && abs((float) $activeAlert->target_price - $limitPrice) < 0.0001;
+                            $alertPrice = MoneyFormat::get_formatted_price_display(
+                                $activeAlert->tradeCurrencyModel?->display_code ?? $currencyCode,
+                                (float) $activeAlert->target_price,
+                                true
+                            );
 
                             $alertTip = ['<strong>Edit alert</strong>', 'Symbol: ' . e($activeAlert->symbol)];
                             if ($activeAlert->getExpiryTooltip()) {
@@ -77,6 +86,8 @@
                             if ($alertTiedToOrder) {
                                 $alertTip[] = 'Linked to this order';
                             }
+                            // A relative badge shows only the short label, so the tooltip carries the price.
+                            $alertTip = array_merge($alertTip, $activeAlert->getRelativeBadgeTooltipLines($alertPrice));
                         @endphp
                         <a href="{{ route('myfinance2::price-alerts.edit', $activeAlert->id) }}"
                             class="d-block mt-1"
@@ -86,11 +97,10 @@
                             <span class="badge d-block w-100 text-center
                                 {{ $activeAlert->getAlertTypeBadgeClass() }}">
                                 {{ $activeAlert->alert_type === 'PRICE_ABOVE' ? '▲ Above' : '▼ Below' }}@if ($alertTiedToOrder) <i class="fa fa-link fa-xs" aria-hidden="true"></i>@endif @if ($activeAlert->expires_at)<i class="fa fa-clock-o fa-xs" aria-hidden="true"></i>@endif
-                                <br>{!! MoneyFormat::get_formatted_price_display(
-                                    $activeAlert->tradeCurrencyModel?->display_code ?? $currencyCode,
-                                    (float) $activeAlert->target_price,
-                                    true
-                                ) !!}
+                                <br>@include('myfinance2::partials.alert-badge-target', [
+                                    'alert'     => $activeAlert,
+                                    'priceHtml' => $alertPrice,
+                                ])
                             </span>
                         </a>
                         @endforeach

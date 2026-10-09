@@ -90,6 +90,10 @@
                     <td class="num">
                         {{ MoneyFormat::get_formatted_price((float) $alert->target_price, true) }}
                         @if ($currency) {{ $currency }} @endif
+                        @include('myfinance2::emails.partials.price-alert-relative-target', [
+                            'alert'    => $alert,
+                            'currency' => $currency,
+                        ])
                     </td>
                     <td>
                         @if (!empty($accountNames[$alert->symbol] ?? []))

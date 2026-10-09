@@ -101,6 +101,23 @@ class MoneyFormat
     }
 
     /**
+     * Format a percentage with only the decimals it needs (up to 3, trailing zeros trimmed, plain,
+     * no sign, no %, no thousands separator so it also fits a number input): 5 -> "5",
+     * 2.5 -> "2.5", 12.125 -> "12.125". Used for user-entered offsets (e.g. "5% below 52W high"),
+     * where "5.00%" would read as a computed figure.
+     *
+     * @param mixed $value
+     *
+     * @return string
+     */
+    public static function get_formatted_pct_compact($value): string
+    {
+        $formatted = number_format((float) $value, 3, '.', '');
+
+        return rtrim(rtrim($formatted, '0'), '.');
+    }
+
+    /**
      * @param string $currencyDisplayCode
      * @param double $value
      *

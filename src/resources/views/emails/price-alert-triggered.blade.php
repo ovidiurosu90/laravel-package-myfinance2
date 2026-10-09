@@ -58,6 +58,10 @@
                 Current price: <strong>{{ MoneyFormat::get_formatted_price($currentPrice, true) }} {!! html_entity_decode($currencyDisplayCode, ENT_HTML5, 'UTF-8') !!}</strong><br>
                 Alert target: <strong>{{ MoneyFormat::get_formatted_price($alert->target_price, true) }} {!! html_entity_decode($currencyDisplayCode, ENT_HTML5, 'UTF-8') !!}</strong>
             </p>
+            @include('myfinance2::emails.partials.price-alert-relative-target', [
+                'alert'    => $alert,
+                'currency' => html_entity_decode(strip_tags($currencyDisplayCode), ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+            ])
             <p>Please review and update your alert. You can re-run the suggestion engine to get a fresh target price using split-adjusted data.</p>
         </div>
         @else
@@ -79,6 +83,10 @@
                 <strong>{{ MoneyFormat::get_formatted_price($currentPrice, true) }} {!! $currencyHtml !!}</strong>
                 is {{ $directionText }} the alert target of
                 <strong>{{ MoneyFormat::get_formatted_price((float) $alert->target_price, true) }} {!! $currencyHtml !!}</strong>
+                @include('myfinance2::emails.partials.price-alert-relative-target', [
+                    'alert'    => $alert,
+                    'currency' => html_entity_decode(strip_tags($currencyDisplayCode), ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                ])
             </div>
 
             @if (!empty($alert->notes))

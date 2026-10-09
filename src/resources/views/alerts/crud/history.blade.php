@@ -128,6 +128,9 @@
                                             </td>
                                             <td class="text-right text-nowrap">
                                                 {!! MoneyFormat::get_formatted_price_display($currencyCode, (float) $notif->target_price, true) !!}
+                                                @if (!empty($notif->target_label))
+                                                    <div class="text-muted small">{{ $notif->target_label }}</div>
+                                                @endif
                                             </td>
                                             <td class="text-right text-nowrap">
                                                 {!! MoneyFormat::get_formatted_price_display($currencyCode, (float) $notif->current_price, true) !!}

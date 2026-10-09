@@ -726,6 +726,7 @@ class OrdersController extends MyFinance2Controller
             'symbol'               => $item->symbol,
             'alert_type'           => $alertType,
             'target_price'         => $item->limit_price,
+            'target_mode'          => 'FIXED',
             'trade_currency_id'    => $item->trade_currency_id,
             'status'               => 'ACTIVE',
             'source'               => 'order',
@@ -739,8 +740,9 @@ class OrdersController extends MyFinance2Controller
     /**
      * Resync the auto-created order alert when the order's price, action, or symbol changes.
      * Matches the alert by its original symbol, original alert_type (derived from the old action),
-     * ACTIVE status, source='order', a non-expired expiry, and target_price equal to the old limit
-     * price, then mirrors the edited order onto it (price, type, symbol, trade currency).
+     * ACTIVE status, source='order', a FIXED target, a non-expired expiry, and target_price equal
+     * to the old limit price, then mirrors the edited order onto it (price, type, symbol, trade
+     * currency). A RELATIVE alert is never matched, even when its moving target equals the price.
      *
      * @param Order  $item
      * @param string $oldAction
@@ -768,6 +770,7 @@ class OrdersController extends MyFinance2Controller
             ->where('alert_type', $oldAlertType)
             ->where('status', 'ACTIVE')
             ->where('source', 'order')
+            ->where('target_mode', 'FIXED')
             ->whereNotNull('expires_at')
             ->where('expires_at', '>', now())
             ->where('target_price', $oldLimitPrice)
@@ -801,8 +804,8 @@ class OrdersController extends MyFinance2Controller
     /**
      * Delete the auto-created order alert when the order is filled.
      * Matches the alert the same way _createOrderAlert built it: by symbol, the alert_type
-     * derived from the order's action, ACTIVE status, source='order', a non-expired expiry,
-     * and target_price equal to the order's limit price. The temporary alert is no longer
+     * derived from the order's action, ACTIVE status, source='order', a FIXED target, a non-expired
+     * expiry, and target_price equal to the order's limit price. The temporary alert is no longer
      * needed once the order is filled, so it is removed.
      *
      * @param Order $item
@@ -821,6 +824,7 @@ class OrdersController extends MyFinance2Controller
             ->where('alert_type', $alertType)
             ->where('status', 'ACTIVE')
             ->where('source', 'order')
+            ->where('target_mode', 'FIXED')
             ->whereNotNull('expires_at')
             ->where('expires_at', '>', now())
             ->where('target_price', $item->limit_price)

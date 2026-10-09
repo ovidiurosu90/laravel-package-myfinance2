@@ -43,6 +43,7 @@ class PriceAlertNotification extends Model
         'notification_channel',
         'current_price',
         'target_price',
+        'target_label',
         'alert_type',
         'projected_gain_eur',
         'projected_gain_pct',

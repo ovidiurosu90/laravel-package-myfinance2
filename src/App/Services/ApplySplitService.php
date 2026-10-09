@@ -17,7 +17,8 @@ use ovidiuro\myfinance2\App\Models\Trade;
  * Executed inside a DB transaction on split save. For a split of ratio N:1:
  *   - Trade quantity  × N
  *   - Trade unit_price ÷ N
- *   - Alert target_price ÷ N
+ *   - Alert target_price ÷ N (FIXED alerts only; a RELATIVE target re-resolves from the
+ *     split-adjusted history once it is backfilled)
  *   - All stats_historical rows for the symbol are deleted so the cron re-fetches
  *     Yahoo's split-adjusted historical prices on its next run.
  *
@@ -62,6 +63,9 @@ class ApplySplitService
                 $this->_clearHistoricalStats($split->symbol);
             }
         );
+
+        // The wiped history must not linger in the relative-alert reference cache.
+        (new AlertReferenceResolver())->forget($split->symbol);
 
         return $summary;
     }
@@ -119,7 +123,8 @@ class ApplySplitService
     }
 
     /**
-     * Update all ACTIVE price alerts for the split symbol (current user scope).
+     * Update all ACTIVE, FIXED price alerts for the split symbol (current user scope). RELATIVE
+     * alerts are skipped: their target follows the (split-adjusted) closing history instead.
      * Divides target_price by ratio.
      * Appends a split annotation to the alert notes.
      *
@@ -136,6 +141,7 @@ class ApplySplitService
 
         $alerts = PriceAlert::where('symbol', $split->symbol)
             ->where('status', 'ACTIVE')
+            ->where('target_mode', 'FIXED')
             ->get();
 
         $changedAlerts = [];

@@ -46,6 +46,15 @@ return [
                 'label'       => 'Target Price',
                 'placeholder' => 'Input Target Price',
             ],
+            'target_mode' => [
+                'label'          => 'Target',
+                'order-disabled' => "Order alerts follow the order's limit price",
+            ],
+            'relative_target' => [
+                'label'        => 'Target = closing high / low ± offset',
+                'sign-tooltip' => 'A high is only ever lowered and a low only ever raised: an offset above a'
+                    . ' high would move up with every new high and could never be reached.',
+            ],
             'trade_currency' => [
                 'label'       => 'Trade Currency',
                 'placeholder' => 'Select Trade Currency',

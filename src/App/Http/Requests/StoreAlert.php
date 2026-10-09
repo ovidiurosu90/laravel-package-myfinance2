@@ -7,10 +7,13 @@ namespace ovidiuro\myfinance2\App\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
+use ovidiuro\myfinance2\App\Http\Requests\Concerns\ValidatesRelativeTarget;
 use ovidiuro\myfinance2\App\Models\Currency;
 
 class StoreAlert extends FormRequest
 {
+    use ValidatesRelativeTarget;
+
     /**
      * Determine if the user is authorized to make this request.
      *
@@ -39,17 +42,16 @@ class StoreAlert extends FormRequest
         $dbConnection = config('myfinance2.db_connection');
         $currenciesTableName = $dbConnection . '.' . (new Currency())->getTable();
 
-        return [
+        return array_merge([
             'symbol'               => 'required|string|max:16',
             'alert_type'           => ['required', Rule::in(['PRICE_ABOVE', 'PRICE_BELOW'])],
-            'target_price'         => 'required|numeric',
             'trade_currency_id'    => 'nullable|integer|exists:' . $currenciesTableName . ',id',
             'status'               => ['nullable', Rule::in(['ACTIVE', 'PAUSED'])],
             'source'               => 'nullable|string|max:50',
             'notification_channel' => 'nullable|string|max:20',
             'notes'                => 'nullable|string',
             'expires_at'           => 'nullable|date',
-        ];
+        ], $this->relativeTargetRules());
     }
 
     /**
@@ -59,7 +61,7 @@ class StoreAlert extends FormRequest
      */
     public function fillData(): array
     {
-        return [
+        return array_merge([
             'symbol'               => $this->symbol,
             'alert_type'           => $this->alert_type,
             'target_price'         => $this->target_price,
@@ -69,6 +71,11 @@ class StoreAlert extends FormRequest
             'notification_channel' => $this->notification_channel ?? 'email',
             'notes'                => $this->notes,
             'expires_at'           => $this->expires_at,
-        ];
+        ], $this->relativeTargetFillData());
+    }
+
+    protected function alertSource(): ?string
+    {
+        return $this->input('source') ?? 'manual';
     }
 }

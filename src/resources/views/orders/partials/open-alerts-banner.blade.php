@@ -18,6 +18,9 @@
                     {{ $alert->alert_type === 'PRICE_ABOVE' ? '▲ Above' : '▼ Below' }}
                 </span>
                 {!! MoneyFormat::get_formatted_price_display($currencyCode, (float) $alert->target_price, true) !!}
+                @if ($alert->isRelative())
+                    ({{ $alert->getRelativeTargetLabel() }})
+                @endif
                 @include('myfinance2::partials.alert-expiry-badge', ['alert' => $alert])
                 <a href="{{ route('myfinance2::price-alerts.edit', $alert->id) }}"
                    class="ms-1"
