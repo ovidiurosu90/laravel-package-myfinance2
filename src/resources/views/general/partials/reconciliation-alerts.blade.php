@@ -12,21 +12,12 @@
     <ul class="mb-0 small">
         @foreach($reconAlerts as $alert)
         <li>
-            @if($alert['scope'] === 'account')
-                <strong>{{ $alert['account'] }}</strong>
-                {{ ucfirst($alert['metric']) }}:
-                positions sum
-                {!! MoneyFormat::get_formatted_balance($alert['currency'], $alert['computed']) !!}
-                vs summary
-                {!! MoneyFormat::get_formatted_balance($alert['currency'], $alert['shown']) !!}
-            @else
-                <strong>User Overview</strong>
-                {{ ucfirst($alert['metric']) }}:
-                live positions (EUR)
-                {!! MoneyFormat::get_formatted_balance($alert['currency'], $alert['computed']) !!}
-                vs overview
-                {!! MoneyFormat::get_formatted_balance($alert['currency'], $alert['shown']) !!}
-            @endif
+            <strong>{{ $alert['subject'] }}</strong>
+            {{ $alert['metric_label'] }}:
+            {{ $alert['computed_label'] }}
+            {!! MoneyFormat::get_formatted_balance($alert['currency'], $alert['computed']) !!}
+            vs {{ $alert['shown_label'] }}
+            {!! MoneyFormat::get_formatted_balance($alert['currency'], $alert['shown']) !!}
             (diff
             {!! MoneyFormat::get_formatted_balance($alert['currency'], $alert['diff']) !!},
             {{ MoneyFormat::get_formatted_pct($alert['diff_pct']) }}%)

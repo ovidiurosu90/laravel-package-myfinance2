@@ -31,24 +31,21 @@ return [
 
     'myfinance2_invite_token' => env('MYFINANCE2_INVITE_TOKEN'),
 
-    // Safety net for the /positions page. PositionsReconciliationService cross-checks the
-    // figures shown against each other and raises an alert when they diverge, so a regression
-    // introduced during development lights up early. Tolerances are percentages; start tight
-    // so drift is visible, then relax once the expected variation is understood.
+    // Safety net for /positions, /watchlist-symbols and /returns (PositionsReconciliationService,
+    // WatchlistReconciliationService, ReturnsReconciliationService). Each cross-checks the figures
+    // shown against the parts they are built from and raises an alert when they diverge, so a
+    // regression lights up early. Every check compares figures built from the same prices (e.g.
+    // the rows vs the headers of the same page load, or the rows repriced at the cron snapshot's
+    // prices vs the stored series), so price movement never shows up as a gap and the tolerance
+    // only has to absorb rounding.
     'reconciliation' => [
-        // Per account (same currency): live sum of the open-position rows vs the
-        // account-overview-summary the card header shows. cost is an exact invariant here;
-        // mvalue/gain carry live-vs-snapshot price drift (larger on small, volatile positions),
-        // so this is looser and paired with the absolute floor below. Raised from 1.5 to 2.0 after
-        // an open-market change figure on a small base drifted to 1.60% with no computation error.
-        'account_tolerance_pct' => env('MYFINANCE2_RECON_ACCOUNT_TOLERANCE_PCT', 2.0),
-        // Whole portfolio: live positions converted to EUR vs the User Overview total. cost and
-        // cash match near-exactly (same rate, no drift); mvalue/change only drift with prices
-        // since the last snapshot, smoothed by the large portfolio base, so this can stay tight.
-        'user_fx_tolerance_pct' => env('MYFINANCE2_RECON_USER_FX_TOLERANCE_PCT', 0.5),
-        // Suppress small absolute drift (e.g. a few euro on a tiny position) so it does not trip
-        // the percentage test on a small base. Real regressions produce far larger gaps.
-        'absolute_floor' => env('MYFINANCE2_RECON_ABSOLUTE_FLOOR', 5.0),
+        // Absolute gap allowed per figure, in the figure's currency (EUR for portfolio totals).
+        // Stored series keep 4 decimals, so a few cents leaves ample room for rounding while any
+        // real computation error stands out.
+        'tolerance' => env('MYFINANCE2_RECON_TOLERANCE', 0.05),
+        // The cron refreshes the stored series every minute. Past this age they have stopped
+        // updating (cron stopped, crashed or stuck) and /positions shows a staleness warning.
+        'stale_after_seconds' => env('MYFINANCE2_RECON_STALE_AFTER_SECONDS', 180),
     ],
 
     // Stale live-quote detection for the pages that render live positions (/positions,

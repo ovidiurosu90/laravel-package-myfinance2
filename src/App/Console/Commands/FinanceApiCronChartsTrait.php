@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Log;
 
 use ovidiuro\myfinance2\App\Services\ChartsBuilder;
 use ovidiuro\myfinance2\App\Services\Positions;
+use ovidiuro\myfinance2\App\Services\PositionsSnapshot;
 use ovidiuro\myfinance2\App\Services\Stats;
 
 /**
@@ -102,7 +103,21 @@ trait FinanceApiCronChartsTrait
             $numAccounts++;
         }
 
+        // Live runs record the prices behind the stored series so /positions can reconcile its
+        // rows against them exactly (see PositionsSnapshot). Marked incomplete while the chart
+        // files are rewritten, so a page load in between skips the check.
+        $takenAt = time();
+        if (empty($date)) {
+            foreach (array_keys($chartsToBuildAccounts) as $userId) {
+                PositionsSnapshot::markWriting((int) $userId);
+            }
+        }
+
         self::_buildChartsAccount($chartsToBuildAccounts);
+
+        if (empty($date)) {
+            self::_writePositionsSnapshots($data, $takenAt);
+        }
 
         // Live runs also rebuild charts for every used symbol (trades, dividends,
         // watchlist, active alerts), not only currently open positions. Otherwise a
@@ -124,6 +139,23 @@ trait FinanceApiCronChartsTrait
                    . $formattedDate . ') => '
                    . $numAccounts . ' accounts refreshed!';
         Log::info($message);
+    }
+
+    /**
+     * Save the snapshot of each user's positions with the EURUSD rate the User Overview
+     * conversion just used (today's last stored rate, see Stats::convertStatToCurrency).
+     */
+    private static function _writePositionsSnapshots(array $data, int $takenAt): void
+    {
+        $rateStat = Stats::getQuoteStatByDate('EURUSD=X', new \DateTime());
+        $eurusd = !empty($rateStat['unit_price']) ? (float) $rateStat['unit_price'] : null;
+
+        $snapshots = PositionsSnapshot::build(
+            $data['groupedItems'], $data['accountData'], $eurusd, $takenAt
+        );
+        foreach ($snapshots as $userId => $snapshot) {
+            PositionsSnapshot::write($userId, $snapshot);
+        }
     }
 
     private static function _addAccountStatToUserStats(

@@ -560,8 +560,12 @@ class FinanceAPI
             Stats::persistQuote($quote);
         }
 
-        // FinanceAPI cache: 2 minutes TTL
-        return Cache::add($key, $value, 60*2); // cached for 2 minutes
+        // FinanceAPI cache: 2 minutes TTL. put, not add: a quote just fetched is always fresher
+        // than the cached one. With add, the minutely cron's fresh fetch (checkCache false) was
+        // dropped while the previous entry lived, so the account snapshot was built from quotes
+        // up to 2 minutes old, and a page load after expiry fetched newer ones of its own, making
+        // the position rows disagree with the summary headers.
+        return Cache::put($key, $value, 60*2); // cached for 2 minutes
     }
 
     public function getCachedQuote(string $symbol): ?Quote

@@ -21,8 +21,10 @@ class PortfolioHealthScore
      * @param array $categorization      symbol => categorization array (tier, quadrant, ...)
      * @param array $allGroupedPositions account => open_positions[] (from the positions overview)
      * @param array $items               symbol => dashboard quoteData (performance, categorization)
+     * @param float|null $eurusd         EURUSD rate to convert USD with; the latest stored rate when null
      */
-    public function build(array $categorization, array $allGroupedPositions, array $items = []): ?array
+    public function build(array $categorization, array $allGroupedPositions, array $items = [],
+        ?float $eurusd = null): ?array
     {
         $tierBySymbol          = [];
         $openPositionsBySymbol = [];
@@ -39,10 +41,10 @@ class PortfolioHealthScore
             return null;
         }
 
-        // Convert USD with the same latest EURUSD the positions overview chart shows
-        // (last point of the EURUSD=X series), so the card totals reconcile with /positions.
+        // Convert USD with the EURUSD rate /positions converts its User Overview with
+        // (LiveOverviewSeries::liveEurusd), so the card totals reconcile with /positions.
         $eurRates = ['EUR' => 1.0];
-        $eurUsd   = ChartsBuilder::getLatestSymbolValue('EURUSD=X');
+        $eurUsd   = $eurusd ?? ChartsBuilder::getLatestSymbolValue('EURUSD=X');
         if ($eurUsd) {
             $eurRates['USD'] = 1.0 / $eurUsd;
         }

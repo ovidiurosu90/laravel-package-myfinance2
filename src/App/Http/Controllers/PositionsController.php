@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Log;
 use ovidiuro\myfinance2\App\Services\DipBuyingBacktestService;
 use ovidiuro\myfinance2\App\Services\DipBuyingPlanService;
 use ovidiuro\myfinance2\App\Services\DipBuyingPresenter;
+use ovidiuro\myfinance2\App\Services\LiveOverviewSeries;
 use ovidiuro\myfinance2\App\Services\MoversService;
 use ovidiuro\myfinance2\App\Services\Positions;
 use ovidiuro\myfinance2\App\Services\PositionsReconciliationService;
@@ -84,24 +85,54 @@ class PositionsController extends MyFinance2Controller
             }
         }
 
-        // Reconciliation safety net: cross-check the live position rows against the shown
-        // account and User Overview summaries, only on the live view (the historical view does
-        // not persist stats). Must never break /positions, so failures are swallowed.
+        // Live view only (the historical view shows dated closes and persists no stats): end the
+        // account and User Overview series on this page load's totals so the headers, charts and
+        // rows agree, then run the reconciliation safety net and the staleness probe on the
+        // stored series. Must never break /positions, so failures are swallowed.
+        $data['liveSeries'] = null;
         $data['reconAlerts'] = [];
+        $data['snapshotStale'] = null;
         if (empty($dateInput)) {
-            try {
-                $userId = auth()->id() !== null ? (int) auth()->id() : null;
-                $data['reconAlerts'] = (new PositionsReconciliationService())->reconcile(
-                    $data['groupedItems'] ?? [],
-                    $data['accountData'] ?? [],
-                    $userId
-                );
-            } catch (\Throwable $e) {
-                Log::warning('Positions reconciliation panel skipped: ' . $e->getMessage());
-            }
+            $this->_addLiveOverview($data);
         }
 
         return view('myfinance2::positions.dashboard', $data);
+    }
+
+    private function _addLiveOverview(array &$data): void
+    {
+        $userId = auth()->id() !== null ? (int) auth()->id() : null;
+        $groupedItems = $data['groupedItems'] ?? [];
+        $accountData = $data['accountData'] ?? [];
+
+        try {
+            if ($userId !== null) {
+                $data['liveSeries'] = LiveOverviewSeries::build($groupedItems, $accountData, $userId,
+                    LiveOverviewSeries::liveEurusd($data['exchangeRateData'] ?? []));
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Live overview series skipped: ' . $e->getMessage());
+        }
+
+        try {
+            $service = new PositionsReconciliationService();
+            $data['reconAlerts'] = $service->reconcile(
+                $groupedItems, $accountData, $userId, $data['liveSeries'] ?? []
+            );
+
+            $age = $userId !== null ? $service->snapshotAge($userId) : null;
+            $staleAfter = (int) config('myfinance2.reconciliation.stale_after_seconds', 180);
+            if ($age !== null && $age > $staleAfter) {
+                $data['snapshotStale'] = [
+                    'age_human' => StaleQuoteService::humanizeDuration($age),
+                    'threshold_human' => StaleQuoteService::humanizeDuration($staleAfter),
+                    'taken_at_formatted' => date(trans('myfinance2::general.datetime-format'),
+                        time() - $age),
+                ];
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Positions reconciliation panel skipped: ' . $e->getMessage());
+        }
     }
 }
 

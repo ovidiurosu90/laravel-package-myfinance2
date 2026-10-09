@@ -6,14 +6,17 @@
 
 // Load all metric data for each account, including changePercentage which is a
 // derived metric (change / cost * 100). Data is precomputed by FinanceApiCron
-// and stored as JSON files containing historical and today_last data points.
+// and stored as JSON files containing historical and today_last data points. On the
+// live view the last point is this page load's account total (LiveOverviewSeries), so
+// the header and the chart end on the same figures as the position rows.
 const metricData = {
 @foreach($accountData as $accountId => $value)
     '{{ $accountId }}': {
     @foreach($ChartsBuilder::getAccountMetrics() as $metric => $properties)
         '{{ $metric }}': {!!
-            $ChartsBuilder::getChartAccountAsJsonString($accountData[$accountId],
-                                                        $metric)
+            isset($liveSeries['accounts'][$accountId][$metric])
+                ? json_encode($liveSeries['accounts'][$accountId][$metric])
+                : $ChartsBuilder::getChartAccountAsJsonString($accountData[$accountId], $metric)
         !!},
     @endforeach
     },

@@ -33,6 +33,7 @@ class WatchlistSymbolsController extends MyFinance2Controller
             'health_score' => $result['health_score'],
             'quadrant'     => $result['quadrant'],
             'staleQuotes'  => $result['staleQuotes'] ?? [],
+            'reconAlerts'  => $result['reconAlerts'] ?? [],
         ]);
     }
 

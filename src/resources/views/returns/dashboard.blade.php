@@ -10,6 +10,8 @@
     <div class="container-fluid">
         <div class="row">
             <div class="col-sm-12">
+                @include('myfinance2::general.partials.reconciliation-alerts')
+
                 {{-- Overview section with all-years chart (independent currency toggle) --}}
                 @if($showOverview ?? true)
                     @include('myfinance2::returns.returns-overview')

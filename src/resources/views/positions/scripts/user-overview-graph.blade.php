@@ -7,13 +7,17 @@
 // Load user-level metric data for all metrics and both currencies (EUR, USD).
 // Each metric has separate data for EUR and USD views because changePercentage is
 // calculated per currency from aggregated account stats across all accounts.
-// Data is precomputed by FinanceApiCron and stored as JSON files.
+// Data is precomputed by FinanceApiCron and stored as JSON files. On the live view the
+// last point is this page load's total across accounts (LiveOverviewSeries), so the header
+// and the chart end on the same figures as the position rows.
 const userOverviewData = {
 @foreach(['EUR', 'USD'] as $currency)
     @foreach($ChartsBuilder::getAccountMetrics() as $metric => $properties)
         '{{ $metric . '_' . $currency }}': {!!
-            $ChartsBuilder::getChartOverviewUserAsJsonString(Auth::user()->id,
-                $metric . '_' . $currency)
+            isset($liveSeries['user'][$metric . '_' . $currency])
+                ? json_encode($liveSeries['user'][$metric . '_' . $currency])
+                : $ChartsBuilder::getChartOverviewUserAsJsonString(Auth::user()->id,
+                    $metric . '_' . $currency)
         !!},
     @endforeach
 @endforeach

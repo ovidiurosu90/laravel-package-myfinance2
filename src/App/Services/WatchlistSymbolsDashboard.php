@@ -46,7 +46,10 @@ class WatchlistSymbolsDashboard
         $positionsService->setPersistStats(false);
         $positionsData = $positionsService->handle();
         if (empty($positionsData['quotes'])) {
-            return ['items' => [], 'health_score' => null, 'quadrant' => null, 'staleQuotes' => []];
+            return [
+                'items' => [], 'health_score' => null, 'quadrant' => null, 'staleQuotes' => [],
+                'reconAlerts' => [],
+            ];
         }
 
         $openOrders = Order::whereIn('status', ['DRAFT', 'PLACED'])->get();
@@ -123,10 +126,17 @@ class WatchlistSymbolsDashboard
         [$items, $categorization] = $this->_attachCategorization(
             $items, $liveEurRates, $performanceBySymbol
         );
+        // The health card converts USD at the rate /positions uses, so its totals reconcile with
+        // the /positions User Overview; the reconciliation safety net then checks that they do.
+        $eurusd = LiveOverviewSeries::liveEurusd($positionsData['exchangeRateData'] ?? []);
         $healthScore = (new PortfolioHealthScore())->build(
             $categorization,
             $positionsData['groupedItems'] ?? [],
-            $items
+            $items,
+            $eurusd
+        );
+        $reconAlerts = (new WatchlistReconciliationService())->reconcile(
+            $healthScore, $positionsData['groupedItems'] ?? [], $eurusd
         );
         $items = (new TechnicalIndicatorsService())->attachIndicators($items);
         $items = (new WatchlistTableMetaBuilder())->attach($items, $liveEurRates);
@@ -149,6 +159,7 @@ class WatchlistSymbolsDashboard
             'health_score' => $healthScore,
             'quadrant'     => $quadrant,
             'staleQuotes'  => $staleQuotes,
+            'reconAlerts'  => $reconAlerts,
         ];
     }
 

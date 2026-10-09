@@ -13,7 +13,8 @@
         <div class="row">
             <div class="col-sm-12">
                 @include('myfinance2::general.partials.stale-quote-alerts')
-                @include('myfinance2::positions.partials.reconciliation-alerts')
+                @include('myfinance2::positions.partials.snapshot-stale-alert')
+                @include('myfinance2::general.partials.reconciliation-alerts')
                 @include('myfinance2::positions.tables.dashboard-table')
             </div>
         </div>

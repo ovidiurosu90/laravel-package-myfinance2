@@ -14,6 +14,7 @@ use ovidiuro\myfinance2\App\Services\Returns\Returns;
 use ovidiuro\myfinance2\App\Services\Returns\ReturnsAlerts;
 use ovidiuro\myfinance2\App\Services\Returns\ReturnsConstants;
 use ovidiuro\myfinance2\App\Services\Returns\ReturnsOverview;
+use ovidiuro\myfinance2\App\Services\Returns\ReturnsReconciliationService;
 use ovidiuro\myfinance2\App\Services\Returns\ReturnsViewTransformer;
 
 class ReturnsController extends MyFinance2Controller
@@ -98,6 +99,11 @@ class ReturnsController extends MyFinance2Controller
         $alertsService = new ReturnsAlerts();
         $alerts = $alertsService->check($serviceData, $year);
 
+        // Reconciliation safety net: the totals shown vs the parts they are built from (never throws)
+        $reconAlerts = (new ReturnsReconciliationService())->reconcile(
+            $serviceData, $overviewData, $year, $currentYear
+        );
+
         // Prepare view data
         $viewData = [
             'returnsData' => $transformedReturnsData,
@@ -116,6 +122,7 @@ class ReturnsController extends MyFinance2Controller
             'overviewData' => $overviewData,
             'showOverview' => !$skipOverview,
             'alerts' => $alerts,
+            'reconAlerts' => $reconAlerts,
         ];
 
         return view('myfinance2::returns.dashboard', $viewData);
