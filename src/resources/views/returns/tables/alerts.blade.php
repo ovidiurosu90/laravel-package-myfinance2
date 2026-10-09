@@ -23,7 +23,9 @@
                 </h6>
                 <hr class="my-2">
 
-                @if($alert['type'] === 'split_adjustment_pairs')
+                @if(str_starts_with($alert['type'], 'missing_quote'))
+                    @include('myfinance2::returns.tables.alerts-missing-quotes')
+                @elseif($alert['type'] === 'split_adjustment_pairs')
                     {{-- Split adjustment pairs table --}}
                     <table class="table table-sm table-bordered mb-0" style="background-color: white;">
                         <thead class="table-light">

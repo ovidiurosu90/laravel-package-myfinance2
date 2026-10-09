@@ -53,7 +53,8 @@ class ReturnsAlerts
      */
     public function check(array $returnsData, int $year): array
     {
-        $alerts = [];
+        // Positions that could not be priced come first: they change the start/end values directly
+        $alerts = (new ReturnsMissingQuoteAlerts())->check($returnsData, $year);
 
         // Check for split adjustment pairs that need exclusion
         $splitAdjustmentAlerts = $this->_checkSplitAdjustmentPairs($year);

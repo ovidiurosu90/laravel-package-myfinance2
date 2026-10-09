@@ -111,6 +111,7 @@ class ReturnsValuation
             'positions' => $result['positionsValue'],
             'cash' => $cashValue,
             'positionDetails' => $result['positionDetails'],
+            'missingQuotes' => $result['missingQuotes'],
         ];
     }
 
@@ -228,8 +229,11 @@ class ReturnsValuation
         $positionsValue = 0;
         $positionDetails = [];
 
+        // Held positions left out of the value because no price was found (surfaced as a returns alert)
+        $missingQuotes = [];
+
         if (empty($accountPositions)) {
-            return ['positionsValue' => 0, 'positionDetails' => []];
+            return ['positionsValue' => 0, 'positionDetails' => [], 'missingQuotes' => []];
         }
 
         foreach ($accountPositions as $symbol => $position) {
@@ -244,6 +248,11 @@ class ReturnsValuation
                     "Skipping position $symbol - could not get quote for "
                     . $date->format('Y-m-d')
                 );
+                $missingQuotes[] = [
+                    'symbol' => $symbol,
+                    'quantity' => (float) $position['quantity'],
+                    'date' => $date->format('Y-m-d'),
+                ];
                 continue;
             }
 
@@ -263,7 +272,11 @@ class ReturnsValuation
             }
         }
 
-        return ['positionsValue' => $positionsValue, 'positionDetails' => $positionDetails];
+        return [
+            'positionsValue' => $positionsValue,
+            'positionDetails' => $positionDetails,
+            'missingQuotes' => $missingQuotes,
+        ];
     }
 
     /**

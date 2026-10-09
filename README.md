@@ -149,7 +149,7 @@ redraws the chart with the refilled series.
 # - Faster page loads for /returns pages (data pre-cached)
 # - Reduced API calls to Yahoo Finance
 # - Maintains fresh data for current year
-# (NOT in crontab - runs ad-hoc when needed or scheduled separately)
+# (In crontab hourly at :24, see below; also run ad-hoc when needed)
 sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd /home/$USER/Repositories/laravel-admin/ && php artisan app:finance-api-cron --refresh-returns"
 
 # With --force flag: Clears all cache markers and refreshes ALL years (including those with valid cache)
@@ -157,6 +157,7 @@ sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd /home/$USER/Re
 sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd /home/$USER/Repositories/laravel-admin/ && php artisan app:finance-api-cron --refresh-returns --force"
 ```
 
+**Missing-price email.** Every year this command recomputes is checked for held positions it had to value at 0 because no price was found (no `price_overrides` entry and no finance API close on or up to 7 days before Jan 1 / Dec 31). This typically happens when a symbol is delisted and Yahoo drops its history, and it shows up exactly when a past year's 4-week cache expires and is recomputed (or within the hour for the current year). The command then logs a WARNING (also in the `logs:email-daily-errors` digest) and emails the account owner (`MYFINANCE2_ALERTS_EMAIL_TO`, else the owner's email) one table covering every affected year, with links to those returns pages. The same gaps appear as the first alert on the returns page, and the returns regression tests fail on `test_all_held_positions_have_a_price`. A year is emailed again only when its gaps change, or once a day while they persist. Fix it by adding the missing closes to `price_overrides` (and the symbol to `delisted_symbols` if it was delisted), then run the `--force` refresh above.
 
 ### Enable finance-api-cron for better performance & maintaining a complete week of historical account data
 

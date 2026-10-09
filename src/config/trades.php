@@ -24,6 +24,7 @@ return [
     // For these symbols, price overrides will be used instead
     'delisted_symbols' => [
         'ATVI', // Activision Blizzard - delisted (acquired by Microsoft)
+        'WBD', // Warner Bros. Discovery - delisted (Yahoo dropped its price history)
     ],
 
     // Symbols known to have Yahoo API price issues (e.g., stock splits not properly adjusted)

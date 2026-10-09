@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Log;
 
 use ovidiuro\myfinance2\App\Services\Returns\Returns;
 use ovidiuro\myfinance2\App\Services\Returns\ReturnsConstants;
+use ovidiuro\myfinance2\App\Services\Returns\ReturnsMissingQuoteNotifier;
 use ovidiuro\myfinance2\App\Services\Returns\ReturnsOverview;
 
 /**
@@ -45,6 +46,9 @@ trait FinanceApiCronReturnsTrait
         $totalYearsProcessed = 0;
         $totalYearsSkipped = 0;
 
+        // Collects positions valued at 0 for lack of a price in every year recomputed below
+        $missingQuoteNotifier = new ReturnsMissingQuoteNotifier();
+
         for ($year = $startYear; $year <= $currentYear; $year++) {
             $isCachedMarker = $this->_getYearCacheMarker($year);
 
@@ -53,7 +57,7 @@ trait FinanceApiCronReturnsTrait
                 Log::info("Processing year $year (current year)");
                 $this->_clearReturnsCacheForYear($year);
                 $this->_clearYearCache($year);
-                $success = $this->_executeReturnsFlow($year);
+                $success = $this->_executeReturnsFlow($year, $missingQuoteNotifier);
                 if ($success) {
                     $this->_setYearCacheMarker($year);
                     $totalYearsProcessed++;
@@ -69,7 +73,7 @@ trait FinanceApiCronReturnsTrait
                 } else {
                     // Cache doesn't exist or expired, execute flow
                     Log::info("Cache not found for year $year, executing flow");
-                    $success = $this->_executeReturnsFlow($year);
+                    $success = $this->_executeReturnsFlow($year, $missingQuoteNotifier);
                     if ($success) {
                         $this->_setYearCacheMarker($year);
                         $totalYearsProcessed++;
@@ -85,6 +89,9 @@ trait FinanceApiCronReturnsTrait
             . "$totalYearsProcessed years processed, $totalYearsSkipped years skipped"
         );
 
+        // One email per owner for every recomputed year with positions valued at 0
+        $missingQuoteNotifier->send();
+
         $this->_refreshReturnsOverview();
     }
 
@@ -92,15 +99,17 @@ trait FinanceApiCronReturnsTrait
      * Execute the returns flow for a specific year
      *
      * @param int $year The year to process
+     * @param ReturnsMissingQuoteNotifier $missingQuoteNotifier Collects positions that had no price
      * @return bool True if successful, false if failed
      */
-    private function _executeReturnsFlow(int $year): bool
+    private function _executeReturnsFlow(int $year, ReturnsMissingQuoteNotifier $missingQuoteNotifier): bool
     {
         try {
             $service = new Returns();
 
             // Execute the returns calculation - this will auto-cache the data
             $returnsData = $service->handle($year);
+            $missingQuoteNotifier->collect($year, $returnsData);
 
             $excludedKeys = [
                 'totalReturnEUR',
