@@ -35,6 +35,14 @@
         th { background: #e9ecef; font-weight: 600; }
         tr.near-peak td { background: #eafaf0; }
         tr.near-peak td:first-child { border-left: 3px solid #28a745; }
+        tr.in-zone td { background: #cff4fc; }
+        tr.in-zone td:first-child { border-left: 3px solid #0dcaf0; }
+        .range-note { color: #055160; background: #cff4fc; border: 1px solid #9eeaf9;
+            border-radius: 4px; padding: 6px 8px; }
+        .profit-note { color: #0f5132; background: #d1e7dd; border: 1px solid #a3cfbb;
+            border-radius: 4px; padding: 6px 8px; }
+        .signal-note { color: #664d03; background: #fff3cd; border: 1px solid #ffe69c;
+            border-radius: 4px; padding: 6px 8px; }
         .acct-block { margin-top: 12px; padding-top: 12px; border-top: 1px solid #e0e0e0; }
         .acct-title { font-weight: 600; margin-bottom: 6px; }
         .footer { padding: 16px 24px; background: #f8f9fa; border-top: 1px solid #ddd; font-size: 12px; color: #6c757d; }
@@ -65,80 +73,29 @@
             @if (!empty($tierLabel))
                 <span class="badge {{ $tierClass }}">{{ $tierLabel }}</span>
             @endif
-            near peak</h1>
+            @if (!empty($superstar))
+                <span style="color:#ffc107;" title="{{ $superstar['title'] }}">&#9733;</span>
+            @endif
+            {{ $headline }}</h1>
         <div class="sub">
             @if (!empty($isReminder))Reminder &middot; @endif
-            @if (!empty($tierLabel)){{ $tierLabel }}@if (!empty($headAction)), {{ $headAction }}@endif &middot; @endif
+            @if ($tierSummary !== ''){{ $tierSummary }} &middot; @endif
             {{ implode(' · ', $triggerSummary) }}
         </div>
     </div>
     <div class="body">
 
-        {{-- Summary --}}
-        <div class="section" style="border-left-color:#28a745;">
-            <h2>Summary</h2>
-            <p>
-                @if (!empty($tierLabel))
-                    <strong>{{ $tierLabel }}@if (!empty($headAction)), {{ $headAction }}@endif.</strong>
-                @endif
-                Current price
-                <strong class="text-nowrap">{!! $price !== null ? MoneyFormat::get_formatted_price_display($cur, $price, true) : 'n/a' !!}</strong>,
-                near its peak in {{ $nearCount }} {{ $nearCount === 1 ? 'window' : 'windows' }}.
-                Every window is shown below with the target price that would put it near peak
-                (its threshold below the peak) and how far the price still has to run.
-            </p>
-            <table>
-                <tr>
-                    <th>Window</th>
-                    <th class="text-nowrap">From peak</th>
-                    <th>Peak price</th>
-                    <th>Peak date</th>
-                    <th>Trigger target</th>
-                    <th>To go</th>
-                </tr>
-                @foreach ($summaryWindows as $p)
-                <tr @if ($p['near']) class="near-peak" @endif>
-                    <td class="text-nowrap">{{ $p['label'] }}@if ($p['near']) <span class="badge bg-success">near peak</span>@endif</td>
-                    <td class="text-nowrap">{{ $signedPct($p['prox']) }}</td>
-                    <td class="text-nowrap">
-                        @if ($p['peak'] !== null){!! MoneyFormat::get_formatted_price_display($cur, $p['peak'], true) !!}@else <span class="text-muted">n/a</span>@endif
-                    </td>
-                    <td class="text-nowrap">{{ $p['date'] ?? 'n/a' }}</td>
-                    <td class="text-nowrap">
-                        @if ($p['target'] !== null)
-                        {!! MoneyFormat::get_formatted_price_display($cur, $p['target'], true) !!}
-                        @if ($p['thr'] !== null)<span class="text-muted">({{ $signedPct(-$p['thr']) }})</span>@endif
-                        @else
-                        <span class="text-muted">n/a</span>
-                        @endif
-                    </td>
-                    <td class="text-nowrap">
-                        @if ($p['near'])
-                        <span class="text-success">in zone</span>
-                        @elseif ($p['to_go'] !== null)
-                        {{ $signedPct($p['to_go']) }}
-                        @else
-                        <span class="text-muted">n/a</span>
-                        @endif
-                    </td>
-                </tr>
-                @endforeach
-            </table>
-            @if ($todayGainEur !== null)
-            <p style="margin-top:8px;">
-                Today's move:
-                <span class="text-nowrap">{!! MoneyFormat::get_formatted_gain($eur, $todayGainEur) !!}</span>@if ($todayGainPct !== null) (<span class="text-nowrap">{!! MoneyFormat::get_formatted_gain('%', $todayGainPct) !!}</span>)@endif,
-                which nudged the position toward its peak today.
-            </p>
-            @endif
-            @if ($sellGainEur !== null)
-            <p style="margin-top:8px;">
-                Your position's current unrealized gain is
-                <span class="text-nowrap">{!! MoneyFormat::get_formatted_gain($eur, $sellGainEur) !!}</span>@if ($sellGainPct !== null) (<span class="text-nowrap">{!! MoneyFormat::get_formatted_gain('%', $sellGainPct) !!}</span>)@endif,
-                which is what you would lock in by selling now.
-            </p>
-            @endif
-        </div>
+        {{-- Summary: the range levels for a range-bound alert, the reading and the windows for a take-profit or a
+             tier signal one, else every window near its peak --}}
+        @if ($isRange)
+            @include('myfinance2::emails.partials.range-bound-summary')
+        @elseif ($isTakeProfit)
+            @include('myfinance2::emails.partials.take-profit-summary')
+        @elseif ($isTierSignal)
+            @include('myfinance2::emails.partials.tier-signal-summary')
+        @else
+            @include('myfinance2::emails.partials.peak-proximity-summary')
+        @endif
 
         {{-- Card 1: Performance --}}
         <div class="section" style="border-left-color:#0d6efd;">
@@ -217,6 +174,18 @@
                 </tr>
                 @endif
             </table>
+            @if ($openRealizedEur !== null)
+            {{-- Partial sells: the Current gain and % cover the whole window, the Cost only what is still held. --}}
+            <p class="text-muted" style="font-size:12px; margin:6px 0 0;">
+                Current: the gain includes
+                <span class="text-nowrap">{!! MoneyFormat::get_formatted_gain($eur, $openRealizedEur) !!}</span>
+                realized on partial sells in this window, and its % is of the
+                <span class="text-nowrap">{!! MoneyFormat::get_formatted_price_display(
+                    $eur, $openWindow['invested_eur'] ?? 0
+                ) !!}</span>
+                invested in the window; the Cost is what is still held.
+            </p>
+            @endif
 
             {{-- Per-window detail incl. peak --}}
             @if (!empty($perf['windows']))
@@ -289,6 +258,11 @@
             <div style="margin-bottom:8px;">
                 <span class="text-muted">Tier:</span>
                 <span class="badge {{ $quadrant['tier_class'] }}">{{ $quadrant['tier_label'] }}</span>
+                @if ($quadrant['today_chip'] !== null)
+                <span class="text-muted">settled &middot; today</span>
+                <span class="badge" style="{{ $quadrant['today_chip']['style'] }}">
+                    {{ $quadrant['today_chip']['label'] }}</span>
+                @endif
                 @if ($quadrant['basis_val'] !== null)
                 <span class="text-muted">based on</span>
                 @if ($quadrant['gain_eur'] !== null)<span class="text-nowrap">{!! MoneyFormat::get_formatted_gain($eur, $quadrant['gain_eur']) !!}</span>@endif
@@ -453,8 +427,22 @@
 
     </div>
     <div class="footer">
+        @if ($isRange)
+        <strong>MyFinance2</strong> &middot; Peak-proximity alert, range-bound swing for {{ $symbol }}<br>
+        Sent because a range-bound {{ empty($rangeBound['is_owned']) ? 'symbol you traded before' : 'open position' }}
+        is {{ $triggerSummary[0] }}. Max once per day per symbol.
+        @elseif ($isTakeProfit)
+        <strong>MyFinance2</strong> &middot; Peak-proximity alert, take profit on {{ $symbol }}<br>
+        Sent because an open position on a weak tier ({{ $tierLabel }}) is {{ $triggerSummary[0] }}.
+        Max once per day per symbol.
+        @elseif ($isTierSignal)
+        <strong>MyFinance2</strong> &middot; Peak-proximity alert, tier signal on {{ $symbol }}<br>
+        Sent because {{ $symbol }}'s tier reads {{ strtolower($tierSignal['label']) }} against the last 12 months
+        ({{ $triggerSummary[0] }}). Max once per day per symbol.
+        @else
         <strong>MyFinance2</strong> &middot; Peak-proximity exit hint for {{ $symbol }}<br>
         Sent because an open position is near a recent peak. Max once per day per symbol.
+        @endif
     </div>
 </div>
 </body>

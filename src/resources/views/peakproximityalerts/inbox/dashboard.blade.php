@@ -131,9 +131,17 @@
                                 </div>
                             @empty
                                 <div class="col-12">
+                                    @php
+                                        // A range-bound TRIM is actionable only when it emails (range_emails).
+                                        $trimActs = \ovidiuro\myfinance2\App\Services\PeakProximityRangeSignals::emails(
+                                            \ovidiuro\myfinance2\App\Models\PeakProximityAlertEvent::SIGNAL_RANGE_HIGH
+                                        );
+                                    @endphp
                                     <p class="text-muted small">
                                         No actionable alerts. A symbol lands here when a weak-tier (Rust or
-                                        Bronze) holding is near its 6M, 1Y or 2Y peak.
+                                        Bronze) holding is in profit (TAKE PROFIT) or near its 6M, 1Y or 2Y peak,
+                                        or when a range-bound symbol enters the bottom of its 52-week range (ADD, or
+                                        BUY when not held){{ $trimActs ? ' or the top (TRIM)' : '' }}.
                                     </p>
                                 </div>
                             @endforelse
@@ -172,8 +180,9 @@
                             @empty
                                 <div class="col-12">
                                     <p class="text-muted small">
-                                        No informational alerts. Strong holdings near a peak (which do not
-                                        email) would show up here.
+                                        No informational alerts. Strong holdings near a peak and tier signals
+                                        (rare high, rare low, deteriorating), which do not email, would show up
+                                        here.
                                     </p>
                                 </div>
                             @endforelse

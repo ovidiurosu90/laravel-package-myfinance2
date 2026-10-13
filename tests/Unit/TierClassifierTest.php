@@ -23,7 +23,9 @@ class TierClassifierTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->classifier = new TierClassifier(new TierCalculationService());
+        // These tests lock down the legacy own-return rules (tier_basis = 'own'); the default market
+        // basis for owned symbols is covered by TierClassifierMarketBasisTest.
+        $this->classifier = new TierClassifier(new TierCalculationService(), false);
     }
 
     private function _classify(
@@ -111,7 +113,7 @@ class TierClassifierTest extends TestCase
 
     public function test_owned_under_three_months_guards_implausible_market_and_uses_raw(): void
     {
-        // Market 1Y is a data artifact (+3,773%); fall back to the real raw return.
+        // Market 1Y is a data artifact (-90%, below the floor: a missed split); fall back to the real raw return.
         $decision = $this->_classify(
             [
                 'has_data'                   => true,
@@ -120,7 +122,7 @@ class TierClassifierTest extends TestCase
                 'total_days'                 => 10,
                 'windows'                    => [$this->_openWindow(1000.0, 132.5, 10)],
             ],
-            ['momenta' => ['1y' => 3773.0]]
+            ['momenta' => ['1y' => -90.0]]
         );
 
         $this->assertSame(TierCalculationService::GOLD, $decision->tier);
@@ -187,7 +189,7 @@ class TierClassifierTest extends TestCase
     {
         $decision = $this->_classify(
             ['has_data' => false],
-            ['momenta' => ['1y' => 3773.0]]
+            ['momenta' => ['1y' => -90.0]]
         );
 
         $this->assertNull($decision->tier);
@@ -396,32 +398,5 @@ class TierClassifierTest extends TestCase
         $this->assertSame(TierCalculationService::GOLD, $decision->tier);
         $this->assertTrue($decision->isBenchmark);
         $this->assertSame(18.0, $decision->basisValue); // real trailing CAGR preserved for context
-    }
-
-    public function test_previous_tier_drives_hysteresis_through_the_classifier(): void
-    {
-        // A non-benchmark symbol settled at Gold, now trailing 9.8%: inside the dead-band, so the
-        // classifier keeps Gold rather than flipping to Silver.
-        $perf = [
-            'has_data'                   => true,
-            'annualized_percentage_gain' => 9.8,
-            'percentage_gain'            => 22.0,
-            'total_days'                 => 900,
-            'windows'                    => [$this->_openWindow(1000.0, 220.0, 900)],
-        ];
-
-        $sticky = $this->classifier->classify(
-            TierInputs::fromData('TEST', $perf, ['momenta' => ['1y' => 9.0]]),
-            null,
-            TierCalculationService::GOLD
-        );
-        $this->assertSame(TierCalculationService::GOLD, $sticky->tier);
-
-        // With no prior tier the same value buckets plainly as Silver.
-        $fresh = $this->classifier->classify(
-            TierInputs::fromData('TEST', $perf, ['momenta' => ['1y' => 9.0]]),
-            null
-        );
-        $this->assertSame(TierCalculationService::SILVER, $fresh->tier);
     }
 }

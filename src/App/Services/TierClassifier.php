@@ -16,7 +16,13 @@ use ovidiuro\myfinance2\App\Models\SymbolTierOverride;
  * The only real decision is *which* return percentage to bucket. This class
  * makes that decision with one ordered rule set, identical for every caller.
  *
- * Owned position (priority order):
+ * Default (watchlistsymbols.tier_basis = 'market'): every symbol, owned or not, is tiered on its
+ * trailing 1Y market return when that figure is trustworthy, so all symbols are judged the same way
+ * and the tier moves with the price (which the rare high / rare low signals need). Your own return is
+ * shown separately. Only when the market figure is missing or untrustworthy does an owned position
+ * fall back to the rules below (step 3 is then skipped).
+ *
+ * Legacy (tier_basis = 'own'), owned position (priority order):
  *   1. Annualized return  - held >= 1 year, your CAGR (geometric,    confidence: high
  *                           time-weighted across all windows; comparable to an index).
  *   2. Raw return         - held 3-12 months, your overall         confidence: medium
@@ -65,12 +71,12 @@ final class TierClassifier
     // as an apples-to-apples proxy instead.
     private const MATURE_HOLDING_DAYS = 90;
 
-    // Plausible band for a trailing 12-month market return. Values outside this band
-    // are treated as data artifacts (e.g. a recent listing or spinoff leaving a
-    // broken price reference, which can produce returns in the thousands of percent)
-    // and are not trusted as a tier basis.
-    private const MARKET_1Y_MAX_PCT = 200.0;
-    private const MARKET_1Y_MIN_PCT = -75.0;
+    // Trailing 12-month market returns below the floor are treated as data artifacts (typically a
+    // missed split, which shows as a collapse) and are not trusted as a tier basis. Above the
+    // unusual-move line the figure is used, since real rallies get there, but flagged: a missed
+    // reverse split or a broken listing reference would look the same.
+    private const MARKET_1Y_UNUSUAL_PCT = 200.0;
+    private const MARKET_1Y_MIN_PCT     = -75.0;
 
     // How far the lifetime overall return must diverge from the current open window's own return
     // before the headline figure is called stale. A few points is just the prior window's small
@@ -78,27 +84,37 @@ final class TierClassifier
     // a freshly re-entered lot, or a banked winner masking a current loss) is the case to warn on.
     private const STALE_DIVERGENCE_PCT = 5.0;
 
-    public function __construct(private readonly TierCalculationService $tiers)
+    public const BASIS_MODE_MARKET = 'market';
+    public const BASIS_MODE_OWN    = 'own';
+
+    /**
+     * @param bool $_marketForOwned true: owned symbols are tiered on the 1Y market return like every other
+     *                              symbol; false: the legacy own-return rules.
+     */
+    public function __construct(
+        private readonly TierCalculationService $tiers,
+        private readonly bool $_marketForOwned = true
+    )
     {
     }
 
+    public static function fromConfig(TierCalculationService $tiers): self
+    {
+        return new self(
+            $tiers,
+            config('watchlistsymbols.tier_basis', self::BASIS_MODE_MARKET) !== self::BASIS_MODE_OWN
+        );
+    }
+
     /**
-     * @param ?string $previousTier  The symbol's last settled computed tier (from SymbolTierState),
-     *                               used to damp boundary chatter via hysteresis. Null on first sight.
+     * Today's tier: the plain reading on the tier lines, like every stored history day. Steadiness comes
+     * from the settled tier (SettledTierResolver), not from holding yesterday's tier near a line.
      */
-    public function classify(
-        TierInputs $inputs,
-        ?SymbolTierOverride $override,
-        ?string $previousTier = null
-    ): TierDecision
+    public function classify(TierInputs $inputs, ?SymbolTierOverride $override): TierDecision
     {
         [$basis, $value, $confidence] = $this->_resolveBasis($inputs);
 
-        // Hysteresis: keep the previously settled tier unless the value crosses the boundary
-        // dead-band, so a position on a tier line does not flip week to week.
-        $computedTier = $basis === TierDecision::BASIS_NONE
-            ? null
-            : $this->tiers->getTierWithHysteresis($value, $previousTier);
+        $computedTier = $basis === TierDecision::BASIS_NONE ? null : $this->tiers->getTier($value);
 
         // The benchmark does not compete in its own tournament: it defines the 10% Gold line, so it
         // is the reference and sits exactly on that line. Its own noisy, timing-dependent trailing
@@ -127,6 +143,9 @@ final class TierClassifier
         // override or the pinned benchmark tier already replaces the computed decision.
         $marketArtifact = $overrideTier === null && !$isBenchmark
             && $this->_marketArtifactApplied($inputs);
+        // An unusually large 1Y market return that decides the tier: used, but flagged.
+        $marketUnusual = $overrideTier === null && !$isBenchmark
+            && $basis === TierDecision::BASIS_MARKET_MOMENTUM && self::marketUnusual($value);
 
         return new TierDecision(
             tier:         $effectiveTier,
@@ -149,7 +168,9 @@ final class TierClassifier
             isBenchmark:  $isBenchmark,
             isBorderline: $isBorderline,
             marketArtifact:     $marketArtifact,
-            marketArtifactNote: $marketArtifact ? $this->_marketArtifactNote($inputs) : ''
+            marketArtifactNote: $marketArtifact ? $this->_marketArtifactNote($inputs) : '',
+            marketUnusual:      $marketUnusual,
+            marketUnusualNote:  $marketUnusual ? $this->_marketUnusualNote($value) : ''
         );
     }
 
@@ -178,6 +199,14 @@ final class TierClassifier
 
         if ($inputs->isOwned)
         {
+            if ($this->_marketForOwned && $marketUsable)
+            {
+                return [
+                    TierDecision::BASIS_MARKET_MOMENTUM,
+                    $inputs->marketMomentumPct,
+                    TierDecision::CONFIDENCE_HIGH,
+                ];
+            }
             if ($inputs->annualizedReturnPct !== null)
             {
                 return [
@@ -300,9 +329,12 @@ final class TierClassifier
                         . ($inputs->priorClosedWindows + 1) . ' windows, capital-and-time-weighted).'
                     : 'Annualized return (CAGR) ' . $pct . ' on your position (held over a year).',
             TierDecision::BASIS_RAW_RETURN => $this->_rawExplanation($inputs, $pct),
-            TierDecision::BASIS_MARKET_MOMENTUM => $inputs->isOwned
-                ? 'Market 1Y return ' . $pct . ' (position too new for a return figure).'
-                : 'Market 1Y return ' . $pct . '.' . $this->_exitedNote($inputs),
+            TierDecision::BASIS_MARKET_MOMENTUM => match (true) {
+                $inputs->isOwned && $this->_marketForOwned => 'Market 1Y return ' . $pct
+                    . ' (every symbol is tiered on its market return; your own return is shown separately).',
+                $inputs->isOwned => 'Market 1Y return ' . $pct . ' (position too new for a return figure).',
+                default          => 'Market 1Y return ' . $pct . '.' . $this->_exitedNote($inputs),
+            },
             default => 'Unrated: no return or market data available.',
         };
     }
@@ -353,8 +385,8 @@ final class TierClassifier
     }
 
     /**
-     * Why a present-but-untrusted 1Y market return was rejected: which side of the plausible band it
-     * fell outside. Returns null when the value is missing or actually inside the band.
+     * Why a present-but-untrusted 1Y market return was rejected (below the trusted floor). Returns null
+     * when the value is missing or usable.
      */
     private function _marketRejectionReason(?float $market): ?string
     {
@@ -363,9 +395,7 @@ final class TierClassifier
             return null;
         }
 
-        return $market > self::MARKET_1Y_MAX_PCT
-            ? 'it exceeds the trusted ceiling of ' . $this->_fmt(self::MARKET_1Y_MAX_PCT)
-            : 'it is below the trusted floor of ' . $this->_fmt(self::MARKET_1Y_MIN_PCT);
+        return 'it is below the trusted floor of ' . $this->_fmt(self::MARKET_1Y_MIN_PCT);
     }
 
     /**
@@ -382,7 +412,8 @@ final class TierClassifier
         }
 
         return $inputs->isOwned
-            ? $inputs->annualizedReturnPct === null && $inputs->holdingDays < self::MATURE_HOLDING_DAYS
+            ? $this->_marketForOwned
+                || ($inputs->annualizedReturnPct === null && $inputs->holdingDays < self::MATURE_HOLDING_DAYS)
             : true;
     }
 
@@ -391,17 +422,61 @@ final class TierClassifier
         $reason = $this->_marketRejectionReason($inputs->marketMomentumPct);
 
         return 'Irregularity: the 1Y market return of ' . $this->_fmt($inputs->marketMomentumPct)
-            . ' falls outside the trusted band (' . $this->_fmt(self::MARKET_1Y_MIN_PCT) . ' to '
-            . $this->_fmt(self::MARKET_1Y_MAX_PCT) . '), so ' . $reason
-            . '; it was rejected as a data artifact and the tier falls back to '
+            . ' is not trusted because ' . $reason
+            . ' (usually a missed split); it was rejected as a data artifact and the tier falls back to '
             . ($inputs->isOwned ? "this position's own return" : 'the realized return') . ' instead.';
+    }
+
+    private function _marketUnusualNote(?float $market): string
+    {
+        return 'Unusual move: the 1Y market return of ' . $this->_fmt($market) . ' is above '
+            . $this->_fmt(self::MARKET_1Y_UNUSUAL_PCT) . '. It decides the tier; check that the price history'
+            . ' shows a real rally and not a data error (e.g. a missed reverse split).';
+    }
+
+    /**
+     * Both candidate tier numbers of a symbol, whichever one decides its tier today:
+     * - market: the 1Y market return, null when missing or below the trusted floor;
+     * - own:    your overall return as it would decide an owned symbol's tier (annualized once held a
+     *           year, raw from 3 months), null when never held or held under 3 months. For an exited
+     *           symbol this is the realized lifetime return.
+     * The daily tier history stores both so the settled tier compares like with like.
+     *
+     * @return array{market: ?float, own: ?float}
+     */
+    public function candidateValues(TierInputs $inputs): array
+    {
+        $own = $inputs->annualizedReturnPct;
+        if ($own === null && $inputs->holdingDays >= self::MATURE_HOLDING_DAYS) {
+            $own = $inputs->rawReturnPct;
+        }
+
+        return [
+            'market' => $this->_marketUsable($inputs->marketMomentumPct) ? $inputs->marketMomentumPct : null,
+            'own'    => $own,
+        ];
     }
 
     private function _marketUsable(?float $market): bool
     {
-        return $market !== null
-            && $market <= self::MARKET_1Y_MAX_PCT
-            && $market >= self::MARKET_1Y_MIN_PCT;
+        return self::marketUsable($market);
+    }
+
+    /**
+     * Whether a trailing market return can be trusted: present and not below the floor (below it, a data
+     * artifact). Figures above the unusual-move line are usable; see marketUnusual().
+     */
+    public static function marketUsable(?float $market): bool
+    {
+        return $market !== null && $market >= self::MARKET_1Y_MIN_PCT;
+    }
+
+    /**
+     * Whether a usable trailing market return is above the unusual-move line (used, but flagged).
+     */
+    public static function marketUnusual(?float $market): bool
+    {
+        return $market !== null && $market > self::MARKET_1Y_UNUSUAL_PCT;
     }
 
     private function _fmt(?float $value): string

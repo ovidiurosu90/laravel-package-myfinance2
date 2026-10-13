@@ -49,15 +49,27 @@
 @endphp
 <td data-order="{{ $posDays }}" class="text-end text-muted align-top border-bottom">
     @if($showCurrent && $posLabel)
-    <div class="text-nowrap"><span @if($posTip) data-bs-toggle="tooltip" title="{{ $posTip }}" @endif>{{ $posLabel }}</span></div>
+    <div class="text-nowrap"><span
+        @if($posTip) data-bs-toggle="tooltip" title="{{ $posTip }}" @endif>{{ $posLabel }}</span></div>
     @endif
     @if($showOverall && $overallLabel)
-    <div class="text-nowrap"><span @if($overallTip) data-bs-toggle="tooltip" title="{{ $overallTip }}" @endif>{{ $overallLabel }}</span></div>
+    <div class="text-nowrap"><span
+        @if($overallTip) data-bs-toggle="tooltip" title="{{ $overallTip }}" @endif>{{ $overallLabel }}</span></div>
     @endif
     @if(($row['market_1y_pct'] ?? null) !== null)
     <div class="text-nowrap">1y</div>
     @else
     <div class="text-nowrap text-muted">n/a</div>
+    @endif
+    @if(($row['settled_cell']['value'] ?? null) !== null)
+    {{-- A stand-in (today's reading, or your own return without a market figure) is not a 12-month median. --}}
+    @if(!empty($row['settled_cell']['flag']))
+    <div class="text-nowrap"><span class="text-muted" data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
+        title="{{ $row['settled_cell']['title'] }}">stand-in</span></div>
+    @else
+    <div class="text-nowrap"><span data-bs-toggle="tooltip"
+        title="1Y market return, median of the daily readings over the last 12 months">1y, 12m</span></div>
+    @endif
     @endif
     @if($showOverall)
     <div class="text-nowrap">{{ $overallDuration }}</div>

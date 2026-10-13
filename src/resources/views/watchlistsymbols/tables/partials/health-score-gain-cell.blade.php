@@ -17,6 +17,9 @@
     $overallRawEur = $row['overall_raw_eur'] ?? null;
     $overallRawPct = $row['overall_raw_pct'] ?? null;
     $market1y      = $row['market_1y_pct'] ?? null;
+    // Market Settled (the median of 12 months of daily 1Y market readings) is what the tier is read from.
+    $settled       = $row['settled_cell'] ?? null;
+    $hasSettled    = $settled !== null && $settled['value'] !== null;
     $xirrPct       = $row['xirr_pct'] ?? null;            // money-weighted (your euro timing)
     $totalDays     = (int) ($row['total_days'] ?? 0);
     $xirrMinDays   = SymbolPerformanceService::MIN_ANNUALIZED_DAYS;
@@ -34,14 +37,18 @@
     $showCurrent   = !empty($row['show_current']);
     $isBenchmark   = !empty($row['is_benchmark']);
 
-    // The overall line carries the figure that decides any return-based tier; the
-    // market line carries it for momentum-based tiers.
+    // The settled line carries the figure the tier is read from (bold). Without one (e.g. not in the
+    // categorization), the line of today's basis is bold instead, as before.
     $isStale     = !empty($row['is_stale']);
-    $boldOverall = in_array($basis, [TierDecision::BASIS_ANNUALIZED_RETURN, TierDecision::BASIS_RAW_RETURN]);
-    $boldMarket  = $basis === TierDecision::BASIS_MARKET_MOMENTUM;
+    $boldOverall = !$hasSettled
+        && in_array($basis, [TierDecision::BASIS_ANNUALIZED_RETURN, TierDecision::BASIS_RAW_RETURN]);
+    $boldMarket  = !$hasSettled && $basis === TierDecision::BASIS_MARKET_MOMENTUM;
+    $measureTip  = ' (the measure the tier is settled on)';
     $isLow       = $confidence === TierDecision::CONFIDENCE_LOW;
 
-    $orderValue = $row['basis_value'] ?? ($overallAnnPct ?? $rawGainPct ?? -999999);
+    $orderValue = $hasSettled
+        ? $settled['value']
+        : ($row['basis_value'] ?? ($overallAnnPct ?? $rawGainPct ?? -999999));
 
     $warnIcon = '<span data-bs-toggle="tooltip" title="' . e($explanation)
         . '" style="line-height:1;vertical-align:middle;">'
@@ -55,7 +62,9 @@
     @if($showCurrent)
     <div class="text-nowrap text-muted">
         @if($currentAnnPct !== null)
-        <span data-bs-toggle="tooltip" title="Current open position, annualized return (CAGR): the steady yearly rate that compounds to the position's total return. Comparable to an index.">
+        <span data-bs-toggle="tooltip"
+            title="Current open position, annualized return (CAGR): the steady yearly rate that compounds to the
+                position's total return. Comparable to an index.">
             {!! MoneyFormat::get_formatted_gain('&euro;', $annEur) !!}
             <span>(</span>{!! MoneyFormat::get_formatted_gain('%', $currentAnnPct) !!}<span>)</span>
         </span>
@@ -76,7 +85,7 @@
     @endphp
     <div class="text-nowrap{{ $boldOverall ? ' fw-bold' : ' text-muted' }}">
         <span data-bs-toggle="tooltip"
-              title="{{ $oLbl }} across all holding windows{{ $boldOverall ? ' (decides tier)' : '' }}">
+              title="{{ $oLbl }} across all holding windows{{ $boldOverall ? $measureTip : '' }}">
             {!! MoneyFormat::get_formatted_gain('&euro;', $oEur) !!}
             <span>(</span>{!! MoneyFormat::get_formatted_gain('%', $oPct) !!}<span>)</span>
         </span>
@@ -87,12 +96,27 @@
 
     <div class="text-nowrap{{ $boldMarket ? ' fw-bold' : '' }}">
         <span data-bs-toggle="tooltip"
-              title="Symbol market return over the trailing 12 months{{ $boldMarket ? ' (decides tier)' : '' }}">
+              title="Market Snapshot: the symbol's market return over the trailing 12 months, today's reading{{
+                $boldMarket ? $measureTip : '' }}">
             <span class="text-muted">market</span>
-            @if($market1y !== null){!! MoneyFormat::get_formatted_gain('%', $market1y) !!}@else<span class="text-muted">n/a</span>@endif
+            @if($market1y !== null)
+                {!! MoneyFormat::get_formatted_gain('%', $market1y) !!}
+            @else
+                <span class="text-muted">n/a</span>
+            @endif
         </span>
         @if($boldMarket && $isLow){!! $warnIcon !!}@endif
     </div>
+
+    @if($hasSettled)
+    <div class="text-nowrap fw-bold">
+        <span data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
+              title="Market Settled, the figure the tier is read from: {{ $settled['title'] }}">
+            <span class="text-muted">settled</span>
+            {!! MoneyFormat::get_formatted_gain('%', $settled['value']) !!}@if($settled['flag'])<sup>*</sup>@endif
+        </span>
+    </div>
+    @endif
 
     @if($showOverall)
     {{-- Money-weighted return: the "how my actual euros did" view, distinct from the CAGR above.

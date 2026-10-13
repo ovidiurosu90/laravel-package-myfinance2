@@ -25,7 +25,7 @@ class SymbolPerformanceWindowBuilder
         $currentWindow = [];
         $windowIndex = [];
 
-        foreach ($trades as $trade) {
+        foreach ($this->_ordered($trades) as $trade) {
             $symbol = $trade->symbol;
 
             if (!isset($runningQty[$symbol])) {
@@ -72,5 +72,50 @@ class SymbolPerformanceWindowBuilder
         }
 
         return $result;
+    }
+
+    /**
+     * Trades in a deterministic order. The callers load them ORDER BY timestamp only, so trades sharing
+     * a timestamp came back in whatever order the query plan produced, and two queries could build
+     * different windows from the same ledger. Within one timestamp and symbol:
+     * - shares already held: SELLs first, so a same-second SELL and BUY of the whole position (e.g. a
+     *   transfer between accounts) closes the window and opens a new one, instead of counting the
+     *   re-bought shares as invested twice in one window;
+     * - nothing held: BUYs first, so a same-second round trip from zero still opens its window.
+     * Ties within the same action keep id order.
+     *
+     * @return array<int, mixed>
+     */
+    private function _ordered(Collection $trades): array
+    {
+        $sorted = $trades->all();
+        usort($sorted, fn ($a, $b) => [$a->timestamp->format('Y-m-d H:i:s'), (int) ($a->id ?? 0)]
+            <=> [$b->timestamp->format('Y-m-d H:i:s'), (int) ($b->id ?? 0)]);
+
+        $groups = [];
+        foreach ($sorted as $trade) {
+            $groups[$trade->timestamp->format('Y-m-d H:i:s')][$trade->symbol][] = $trade;
+        }
+
+        $ordered = [];
+        $held    = [];
+        foreach ($groups as $bySymbol) {
+            foreach ($bySymbol as $symbol => $group) {
+                $sells = array_values(array_filter($group, fn ($t) => $t->action === 'SELL'));
+                $other = array_values(array_filter($group, fn ($t) => $t->action !== 'SELL'));
+                $isHeld = ($held[$symbol] ?? 0.0) > 0.0001;
+                array_push($ordered, ...($isHeld ? array_merge($sells, $other) : array_merge($other, $sells)));
+                foreach ($group as $t) {
+                    $qty = (float) $t->quantity;
+                    $held[$symbol] = ($held[$symbol] ?? 0.0) + match ($t->action) {
+                        'BUY'   => $qty,
+                        'SELL'  => -$qty,
+                        default => 0.0,
+                    };
+                }
+            }
+        }
+
+        return $ordered;
     }
 }

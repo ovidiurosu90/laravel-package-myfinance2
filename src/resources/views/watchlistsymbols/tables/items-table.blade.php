@@ -175,6 +175,7 @@
                 data-tier="{{ $meta['tier_text'] ?? '' }}"
                 data-quadrants="{{ json_encode($meta['quadrant_labels'] ?? []) }}"
                 data-actions="{{ json_encode($meta['action_labels'] ?? []) }}"
+                data-signals="{{ json_encode($meta['signal_labels'] ?? []) }}"
                 data-near-peak="{{ !empty($meta['has_near_peak']) ? '1' : '0' }}"
                 @if(count($quoteData['open_positions']) > 0) class="table-info"@endif>
                 <td>

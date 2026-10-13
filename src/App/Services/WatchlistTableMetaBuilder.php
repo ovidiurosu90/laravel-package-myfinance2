@@ -39,6 +39,8 @@ class WatchlistTableMetaBuilder
                 'tier_text'           => TierCalculationService::tierLabel($cat['effective_tier'] ?? null) ?? '',
                 'quadrant_labels'     => $quadrantLabels,
                 'action_labels'       => $actionLabels,
+                // Range-bound, Take profit, Rare high / Rare low / Deteriorating: the table's signal filter.
+                'signal_labels'       => TierSignalChip::filterLabels($cat),
                 'gain_y_order'        => $gainYOrder,
                 'gain_y_pct_order'    => $gainYPctOrder,
                 'basis_gain_eur'      => $this->_basisGainEur($cat, $perf),

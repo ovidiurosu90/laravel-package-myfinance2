@@ -102,62 +102,77 @@ sudo chown $USER:www-data -R storage/framework/
 sudo chmod g+w -R storage/framework/
 php artisan cache:clear && php artisan config:cache
 
-# Purpose: Backfills raw historical stock prices, useful for charting or after adding new symbols
-# For each symbol (stock ticker) in your portfolio:
-# - Fetches historical price data (open, high, low, close) from Yahoo Finance
-# - (Added) Fetches exchange rates
-# - Persists raw daily price points to database via Stats::persistHistoricalData()
-# Key difference:
-# - --historical                  → fetches stock prices per symbol
-# - --historical-account-overview → calculates account statistics per account/date
-# (NOT in crontab)
+# Daily prices per symbol (and exchange rates) from Yahoo Finance (NOT in crontab)
 sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd /home/$USER/Repositories/laravel-admin/ && php artisan app:finance-api-cron --historical --start=2026-01-08 --end=2026-01-18"
 
-# Purpose: Maintains a complete week of historical account performance data for trend analysis and recovery after downtime
-# For each historical date:
-# - Recalculates account statistics as they were on that specific date
-# - Persists: cost, market value, change, cash balance per account
-# - Rebuilds historical chart data points
-# NOTE This command expects data to be already in, so run the command from above
-# NOTE If we use the same start & end dates for both commands, it may fail if there is no failover. To go around that, extend the first command to the left with a few days
+# Daily account overview (cost, market value, change, cash) per account; needs the prices above, so start
+# the --historical range a few days earlier
 sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd /home/$USER/Repositories/laravel-admin/ && php artisan app:finance-api-cron --historical-account-overview --start=$(date +%Y-%m-%d --date '-8 day') --end=$(date +%Y-%m-%d --date '-1 day')"
 
-# Purpose: Backfills one symbol only, e.g. to refill the history removed by a stock split
-# - Same fetch & persist as --historical, restricted to --symbol
-# - Skips the portfolio-wide historical exchange rates (nothing to do for a single symbol)
-# - Rebuilds that symbol's chart file, so the refilled history shows up without waiting for the charts run
-# - Existing days in the range are overwritten with the prices Yahoo Finance returns now (split-adjusted)
+# One symbol (e.g. after a stock split): overwrites the range with today's split-adjusted prices, redraws its chart
 sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd /home/$USER/Repositories/laravel-admin/ && php artisan app:finance-api-cron --historical --symbol=SYMBOL --start=2025-01-01"
 ```
 
-The same single-symbol backfill is available from the UI: open a symbol's expand-chart
-modal (on positions or on the watchlist) and click **Populate historical data** in the
-modal header. It backfills from 2025-01-01 to today, overwrites the days already stored, and
-redraws the chart with the refilled series.
+The single-symbol backfill is also in the UI: **Populate historical data** in a symbol's expand-chart modal (on
+positions or the watchlist) refills 2025-01-01 to today and redraws the chart.
+
+
+### Daily tier history (settled tier, tier signals)
+
+```bash
+# Rebuild symbol_tier_history: each weekday's tier per traded or watchlist symbol (idempotent upsert).
+# Run once after the migration, and again after editing past trades; the hourly --refresh-symbol-performance
+# cron rewrites the last 7 weekdays. Derived data: not in the git backup, synced from prod by
+# scripts/sync-prod-db.sh (PROD_SYNC_TABLES). (NOT in crontab)
+
+# Dry run: prints the weekdays per tier per symbol, writes nothing (add --symbol=SYMBOL for one symbol)
+sudo su - www-data -s /bin/bash -c "cd /home/$USER/Repositories/laravel-admin/ && php artisan finance:tier-history-backfill --user-id=1 --dry-run"
+# Real run (default: 2025-01-01 to today; --from / --to to narrow it)
+sudo su - www-data -s /bin/bash -c "cd /home/$USER/Repositories/laravel-admin/ && php artisan finance:tier-history-backfill --all-users"
+# Compare today's computed basis with the live page (lists differences above 0.5 points)
+sudo su - www-data -s /bin/bash -c "cd /home/$USER/Repositories/laravel-admin/ && php artisan finance:tier-history-backfill --user-id=1 --verify-today"
+```
+
+- **Tier basis.** Every symbol is tiered on its trailing 1Y market return (`MYFINANCE2_TIER_BASIS=market`, the
+  default); `own` restores the legacy rule (owned positions tiered on your own return). After changing it, clear the
+  cache and re-run the backfill.
+- **Settled tier.** The tier shown everywhere is the 12-month median of the daily readings. It follows today's reading
+  with under 60 weekdays of history or after a lasting drop; a manual override still wins. An outlined "today" badge
+  shows today's reading when it differs.
+- **Readings on top of the tier**, one chip per symbol on the watchlist Tier line and column and in the
+  peak-proximity page, inbox and emails:
+  - *Range-bound* (`RangeBoundPattern`, `watchlistsymbols.range_bound`): a stock you trade well that swings widely
+    but ends the year flat. TRIM near the 52-week high, ADD near the low (BUY when not held).
+  - *Weak tier in profit* (`WeakTierProfit`, `watchlistsymbols.weak_tier_profit`): a held Rust / Bronze position in
+    profit. TAKE PROFIT.
+  - *Tier signals* (`TierSignalChip`, `watchlistsymbols.tier_history`): today's tier against the last 12 months.
+    Rare high SELL / TRIM, rare low ADD / BUY, deteriorating REVIEW; severity in `TierSignalSeverity`.
+- **Signal backtest.** `/peak-proximity-alerts/backtest`, or `php artisan finance:tier-signal-backtest --user-id=N
+  [--from=Y-m-d] [--rare-share=20] [--consistency=50] [--grid]`, replays these readings on the stored history without
+  look-ahead and compares each episode with VUSA.AS 21 / 63 / 126 trading days later. A sanity check, not proof; the
+  first results are noted in `TierSignalChip`.
+- **Missing prices.** Early 2025 days need 2024 prices; those missing from `stats_historical` are fetched through the
+  7-day `HistoricalPriceCache` (never stored), unless `--no-fetch`. A held symbol with no stored close on a day is
+  skipped and reported: populate its history and re-run.
 
 
 ### Refresh returns data
 
 ```bash
-# Purpose: Pre-caches returns data for all years (MIN_YEAR to current year)
-# For each year:
-# - Past years (2016-2025): Checks if cache exists (marker: 'returns_year_YYYY_complete')
-#   - If cache exists and is valid (4 weeks TTL): Skips processing, logs "cache is still valid"
-#   - If cache doesn't exist or expired: Executes full returns flow, auto-caches for 4 weeks
-# - Current year (2026): Always clears cache and refreshes (auto-caches for 1 hour)
-# Benefits:
-# - Faster page loads for /returns pages (data pre-cached)
-# - Reduced API calls to Yahoo Finance
-# - Maintains fresh data for current year
-# (In crontab hourly at :24, see below; also run ad-hoc when needed)
+# Pre-cache /returns: past years only when their 4-week cache expired, the current year always (1 hour TTL)
+# (In crontab hourly at :24; also run ad hoc when needed)
 sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd /home/$USER/Repositories/laravel-admin/ && php artisan app:finance-api-cron --refresh-returns"
 
-# With --force flag: Clears all cache markers and refreshes ALL years (including those with valid cache)
-# Use this when you need to rebuild the entire cache (e.g., after config changes, price overrides, etc.)
+# --force rebuilds every year (after config changes, price overrides, etc.)
 sudo su - www-data -s /bin/bash -c "export LOG_CHANNEL=stdout; cd /home/$USER/Repositories/laravel-admin/ && php artisan app:finance-api-cron --refresh-returns --force"
 ```
 
-**Missing-price email.** Every year this command recomputes is checked for held positions it had to value at 0 because no price was found (no `price_overrides` entry and no finance API close on or up to 7 days before Jan 1 / Dec 31). This typically happens when a symbol is delisted and Yahoo drops its history, and it shows up exactly when a past year's 4-week cache expires and is recomputed (or within the hour for the current year). The command then logs a WARNING (also in the `logs:email-daily-errors` digest) and emails the account owner (`MYFINANCE2_ALERTS_EMAIL_TO`, else the owner's email) one table covering every affected year, with links to those returns pages. The same gaps appear as the first alert on the returns page, and the returns regression tests fail on `test_all_held_positions_have_a_price`. A year is emailed again only when its gaps change, or once a day while they persist. Fix it by adding the missing closes to `price_overrides` (and the symbol to `delisted_symbols` if it was delisted), then run the `--force` refresh above.
+**Missing-price email.** When a recomputed year values a held position at 0 for lack of a price (no `price_overrides`
+entry and no close within 7 days before Jan 1 / Dec 31; typically a delisted symbol), the command logs a WARNING and
+emails the account owner (`MYFINANCE2_ALERTS_EMAIL_TO`, else the owner's email), again only when the gaps change or
+once a day while they persist. The returns page and `test_all_held_positions_have_a_price` flag it too. Fix it by
+adding the missing closes to `price_overrides` (and the symbol to `delisted_symbols`), then run the `--force` refresh.
+
 
 ### Enable finance-api-cron for better performance & maintaining a complete week of historical account data
 
@@ -260,15 +275,30 @@ crontab -e
 
 ### finance:peak-proximity-alerts
 
-Emails an exit-hint alert when an open position has rallied close to its peak in the 3M / 6M / 1Y / 2Y windows. Each window has its own proximity threshold, tighter for near-term peaks and looser for long-term ones: within 2% of the 3M peak, 5% of the 6M peak, 8% of the 1Y peak, or 10% of the 2Y peak.
+Emails an exit hint when an open position is near its peak: within 2% of the 3M peak, 5% of the 6M, 8% of the 1Y or
+10% of the 2Y. The full rule set is on the `/peak-proximity-alerts` page.
 
-**The alert is exit-focused** so it stays actionable rather than noisy. "Near peak" is an exit aid, so an email only fires for a position you would actually consider trimming, that is, one whose gain-based effective tier is **weak (Rust or Bronze)**. Strong holdings (Platinum, Gold, Silver) never email; they appear in the inbox as informational only. The gain-based tier is the gate; the HOLD / EXIT action is shown for context but never gates. An email also needs a **meaningful** window near peak (6M, 1Y or 2Y): a 3M-only signal is context and never emails on its own.
-
-**Cadence escalates with confluence.** You get one email when an alert opens, then reminders that come faster the more long windows are near peak at once (one window: weekly; two: every 3 days; three: daily). A new long window crossing into near-peak emails right away. There is no reminder cap; reminders continue until you dismiss the alert (and a per-day throttle still caps it at one email per symbol per day, so running the cron hourly is safe).
-
-The email reproduces the data shown in the three watchlist-symbols cards for that symbol (performance, quadrant, open positions) plus a summary of the current price, distance from the peak, and the gain if sold now. The subject leads with the tier and names the closest window, e.g. `[MyFinance2] EZJ.L (Bronze, EXIT) near peak => -4.25% to 6M`; reminders are prefixed `Reminder:`. If a symbol already alerted today and you want it to fire again the same day, re-arm it from the per-symbol page at `/peak-proximity-alerts` (the Re-arm button clears today's record).
-
-**Front-end inbox.** Every near-peak position (actionable and informational) becomes a card in the inbox at `/peak-proximity-alerts/inbox`, sorted by severity. Cards persist until you dismiss them, even after the symbol is no longer near peak, so nothing is silently lost. Dismissing one ends its email reminders; if the symbol later returns to peak, a fresh alert opens. The full rule set is also documented on the `/peak-proximity-alerts` page itself.
+- **Gate.** Only a weak settled tier (Rust or Bronze) with a meaningful window (6M, 1Y or 2Y) near peak emails.
+  Strong tiers show in the inbox as informational; a 3M-only signal is context.
+- **Same command, same opt-in, inbox and history**, whatever the tier:
+  - *Range-bound* (`PeakProximityRangeSignals`): TRIM in the top 30% of the 52-week range (`RANGE_HIGH`), ADD in the
+    bottom 30% (`RANGE_LOW`), BUY in the bottom 30% for a symbol you exited (`RANGE_BUY`). No near-peak alert. ADD
+    and BUY email; TRIM is an inbox card only (no edge in the backtest), unless listed in
+    `MYFINANCE2_PEAK_PROXIMITY_RANGE_EMAILS`.
+  - *TAKE PROFIT* (`PeakProximityTakeProfitSignals`, `TAKE_PROFIT`): a weak tier in profit, near peak or not, in
+    place of the near-peak alert. HIGH with a meaningful window near peak or RSI overbought.
+  - *Tier signals* (`PeakProximityTierSignals`, `RARE_HIGH` / `RARE_LOW` / `DETERIORATING`). Inbox cards for your
+    awareness, not emailed, unless listed in `MYFINANCE2_PEAK_PROXIMITY_TIER_SIGNAL_EMAILS` (e.g. `RARE_HIGH`).
+  - On a day both would email, an emailed tier signal goes first and the near-peak one waits.
+- **Cadence.** One email when an alert opens, then reminders until dismissed: near-peak every 7 / 3 / 1 days with
+  one / two / three long windows near peak (a new long window emails at once); the others every
+  `range_reminder_days` / `take_profit_reminder_days` / `tier_signal_reminder_days` (7). The Re-arm button on
+  `/peak-proximity-alerts` clears today's record, so a symbol can alert again the same day.
+- **Email.** The three watchlist-symbols cards for the symbol plus price, distance from the peak and the gain if sold
+  now. The subject leads with the tier, e.g. `[MyFinance2] EZJ.L (Bronze, EXIT) near peak => -4.25% to 6M`, or
+  `(Bronze, today Gold, EXIT)` when today's tier differs; reminders are prefixed `Reminder:`.
+- **Inbox** (`/peak-proximity-alerts/inbox`): a card per alert, sorted by severity, kept until dismissed. Dismissing
+  ends the reminders; a later return to peak opens a fresh alert.
 
 ```bash
 sudo su
@@ -290,32 +320,41 @@ crontab -e
 #############
 ```
 
-To limit hourly runs to market hours (08:00 to 22:00 server time), use `12 8-22 * * *` instead of `12 * * * *`.
+To limit an hourly alert cron to market hours (08:00 to 22:00 server time), use e.g. `12 8-22 * * *`.
 
 ```bash
 # Preview for one user without sending or recording
 php artisan finance:peak-proximity-alerts --user-id=1 --dry-run
 
-# All users with open positions
+# All users with enabled alerts
 php artisan finance:peak-proximity-alerts --all-users
 
-# Override every window with one uniform threshold, or narrow to specific symbols
+# One uniform threshold N% for every window, or specific symbols only
 php artisan finance:peak-proximity-alerts --user-id=1 --threshold=10
 php artisan finance:peak-proximity-alerts --user-id=1 --symbols=AMD,ETH-EUR
 ```
 
-`--threshold=N` replaces all four per-window thresholds with a single uniform value of N%.
-
-These alerts are **off by default**. Each user enables the symbols they want at `/peak-proximity-alerts` (enable/disable per symbol or in bulk; an optional "until" date makes the change temporary and auto-reverts afterwards; Active/All filter). The hourly cron runs `--all-users`; only users who enabled at least one symbol receive emails, so a full run is a no-op for everyone else.
-
-Configuration (env, all optional): `MYFINANCE2_PEAK_PROXIMITY_ENABLED` (default true); the per-window thresholds `MYFINANCE2_PEAK_PROXIMITY_THRESHOLD_3M` / `_6M` / `_1Y` / `_2Y` (defaults 2 / 5 / 8 / 10); `MYFINANCE2_PEAK_PROXIMITY_THRESHOLD_PCT` (default 5, the fallback when a window has no specific threshold); `MYFINANCE2_PEAK_PROXIMITY_EMAIL_TO` (defaults to the alerts email, then the user's email). Migrations add the `peak_proximity_notifications` audit table and the `peak_proximity_alert_settings` opt-in table; run `php artisan migrate` to apply them.
+**Off by default**: each user enables symbols at `/peak-proximity-alerts` (per symbol or in bulk, optionally until a
+date). Env (all optional): `MYFINANCE2_PEAK_PROXIMITY_ENABLED` (true); `MYFINANCE2_PEAK_PROXIMITY_THRESHOLD_3M` /
+`_6M` / `_1Y` / `_2Y` (2 / 5 / 8 / 10); `MYFINANCE2_PEAK_PROXIMITY_THRESHOLD_PCT` (5, fallback);
+`MYFINANCE2_PEAK_PROXIMITY_EMAIL_TO` (the alerts email, then the user's); `MYFINANCE2_PEAK_PROXIMITY_RSI_OVERSOLD`
+(30); `MYFINANCE2_PEAK_PROXIMITY_RANGE_REMINDER_DAYS` / `_TAKE_PROFIT_REMINDER_DAYS` / `_TIER_SIGNAL_REMINDER_DAYS`
+(7); `MYFINANCE2_PEAK_PROXIMITY_TIER_SIGNAL_EMAILS` (none: the tier signals that email, comma-separated);
+`MYFINANCE2_PEAK_PROXIMITY_RANGE_EMAILS` (`RANGE_LOW,RANGE_BUY`: the range-bound signals that email).
 
 
 ### finance:dip-buying-alerts
 
-The inverse of peak-proximity: a deploy-cash hint on the way **down**. The Dip Buying Plan paces how you spend a dip-buying cash pool as the market falls, from a fixed EUR pool, a front-loaded drawdown "ladder", a gap-to-target verdict, a VUSA-vs-200-day-MA trend rail (context only, never a "wait"), and a six-month stall backstop that releases idle cash on a slow schedule. It is behavioral damage-control for cash you keep anyway; it does **not** promise to beat staying invested. One engine (`DipBuyingPlanService`) feeds four surfaces: a panel on `/positions`, this opt-in email (checked hourly, capped at one per day), the settings page `/dip-buying-alerts`, and the self-validation backtest at `/dip-buying-backtest`.
+The inverse of peak-proximity: paces spending a fixed EUR dip-buying pool as the market falls. Damage control for cash
+you keep anyway, not a promise to beat staying invested. One engine (`DipBuyingPlanService`) feeds the `/positions`
+panel, this email, the settings page `/dip-buying-alerts` and the backtest `/dip-buying-backtest`.
 
-The drawdown axis is `effective_dd = max(VUSA.AS trailing-peak drawdown, your portfolio drawdown)`; the reserve ladder is cumulative % of the pool to have deployed at each depth (default: 10%->30%, 15%->55%, 20%->75%, 25%->90%, 30%->100%). The verdict is "no dip yet" below 10%, then behind / on plan / ahead of plan against the band target (5pp tolerance). The email fires only on a state change (the band deepens, you cross from on-plan to behind, or the stall backstop activates), throttled to one per day; there is deliberately no "the trend turned" email.
+- **Drawdown**: `max(VUSA.AS trailing-peak drawdown, your portfolio drawdown)`.
+- **Ladder** (cumulative % of the pool deployed): 10%->30%, 15%->55%, 20%->75%, 25%->90%, 30%->100%.
+- **Verdict**: "no dip yet" under 10%, then behind / on plan / ahead of plan (5pp tolerance). VUSA vs its 200-day MA
+  is context only; a six-month stall backstop releases idle cash slowly.
+- **Email** only on a state change (the band deepens, on plan to behind, the stall backstop activates); never "the
+  trend turned".
 
 ```bash
 sudo su
@@ -339,8 +378,6 @@ crontab -e
 #############
 ```
 
-To limit hourly runs to market hours (08:00 to 22:00 server time), use `33 8-22 * * *` instead of `33 * * * *`.
-
 ```bash
 # Preview for one user without sending or recording
 php artisan finance:dip-buying-alerts --user-id=1 --dry-run
@@ -353,16 +390,28 @@ php artisan finance:dip-buying-backtest --user-id=1
 php artisan finance:dip-buying-backtest --user-id=1 --from=2025-01-01 --pool=10000
 ```
 
-These alerts are **off by default**. Set the pool, enable the feature and the email channel at `/dip-buying-alerts` (an optional advanced JSON override replaces the default ladder). Configuration (env, all optional): `MYFINANCE2_DIP_BUYING_ENABLED` (default true); `MYFINANCE2_DIP_BUYING_TOLERANCE_PCT` (default 5); `MYFINANCE2_DIP_BUYING_PEAK_LOOKBACK_YEARS` (default 3); `MYFINANCE2_DIP_BUYING_MA_TREND_PERIOD` (default 200); `MYFINANCE2_DIP_BUYING_STALL_BACKSTOP_MONTHS` (default 6); `MYFINANCE2_DIP_BUYING_MIN_EPISODE_DD_PCT` (default 10); `MYFINANCE2_DIP_BUYING_RSI_NOTE_ENABLED` (default false) with `MYFINANCE2_DIP_BUYING_RSI_OVERSOLD_LEVEL` (default 30); `MYFINANCE2_DIP_BUYING_EMAIL_TO` (defaults to the alerts email, then the user's email). Migrations add the `dip_buying_settings` opt-in table and the `dip_buying_notifications` audit/throttle table; run `php artisan migrate` to apply them. The per-user plan is cached 2h (like `DrawdownService`); a settings change clears it, and editing the ladder defaults or the drawdown formula needs a `cache:clear`.
+**Off by default**: set the pool and enable the feature and the email channel at `/dip-buying-alerts` (an advanced
+JSON override replaces the default ladder). Env (all optional): `MYFINANCE2_DIP_BUYING_ENABLED` (true);
+`MYFINANCE2_DIP_BUYING_TOLERANCE_PCT` (5); `MYFINANCE2_DIP_BUYING_PEAK_LOOKBACK_YEARS` (3);
+`MYFINANCE2_DIP_BUYING_MA_TREND_PERIOD` (200); `MYFINANCE2_DIP_BUYING_STALL_BACKSTOP_MONTHS` (6);
+`MYFINANCE2_DIP_BUYING_MIN_EPISODE_DD_PCT` (10); `MYFINANCE2_DIP_BUYING_RSI_NOTE_ENABLED` (false) with
+`MYFINANCE2_DIP_BUYING_RSI_OVERSOLD_LEVEL` (30); `MYFINANCE2_DIP_BUYING_EMAIL_TO` (the alerts email, then the user's).
+The plan is cached 2h; a settings change clears it, editing the ladder defaults or the drawdown formula needs a
+`cache:clear`.
 
 
 ### finance:portfolio-peak-alerts
 
-The mirror image of the dip-buying alert, at the **portfolio** level and on the way **up**. It emails when your whole portfolio's EUR gain (`change_EUR`) or return on cost (`changePercentage_EUR`) has rallied back to within N% of its rolling 6M / 1Y / 2Y high, a "consider reducing exposure, taking some profit, or rebalancing" hint that complements the per-symbol `finance:peak-proximity-alerts`. Both series are read from the stored daily overview chart through the shared `ChartsBuilder::getChartOverviewUserAsArray()` accessor; the VUSA.AS 2Y distance is included in the email for context only and never gates the trigger.
+The portfolio-level counterpart on the way up: emails when the portfolio's EUR gain (`change_EUR`) or return on cost
+(`changePercentage_EUR`) is near its rolling 6M / 1Y / 2Y high, a hint to take profit or rebalance. Read from the
+stored daily overview chart; the VUSA.AS 2Y distance is context only.
 
-Each metric can be enabled or disabled independently per user. **Negative window peaks are in scope**: a book that keeps selling winners can be left holding losers and sit underwater even at its window high, so `change_EUR` proximity is measured against `|peak|` (with a `min_peak_abs_eur` magnitude floor to skip near-zero peaks that would flip on noise) and `changePercentage_EUR` proximity is measured on the value index `1 + return/100` (the same transform the Dip Buying engine uses), so the "drawdown from the window high" reading stays sane whether the peak return is +40% or -3%. The alert fires when **any** enabled (metric, window) pair is within its **per-metric** window threshold (Return % defaults 1 / 3 / 5% for 6M / 1Y / 2Y; EUR gain defaults 10 / 20 / 30%, wider because its proximity is measured against `|peak|` and moves with contributions), capped at one email per user per day, then re-sent every `reminder_days` (default 7) while the condition holds.
-
-The email renders a **full per-window breakdown table** (metric x window), not just the windows that fired: for each metric it shows the current value, the window peak and its date, how far below the peak the value sits, the window's threshold, and whether that window fires. This is a calibration aid, so you can see how close each window is and whether a threshold needs tuning. A **3M window** is included in the table for context only (it is shown for awareness and never fires on its own, mirroring the per-symbol peak-proximity alert's treatment of 3M).
+- Each metric is enabled per user. Negative peaks work: EUR gain is measured against `|peak|` (peaks under
+  `min_peak_abs_eur` skipped), return % on the index `1 + return/100`.
+- Fires when any enabled (metric, window) pair is within its threshold (Return %: 1 / 3 / 5; EUR gain: 10 / 20 / 30),
+  then every `reminder_days` (7) while it holds.
+- The email and the "Current standing" card on `/portfolio-peak-alerts` show the full metric x window table (3M as
+  context only, never fires) to help calibrate the thresholds.
 
 ```bash
 sudo su
@@ -386,8 +435,6 @@ crontab -e
 #############
 ```
 
-To limit hourly runs to market hours (08:00 to 22:00 server time), use `48 8-22 * * *` instead of `48 * * * *`.
-
 ```bash
 # Preview for one user without sending or recording
 php artisan finance:portfolio-peak-alerts --user-id=1 --dry-run
@@ -396,17 +443,20 @@ php artisan finance:portfolio-peak-alerts --user-id=1 --dry-run
 php artisan finance:portfolio-peak-alerts --all-users
 ```
 
-These alerts are **off by default**. Enable the feature, the email channel and the per-metric toggles at `/portfolio-peak-alerts`. That page also renders the same per-window breakdown table live as a "Current standing" card (the same `PortfolioPeakAlertService` computation the email uses), so you can see where each window sits against its threshold without waiting for an email. Configuration (env, all optional): `MYFINANCE2_PORTFOLIO_PEAK_ENABLED` (default true); per-metric window thresholds `MYFINANCE2_PORTFOLIO_PEAK_EUR_THRESHOLD_3M` / `_6M` / `_1Y` / `_2Y` (defaults 5 / 10 / 20 / 30) and `MYFINANCE2_PORTFOLIO_PEAK_PCT_THRESHOLD_3M` / `_6M` / `_1Y` / `_2Y` (defaults 0.5 / 1 / 3 / 5); the 3M values are a reference line for the context row only, since 3M never fires; `MYFINANCE2_PORTFOLIO_PEAK_MIN_PEAK_ABS_EUR` (default 1000); `MYFINANCE2_PORTFOLIO_PEAK_REMINDER_DAYS` (default 7, `0` means every run that finds a trigger, still capped at one email per day); `MYFINANCE2_PORTFOLIO_PEAK_EMAIL_TO` (defaults to the alerts email, then the user's email). Migrations add the `portfolio_peak_settings` opt-in table and the `portfolio_peak_notifications` audit/throttle table; run `php artisan migrate` to apply them.
+**Off by default**: enable the feature, the email channel and the per-metric toggles at `/portfolio-peak-alerts`.
+Env (all optional): `MYFINANCE2_PORTFOLIO_PEAK_ENABLED` (true); `MYFINANCE2_PORTFOLIO_PEAK_EUR_THRESHOLD_3M` / `_6M` /
+`_1Y` / `_2Y` (5 / 10 / 20 / 30) and `MYFINANCE2_PORTFOLIO_PEAK_PCT_THRESHOLD_3M` / `_6M` / `_1Y` / `_2Y`
+(0.5 / 1 / 3 / 5; 3M is a reference line only); `MYFINANCE2_PORTFOLIO_PEAK_MIN_PEAK_ABS_EUR` (1000);
+`MYFINANCE2_PORTFOLIO_PEAK_REMINDER_DAYS` (7; `0` means every run that finds a trigger, still one email a day);
+`MYFINANCE2_PORTFOLIO_PEAK_EMAIL_TO` (the alerts email, then the user's).
 
 
 ### Running tests
 
-NOTE That there are 2 types of tests, in 2 locations:
-- Unit tests (in this package project)
-- Feature tests (in the root project, because these need the context of the full laravel application)
+Unit tests live in this package; feature tests live in the root project (they need the full Laravel application).
 
 ```bash
-# Running unit tests (in this package project)
+# Unit tests (in this package project)
 # php vendor/bin/phpunit --filter ChartsBuilderMetrics --testdox --debug
 php vendor/bin/phpunit --testdox
 ```
@@ -435,4 +485,3 @@ mysql -u[MYFINANCE2_DB_USERNAME] -p [MYFINANCE2_DB_DATABASE] # use [MYFINANCE2_D
     insert into stats_historical (date, symbol, unit_price, currency_iso_code) values ('2024-12-30', 'EURUSD=X', '1.0352', 'USD');
     select * from stats_historical where date = '2025-01-01' and symbol like '%=X';
 ```
-

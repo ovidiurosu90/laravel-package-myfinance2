@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ovidiuro\myfinance2\App\Services;
 
 use App\Models\User;
+use Illuminate\Mail\Mailable;
 use Illuminate\Support\Facades\Log;
 
 use ovidiuro\myfinance2\App\Models\PeakProximityAlertEvent;
@@ -20,7 +21,10 @@ use ovidiuro\myfinance2\Mail\PeakProximityAlert;
  * Daily job: for each user with open positions, run the watchlist symbols dashboard and email a
  * one-per-day-per-symbol alert when an owned position has rallied to within N% (default 5%) of its
  * peak in ANY of the 3M / 6M / 1Y / 2Y windows. The email reproduces the data shown in the three
- * cards rendered for that symbol on the watchlist-symbols page.
+ * cards rendered for that symbol on the watchlist-symbols page. A range-bound symbol (PeakProximityRangeSignals)
+ * gets its own alerts instead of the near-peak one; a weak tier in profit (PeakProximityTakeProfitSignals) gets a
+ * TAKE PROFIT alert in place of the near-peak one; a tier signal chip shown with an action (PeakProximityTierSignals)
+ * gets its own alert, before the near-peak one.
  *
  * Unlike AlertService (minutely, budgeted), this is a heavy daily pass: WatchlistSymbolsDashboard
  * recomputes positions, performance, categorization and technical indicators per user, so the
@@ -29,29 +33,10 @@ use ovidiuro\myfinance2\Mail\PeakProximityAlert;
 final class PeakProximityAlertService
 {
     /**
-     * Distinct user IDs with at least one open BUY trade.
-     * Disables the user scope briefly so the CLI sees every user's positions.
-     *
-     * @return array
-     */
-    public function getUserIdsWithOpenPositions(): array
-    {
-        AssignedToUserScope::disable();
-        $userIds = Trade::where('status', 'OPEN')
-            ->where('action', 'BUY')
-            ->distinct()
-            ->pluck('user_id')
-            ->map(fn ($id) => (int) $id)
-            ->toArray();
-        AssignedToUserScope::enable();
-
-        return $userIds;
-    }
-
-    /**
-     * Distinct user IDs who have at least one ENABLED peak-proximity setting AND at least one open
-     * position. Because the alerts are opt-in (default off), an --all-users run only needs to build
-     * the heavy dashboard for these users; everyone else is a guaranteed no-op.
+     * Distinct user IDs who have at least one ENABLED peak-proximity setting AND at least one trade (an open
+     * position for most alerts, or an exited one for a range-bound or rare-low BUY). Because the alerts are opt-in
+     * (default off), an --all-users run only needs to build the heavy dashboard for these users; everyone else is a
+     * guaranteed no-op. Disables the user scope briefly so the CLI sees every user's trades.
      *
      * @return array
      */
@@ -67,9 +52,11 @@ final class PeakProximityAlertService
             return [];
         }
 
-        $openUserIds = $this->getUserIdsWithOpenPositions();
+        AssignedToUserScope::disable();
+        $tradedUserIds = Trade::distinct()->pluck('user_id')->map(fn ($id) => (int) $id)->toArray();
+        AssignedToUserScope::enable();
 
-        return array_values(array_intersect($enabledUserIds, $openUserIds));
+        return array_values(array_intersect($enabledUserIds, $tradedUserIds));
     }
 
     /**
@@ -130,19 +117,47 @@ final class PeakProximityAlertService
 
         $notifiedToday  = $this->_getNotifiedTodaySymbols($userId);
         $enabledSymbols = $this->_enabledSymbols($userId);
+        $rangeSignals   = new PeakProximityRangeSignals();
+        $profitSignals  = new PeakProximityTakeProfitSignals();
+        $tierSignals    = new PeakProximityTierSignals();
 
         foreach ($items as $symbol => $quoteData) {
-            if (empty($quoteData['open_positions'])) {
-                continue; // owned positions only
-            }
             if ($filterSymbols && !in_array($symbol, $filterSymbols, true)) {
                 continue;
             }
             if (!in_array($symbol, $enabledSymbols, true)) {
                 continue; // not opted in (default off)
             }
+            if (!empty($quoteData['categorization']['range_bound'])) {
+                // A range-bound symbol is read on its swing (TRIM near the high, ADD near the low; BUY near the low
+                // once exited), never as a near-peak exit, so one position gets one message.
+                $rangeSignals->evaluate($userId, $symbol, $quoteData, $dryRun, $notifiedToday, $stats);
+                continue;
+            }
 
             $triggered = $this->_triggeredWindows($quoteData, $thresholdPct);
+            if (TierSignalChip::alertable($quoteData['categorization'] ?? null) !== null) {
+                // A tier signal shown with an action (never on a TAKE PROFIT symbol, whose chip names it): its own
+                // alert, whatever the tier, held or (a rare-low BUY) traded before. It goes before the near-peak
+                // alert below, which then waits for a later day under the daily guard.
+                $tierSignals->evaluate(
+                    $userId, $symbol, $quoteData, $triggered, $this->windowThresholds($thresholdPct), $dryRun,
+                    $notifiedToday, $stats
+                );
+            }
+            if (empty($quoteData['open_positions'])) {
+                continue; // near-peak and take profit: owned positions only
+            }
+            if (!empty($quoteData['categorization']['take_profit'])) {
+                // A weak tier in profit gets a TAKE PROFIT alert, near peak or not, and no near-peak alert: its
+                // windows near peak are context there and a long one newly near its peak emails it again at once,
+                // so one position gets one message.
+                $profitSignals->evaluate(
+                    $userId, $symbol, $quoteData, $triggered, $this->windowThresholds($thresholdPct), $dryRun,
+                    $notifiedToday, $stats
+                );
+                continue;
+            }
             if (empty($triggered)) {
                 // Not near peak today. An existing OPEN event is left untouched: it persists in the
                 // inbox until the user dismisses it, even after the symbol drifts off peak.
@@ -210,7 +225,7 @@ final class PeakProximityAlertService
     /**
      * Classify a near-peak symbol for the exit-focused gate, severity and cadence.
      *
-     * The email gate is driven by the gain-based effective_tier only: "near peak" is an exit aid, so
+     * The email gate is driven by the effective (settled) tier only: "near peak" is an exit aid, so
      * an alert is actionable only for a position you would actually consider trimming (a weak tier)
      * whose near-peak signal lands in a meaningful (6M/1Y/2Y) window. A 3M-only trigger is context.
      * The HOLD/EXIT action is captured for display but never gates. When exit_focused is off, the
@@ -225,7 +240,9 @@ final class PeakProximityAlertService
     {
         $cat    = $quoteData['categorization'] ?? [];
         $tier   = $cat['effective_tier'] ?? null;
-        $action = $cat['action'] ?? null;
+        // The tier signal chip's action when it shows one, else the quadrant's action (a range-bound or TAKE PROFIT
+        // symbol gets its own alert instead of this one).
+        $action = PeakProximityAlert::readingAction($cat);
 
         $meaningfulWindows = config('alerts.peak_proximity.meaningful_windows', ['6m', '1y', '2y']);
         $meaningful        = array_values(array_intersect(array_keys($triggered), $meaningfulWindows));
@@ -255,6 +272,8 @@ final class PeakProximityAlertService
 
         return [
             'tier'            => $tier,
+            // Today's reading alone, shown next to the effective (settled) tier when the two differ.
+            'today_tier'      => $cat['today_tier'] ?? null,
             'action'          => $action,
             'exit_worthy'     => $exitWorthy,
             'actionable'      => $actionable,
@@ -283,10 +302,7 @@ final class PeakProximityAlertService
             : '€';
 
         // Every window (not just the triggered ones) with its trigger target, mirroring the email.
-        $thresholds = [];
-        foreach (config('alerts.peak_proximity.windows', ['3m', '6m', '1y', '2y']) as $window) {
-            $thresholds[$window] = $this->_windowThreshold($window, null);
-        }
+        $thresholds = $this->windowThresholds(null);
         $exitZones = $quoteData['categorization']['exit_zones'] ?? [];
         $windows   = self::buildSummaryWindows($price, $exitZones, array_keys($triggered), $thresholds);
 
@@ -299,6 +315,12 @@ final class PeakProximityAlertService
             'unrealized_gain_pct' => $quoteData['unrealized_gain_pct'] ?? null,
             'today_gain_eur'      => $quoteData['today_gain_eur'] ?? null,
             'today_gain_pct'      => $quoteData['today_gain_pct'] ?? null,
+            // Platinum or Gold under most tier approaches, for the inbox card's star.
+            'superstar'           => $quoteData['categorization']['superstar'] ?? null,
+            // A weak tier in profit (WeakTierProfit), for the inbox card's TAKE PROFIT chip.
+            'take_profit'         => $quoteData['categorization']['take_profit'] ?? null,
+            // The tier signal chip the symbol shows (TierSignalChip; none when it defers), for the card's chip.
+            'tier_signal'         => TierSignalChip::shown($quoteData['categorization'] ?? null),
         ];
     }
 
@@ -385,11 +407,12 @@ final class PeakProximityAlertService
                 : PeakProximityAlertEvent::CLASS_INFO,
             'severity'              => $class['severity'],
             'effective_tier'        => $class['tier'],
+            'today_tier'            => $class['today_tier'],
             'head_action'           => $class['action'],
             'triggered_windows'     => implode(',', array_keys($triggered)),
             'meaningful_windows'    => implode(',', $class['meaningful']) ?: null,
-            'closest_proximity_pct' => $this->_closestProximityPct($triggered),
-            'peak_dates'            => $this->_peakDatesString($triggered),
+            'closest_proximity_pct' => self::closestProximityPct($triggered),
+            'peak_dates'            => self::peakDatesString($triggered),
             'summary'               => $this->_buildSummary($quoteData, $triggered),
             'current_price'         => isset($quoteData['price']) ? (float) $quoteData['price'] : null,
             'last_seen_at'          => now(),
@@ -397,6 +420,7 @@ final class PeakProximityAlertService
 
         $event = PeakProximityAlertEvent::where('user_id', $userId)
             ->where('symbol', $symbol)
+            ->where('signal', PeakProximityAlertEvent::SIGNAL_NEAR_PEAK)
             ->where('status', PeakProximityAlertEvent::STATUS_OPEN)
             ->first();
 
@@ -528,6 +552,24 @@ final class PeakProximityAlertService
     }
 
     /**
+     * The proximity threshold (%) of every configured window, keyed by window: the --threshold override when
+     * provided, else the per-window config values.
+     *
+     * @param float|null $override
+     *
+     * @return array<string, float>
+     */
+    public function windowThresholds(?float $override): array
+    {
+        $thresholds = [];
+        foreach (config('alerts.peak_proximity.windows', ['3m', '6m', '1y', '2y']) as $window) {
+            $thresholds[$window] = $this->_windowThreshold($window, $override);
+        }
+
+        return $thresholds;
+    }
+
+    /**
      * Resolve the proximity threshold (%) for a window: the --threshold override when provided,
      * else the per-window config value, else the global fallback.
      *
@@ -606,6 +648,7 @@ final class PeakProximityAlertService
     {
         $hasOpen = PeakProximityAlertEvent::where('user_id', $userId)
             ->where('symbol', $symbol)
+            ->where('signal', PeakProximityAlertEvent::SIGNAL_NEAR_PEAK)
             ->where('status', PeakProximityAlertEvent::STATUS_OPEN)
             ->exists();
 
@@ -621,6 +664,7 @@ final class PeakProximityAlertService
 
         return PeakProximityAlertEvent::where('user_id', $userId)
             ->where('symbol', $symbol)
+            ->where('signal', PeakProximityAlertEvent::SIGNAL_NEAR_PEAK)
             ->where('status', PeakProximityAlertEvent::STATUS_DISMISSED)
             ->where('classification', $classification)
             ->where('dismissed_at', '>=', now()->startOfDay())
@@ -666,6 +710,28 @@ final class PeakProximityAlertService
         ?float $override = null
     ): bool
     {
+        // The trigger threshold of every configured window (not just the fired ones), so the email can show each
+        // window's target, i.e. the price at which it would go near peak.
+        return self::deliver($userId, $symbol, [
+            'signal'                => PeakProximityAlertEvent::SIGNAL_NEAR_PEAK,
+            'current_price'         => isset($quoteData['price']) ? (float) $quoteData['price'] : null,
+            'triggered_windows'     => implode(',', array_keys($triggered)),
+            'closest_proximity_pct' => self::closestProximityPct($triggered),
+            'peak_dates'            => self::peakDatesString($triggered),
+        ], new PeakProximityAlert(
+            $symbol, $quoteData, $triggered, $isReminder, $this->windowThresholds($override)
+        ));
+    }
+
+    /**
+     * Send one alert email and record it in the history (PeakProximityNotification, which also drives the
+     * one-email-per-symbol-per-day guard). Shared by the near-peak, the range-bound and the take-profit alerts.
+     * False, with the history row marked FAILED, when the email could not be sent.
+     *
+     * @param array $record the history row's alert fields (signal, current_price, triggered_windows, ...)
+     */
+    public static function deliver(int $userId, string $symbol, array $record, Mailable $mail): bool
+    {
         $emailTo = config('alerts.peak_proximity.email_to')
             ?: config('alerts.email_to')
             ?: User::find($userId)?->email;
@@ -675,37 +741,23 @@ final class PeakProximityAlertService
             return false;
         }
 
-        $notification = PeakProximityNotification::create([
-            'user_id'               => $userId,
-            'symbol'                => $symbol,
-            'current_price'         => isset($quoteData['price']) ? (float) $quoteData['price'] : null,
-            'triggered_windows'     => implode(',', array_keys($triggered)),
-            'closest_proximity_pct' => $this->_closestProximityPct($triggered),
-            'peak_dates'            => $this->_peakDatesString($triggered),
-            'sent_at'               => now(),
-            'status'                => 'SENT',
-        ]);
-
-        // Resolve the trigger threshold for every configured window (not just the fired ones) so the
-        // email can show each window's target, i.e. the price at which it would go near peak.
-        $windowThresholds = [];
-        foreach (config('alerts.peak_proximity.windows', ['3m', '6m', '1y', '2y']) as $window) {
-            $windowThresholds[$window] = $this->_windowThreshold($window, $override);
-        }
+        $notification = PeakProximityNotification::create(array_merge($record, [
+            'user_id' => $userId,
+            'symbol'  => $symbol,
+            'sent_at' => now(),
+            'status'  => 'SENT',
+        ]));
 
         try {
-            AlertMailer::send(
-                $emailTo,
-                new PeakProximityAlert($symbol, $quoteData, $triggered, $isReminder, $windowThresholds),
-                'PeakProximityAlertService'
-            );
+            AlertMailer::send($emailTo, $mail, 'PeakProximityAlertService');
         } catch (\Throwable $e) {
             Log::error("PeakProximityAlertService: email send failed for {$symbol}: " . $e->getMessage());
             $notification->update(['status' => 'FAILED', 'error_message' => substr($e->getMessage(), 0, 500)]);
             return false;
         }
 
-        Log::info("PeakProximityAlertService: {$symbol} near peak for user {$userId} => email sent to {$emailTo}");
+        $what = PeakProximityAlertEvent::signalLabel($record['signal'] ?? null);
+        Log::info("PeakProximityAlertService: {$symbol} {$what} for user {$userId} => email sent to {$emailTo}");
         return true;
     }
 
@@ -716,7 +768,7 @@ final class PeakProximityAlertService
      *
      * @return float|null
      */
-    private function _closestProximityPct(array $triggered): ?float
+    public static function closestProximityPct(array $triggered): ?float
     {
         $values = [];
         foreach ($triggered as $entry) {
@@ -735,7 +787,7 @@ final class PeakProximityAlertService
      *
      * @return string|null
      */
-    private function _peakDatesString(array $triggered): ?string
+    public static function peakDatesString(array $triggered): ?string
     {
         $parts = [];
         foreach ($triggered as $window => $entry) {

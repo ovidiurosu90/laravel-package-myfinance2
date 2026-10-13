@@ -22,6 +22,29 @@ class UnlistedSymbol
     }
 
     /**
+     * The symbol split for display: the unlisted prefix with its separator (e.g. "UNLISTED_", shown smaller to
+     * save width) and the rest ("ACME"). A listed symbol has an empty prefix.
+     *
+     * @return array{prefix: string, name: string}
+     */
+    public static function labelParts(string $symbol): array
+    {
+        $prefix = (string) config('trades.unlisted');
+        if ($prefix === '' || !str_starts_with($symbol, $prefix) || $symbol === $prefix) {
+            return ['prefix' => '', 'name' => $symbol];
+        }
+
+        // The separator after the prefix ("UNLISTED" + "_") belongs to the small part.
+        $name      = substr($symbol, strlen($prefix));
+        $separator = strlen($name) - strlen(ltrim($name, '_-'));
+        if ($separator === strlen($name)) {
+            return ['prefix' => '', 'name' => $symbol];
+        }
+
+        return ['prefix' => $prefix . substr($name, 0, $separator), 'name' => substr($name, $separator)];
+    }
+
+    /**
      * Look up the FMV price and its timestamp for an unlisted symbol on or
      * before $date, using the raw FMV data array from config.
      *

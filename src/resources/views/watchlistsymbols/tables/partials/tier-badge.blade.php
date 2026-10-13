@@ -48,9 +48,24 @@
     <span class="badge {{ $badgeClass }}"
         @if($isOrange) style="background-color:#e67e22!important;"@endif
         data-bs-toggle="tooltip"
-        title="{{ $explanation }}">
+        title="{{ $cat['tier_tooltip'] ?? $explanation }}">
         {{ $label }}{{ $hasOverride ? ' ★' : '' }}
     </span>
+    @include('myfinance2::watchlistsymbols.tables.partials.tier-today-chip', [
+        'chip' => $cat['today_chip'] ?? null, 'compact' => true,
+    ])
+    @include('myfinance2::watchlistsymbols.tables.partials.range-bound-chip', [
+        'range' => $cat['range_bound'] ?? null, 'compact' => true,
+    ])
+    @include('myfinance2::watchlistsymbols.tables.partials.take-profit-chip', [
+        'takeProfit' => $cat['take_profit'] ?? null, 'compact' => true,
+    ])
+    @include('myfinance2::watchlistsymbols.tables.partials.tier-signal-chip', [
+        'tierSignal' => $cat['tier_signal_chip'] ?? null, 'compact' => true,
+    ])
+    @include('myfinance2::watchlistsymbols.tables.partials.superstar-star', [
+        'superstar' => $cat['superstar'] ?? null,
+    ])
     @if ($isBenchmark)
     <span class="badge bg-light text-dark border"
           data-bs-toggle="tooltip"

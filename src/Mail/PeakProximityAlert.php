@@ -9,21 +9,29 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Route;
 
+use ovidiuro\myfinance2\App\Models\PeakProximityAlertEvent;
 use ovidiuro\myfinance2\App\Services\MoneyFormat;
 use ovidiuro\myfinance2\App\Services\PeakProximityAlertService;
 use ovidiuro\myfinance2\App\Services\QuadrantClassifier;
+use ovidiuro\myfinance2\App\Services\RangeBoundPattern;
 use ovidiuro\myfinance2\App\Services\TierCalculationService;
+use ovidiuro\myfinance2\App\Services\TierSignalChip;
+use ovidiuro\myfinance2\App\Services\WeakTierProfit;
+use ovidiuro\myfinance2\Mail\Concerns\DescribesPeakProximityReading;
 use ovidiuro\myfinance2\Mail\Concerns\HasAppLabel;
 
 /**
- * Peak-proximity exit-hint email. This class doubles as the email's presenter: every derived value
- * (per-window targets, the quadrant table, the tier/quadrant/action badge classes, the open-position
- * timeline) is computed here and handed to the view as plain data, so the Blade template only
- * formats and echoes, holding no business logic of its own.
+ * Peak-proximity exit-hint email, also sent for a range-bound holding near the high (TRIM) or the low (ADD) of its
+ * 52-week range (same cards, with the range summary in place of the near-peak windows) and for a weak tier in
+ * profit (TAKE PROFIT: the reading above the near-peak windows, which are context there) and for a tier signal (rare
+ * high SELL / TRIM, rare low ADD / BUY, deteriorating REVIEW: the same layout). This class doubles as the
+ * email's presenter: every derived value (per-window targets, the quadrant table, the tier/quadrant/action badge
+ * classes, the open-position timeline) is computed here and handed to the view as plain data, so the Blade template
+ * only formats and echoes, holding no business logic of its own.
  */
 class PeakProximityAlert extends Mailable
 {
-    use Queueable, SerializesModels, HasAppLabel;
+    use Queueable, SerializesModels, HasAppLabel, DescribesPeakProximityReading;
 
     private const BENCHMARK_SYMBOL = 'VUSA.AS';
     private const YAHOO_QUOTE_URL  = 'https://finance.yahoo.com/quote/';
@@ -36,10 +44,19 @@ class PeakProximityAlert extends Mailable
 
     /** Head-action badge classes. */
     private const ACTION_CLASSES = [
-        'ACCUMULATE' => 'bg-success',
-        'HOLD'       => 'bg-info text-dark',
-        'REDUCE'     => 'bg-warning text-dark',
-        'EXIT'       => 'bg-danger',
+        'ACCUMULATE'  => 'bg-success',
+        'HOLD'        => 'bg-info text-dark',
+        'REDUCE'      => 'bg-warning text-dark',
+        'EXIT'        => 'bg-danger',
+        // Range-bound actions (RangeBoundPattern), the colour of the range-bound chip.
+        'TRIM'        => 'bg-info text-dark',
+        'ADD'         => 'bg-info text-dark',
+        // Weak tier in profit (WeakTierProfit), the colour of its chip.
+        'TAKE PROFIT' => 'bg-success',
+        // Tier signals (TierSignalChip), the colours of their chips.
+        'SELL'        => 'bg-warning text-dark',
+        'BUY'         => 'bg-primary',
+        'REVIEW'      => 'bg-danger',
     ];
 
     private string $_symbol;
@@ -47,6 +64,7 @@ class PeakProximityAlert extends Mailable
     private array $_triggeredWindows;
     private bool $_isReminder;
     private array $_windowThresholds;
+    private string $_signal;
 
     /**
      * Create a new message instance.
@@ -56,13 +74,18 @@ class PeakProximityAlert extends Mailable
      * @param array  $triggeredWindows window label => exit-zone entry (proximity_pct, peak date)
      * @param bool   $isReminder       true for a cadence reminder (vs the first email of the episode)
      * @param array  $windowThresholds window label => proximity threshold (%) at which it fires
+     * @param string $signal           PeakProximityAlertEvent::SIGNAL_*: near peak, a range-bound holding near the
+     *                                 high (TRIM) or the low (ADD) of its 52-week range (no triggered windows then),
+     *                                 a weak tier in profit (TAKE PROFIT; the windows near peak, if any) or a tier
+     *                                 signal (RARE_HIGH / RARE_LOW / DETERIORATING; the same)
      */
     public function __construct(
         string $symbol,
         array $quoteData,
         array $triggeredWindows,
         bool $isReminder = false,
-        array $windowThresholds = []
+        array $windowThresholds = [],
+        string $signal = PeakProximityAlertEvent::SIGNAL_NEAR_PEAK
     )
     {
         $this->_symbol           = $symbol;
@@ -70,6 +93,7 @@ class PeakProximityAlert extends Mailable
         $this->_triggeredWindows = $triggeredWindows;
         $this->_isReminder       = $isReminder;
         $this->_windowThresholds = $windowThresholds;
+        $this->_signal           = $signal;
     }
 
     /**
@@ -85,20 +109,48 @@ class PeakProximityAlert extends Mailable
         $cat       = $this->_quoteData['categorization'] ?? [];
         $tier      = $cat['effective_tier'] ?? null;
         $tierLabel = TierCalculationService::tierLabel($tier);
-        $action    = $cat['action'] ?? null;
+        // A range-bound symbol is read on its swing (RangeBoundPattern), a weak tier in profit as TAKE PROFIT
+        // (WeakTierProfit), a tier signal by its chip (TierSignalChip): the reading's action replaces the quadrant one.
+        $rangeBound = $cat['range_bound'] ?? null;
+        $takeProfit = $cat['take_profit'] ?? null;
+        // The tier signal chip the symbol shows (none when it defers to the range-bound or TAKE PROFIT chip).
+        $tierSignal = TierSignalChip::shown($cat);
+        $action     = self::readingAction($cat);
+        // Today's tier, only when it differs from the effective (settled) one.
+        $todayChip = $cat['today_chip'] ?? null;
 
         // Lead the subject with the tier (and action) so a near-peak winner reads differently from a
         // near-peak laggard at a glance, e.g.
         // "[MyFinance2-LOCAL] EZJ.L (Bronze, EXIT) near peak => -4.25% to 6M, +0.00% to 3M"
+        // or, when today's reading differs from the settled tier, "(Bronze, today Gold, EXIT)", or for a range-bound
+        // symbol "(Rust, today Silver; Range-bound, near the high: TRIM)", the same words as its chip.
         $parts = [];
         foreach ($orderedWindows as $window) {
             $parts[] = $this->_signedPct($this->_triggeredWindows[$window]['proximity_pct'] ?? null)
                 . ' to ' . strtoupper($window);
         }
 
-        $tierTag = $this->_tierTag($tierLabel, $action);
-        $prefix  = $this->_isReminder ? 'Reminder: ' : '';
-        $subject = "{$label} {$prefix}{$this->_symbol}{$tierTag} near peak => " . implode(', ', $parts);
+        $tierSummary  = $this->_tierSummary(
+            $tierLabel, $todayChip['label'] ?? null, $action, $rangeBound ?? $takeProfit ?? $tierSignal
+        );
+        $tierTag      = $tierSummary !== '' ? " ({$tierSummary})" : '';
+        $prefix       = $this->_isReminder ? 'Reminder: ' : '';
+        $isRange      = PeakProximityAlertEvent::isRange($this->_signal) && $rangeBound !== null;
+        $isTakeProfit = PeakProximityAlertEvent::isTakeProfit($this->_signal) && $takeProfit !== null;
+        $isTierSignal = PeakProximityAlertEvent::isTier($this->_signal) && $tierSignal !== null;
+        $headline     = $isRange ? $rangeBound['label'] . ': ' . $rangeBound['action'] : 'near peak';
+        if ($isTakeProfit) {
+            $headline = $takeProfit['label'] . ': ' . $takeProfit['action'];
+        }
+        if ($isTierSignal) {
+            $headline = $tierSignal['label'] . ': ' . $tierSignal['action'];
+        }
+        $subject      = "{$label} {$prefix}{$this->_symbol}{$tierTag}" . $this->_subjectTail(
+            $isRange ? $rangeBound : null, $isTakeProfit ? $takeProfit : null, $isTierSignal ? $tierSignal : null,
+            $parts
+        );
+        $price        = isset($this->_quoteData['price']) ? (float) $this->_quoteData['price'] : null;
+        $openWindow   = $this->_openWindow();
 
         $watchlistUrl = Route::has('myfinance2::watchlist-symbols.index')
             ? route('myfinance2::watchlist-symbols.index')
@@ -111,18 +163,36 @@ class PeakProximityAlert extends Mailable
                 'quoteData'      => $this->_quoteData,
                 'summaryWindows' => $this->_summaryWindows(),
                 'nearCount'      => count($this->_triggeredWindows),
-                'triggerSummary' => $this->_triggerSummaryParts($orderedWindows),
+                'triggerSummary' => $isRange
+                    ? [RangeBoundPattern::positionText($rangeBound)]
+                    : array_merge(
+                        $isTakeProfit ? [WeakTierProfit::gainText($takeProfit)] : [],
+                        $isTierSignal ? [TierSignalChip::shortText($tierSignal)] : [],
+                        $this->_triggerSummaryParts($orderedWindows)
+                    ),
+                'isRange'        => $isRange,
+                'isTakeProfit'   => $isTakeProfit,
+                'isTierSignal'   => $isTierSignal,
+                'headline'       => $headline,
+                'rangeLevels'    => $isRange ? RangeBoundPattern::levelRows($rangeBound, $price) : [],
                 'todayGainEur'   => $this->_quoteData['today_gain_eur'] ?? null,
                 'todayGainPct'   => $this->_quoteData['today_gain_pct'] ?? null,
                 'sellGainEur'    => $this->_quoteData['unrealized_gain_eur'] ?? null,
                 'sellGainPct'    => $this->_quoteData['unrealized_gain_pct'] ?? null,
-                'openWindow'     => $this->_openWindow(),
+                'openWindow'     => $openWindow,
+                'openRealizedEur' => self::_partialSellsGain($openWindow),
                 'quadrant'       => $this->_quadrant(),
                 'openPositions'  => $this->_openPositions(),
                 'tier'           => $tier,
                 'tierLabel'      => $tierLabel,
                 'tierClass'      => $tier ? TierCalculationService::tierBadgeClass($tier) : '',
+                // Platinum or Gold under most tier approaches: the gold star after the tier, as on the watchlist.
+                'superstar'      => $cat['superstar'] ?? null,
                 'headAction'     => $action,
+                'rangeBound'     => $rangeBound,
+                'takeProfit'     => $takeProfit,
+                'tierSignal'     => $tierSignal,
+                'tierSummary'    => $tierSummary,
                 'isReminder'     => $this->_isReminder,
                 'watchlistUrl'   => $watchlistUrl,
                 'yahooUrl'       => self::YAHOO_QUOTE_URL . $this->_symbol,
@@ -172,6 +242,18 @@ class PeakProximityAlert extends Mailable
     }
 
     /**
+     * The gain realized on partial sells inside the open window, or null without any: the email notes it under the
+     * Performance table (the Current gain and % cover the whole window, the Cost only what is still held), as the
+     * watchlist's gain tooltip does.
+     */
+    private static function _partialSellsGain(?array $openWindow): ?float
+    {
+        $realized = (float) ($openWindow['realized_gain_eur'] ?? 0);
+
+        return abs($realized) > 0.01 ? $realized : null;
+    }
+
+    /**
      * The open performance window (the position still held today), or null when there is none.
      *
      * @return array|null
@@ -208,11 +290,14 @@ class PeakProximityAlert extends Mailable
 
         $tableMeta = $this->_quoteData['table_meta'] ?? [];
         $tier      = $cat['effective_tier'] ?? null;
-        $action    = $cat['action'] ?? null;
+        // A range-bound holding reads its swing action (TRIM / HOLD / ADD) here too, a weak tier in profit TAKE
+        // PROFIT, so the email has one message.
+        $action    = self::readingAction($cat);
 
         return [
             'tier_label'   => $tier ? TierCalculationService::tierLabel($tier) : 'Unrated',
             'tier_class'   => $tier ? TierCalculationService::tierBadgeClass($tier) : 'bg-light text-dark',
+            'today_chip'   => $this->_todayChipView($cat['today_chip'] ?? null),
             'gain_eur'     => $tableMeta['basis_gain_eur'] ?? null,
             'basis_val'    => $cat['basis_value'] ?? null,
             'action'       => $action,
@@ -341,21 +426,24 @@ class PeakProximityAlert extends Mailable
     }
 
     /**
-     * The " (Tier, ACTION)" subject fragment, omitting whichever pieces are unknown.
+     * The outlined "today" badge for the email (inline styles, no tooltip), or null when today's tier matches the
+     * effective one. $chip is CategorizationTierHistory::todayChip(): ['tier', 'label', 'title'].
      *
-     * @param string|null $tierLabel
-     * @param string|null $action
+     * @param array|null $chip
      *
-     * @return string
+     * @return array|null ['label', 'style']
      */
-    private function _tierTag(?string $tierLabel, ?string $action): string
+    private function _todayChipView(?array $chip): ?array
     {
-        $bits = array_filter([$tierLabel, $action]);
-        if (empty($bits)) {
-            return '';
+        if (empty($chip)) {
+            return null;
         }
 
-        return ' (' . implode(', ', $bits) . ')';
+        return [
+            'label' => $chip['label'],
+            'style' => 'background:transparent;color:#212529;font-weight:400;border:2px solid '
+                . TierCalculationService::tierColor($chip['tier']) . ';',
+        ];
     }
 
     /**

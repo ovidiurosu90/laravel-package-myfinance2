@@ -135,10 +135,19 @@ class WatchlistSymbolsDashboard
             $items,
             $eurusd
         );
+        if ($healthScore !== null) {
+            // The owned symbols' tiers under each way of measuring return, to choose the allocation rule.
+            $healthScore['approach_comparison'] = (new TierApproachComparison())->build(
+                $healthScore, $categorization
+            );
+        }
         $reconAlerts = (new WatchlistReconciliationService())->reconcile(
             $healthScore, $positionsData['groupedItems'] ?? [], $eurusd
         );
         $items = (new TechnicalIndicatorsService())->attachIndicators($items);
+        // Severity and caution flags of the tier signal chips: need the indicators (RSI, MA200) and the position
+        // sizes (health card), so they come after both and before the table meta (its signal filter).
+        $items = TierSignalSeverity::fromConfig()->attach($items, $healthScore);
         $items = (new WatchlistTableMetaBuilder())->attach($items, $liveEurRates);
         // Adds the per-period "P&L if sold at this window's peak" to each owned symbol's table_meta;
         // runs after categorization (needs the per-period peak) and table_meta (extends its array).

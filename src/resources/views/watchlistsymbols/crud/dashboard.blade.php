@@ -31,6 +31,7 @@
         ])
 
         @include('myfinance2::watchlistsymbols.tables.partials.tier-override-modal')
+        @include('myfinance2::watchlistsymbols.tables.partials.tier-history-modal')
 
     </div>
 
@@ -41,6 +42,8 @@
     @include('myfinance2::general.scripts.tooltips')
     @include('myfinance2::watchlistsymbols.scripts.datatables')
     @include('myfinance2::watchlistsymbols.scripts.tier-override')
+    @include('myfinance2::watchlistsymbols.scripts.tier-history-chart')
+    @include('myfinance2::watchlistsymbols.scripts.tier-history-ribbon')
     @include('myfinance2::watchlistsymbols.scripts.health-score-card',
         ['health_score' => $health_score ?? null])
     @include('myfinance2::watchlistsymbols.scripts.quadrant-chart',

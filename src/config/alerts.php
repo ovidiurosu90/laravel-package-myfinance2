@@ -49,6 +49,41 @@ return [
         // alert stays open and actionable, until the user dismisses it.
         'reminder_days_by_confluence' => [1 => 7, 2 => 3, 3 => 1],
         'reminder_days_default'       => env('MYFINANCE2_PEAK_PROXIMITY_REMINDER_DAYS', 7),
+
+        // Range-bound holdings (RangeBoundPattern, thresholds in watchlistsymbols.range_bound) are read on their
+        // swing instead of near-peak: an alert opens when the price enters the top of the 52-week range (TRIM) or the
+        // bottom (ADD; BUY for a symbol you exited), whatever the tier. The signals in range_emails (comma-separated:
+        // RANGE_HIGH, RANGE_LOW, RANGE_BUY) email: once when it opens, then a reminder every range_reminder_days while
+        // the price stays in that zone, until dismissed; the others are inbox cards only. TRIM (RANGE_HIGH) is left
+        // out by default: the first backtest (2026-10-13) found no edge for it (the note in RangeBoundPattern).
+        'range_reminder_days' => env('MYFINANCE2_PEAK_PROXIMITY_RANGE_REMINDER_DAYS', 7),
+        'range_emails'        => array_values(array_filter(array_map(
+            'trim', explode(',', (string) env('MYFINANCE2_PEAK_PROXIMITY_RANGE_EMAILS', 'RANGE_LOW,RANGE_BUY'))
+        ))),
+        // RSI at or under this counts as oversold and bumps an ADD / BUY alert's severity to HIGH (rsi_overbought
+        // does the same for a TRIM).
+        'rsi_oversold'        => env('MYFINANCE2_PEAK_PROXIMITY_RSI_OVERSOLD', 30),
+
+        // A held symbol whose tier in use is weak while the open position is in profit (WeakTierProfit, thresholds
+        // in watchlistsymbols.weak_tier_profit) gets a TAKE PROFIT alert, near peak or not, in place of its near-peak
+        // alert. One email when it opens, at once when a meaningful window newly
+        // comes near its peak, else a reminder every take_profit_reminder_days, until dismissed. Severity is HIGH with
+        // a meaningful window near peak or RSI overbought.
+        'take_profit_reminder_days' => env('MYFINANCE2_PEAK_PROXIMITY_TAKE_PROFIT_REMINDER_DAYS', 7),
+
+        // A tier signal chip shown with an action (TierSignalChip: rare high SELL / TRIM, rare low ADD / BUY,
+        // deteriorating REVIEW; not on a range-bound or TAKE PROFIT symbol) gets its own alert, whatever the tier: an
+        // inbox card for your awareness, emailed only for the signals in tier_signal_emails (comma-separated,
+        // RARE_HIGH, RARE_LOW, DETERIORATING; none by default). An emailed rare high or low: one email when it opens,
+        // for a SELL / TRIM at once when a meaningful window newly comes near its peak, else a reminder every
+        // tier_signal_reminder_days, until dismissed; an emailed deterioration: once, with no reminders. A dismissed
+        // deterioration stays dismissed while the same drop lasts. Severity is the chip's (TierSignalSeverity).
+        // Inbox only since the production rehearsal (2026-10-13): the first backtest found no edge for the rare
+        // highs, the rare lows the wrong way (see the note in TierSignalChip for the figures).
+        'tier_signal_emails'        => array_values(array_filter(array_map(
+            'trim', explode(',', (string) env('MYFINANCE2_PEAK_PROXIMITY_TIER_SIGNAL_EMAILS', ''))
+        ))),
+        'tier_signal_reminder_days' => env('MYFINANCE2_PEAK_PROXIMITY_TIER_SIGNAL_REMINDER_DAYS', 7),
     ],
 
     // Dip Buying Plan: paced cash deployment through drawdowns. Behavioral damage-control for a

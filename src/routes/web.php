@@ -51,6 +51,8 @@ Route::group([
                 'PeakProximityAlertController@disable')->name('peak-proximity-alerts.disable');
     Route::post('peak-proximity-alerts/rearm',
                 'PeakProximityAlertController@rearm')->name('peak-proximity-alerts.rearm');
+    Route::get('peak-proximity-alerts/backtest',
+               'TierSignalBacktestController@index')->name('peak-proximity-alerts.backtest');
     Route::get('peak-proximity-alerts/inbox',
                'PeakProximityAlertController@inbox')->name('peak-proximity-alerts.inbox');
     Route::post('peak-proximity-alerts/dismiss',
@@ -125,6 +127,9 @@ Route::group([
     Route::resource('trades', 'TradesController');
     Route::resource('cash-balances', 'CashBalancesController');
     Route::resource('dividends', 'DividendsController');
+    #NOTE Must be before Route::resource('watchlist-symbols') so "tier-history" is not read as an id
+    Route::get('watchlist-symbols/tier-history',
+               'TierHistoryController@show')->name('watchlist-symbols.tier-history');
     Route::resource('watchlist-symbols', 'WatchlistSymbolsController');
 
     Route::post('symbol-tier-overrides',

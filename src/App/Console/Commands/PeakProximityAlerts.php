@@ -13,9 +13,15 @@ use ovidiuro\myfinance2\App\Services\PeakProximityAlertService;
 /**
  * Daily exit-hint email when an open position is within N% of its 3M / 6M / 1Y / 2Y peak.
  *
+ * A range-bound symbol (RangeBoundPattern) is read on its swing instead: TRIM / ADD alerts for a held position,
+ * BUY near the low for one you exited (PeakProximityRangeSignals). A held weak tier in profit (WeakTierProfit) also
+ * gets a TAKE PROFIT alert (PeakProximityTakeProfitSignals), and a tier signal chip shown with an action
+ * (TierSignalChip: rare high SELL / TRIM, rare low ADD / BUY, deteriorating REVIEW) its own alert
+ * (PeakProximityTierSignals).
+ *
  * Alerts are opt-in (OFF by default): only symbols a user enabled on /peak-proximity-alerts fire.
- * The --all-users path processes just the users who enabled at least one symbol (and hold open
- * positions); --user-id processes that user, with the per-symbol enabled check still applied. For
+ * The --all-users path processes just the users who enabled at least one symbol (and have
+ * traded); --user-id processes that user, with the per-symbol enabled check still applied. For
  * each processed user the command becomes that user (auth()->setUser), so the watchlist dashboard's
  * user scope and auth()->id() resolve correctly, then evaluates the per-symbol peak proximity.
  * Throttled to one email per symbol per day.
@@ -29,7 +35,7 @@ class PeakProximityAlerts extends Command
      */
     protected $signature = 'finance:peak-proximity-alerts
         {--user-id= : Process a specific user by ID}
-        {--all-users : Process all users with open positions}
+        {--all-users : Process all users with enabled alerts}
         {--threshold= : Override proximity threshold % (default: config, 5)}
         {--symbols= : Comma-separated symbols to limit to (e.g. AMD,ETH-EUR)}
         {--dry-run : Preview without sending or recording}';
@@ -39,7 +45,9 @@ class PeakProximityAlerts extends Command
      *
      * @var string
      */
-    protected $description = 'Email exit-hint alerts when an open position is within N% of its 3M/6M/1Y/2Y peak';
+    protected $description = 'Email exit-hint alerts when an open position is within N% of its 3M/6M/1Y/2Y peak,'
+        . ' TAKE PROFIT alerts for weak tiers in profit, tier signal alerts (rare high, rare low, deteriorating) and'
+        . ' TRIM / ADD / BUY alerts for range-bound symbols';
 
     /**
      * Execute the console command.

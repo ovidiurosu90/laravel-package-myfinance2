@@ -169,4 +169,51 @@ class DrawdownMathTest extends TestCase
     {
         $this->assertNull($this->_invoke('_benchmarkSpanRaw', [['2023-01-02' => 100.0], []]));
     }
+
+    // ---- momentumAsOf (daily tier history) -----------------------------------
+
+    /**
+     * One close per calendar day from $from to $to, rising linearly from $start by $step per day.
+     */
+    private function _dailyPrices(string $from, string $to, float $start, float $step): array
+    {
+        $prices = [];
+        $price  = $start;
+        for ($d = Carbon::parse($from); $d->lte(Carbon::parse($to)); $d->addDay()) {
+            $prices[$d->format('Y-m-d')] = $price;
+            $price += $step;
+        }
+        return $prices;
+    }
+
+    public function testMomentumAsOfTodayEqualsLiveMomentum(): void
+    {
+        $prices = $this->_dailyPrices(Carbon::today()->subDays(500)->format('Y-m-d'),
+            Carbon::today()->format('Y-m-d'), 100.0, 0.1);
+
+        $live = $this->_invoke('_computeMomentumForPeriod', [$prices, 365]);
+
+        $this->assertNotNull($live);
+        $this->assertEqualsWithDelta(
+            $live, DrawdownService::momentumAsOf($prices, Carbon::today()->format('Y-m-d')), 1e-9
+        );
+    }
+
+    public function testMomentumAsOfPastDateIgnoresLaterPrices(): void
+    {
+        $prices = $this->_dailyPrices('2024-01-01', '2025-12-31', 100.0, 0.0);
+        // 100 on 2024-06-01 and 120 on 2025-06-01: the 1Y return as of 2025-06-01 is exactly +20 %.
+        $prices['2025-06-01'] = 120.0;
+        // A later spike must not leak into the past reading.
+        $prices['2025-06-02'] = 500.0;
+
+        $this->assertEqualsWithDelta(20.0, DrawdownService::momentumAsOf($prices, '2025-06-01'), 1e-9);
+    }
+
+    public function testMomentumAsOfNullWithTooLittleHistory(): void
+    {
+        $prices = $this->_dailyPrices('2025-05-10', '2025-06-01', 100.0, 1.0);
+
+        $this->assertNull(DrawdownService::momentumAsOf($prices, '2025-06-01'));
+    }
 }

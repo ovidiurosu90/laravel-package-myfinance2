@@ -211,7 +211,7 @@ class PortfolioHealthScore
         $silverCostPct       = $totalCost > 0.0 ? $silverCost       / $totalCost * 100.0 : 0.0;
         $bronzeRustCostPct   = $totalCost > 0.0 ? $bronzeRustCost   / $totalCost * 100.0 : 0.0;
 
-        [$signal, $message] = $this->_resolveSignal($platinumGoldPct, $bronzeRustPct);
+        [$signal, $message] = self::resolveSignal($platinumGoldPct, $bronzeRustPct);
 
         return [
             'total_mvalue_eur'              => round($totalMvalue, 2),
@@ -244,7 +244,11 @@ class PortfolioHealthScore
         ];
     }
 
-    private function _resolveSignal(float $platinumGoldPct, float $bronzeRustPct): array
+    /**
+     * [signal, message] for an allocation: warning when Bronze + Rust reaches its limit, caution when
+     * Platinum + Gold is below its target, healthy otherwise (also used by TierApproachComparison).
+     */
+    public static function resolveSignal(float $platinumGoldPct, float $bronzeRustPct): array
     {
         if ($bronzeRustPct >= self::BRONZE_RUST_WARNING_THRESHOLD) {
             return ['warning', 'Portfolio is weighed down.'];
@@ -382,6 +386,9 @@ class PortfolioHealthScore
                 'show_current'         => $showCurrent,
                 'market_1y_pct'        => $cat['candidates']['market_1y_pct']
                     ?? ($cat['momenta']['1y'] ?? null),
+                // The Market Settled figure behind the tier (TierApproachComparison cell: value, tier, title,
+                // flag when a stand-in such as today's reading or your own return was used).
+                'settled_cell'         => $cat['approach_cells'][TierApproachComparison::MARKET_SETTLED] ?? null,
                 // Money-weighted return and the same-window S&P 500 (VUSA.AS) comparison,
                 // shown next to the CAGR figures so all three "per year" views agree.
                 'xirr_pct'             => $cat['xirr_pct'] ?? ($perf['xirr_pct'] ?? null),
@@ -399,6 +406,11 @@ class PortfolioHealthScore
                 'is_stale'             => $cat['is_stale'] ?? false,
                 'is_benchmark'         => $cat['is_benchmark'] ?? false,
                 'explanation'          => $cat['explanation'] ?? '',
+                // Settled tier explanation (or the override reason) and today's tier when it differs.
+                'tier_tooltip'         => $cat['tier_tooltip'] ?? '',
+                'today_chip'           => $cat['today_chip'] ?? null,
+                // Platinum or Gold under most tier approaches (TierApproachComparison::superstar()): the star.
+                'superstar'            => $cat['superstar'] ?? null,
                 'position_start'       => $this->_resolvePositionStart($openWin, $positions),
                 'position_days'        => $this->_resolvePositionDays($openWin, $positions),
             ];

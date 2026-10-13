@@ -75,6 +75,12 @@ $(document).ready(function()
     const $tierFilter     = buildFilterSelect('All tiers',     'tier-filter',     tierValues);
     const $quadrantFilter = buildFilterSelect('All quadrants', 'quadrant-filter', quadrantValues);
     const $actionFilter   = buildFilterSelect('All actions',   'action-filter',   actionValues);
+    // Per-symbol readings (data-signals, built in the BE): the chip shown and a tier signal deferring to it.
+    const signalValues    = [
+        { value: '*', label: 'Any signal' },
+        'Rare high', 'Rare low', 'Deteriorating', 'Range-bound', 'Take profit',
+    ];
+    const $signalFilter   = buildFilterSelect('All signals',   'signal-filter',   signalValues);
 
     // Boolean filter: keep only symbols flagged (data-near-peak="1" in the BE) as within the
     // "near peak" range in at least one quadrant window (3M / 6M / 1Y / 2Y).
@@ -123,7 +129,8 @@ $(document).ready(function()
 
     $('<span>', { class: 'text-muted small fw-semibold text-uppercase' }).text('Filter')
         .appendTo($bar);
-    $bar.append($tierFilter).append($quadrantFilter).append($actionFilter).append($nearPeakFilter);
+    $bar.append($tierFilter).append($quadrantFilter).append($actionFilter).append($signalFilter)
+        .append($nearPeakFilter);
 
     // ── Style the DataTables search label to match Sort / Filter section headers ──
     const $dtSearch = $(dt.table().container()).find('.dt-search');
@@ -144,14 +151,16 @@ $(document).ready(function()
         const tierVal      = $tierFilter.val();
         const quadrantVal  = $quadrantFilter.val().toLowerCase();
         const actionVal    = $actionFilter.val(); // e.g. "" | "ACCUMULATE" | "HOLD|WATCH"
+        const signalVal    = $signalFilter.val(); // "" | "*" (any) | e.g. "Rare high"
         const nearPeakOnly = $nearPeakFilter.find('input').is(':checked');
 
-        if (!tierVal && !quadrantVal && !actionVal && !nearPeakOnly) return true;
+        if (!tierVal && !quadrantVal && !actionVal && !signalVal && !nearPeakOnly) return true;
 
         const $row      = $(dt.row(dataIndex).node());
         const tier      = ($row.data('tier') || '').toLowerCase();
         const quadrants = $row.data('quadrants') || [];
         const actions   = $row.data('actions')   || [];
+        const signals   = $row.data('signals')   || [];
 
         if (tierVal     && !tier.includes(tierVal.toLowerCase()))                 return false;
         if (quadrantVal && !quadrants.some(q => q.toLowerCase() === quadrantVal)) return false;
@@ -160,11 +169,13 @@ $(document).ready(function()
             const actionParts = actionVal.split('|');
             if (!actions.some(a => actionParts.includes(a))) return false;
         }
+        if (signalVal === '*' && signals.length === 0)                            return false;
+        if (signalVal && signalVal !== '*' && !signals.includes(signalVal))        return false;
         if (nearPeakOnly && $row.attr('data-near-peak') !== '1') return false;
         return true;
     });
 
-    $tierFilter.add($quadrantFilter).add($actionFilter).on('change', function()
+    $tierFilter.add($quadrantFilter).add($actionFilter).add($signalFilter).on('change', function()
     {
         dt.draw();
     });

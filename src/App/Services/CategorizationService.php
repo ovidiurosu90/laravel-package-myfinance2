@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace ovidiuro\myfinance2\App\Services;
 
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -52,9 +53,9 @@ final class CategorizationService
         // While caching is off this just recomputes; it does not persist anything.
         // To re-enable, Cache::put(self::CACHE_PREFIX . $userId, $data, self::CACHE_TTL).
         //
-        // The cron is the single writer of the per-symbol tier STATE (the hysteresis memory), so
-        // it passes persistState. The dashboard read path reads that state but never writes it,
-        // which keeps live-vs-snapshot price differences from churning the settled tiers.
+        // The cron is the single writer of the per-symbol tier STATE (today's and the settled tier of
+        // the run, see _persistTierStates()), so it passes persistState. The dashboard read path never
+        // writes it, which keeps live-vs-snapshot price differences from churning the stored tiers.
         return $this->build($userId, persistState: true);
     }
 
@@ -100,10 +101,11 @@ final class CategorizationService
             }
         }
         $tiers       = new TierCalculationService();
-        $classifier  = new TierClassifier($tiers);
+        $classifier  = TierClassifier::fromConfig($tiers);
+        // The legacy own-return rule, for the health card's approach comparison only (no override).
+        $ownClassifier = new TierClassifier($tiers, false);
         $overrides   = $tiers->loadOverrides($userId);
-        // Previously settled computed tiers, fed into the classifier as the hysteresis baseline.
-        $priorTiers  = $tiers->loadStates($userId);
+        $history     = new CategorizationTierHistory($userId, Carbon::today());
 
         $symbols = array_values(array_unique(array_merge(
             array_keys($performance),
@@ -117,9 +119,8 @@ final class CategorizationService
             $perf     = $performance[$symbol] ?? ['has_data' => false];
             $dd       = $drawdown[$symbol] ?? null;
             $inputs   = TierInputs::fromData($symbol, $perf, $dd, $positionReturns[$symbol] ?? null);
-            $decision = $classifier->classify(
-                $inputs, $overrides->get($symbol), $priorTiers[$symbol] ?? null
-            );
+            $decision    = $classifier->classify($inputs, $overrides->get($symbol));
+            $ownDecision = $ownClassifier->classify($inputs, null);
 
             $relDrawdown = $dd['relative_drawdown'] ?? null;
             $quadrant    = QuadrantClassifier::classify($decision->basisValue, $relDrawdown);
@@ -189,8 +190,26 @@ final class CategorizationService
                 // Held under a year, an annualized XIRR extrapolates a sub-year window, so the view
                 // flags it provisional (matching the alpha and gain/y short-period treatment).
                 'xirr_is_short_period'     => $inputs->holdingDays > 0 && $inputs->holdingDays < 365,
-            ]);
+                'own_rule'                 => [
+                    'tier'        => $ownDecision->computedTier,
+                    'value'       => $ownDecision->basisValue,
+                    'basis'       => $ownDecision->basis,
+                    'basis_label' => TierDecision::basisLabel($ownDecision->basis),
+                ],
+            ], $history->entryFor($symbol, $decision));
         }
+
+        // Each symbol's tier under every approach (TierApproachCatalog), for the watchlist's "Today" line and
+        // the health card's approach comparison.
+        foreach ((new TierApproachComparison())->cellsForAll($result, $history->window(), Carbon::today())
+            as $symbol => $cells
+        ) {
+            $result[$symbol]['approach_cells'] = $cells;
+            // Platinum or Gold under most approaches: the star on the Tier line and the approach comparison.
+            $result[$symbol]['superstar']      = TierApproachComparison::superstar($cells);
+        }
+
+        $result = $this->_attachPositionReadings($result, $drawdown, $performance, $positionReturns);
 
         if ($persistState) {
             $this->_persistTierStates($userId, $result);
@@ -200,29 +219,90 @@ final class CategorizationService
     }
 
     /**
-     * Persist each symbol's settled computed tier so the next run can apply hysteresis against it.
-     * Written via the query builder (not Eloquent) so it bypasses the base model's creating hook,
-     * which sets user_id from the authenticated user, unavailable in the cron context. Only the
-     * cron calls this (single writer); the dashboard read path never persists.
+     * The readings that look past the tier at the position: range-bound (RangeBoundPattern, on today's price: live
+     * on the dashboard, the last close in the cron) and then weak tier in profit (WeakTierProfit, on the open
+     * position's gain: the dashboard's position figure, else the performance windows), then the tier signal chip
+     * (TierSignalChip: rare high, rare low, deteriorating). Each is null when it does not hold; a range-bound symbol
+     * is never weak-tier-in-profit, and on either of them the tier signal defers (no chip of its own, named in the
+     * winning reading's tooltip instead), so one symbol shows one chip.
+     */
+    private function _attachPositionReadings(
+        array $result,
+        array $drawdown,
+        array $performance,
+        array $positionReturns
+    ): array
+    {
+        $rangeBound = RangeBoundPattern::fromConfig();
+        $weakProfit = WeakTierProfit::fromConfig();
+        $tierSignal = TierSignalChip::fromConfig();
+        foreach ($result as $symbol => $entry) {
+            $dd   = $drawdown[$symbol] ?? [];
+            $perf = $performance[$symbol] ?? [];
+            $entry['range_bound'] = $rangeBound->detect(
+                $entry, $perf, $dd['live_price_eur'] ?? ($dd['latest_price_eur'] ?? null)
+            );
+
+            [$gainPct, $gainEur] = isset($positionReturns[$symbol]['raw_pct'])
+                ? [(float) $positionReturns[$symbol]['raw_pct'], $positionReturns[$symbol]['gain_eur'] ?? null]
+                : WeakTierProfit::openGain($perf);
+            $entry['take_profit'] = $weakProfit->detect(
+                $entry, $gainPct, $gainEur !== null ? (float) $gainEur : null
+            );
+            $entry['tier_signal_chip'] = $tierSignal->detect($entry);
+            $result[$symbol] = TierSignalChip::noteOnWinner($entry);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Persist each symbol's tier of the run (today's reading), the settled tier (12-month median), the day the
+     * settled tier was first seen and the range-bound, weak-tier-in-profit and tier signal readings (for the alerts
+     * page). Written via the query builder (not Eloquent) so it bypasses the base model's creating hook, which sets
+     * user_id from the authenticated user, unavailable in the cron context. Only the cron calls this (single writer);
+     * the dashboard read path never persists. Rows of symbols no longer traded or watched are soft-deleted; a symbol
+     * that comes back is revived.
      *
-     * @param array $result symbol => categorization entry (must carry 'computed_tier')
+     * @param array $result symbol => categorization entry (must carry 'computed_tier'; 'settled_tier' optional)
      */
     private function _persistTierStates(int $userId, array $result): void
     {
-        $rows = [];
-        $now  = now();
+        $query = DB::connection((new SymbolTierState())->getConnectionName())
+            ->table((new SymbolTierState())->getTable());
+
+        $previous = (clone $query)->where('user_id', $userId)->whereNull('deleted_at')
+            ->get(['symbol', 'settled_tier', 'settled_since'])
+            ->keyBy('symbol');
+
+        $rows  = [];
+        $now   = now();
+        $today = $now->toDateString();
         foreach ($result as $symbol => $entry) {
             $tier = $entry['computed_tier'] ?? null;
             if ($tier === null) {
                 // Nothing settled to remember (Unrated); leave any prior state untouched.
                 continue;
             }
+            $settledTier = $entry['settled_tier'] ?? null;
+            $prior       = $previous->get($symbol);
             $rows[] = [
-                'user_id'    => $userId,
-                'symbol'     => $symbol,
-                'tier'       => $tier,
-                'created_at' => $now,
-                'updated_at' => $now,
+                'user_id'       => $userId,
+                'symbol'        => $symbol,
+                'tier'          => $tier,
+                'settled_tier'  => $settledTier,
+                'settled_since' => self::settledSince(
+                    $settledTier,
+                    $prior->settled_tier ?? null,
+                    $prior->settled_since ?? null,
+                    $today
+                ),
+                'range_bound'   => !empty($entry['range_bound']) ? json_encode($entry['range_bound']) : null,
+                'take_profit'   => !empty($entry['take_profit']) ? json_encode($entry['take_profit']) : null,
+                'tier_signal'   => !empty($entry['tier_signal_chip']) ? json_encode($entry['tier_signal_chip']) : null,
+                'created_at'    => $now,
+                'updated_at'    => $now,
+                'deleted_at'    => null,
             ];
         }
 
@@ -230,8 +310,32 @@ final class CategorizationService
             return;
         }
 
-        DB::connection((new SymbolTierState())->getConnectionName())
-            ->table((new SymbolTierState())->getTable())
-            ->upsert($rows, ['user_id', 'symbol'], ['tier', 'updated_at']);
+        $query->upsert(
+            $rows,
+            ['user_id', 'symbol'],
+            ['tier', 'settled_tier', 'settled_since', 'range_bound', 'take_profit', 'tier_signal', 'updated_at',
+                'deleted_at']
+        );
+        (clone $query)->where('user_id', $userId)->whereNull('deleted_at')
+            ->whereNotIn('symbol', array_keys($result))
+            ->update(['deleted_at' => $now, 'updated_at' => $now]);
+    }
+
+    /**
+     * The day the settled tier was first seen: kept while it is unchanged, today when it changes, null while there
+     * is no settled tier (history too short).
+     */
+    public static function settledSince(
+        ?string $settledTier,
+        ?string $priorTier,
+        ?string $priorSince,
+        string $today
+    ): ?string
+    {
+        if ($settledTier === null) {
+            return null;
+        }
+
+        return $settledTier === $priorTier && $priorSince !== null ? $priorSince : $today;
     }
 }

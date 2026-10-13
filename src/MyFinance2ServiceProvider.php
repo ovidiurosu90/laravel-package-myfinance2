@@ -70,6 +70,8 @@ class MyFinance2ServiceProvider extends ServiceProvider
             \ovidiuro\myfinance2\App\Console\Commands\DipBuyingAlerts::class,
             \ovidiuro\myfinance2\App\Console\Commands\DipBuyingBacktest::class,
             \ovidiuro\myfinance2\App\Console\Commands\PortfolioPeakAlerts::class,
+            \ovidiuro\myfinance2\App\Console\Commands\TierHistoryBackfill::class,
+            \ovidiuro\myfinance2\App\Console\Commands\TierSignalBacktest::class,
         ]);
     }
 

@@ -96,7 +96,10 @@
                                             <th>Sent At</th>
                                             <th>Symbol</th>
                                             <th class="text-right text-nowrap">Price</th>
-                                            <th>Windows</th>
+                                            <th data-bs-toggle="tooltip"
+                                                title="The windows near peak, a range-bound symbol's TRIM / ADD / BUY
+                                                    signal, TAKE PROFIT on a weak tier in profit, or a tier signal"
+                                                >Trigger</th>
                                             <th class="text-right text-nowrap">Closest</th>
                                             <th>Peak Dates</th>
                                             <th>Status</th>
@@ -128,7 +131,7 @@
                                                     <span class="text-muted">-</span>
                                                 @endif
                                             </td>
-                                            <td class="text-nowrap">{{ $notif->triggered_windows }}</td>
+                                            <td class="text-nowrap">{{ $notif->triggerLabel() }}</td>
                                             <td class="text-right text-nowrap">
                                                 @if ($notif->closest_proximity_pct !== null)
                                                     {{ MoneyFormat::get_formatted_pct((float) $notif->closest_proximity_pct) }}%

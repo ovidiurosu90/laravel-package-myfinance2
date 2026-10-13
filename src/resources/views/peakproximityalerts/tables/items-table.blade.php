@@ -2,9 +2,9 @@
 @if (empty($items))
     <p class="text-muted mb-0">
         @if ($view === 'active')
-            No enabled symbols. Switch to <strong>All</strong> to enable the symbols you hold.
+            No enabled symbols. Switch to <strong>All</strong> to enable the symbols you hold or traded before.
         @else
-            No open positions to alert on.
+            No traded symbols to alert on.
         @endif
     </p>
 @else
@@ -36,10 +36,23 @@
                     <td>
                         <input type="checkbox" class="peak-row-checkbox" value="{{ $symbol }}">
                     </td>
-                    <td>
-                        <a href="https://finance.yahoo.com/quote/{{ $symbol }}" target="_blank">
-                            {{ $symbol }}
-                        </a>
+                    {{-- Held symbols first, then the ones traded before (sort key). --}}
+                    <td data-order="{{ $item['held'] ? '0' : '1' }}{{ $symbol }}">
+                        <a href="https://finance.yahoo.com/quote/{{ $symbol }}" target="_blank">{{ $symbol }}</a>
+                        @include('myfinance2::watchlistsymbols.tables.partials.range-bound-chip', [
+                            'range' => $item['range_bound'] ?? null, 'compact' => true,
+                        ])
+                        @include('myfinance2::watchlistsymbols.tables.partials.take-profit-chip', [
+                            'takeProfit' => $item['take_profit'] ?? null, 'compact' => true,
+                        ])
+                        @include('myfinance2::watchlistsymbols.tables.partials.tier-signal-chip', [
+                            'tierSignal' => $item['tier_signal'] ?? null, 'compact' => true,
+                        ])
+                        @if (!$item['held'])
+                            <span class="badge bg-light text-dark border fw-normal" data-bs-toggle="tooltip"
+                                title="Traded before, not held now: only a BUY alert can fire, range-bound (near the
+                                    low of its 52-week range) or a tier signal's rare low.">not held</span>
+                        @endif
                     </td>
                     <td data-search="{{ $enabled ? 'ENABLED' : 'DISABLED' }}">
                         @if ($enabled)
@@ -65,7 +78,7 @@
                                          data-bs-placement="top"
                                          data-bs-custom-class="tooltip-md"
                                          data-bs-html="true"
-                                         data-bs-title="Windows: {{ $notif->triggered_windows }}
+                                         data-bs-title="Trigger: {{ $notif->triggerLabel() }}
                                             @if ($notif->closest_proximity_pct !== null)
                                                 <br>Closest: {{ MoneyFormat::get_formatted_pct((float) $notif->closest_proximity_pct) }}%
                                             @endif">
@@ -105,13 +118,16 @@
                             @if ($enabled)
                                 <button type="submit" class="btn btn-sm btn-outline-secondary w-100"
                                         data-bs-toggle="tooltip"
-                                        title="Stop daily near-peak emails for {{ $symbol }}">
+                                        title="Stop the alert emails for {{ $symbol }}">
                                     <i class="fa fa-fw fa-bell-slash" aria-hidden="true"></i> Disable
                                 </button>
                             @else
                                 <button type="submit" class="btn btn-sm btn-outline-success w-100"
                                         data-bs-toggle="tooltip"
-                                        title="Send a daily near-peak email for {{ $symbol }}">
+                                        title="{{ $item['held']
+                                            ? 'Near-peak, TRIM / ADD when range-bound, or TAKE PROFIT on a weak'
+                                                . ' tier in profit, emails for ' . $symbol
+                                            : 'BUY emails for ' . $symbol . ' when range-bound near the low' }}">
                                     <i class="fa fa-fw fa-bell" aria-hidden="true"></i> Enable
                                 </button>
                             @endif

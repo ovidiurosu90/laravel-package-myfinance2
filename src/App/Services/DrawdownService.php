@@ -588,6 +588,11 @@ class DrawdownService
         if (!$hasEur && !$hasNative) {
             return $entry;
         }
+        if ($hasEur) {
+            // Today's price beside the stored close (left untouched, it is the base of the rescaling below), for
+            // readers that place the live price against stored figures (the range-bound position in the range).
+            $entry['live_price_eur'] = $liveEur;
+        }
 
         // Per-window market return ("Gain"): the stored momentum encodes latest/start, so scaling
         // that ratio by the live/stored move gives the live return without the start price. Needs
@@ -933,11 +938,42 @@ class DrawdownService
      */
     private function _momentumWindow(array $symPrices, int $days): ?array
     {
+        return self::momentumWindowAsOf($symPrices, $days, Carbon::today()->format('Y-m-d'));
+    }
+
+    /**
+     * Market return over the $days before $asOf, exactly as the live momentum (same start/end price
+     * rule, MIN_HISTORY_DAYS guard and raw-vs-CAGR math), using only prices on or before $asOf. The
+     * daily tier history uses it to rebuild the 1Y market return of a past weekday.
+     *
+     * @param array  $pricesByDate dateStr => price (EUR or native; the return is a price ratio)
+     * @param string $asOf         Y-m-d
+     */
+    public static function momentumAsOf(array $pricesByDate, string $asOf, int $days = 365): ?float
+    {
+        $window = self::momentumWindowAsOf($pricesByDate, $days, $asOf);
+        if ($window === null) {
+            return null;
+        }
+
+        return self::_momentumPct($window['start_price_eur'], $window['end_price_eur'], $days);
+    }
+
+    /**
+     * The two closes a window's market return is measured between, as of $asOf: the latest close on or
+     * before it and the first close on or after ($asOf - $days). The prices come back in whatever unit
+     * $symPrices uses (the keys say "eur" because the live series is EUR-converted).
+     *
+     * @return array{start_date:string,start_price_eur:float,end_date:string,end_price_eur:float}|null
+     */
+    public static function momentumWindowAsOf(array $symPrices, int $days, string $asOf): ?array
+    {
+        $symPrices = array_filter($symPrices, fn ($d) => $d <= $asOf, ARRAY_FILTER_USE_KEY);
         if (count($symPrices) < self::MIN_HISTORY_DAYS) {
             return null;
         }
 
-        $cutoff      = Carbon::today()->subDays($days)->format('Y-m-d');
+        $cutoff      = Carbon::parse($asOf)->subDays($days)->format('Y-m-d');
         $latestDate  = max(array_keys($symPrices));
         $latestPrice = $symPrices[$latestDate];
 
@@ -970,7 +1006,7 @@ class DrawdownService
      * extrapolating short windows inflates numbers). >=1Y: CAGR so multi-year periods are
      * comparable to the 1Y baseline.
      */
-    private function _momentumPct(float $startPrice, float $endPrice, int $days): float
+    private static function _momentumPct(float $startPrice, float $endPrice, int $days): float
     {
         if ($days < 365) {
             return ($endPrice - $startPrice) / $startPrice * 100.0;

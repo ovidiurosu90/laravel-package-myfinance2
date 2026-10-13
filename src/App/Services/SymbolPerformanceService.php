@@ -28,6 +28,8 @@ class SymbolPerformanceService
     public const MIN_CAGR_DAYS = 365;
 
     private array $_eurRates = [];
+    // Set only while computeAsOf() runs: the day the result describes (start of day).
+    private ?Carbon $_asOf = null;
 
     public function handle(int $userId): array
     {
@@ -180,6 +182,38 @@ class SymbolPerformanceService
         return $eurRates;
     }
 
+    /**
+     * The performance map as it stood at the end of a past day $asOf (uncached), for the daily tier
+     * history. Same window, gain and annualization rules as the live compute, with these differences:
+     * only trades and dividends up to $asOf count, FX rates and the latest price are those on or before
+     * $asOf, durations run to $asOf, and CLOSED trades are not skipped in an open window (a window
+     * closed later was open on $asOf, and its trades may all be CLOSED now). Light mode: no peak gains,
+     * XIRR or extended metrics, which the tier does not use. computeAsOf(today) matches the live
+     * result for symbols without CLOSED trades in an open window.
+     */
+    public function computeAsOf(Carbon $asOf, PerformanceDataset $data): array
+    {
+        $trades = $data->tradesUpTo($asOf);
+        if ($trades->isEmpty()) {
+            return [];
+        }
+
+        $this->_asOf = $asOf->copy()->startOfDay();
+        try {
+            $this->_eurRates = $data->eurRatesOn($asOf);
+            $windows         = (new SymbolPerformanceWindowBuilder())->build($trades);
+
+            $latestPrices = [];
+            foreach (array_keys($windows) as $symbol) {
+                $latestPrices[$symbol] = $data->priceOnOrBefore($symbol, $asOf);
+            }
+
+            return $this->_computeFromWindows($windows, $data->dividendsUpTo($asOf), $latestPrices, []);
+        } finally {
+            $this->_asOf = null;
+        }
+    }
+
     private function _compute(int $userId): array
     {
         $trades = $this->_loadTrades($userId);
@@ -188,18 +222,32 @@ class SymbolPerformanceService
         }
 
         $dividends = $this->_loadDividends($userId);
-        $dividendsBySymbol = [];
-        foreach ($dividends as $dividend) {
-            $dividendsBySymbol[$dividend->symbol][] = $dividend;
-        }
-
-        $windows = (new SymbolPerformanceWindowBuilder())->build($trades);
+        $windows   = (new SymbolPerformanceWindowBuilder())->build($trades);
 
         $symbols = array_keys($windows);
         $this->_loadEurRates($trades, $dividends);
 
         $latestPrices = $this->_loadLatestPrices($symbols);
         $historicalPrices = $this->_loadHistoricalPrices($symbols, $windows);
+
+        return $this->_computeFromWindows($windows, $dividends, $latestPrices, $historicalPrices);
+    }
+
+    /**
+     * Shared by the live and the as-of compute. In as-of mode ($this->_asOf set) peak gains are
+     * skipped and the result is built in light mode.
+     */
+    private function _computeFromWindows(
+        array $windows,
+        Collection $dividends,
+        array $latestPrices,
+        array $historicalPrices
+    ): array
+    {
+        $dividendsBySymbol = [];
+        foreach ($dividends as $dividend) {
+            $dividendsBySymbol[$dividend->symbol][] = $dividend;
+        }
 
         foreach ($windows as $symbol => &$symWindows) {
             $this->_computeWindowGains($symWindows);
@@ -208,7 +256,9 @@ class SymbolPerformanceService
                 $dividendsBySymbol[$symbol] ?? []
             );
             $this->_computeUnrealizedGains($symWindows, $latestPrices[$symbol] ?? null);
-            $this->_computePeakGains($symWindows, $historicalPrices[$symbol] ?? []);
+            if ($this->_asOf === null) {
+                $this->_computePeakGains($symWindows, $historicalPrices[$symbol] ?? []);
+            }
             $this->_finalizeWindows($symWindows);
         }
         unset($symWindows);
@@ -478,7 +528,9 @@ class SymbolPerformanceService
                 // keeps the cost basis and remaining qty in sync with the Positions
                 // overview, which only counts OPEN-status trades.
                 // For closed windows every trade counts — no filter applied.
-                if ($window['is_open'] && $trade->status === 'CLOSED') {
+                // As-of mode keeps them: the CLOSED status was set later, with no record of when,
+                // so on a past day the lot may still have been held.
+                if ($window['is_open'] && $trade->status === 'CLOSED' && $this->_asOf === null) {
                     continue;
                 }
 
@@ -664,7 +716,7 @@ class SymbolPerformanceService
 
     private function _finalizeWindows(array &$windows): void
     {
-        $today = Carbon::today();
+        $today = $this->_asOf ?? Carbon::today();
         foreach ($windows as &$window) {
             $window['total_gain_eur'] = $window['realized_gain_eur']
                 + $window['unrealized_gain_eur']
@@ -781,7 +833,9 @@ class SymbolPerformanceService
         // Money-weighted annualized return (XIRR): the "how did my actual money do" figure,
         // accounting for the timing and size of every buy, sell and dividend. Shown alongside
         // CAGR, not instead of it (see Xirr for why they answer different questions).
-        $xirrPct = $this->_symbolXirr($windows, $totalDays);
+        // As-of (light) mode skips it: the tier never uses XIRR.
+        $isLight = $this->_asOf !== null;
+        $xirrPct = $isLight ? null : $this->_symbolXirr($windows, $totalDays);
         if ($windowCount === 1) {
             $holdingPeriodDisplay = $windows[0]['period_display']
                 . ($windows[0]['is_open'] ? ' (open)' : '');
@@ -813,8 +867,12 @@ class SymbolPerformanceService
             ? ($tradeGainEur / $totalGainEur) * 100.0
             : null;
 
-        $extendedMetrics = (new SymbolPerformanceMetrics())
-            ->compute($windows, $dividends, $this->_eurRates);
+        $extendedMetrics = $isLight
+            ? [
+                'win_rate' => null, 'best_window_index' => null, 'projected_annual_dividend_eur' => null,
+                're_entry_flags' => [], 'time_pattern_summary' => null,
+            ]
+            : (new SymbolPerformanceMetrics())->compute($windows, $dividends, $this->_eurRates);
 
         return [
             'has_data'                    => true,

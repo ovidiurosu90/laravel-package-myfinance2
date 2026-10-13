@@ -19,7 +19,8 @@
                                 </a>
                                 <a href="{{ route('myfinance2::peak-proximity-alerts.index', ['view' => 'all']) }}"
                                    class="btn {{ $view === 'all' ? 'btn-primary' : 'btn-outline-secondary' }}"
-                                   data-bs-toggle="tooltip" title="All held symbols, enabled or not">
+                                   data-bs-toggle="tooltip" title="All held symbols, then the ones you traded before
+                                       (range-bound and tier signal BUY alerts only), enabled or not">
                                     All
                                 </a>
                             </div>
@@ -35,6 +36,9 @@
                     <div class="card-body p-0">
                         <div class="p-3">
                             @include('myfinance2::peakproximityalerts.partials.rules')
+                            @if($view === 'active')
+                                @include('myfinance2::peakproximityalerts.partials.range-not-enabled-note')
+                            @endif
 
                             <div id="peak-bulk-action-bar" style="display:none"
                                  class="d-flex align-items-center gap-2 flex-wrap mb-2">

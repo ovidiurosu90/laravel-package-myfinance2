@@ -47,11 +47,17 @@ final class TierDecision
         // label is soft. Cosmetic only; never changes the tier.
         public readonly bool    $isBorderline = false,
         // True when the symbol's 1Y market return was the proxy we would otherwise have used to
-        // tier it, but it fell outside the trusted band and was rejected as a data artifact, so the
+        // tier it, but it fell below the trusted floor and was rejected as a data artifact, so the
         // tier fell back to the position's own (or realized) return. An irregularity worth flagging.
         public readonly bool    $marketArtifact = false,
         // Human-readable explanation of that irregularity (empty when $marketArtifact is false).
         public readonly string  $marketArtifactNote = '',
+        // True when the tier is decided by a 1Y market return above the unusual-move line (+200 %). The
+        // figure is used (a real rally, e.g. a memory or AI supplier), but flagged so a data error such as a
+        // missed reverse split would not pass unnoticed.
+        public readonly bool    $marketUnusual = false,
+        // Human-readable explanation of that warning (empty when $marketUnusual is false).
+        public readonly string  $marketUnusualNote = '',
         // True when the symbol was held before but every position is now closed (it has a realized
         // return, yet is tiered like a watchlist symbol). Lets the view say why the market decides.
         public readonly bool    $isExited = false
@@ -101,6 +107,8 @@ final class TierDecision
             'is_borderline'  => $this->isBorderline,
             'market_artifact'      => $this->marketArtifact,
             'market_artifact_note' => $this->marketArtifactNote,
+            'market_unusual'       => $this->marketUnusual,
+            'market_unusual_note'  => $this->marketUnusualNote,
         ];
     }
 }
