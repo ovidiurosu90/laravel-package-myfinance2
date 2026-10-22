@@ -207,6 +207,44 @@ class MoneyFormat
                . $currencyDisplayCode . '</span>';
     }
 
+    /**
+     * get_formatted_gain() as plain text, its words without the colour span and joined by non-breaking spaces so
+     * the figure never wraps: "+ 6.31 %", "- 353.47 €", "0 %". For text Blade escapes (an email header line) and
+     * for signed figures that are not a gain or loss to colour (a distance to a target or a level).
+     *
+     * @param string     $currencyDisplayCode
+     * @param float|null $value
+     * @param string     $null what a missing value reads as
+     *
+     * @return string
+     */
+    public static function get_formatted_gain_plain($currencyDisplayCode, $value, string $null = 'n/a'): string
+    {
+        if ($value === null) {
+            return $null;
+        }
+
+        return str_replace(' ', "\u{00A0}", strip_tags(self::get_formatted_gain($currencyDisplayCode, $value)));
+    }
+
+    /**
+     * A compact signed percentage for email subjects, where space is short: "+1.20%", "-3.49%", "0.00%". Email
+     * bodies use get_formatted_gain() / get_formatted_gain_plain() ("+ 1.20 %"), as the web pages do.
+     *
+     * @param float|null $value
+     * @param string     $null what a missing value reads as
+     *
+     * @return string
+     */
+    public static function get_formatted_signed_pct_compact(?float $value, string $null = 'n/a'): string
+    {
+        if ($value === null) {
+            return $null;
+        }
+
+        return ($value > 0 ? '+' : '') . self::get_formatted_pct($value) . '%';
+    }
+
 
 
     /**

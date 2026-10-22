@@ -1,8 +1,8 @@
 <div class="mb-3 has-feedback row {{ $errors->has('trade_currency_id') ? 'has-error' : '' }}">
-    <label for="trade_currency-select" class="col-5 control-label">
+    <label for="trade_currency-select" class="col-7 control-label">
         {{ trans('myfinance2::alerts.forms.item-form.trade_currency.label') }}
     </label>
-    <div class="col-7 p-0 m-0 pt-1 pr-3 text-muted text-right small"
+    <div class="col-5 p-0 m-0 pt-1 pr-3 text-muted text-right small"
         id="fetched-trade-currency" style="display: none">
         <span></span>
     </div>

@@ -30,6 +30,12 @@ $(document).ready(function()
         return label === '¤' ? '' : label;
     };
 
+    // Price, then the currency code, as MoneyFormat::get_formatted_price_display: "114.00 $".
+    var withCurrency = function(price, currency)
+    {
+        return currency ? price + ' ' + currency : price;
+    };
+
     var setPreview = function(lines)
     {
         $preview.empty();
@@ -51,9 +57,9 @@ $(document).ready(function()
         if (!firesNow) return null;
 
         return {
-            cls: 'text-warning',
-            text: 'The current price (' + referenceData.live_price_label + ') already meets this target, '
-                + 'so the alert would fire on the next check.',
+            cls: 'alert alert-warning py-1 px-2 mt-1 mb-0',
+            text: 'The current price (' + withCurrency(referenceData.live_price_label, currencyLabel())
+                + ') already meets this target; fires on the next check.',
         };
     };
 
@@ -66,18 +72,17 @@ $(document).ready(function()
     };
 
     // One sentence joining both settings: the alert type is the crossing direction, the
-    // reference and offset say where the target sits. E.g. "Fires when the price rises to or
-    // above 114.00: 5% below the 52W closing high of 120.00 USD (12 Mar 2026)."
+    // reference and offset say where the target sits. Kept short enough for one line, e.g.
+    // "Fires at or above 114.00 $: 5% below the 52W closing high of 120.00 $ (12 Mar 2026)."
     var summaryLine = function(ref, offset, target, currency)
     {
-        var crossing = $alertType.val() === 'PRICE_BELOW' ? 'falls to or below' : 'rises to or above';
+        var crossing = $alertType.val() === 'PRICE_BELOW' ? 'at or below' : 'at or above';
         var position = offset > 0
             ? offset + '% ' + (ref.direction < 0 ? 'below' : 'above') + ' the '
             : 'at the ';
 
-        return 'Fires when the price ' + crossing + ' ' + formatPrice(target) + (currency ? ' ' + currency : '')
-            + ': ' + position + ref.reference_label + ' of ' + ref.price_label + (currency ? ' ' + currency : '')
-            + ' (' + ref.date_label + ').';
+        return 'Fires ' + crossing + ' ' + withCurrency(formatPrice(target), currency) + ': ' + position
+            + ref.reference_label + ' of ' + withCurrency(ref.price_label, currency) + ' (' + ref.date_label + ').';
     };
 
     var updateOffsetSign = function()
@@ -107,8 +112,7 @@ $(document).ready(function()
 
         var target   = Math.round(ref.price * (1 + ref.direction * offset / 100) * 1e6) / 1e6;
         var currency = currencyLabel();
-        var refText  = ref.reference_label + ' ' + ref.price_label + (currency ? ' ' + currency : '')
-            + ' on ' + ref.date_label;
+        var refText  = ref.reference_label + ' ' + withCurrency(ref.price_label, currency) + ' on ' + ref.date_label;
         var lines    = [{ cls: 'text-body', text: summaryLine(ref, offset, target, currency) }];
 
         if (ref.backfill) {

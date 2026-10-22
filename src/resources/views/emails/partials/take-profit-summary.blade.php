@@ -2,7 +2,7 @@
      the open position's gain, and every window with its peak as context, the windows near peak highlighted.
      Included by peak-proximity-alert, whose variables it reads. --}}
 @use('ovidiuro\myfinance2\App\Services\MoneyFormat')
-<div class="section" style="border-left-color:#198754;">
+<div class="section" style="border-left-color:#28a745;">
     <h2>Summary</h2>
     <p>
         <strong>@if (!empty($tierLabel)){{ $tierLabel }}; @endif{{ $headline }}.</strong>

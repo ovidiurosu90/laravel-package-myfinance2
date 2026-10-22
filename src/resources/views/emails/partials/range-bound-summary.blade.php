@@ -27,7 +27,7 @@
                 class="badge bg-info">in zone</span>@endif</td>
             <td class="text-nowrap">{!! MoneyFormat::get_formatted_price_display($cur, $level['price'], true) !!}</td>
             <td class="text-nowrap">{{ $level['date'] ?? '' }}</td>
-            <td class="text-nowrap">{{ $signedPct($level['from_price_pct']) }}</td>
+            <td class="text-nowrap">{{ MoneyFormat::get_formatted_gain_plain('%', $level['from_price_pct']) }}</td>
         </tr>
         @endforeach
     </table>

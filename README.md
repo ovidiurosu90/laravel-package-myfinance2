@@ -451,6 +451,31 @@ Env (all optional): `MYFINANCE2_PORTFOLIO_PEAK_ENABLED` (true); `MYFINANCE2_PORT
 `MYFINANCE2_PORTFOLIO_PEAK_EMAIL_TO` (the alerts email, then the user's).
 
 
+### Emails
+
+Every email this package sends, and what sends it. Recipient: `MYFINANCE2_ALERTS_EMAIL_TO`, else the user's email
+(the peak-proximity, dip buying and portfolio peak emails each take their own `..._EMAIL_TO` first, see above).
+
+| Kind | Mailable | Sent by |
+|------|----------|---------|
+| `price-alert` | `PriceAlertTriggered` | `app:finance-api-cron` when an active price alert reaches its target |
+| `price-alert-split` | `PriceAlertTriggered` | the same check, instead, when the target is so far from the price that a split is likely |
+| `alert-created` | `PriceAlertCreated` | creating an alert, or a batch of suggested ones, on `/price-alerts` |
+| `alert-paused` | `PriceAlertStateChanged` | pausing or resuming alerts on `/price-alerts` |
+| `peak-proximity` | `PeakProximityAlert` | `finance:peak-proximity-alerts`: near peak, range-bound, take profit and tier signal |
+| `portfolio-peak` | `PortfolioPeakAlert` | `finance:portfolio-peak-alerts` |
+| `dip-buying` | `DipBuyingAlert` | `finance:dip-buying-alerts` |
+| `split-applied` | `SplitApplied` | applying (or re-applying) a stock split on `/stock-splits` |
+| `returns-missing-quotes` | `ReturnsMissingQuotes` | `app:finance-api-cron --refresh-returns` (see "Refresh returns data") |
+
+**Samples.** `EmailSamples::builders($userId)` builds one sample of each kind above, for the host app to send and
+check how they look in a mail client (laravel-admin's `emails:samples` does this, adding its own emails). Built from
+the user's real data where that is read-only (the price alert at the live price, today's peak-proximity readings, the
+portfolio peak and dip buying figures), else from sample figures (the split, the returns warning). Persists nothing:
+no alert fires and no notification, inbox or throttle row is written, so the real alert crons are unaffected. A kind
+no data reads that way today is skipped. The caller authenticates as the user (read-only) before building.
+
+
 ### Running tests
 
 Unit tests live in this package; feature tests live in the root project (they need the full Laravel application).

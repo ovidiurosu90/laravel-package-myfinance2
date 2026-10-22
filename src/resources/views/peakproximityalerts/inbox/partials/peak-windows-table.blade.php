@@ -18,7 +18,8 @@
             <tr class="text-nowrap @if ($isNear) table-success @endif">
                 <td class="pe-3">{{ $w['label'] }}@if ($isNear) <span
                     class="badge bg-success ms-1">near peak</span>@endif</td>
-                <td class="pe-3">{{ $signedPct($w['prox'] ?? null) }}</td>
+                <td class="pe-3">{!! ($w['prox'] ?? null) !== null
+                    ? MoneyFormat::get_formatted_gain('%', $w['prox']) : 'n/a' !!}</td>
                 <td class="pe-3">{!! ($w['peak'] ?? null) !== null
                     ? MoneyFormat::get_formatted_price_display($cur, $w['peak'], true) : 'n/a' !!}</td>
                 <td class="pe-3">{{ $w['date'] ?? 'n/a' }}</td>
@@ -26,7 +27,8 @@
                     @if (($w['target'] ?? null) !== null)
                         {!! MoneyFormat::get_formatted_price_display($cur, $w['target'], true) !!}{{--
                         --}}@if (($w['thr'] ?? null) !== null) <span
-                            class="text-muted">({{ $signedPct(-(float) $w['thr']) }})</span>@endif
+                            class="text-muted">({{ MoneyFormat::get_formatted_gain_plain(
+                                '%', -(float) $w['thr']) }})</span>@endif
                     @else
                         n/a
                     @endif
@@ -35,7 +37,7 @@
                     @if ($isNear)
                         <span class="text-success">in zone</span>
                     @elseif (($w['to_go'] ?? null) !== null)
-                        {{ $signedPct($w['to_go']) }}
+                        {{ MoneyFormat::get_formatted_gain_plain('%', $w['to_go']) }}
                     @else
                         n/a
                     @endif

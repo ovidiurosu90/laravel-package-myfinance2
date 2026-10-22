@@ -7,6 +7,7 @@ namespace ovidiuro\myfinance2\Mail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Str;
 
 use ovidiuro\myfinance2\App\Models\StockSplit;
 use ovidiuro\myfinance2\Mail\Concerns\HasAppLabel;
@@ -42,7 +43,8 @@ class SplitApplied extends Mailable
         $label        = $this->_appLabel();
 
         $subject = "{$label} Split {$split->getRatioLabel()} for {$split->symbol} applied"
-            . " — {$tradesCount} trade(s) updated, {$alertsCount} alert(s) adjusted";
+            . " => {$tradesCount} " . Str::plural('trade', $tradesCount) . ' updated, '
+            . "{$alertsCount} " . Str::plural('alert', $alertsCount) . ' adjusted';
 
         return $this->subject($subject)
             ->view('myfinance2::emails.split-applied')

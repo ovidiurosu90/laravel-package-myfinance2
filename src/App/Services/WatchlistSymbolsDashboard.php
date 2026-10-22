@@ -16,6 +16,7 @@ use ovidiuro\myfinance2\App\Services\WatchlistTableMetaBuilder;
 use ovidiuro\myfinance2\App\Services\PeakExitPnlBuilder;
 use ovidiuro\myfinance2\App\Services\Positions;
 use ovidiuro\myfinance2\App\Services\StaleQuoteService;
+use ovidiuro\myfinance2\App\Services\SymbolPositionReturns;
 use ovidiuro\myfinance2\App\Services\SymbolPerformanceService;
 use ovidiuro\myfinance2\App\Services\TechnicalIndicatorsService;
 use ovidiuro\myfinance2\App\Services\FinanceUtils;
@@ -88,19 +89,7 @@ class WatchlistSymbolsDashboard
             $items[$symbol]['base_value']      = null;
         }
 
-        $liveEurRates = ['EUR' => 1.0];
-        foreach ($positionsData['exchangeRateData'] ?? [] as $data) {
-            if (($data['account_currency'] ?? null) === 'EUR'
-                && !empty($data['exchange_rate'])
-                && $data['exchange_rate'] > 0
-            ) {
-                $liveEurRates[$data['trade_currency']] = 1.0 / (float) $data['exchange_rate'];
-            }
-        }
-        if (isset($liveEurRates['GBP'])) {
-            $liveEurRates['GBp'] = $liveEurRates['GBP'] / 100.0;
-            $liveEurRates['GBX'] = $liveEurRates['GBP'] / 100.0;
-        }
+        $liveEurRates = SymbolPositionReturns::liveEurRates($positionsData['exchangeRateData'] ?? []);
 
         if (!empty($positionsData['groupedItems'])) {
             $averageUnitCosts = [];
@@ -309,16 +298,18 @@ class WatchlistSymbolsDashboard
             $items[$symbol]['unrealized_gain_eur'] = $positionReturns[$symbol]['gain_eur'] ?? null;
             $items[$symbol]['unrealized_gain_pct'] = $positionReturns[$symbol]['raw_pct'] ?? null;
             // Today's move on the held shares: the day's P&L in EUR and the symbol's daily price
-            // change %. Surfaced in the peak-proximity email to explain "why now".
+            // change %. Surfaced in the peak-proximity email to explain "why now". A symbol not held
+            // still has today's % (from its quote), so its alerts show the move too.
             $items[$symbol]['today_gain_eur'] = $positionReturns[$symbol]['today_gain_eur'] ?? null;
-            $items[$symbol]['today_gain_pct'] = $positionReturns[$symbol]['today_gain_pct'] ?? null;
+            $items[$symbol]['today_gain_pct'] = $positionReturns[$symbol]['today_gain_pct']
+                ?? SymbolPositionReturns::quoteDayChangePct($quoteData);
         }
 
         return [$items, $categorization];
     }
 
     /**
-     * Build a symbol => ['raw_pct' => ?float, 'days' => int] map from open positions.
+     * Build a symbol => SymbolPositionReturns::fromOpenPositions() map from open positions.
      * The percentage cancels currency for single-currency holdings; EUR conversion only
      * matters when a symbol is held across accounts in different currencies.
      */
@@ -326,40 +317,10 @@ class WatchlistSymbolsDashboard
     {
         $returns = [];
         foreach ($items as $symbol => $quoteData) {
-            $positions = $quoteData['open_positions'] ?? [];
-            if (empty($positions)) {
-                continue;
+            $figures = SymbolPositionReturns::fromOpenPositions($quoteData['open_positions'] ?? [], $eurRates);
+            if ($figures !== null) {
+                $returns[$symbol] = $figures;
             }
-
-            $mvalue    = 0.0;
-            $cost      = 0.0;
-            $todayEur  = 0.0;
-            $todayPct  = null;
-            $earliest  = null;
-            foreach ($positions as $position) {
-                $currency  = $position['accountModel']->currency->iso_code ?? 'EUR';
-                $rate      = (float) ($eurRates[$currency] ?? 1.0);
-                $mvalue   += (float) ($position['market_value_in_account_currency'] ?? 0.0) * $rate;
-                $cost     += (float) ($position['cost2_in_account_currency'] ?? 0.0) * $rate;
-                $todayEur += (float) ($position['day_change_in_account_currency'] ?? 0.0) * $rate;
-                // Same daily price move across every account holding the symbol; keep the first seen.
-                if ($todayPct === null && ($position['day_change_percentage'] ?? null) !== null) {
-                    $todayPct = (float) $position['day_change_percentage'];
-                }
-                foreach ($position['trades'] ?? [] as $trade) {
-                    if ($earliest === null || $trade->timestamp < $earliest) {
-                        $earliest = $trade->timestamp;
-                    }
-                }
-            }
-
-            $returns[$symbol] = [
-                'raw_pct'        => $cost > 0.0 ? ($mvalue - $cost) / $cost * 100.0 : null,
-                'gain_eur'       => round($mvalue - $cost, 2),
-                'today_gain_eur' => round($todayEur, 2),
-                'today_gain_pct' => $todayPct,
-                'days'           => $earliest !== null ? (int) $earliest->diffInDays(now()) : 0,
-            ];
         }
 
         return $returns;

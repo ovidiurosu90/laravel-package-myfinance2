@@ -390,7 +390,7 @@ final class PortfolioPeakAlertService
 
         $changePctCurrent = !empty($changePctSeries) ? (float) end($changePctSeries) : null;
         $changeEurCurrent = !empty($changeEurSeries) ? (float) end($changeEurSeries) : null;
-        $vusaChangePct    = $this->_vusaChangePct();
+        $vusaChangePct    = $this->vusaChangePct();
 
         $notification = PortfolioPeakNotification::create([
             'user_id'               => $userId,
@@ -433,7 +433,7 @@ final class PortfolioPeakAlertService
      *
      * @return float|null
      */
-    private function _vusaChangePct(): ?float
+    public function vusaChangePct(): ?float
     {
         $prices = $this->_loadBenchmarkPrices(
             now()->subDays(self::WINDOW_DAYS['2y'])->format('Y-m-d')

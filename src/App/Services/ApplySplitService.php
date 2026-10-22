@@ -154,6 +154,7 @@ class ApplySplitService
                 'alert_type'       => $alert->alert_type,
                 'old_target_price' => (float) $oldPrice,
                 'new_target_price' => (float) $newPrice,
+                'currency'         => $alert->tradeCurrencyModel?->iso_code ?? '',
             ];
 
             $alert->target_price = $newPrice;

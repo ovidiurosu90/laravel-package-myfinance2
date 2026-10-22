@@ -36,6 +36,15 @@ final class PeakProximityRangeSignals
     ];
 
     /**
+     * The signal a range-bound reading raises (RANGE_HIGH / RANGE_LOW / RANGE_BUY), or null for none (mid-range,
+     * or near the high without a position).
+     */
+    public static function signalFor(?array $range): ?string
+    {
+        return self::SIGNALS[$range['action'] ?? ''] ?? null;
+    }
+
+    /**
      * Evaluate one opted-in symbol (held or exited) whose categorization carries a range-bound reading, updating the
      * run's stats (processed, triggered, skipped, failed, symbols) and the symbols already emailed today.
      */
@@ -48,8 +57,7 @@ final class PeakProximityRangeSignals
         array &$stats
     ): void
     {
-        $range  = $quoteData['categorization']['range_bound'] ?? [];
-        $signal = self::SIGNALS[$range['action'] ?? ''] ?? null;
+        $signal = self::signalFor($quoteData['categorization']['range_bound'] ?? null);
         if ($signal === null) {
             return; // mid-range, or near the high without a position: nothing to raise
         }

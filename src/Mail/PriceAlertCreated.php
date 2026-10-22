@@ -7,6 +7,7 @@ namespace ovidiuro\myfinance2\Mail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Str;
 
 use ovidiuro\myfinance2\App\Services\MoneyFormat;
 use ovidiuro\myfinance2\Mail\Concerns\HasAppLabel;
@@ -49,12 +50,15 @@ class PriceAlertCreated extends Mailable
         $label = $this->_appLabel();
 
         if ($this->_source === 'suggestion') {
-            $subject = "{$label} {$count} price alert suggestion(s) created";
+            $subject = "{$label} {$count} price alert " . Str::plural('suggestion', $count) . ' created';
         } else {
             $typeLabel = $first->alert_type === 'PRICE_ABOVE' ? '▲ Above' : '▼ Below';
-            $currency  = $first->tradeCurrencyModel?->iso_code ?? '';
-            $subject   = "{$label} Alert created — {$first->symbol} {$typeLabel}"
-                . ' ' . MoneyFormat::get_formatted_price((float) $first->target_price, true) . ($currency ? " {$currency}" : '');
+            // The currency as the price alert subject and this email's table show it ("39.00 €")
+            $currency  = html_entity_decode(strip_tags($first->tradeCurrencyModel?->display_code ?? ''),
+                ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            // "SYMBOL <event> => <detail>", the shape of the alert subjects.
+            $subject   = "{$label} {$first->symbol} price alert created => {$typeLabel} "
+                . trim(MoneyFormat::get_formatted_price_display($currency, (float) $first->target_price, true));
         }
 
         return $this->subject($subject)

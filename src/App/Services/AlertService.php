@@ -38,9 +38,21 @@ class AlertService
     /** Resolves the targets of RELATIVE alerts (DB only, cached per symbol per day). */
     private AlertReferenceResolver $_referenceResolver;
 
-    public function __construct(?AlertReferenceResolver $referenceResolver = null)
+    /** The email's position figures (today's move, unrealized gain), as the peak alerts and /positions read them. */
+    private SymbolPositionReturns $_positionReturns;
+
+    /** The email's tier and chip, as of the last hourly cron run (no categorization run here). */
+    private StoredTierReading $_tierReadings;
+
+    public function __construct(
+        ?AlertReferenceResolver $referenceResolver = null,
+        ?SymbolPositionReturns $positionReturns = null,
+        ?StoredTierReading $tierReadings = null
+    )
     {
         $this->_referenceResolver = $referenceResolver ?? new AlertReferenceResolver();
+        $this->_positionReturns   = $positionReturns ?? new SymbolPositionReturns();
+        $this->_tierReadings      = $tierReadings ?? new StoredTierReading();
     }
 
     /**
@@ -155,8 +167,9 @@ class AlertService
 
             $tradeCurrency = $alert->tradeCurrencyModel?->iso_code ?? '';
             $projectedGain = $this->_calculateProjectedGainForUser($userId, $alert, $currentPrice, $tradeCurrency);
+            $position      = $this->emailPosition($userId, $alert->symbol, $quotes[$alert->symbol], $projectedGain);
 
-            $sent = $this->_sendAlertEmail($alert, $currentPrice, $projectedGain, $userId);
+            $sent = $this->_sendAlertEmail($alert, $currentPrice, $position, $userId);
 
             if ($sent) {
                 $alert->increment('trigger_count');
@@ -561,11 +574,46 @@ class AlertService
     }
 
     /**
+     * The position figures of the alert email: today's move and the unrealized gain if sold now (fees included, in
+     * EUR across every account), from SymbolPositionReturns so they match the peak alerts and /positions. A symbol
+     * not held keeps only today's move % (from its quote). When the positions cannot be loaded, a held symbol falls
+     * back to the fee-less projected gain.
+     *
+     * @param int        $userId
+     * @param string     $symbol
+     * @param array      $quote         FinanceUtils::getQuotes() entry of the symbol
+     * @param array|null $projectedGain _calculateProjectedGainForUser()
+     *
+     * @return array ['today_gain_eur', 'today_gain_pct', 'gain_eur', 'gain_pct', 'quantity', 'avg_unit_cost']
+     */
+    public function emailPosition(int $userId, string $symbol, array $quote, ?array $projectedGain): array
+    {
+        $figures = $this->_positionReturns->forUser($userId)[$symbol] ?? null;
+        if ($figures === null && $projectedGain !== null) {
+            $figures = [
+                'gain_eur'       => $projectedGain['gain_eur'],
+                'raw_pct'        => $projectedGain['gain_pct'],
+                'quantity'       => $projectedGain['total_qty'],
+                'avg_unit_cost2' => $projectedGain['avg_cost'],
+            ];
+        }
+
+        return [
+            'today_gain_eur' => $figures['today_gain_eur'] ?? null,
+            'today_gain_pct' => $figures['today_gain_pct'] ?? SymbolPositionReturns::quoteDayChangePct($quote),
+            'gain_eur'       => $figures['gain_eur'] ?? null,
+            'gain_pct'       => $figures['raw_pct'] ?? null,
+            'quantity'       => $figures['quantity'] ?? null,
+            'avg_unit_cost'  => $figures['avg_unit_cost2'] ?? null,
+        ];
+    }
+
+    /**
      * Send the price alert triggered email.
      *
      * @param PriceAlert $alert
      * @param float      $currentPrice
-     * @param array|null $projectedGain
+     * @param array      $position     emailPosition()
      * @param int        $userId
      *
      * @return bool
@@ -573,7 +621,7 @@ class AlertService
     private function _sendAlertEmail(
         PriceAlert $alert,
         float $currentPrice,
-        ?array $projectedGain,
+        array $position,
         int $userId
     ): bool
     {
@@ -584,10 +632,12 @@ class AlertService
             return false;
         }
 
-        $notification = $this->_createNotificationRecord($alert, $currentPrice, $projectedGain, $userId, 'SENT');
+        $notification = $this->_createNotificationRecord($alert, $currentPrice, $position, $userId, 'SENT');
 
         try {
-            $mailable = new PriceAlertTriggered($alert, $currentPrice, $projectedGain);
+            $mailable = new PriceAlertTriggered(
+                $alert, $currentPrice, $position, false, $this->_tierReadings->forSymbol($userId, $alert->symbol)
+            );
             AlertMailer::send($emailTo, $mailable, 'AlertService');
         } catch (\Throwable $e) {
             Log::error("AlertService: email send failed for alert #{$alert->id}: " . $e->getMessage());
@@ -620,7 +670,9 @@ class AlertService
         $notification = $this->_createNotificationRecord($alert, $currentPrice, null, $userId, 'SENT');
 
         try {
-            $mailable = new PriceAlertTriggered($alert, $currentPrice, null, true);
+            $mailable = new PriceAlertTriggered(
+                $alert, $currentPrice, null, true, $this->_tierReadings->forSymbol($userId, $alert->symbol)
+            );
             AlertMailer::send($emailTo, $mailable, 'AlertService');
             Log::warning("AlertService: split anomaly detected for alert #{$alert->id} ({$alert->symbol})"
                 . " — maintenance email sent");
@@ -637,7 +689,7 @@ class AlertService
      *
      * @param PriceAlert $alert
      * @param float      $currentPrice
-     * @param array|null $projectedGain
+     * @param array|null $position     emailPosition() (its gain if sold now is the history's gain column)
      * @param int        $userId
      * @param string     $status SENT|FAILED
      *
@@ -646,7 +698,7 @@ class AlertService
     private function _createNotificationRecord(
         PriceAlert $alert,
         float $currentPrice,
-        ?array $projectedGain,
+        ?array $position,
         int $userId,
         string $status
     ): PriceAlertNotification
@@ -660,8 +712,8 @@ class AlertService
             'target_price'       => $alert->target_price,
             'target_label'       => $alert->getTargetLabelSnapshot(),
             'alert_type'         => $alert->alert_type,
-            'projected_gain_eur' => $projectedGain['gain_eur'] ?? null,
-            'projected_gain_pct' => $projectedGain['gain_pct'] ?? null,
+            'projected_gain_eur' => $position['gain_eur'] ?? null,
+            'projected_gain_pct' => $position['gain_pct'] ?? null,
             'sent_at'            => now(),
             'status'             => $status,
         ]);

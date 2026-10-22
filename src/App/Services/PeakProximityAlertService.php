@@ -570,6 +570,53 @@ final class PeakProximityAlertService
     }
 
     /**
+     * One email per kind of alert (near peak, range-bound, take profit, tier signal), for the first symbol of the
+     * dashboard items that reads that way today, built as evaluateItems() builds it but ignoring the opt-in, the
+     * daily guard and the episodes, and persisting nothing: a preview of how each email looks (email-samples). A kind
+     * no symbol reads today is left out.
+     *
+     * @param array $items WatchlistSymbolsDashboard::handle()['items']
+     *
+     * @return array<string, PeakProximityAlert> kind => email
+     */
+    public function sampleEmails(array $items): array
+    {
+        $thresholds = $this->windowThresholds(null);
+        $samples    = [];
+        foreach ($items as $symbol => $quoteData) {
+            $cat       = $quoteData['categorization'] ?? null;
+            $triggered = $this->_triggeredWindows($quoteData);
+            $range     = PeakProximityRangeSignals::signalFor($cat['range_bound'] ?? null);
+            $chip      = TierSignalChip::alertable($cat);
+            $held      = !empty($quoteData['open_positions']);
+
+            $kind = match (true) {
+                $range !== null                       => 'range-bound',
+                $chip !== null                        => 'tier signal',
+                $held && !empty($cat['take_profit'])  => 'take profit',
+                $held && !empty($triggered)           => 'near peak',
+                default                               => null,
+            };
+            if ($kind === null || isset($samples[$kind])) {
+                continue;
+            }
+            $samples[$kind] = match ($kind) {
+                'range-bound' => new PeakProximityAlert((string) $symbol, $quoteData, [], false, [], $range),
+                'tier signal' => new PeakProximityAlert(
+                    (string) $symbol, $quoteData, $triggered, false, $thresholds, (string) $chip['signal']
+                ),
+                'take profit' => new PeakProximityAlert(
+                    (string) $symbol, $quoteData, $triggered, false, $thresholds,
+                    PeakProximityAlertEvent::SIGNAL_TAKE_PROFIT
+                ),
+                default       => new PeakProximityAlert((string) $symbol, $quoteData, $triggered, false, $thresholds),
+            };
+        }
+
+        return $samples;
+    }
+
+    /**
      * Resolve the proximity threshold (%) for a window: the --threshold override when provided,
      * else the per-window config value, else the global fallback.
      *

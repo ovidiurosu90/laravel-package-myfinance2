@@ -19,6 +19,7 @@ use ovidiuro\myfinance2\App\Services\TierSignalChip;
 use ovidiuro\myfinance2\App\Services\WeakTierProfit;
 use ovidiuro\myfinance2\Mail\Concerns\DescribesPeakProximityReading;
 use ovidiuro\myfinance2\Mail\Concerns\HasAppLabel;
+use ovidiuro\myfinance2\Mail\Concerns\LinksSymbolActions;
 
 /**
  * Peak-proximity exit-hint email, also sent for a range-bound holding near the high (TRIM) or the low (ADD) of its
@@ -31,7 +32,7 @@ use ovidiuro\myfinance2\Mail\Concerns\HasAppLabel;
  */
 class PeakProximityAlert extends Mailable
 {
-    use Queueable, SerializesModels, HasAppLabel, DescribesPeakProximityReading;
+    use Queueable, SerializesModels, HasAppLabel, DescribesPeakProximityReading, LinksSymbolActions;
 
     private const BENCHMARK_SYMBOL = 'VUSA.AS';
     private const YAHOO_QUOTE_URL  = 'https://finance.yahoo.com/quote/';
@@ -126,8 +127,10 @@ class PeakProximityAlert extends Mailable
         // symbol "(Rust, today Silver; Range-bound, near the high: TRIM)", the same words as its chip.
         $parts = [];
         foreach ($orderedWindows as $window) {
-            $parts[] = $this->_signedPct($this->_triggeredWindows[$window]['proximity_pct'] ?? null)
-                . ' to ' . strtoupper($window);
+            // Compact in the subject ("-3.68%"); the body reads "- 3.68 %" as the web pages do.
+            $parts[] = MoneyFormat::get_formatted_signed_pct_compact(
+                $this->_triggeredWindows[$window]['proximity_pct'] ?? null
+            ) . ' to ' . strtoupper($window);
         }
 
         $tierSummary  = $this->_tierSummary(
@@ -152,9 +155,7 @@ class PeakProximityAlert extends Mailable
         $price        = isset($this->_quoteData['price']) ? (float) $this->_quoteData['price'] : null;
         $openWindow   = $this->_openWindow();
 
-        $watchlistUrl = Route::has('myfinance2::watchlist-symbols.index')
-            ? route('myfinance2::watchlist-symbols.index')
-            : self::YAHOO_QUOTE_URL . $this->_symbol;
+        $watchlistUrl = $this->_watchlistUrl($this->_symbol);
 
         return $this->subject($subject)
             ->view('myfinance2::emails.peak-proximity-alert')
@@ -194,10 +195,40 @@ class PeakProximityAlert extends Mailable
                 'tierSignal'     => $tierSignal,
                 'tierSummary'    => $tierSummary,
                 'isReminder'     => $this->_isReminder,
-                'watchlistUrl'   => $watchlistUrl,
+                'links'          => $this->_links($action, $price, $watchlistUrl),
                 'yahooUrl'       => self::YAHOO_QUOTE_URL . $this->_symbol,
                 'vusaUrl'        => self::YAHOO_QUOTE_URL . self::BENCHMARK_SYMBOL,
             ]);
+    }
+
+    /**
+     * The buttons at the end of the email, the same row as the price alert: an order on the side the reading calls
+     * for (sell on EXIT / TRIM / TAKE PROFIT ..., buy on ADD / BUY, no side on HOLD / REVIEW), the alert settings and
+     * the watchlist.
+     *
+     * @param string|null $action the reading's action (readingAction())
+     * @param float|null  $price
+     * @param string      $watchlistUrl
+     *
+     * @return array
+     */
+    private function _links(?string $action, ?float $price, string $watchlistUrl): array
+    {
+        $side  = self::orderSideFor($action);
+        $links = [[
+            'label' => self::_orderLabel($side),
+            'url'   => $this->_orderUrl($this->_symbol, $side, $price),
+        ]];
+        if (Route::has('myfinance2::peak-proximity-alerts.index')) {
+            $links[] = [
+                'label'   => '✏️ Manage Alerts',
+                'url'     => route('myfinance2::peak-proximity-alerts.index'),
+                'variant' => 'secondary',
+            ];
+        }
+        $links[] = ['label' => '→ Open Watchlist Symbols', 'url' => $watchlistUrl, 'variant' => 'secondary'];
+
+        return $links;
     }
 
     /**
@@ -234,7 +265,7 @@ class PeakProximityAlert extends Mailable
             $prox  = $this->_triggeredWindows[$window]['proximity_pct'] ?? null;
             $label = self::WINDOW_LABELS[$window] ?? strtoupper($window);
             $parts[] = $prox !== null
-                ? $label . ' ' . $this->_signedPct((float) $prox) . ' from peak'
+                ? $label . ' ' . MoneyFormat::get_formatted_gain_plain('%', (float) $prox) . ' from peak'
                 : $label;
         }
 
@@ -467,22 +498,5 @@ class PeakProximityAlert extends Mailable
         }
 
         return $ordered;
-    }
-
-    /**
-     * Format a percentage with an explicit sign, e.g. "-3.49%" or "+1.20%".
-     *
-     * @param float|null $value
-     *
-     * @return string
-     */
-    private function _signedPct(?float $value): string
-    {
-        if ($value === null) {
-            return 'n/a';
-        }
-
-        $sign = $value > 0 ? '+' : ''; // negatives already carry their minus
-        return $sign . MoneyFormat::get_formatted_pct($value) . '%';
     }
 }

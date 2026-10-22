@@ -38,11 +38,12 @@
         var vsLowDir = pctVsLow >= 0 ? 'above' : 'below';
         pctVsLow     = Math.abs(pctVsLow).toFixed(1);
 
+        // Price, then the currency code, as MoneyFormat::get_formatted_price_display: "239.24 $".
         return pctVsCurrent + '% ' + vsCurrentDir + ' current price; '
-            + pctVsHigh + '% ' + vsHighDir + ' 52W high of ' + sym
-            + parseFloat(high52w).toFixed(2) + '; '
-            + pctVsLow + '% ' + vsLowDir + ' 52W low of ' + sym
-            + parseFloat(low52w).toFixed(2);
+            + pctVsHigh + '% ' + vsHighDir + ' 52W high of '
+            + parseFloat(high52w).toFixed(2) + ' ' + sym + '; '
+            + pctVsLow + '% ' + vsLowDir + ' 52W low of '
+            + parseFloat(low52w).toFixed(2) + ' ' + sym;
     };
 
     var storeFetchedData = function(data)

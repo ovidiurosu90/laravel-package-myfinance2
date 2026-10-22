@@ -115,10 +115,6 @@
     // stored only the triggered windows (each implicitly near), so fall back to their row count.
     $nearCount  = $summary['near_count']
         ?? count(array_filter($sumWindows, fn ($w) => $w['near'] ?? true));
-
-    $signedPct = fn ($v) => $v === null
-        ? 'n/a'
-        : (($v > 0 ? '+' : '') . MoneyFormat::get_formatted_pct((float) $v) . '%');
 @endphp
 <div class="card h-100">
     <div class="card-body py-2">

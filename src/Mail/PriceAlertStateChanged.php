@@ -48,7 +48,7 @@ class PriceAlertStateChanged extends Mailable
 
         if ($count === 1) {
             $first   = $this->_alerts[0];
-            $subject = "{$label} Alert #{$first->id} {$this->_action} — {$first->symbol}";
+            $subject = "{$label} {$first->symbol} price alert #{$first->id} {$this->_action}";
         } else {
             $subject = "{$label} {$count} alerts {$this->_action}";
         }
