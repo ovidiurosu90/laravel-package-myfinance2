@@ -222,9 +222,11 @@ final class CategorizationService
      * The readings that look past the tier at the position: range-bound (RangeBoundPattern, on today's price: live
      * on the dashboard, the last close in the cron) and then weak tier in profit (WeakTierProfit, on the open
      * position's gain: the dashboard's position figure, else the performance windows), then the tier signal chip
-     * (TierSignalChip: rare high, rare low, deteriorating). Each is null when it does not hold; a range-bound symbol
-     * is never weak-tier-in-profit, and on either of them the tier signal defers (no chip of its own, named in the
-     * winning reading's tooltip instead), so one symbol shows one chip.
+     * (TierSignalChip: rare high, rare low, deteriorating), then near peak (NearPeakReading, a held position near a
+     * window's peak, the near-peak alert's rule). Each is null when it does not hold; a range-bound symbol is never
+     * weak-tier-in-profit, and on either of them the tier signal defers (no chip of its own, named in the winning
+     * reading's tooltip instead) and near peak does not hold, so one symbol shows one chip; a tier signal and near
+     * peak can show together, as their two alerts open together.
      */
     private function _attachPositionReadings(
         array $result,
@@ -236,6 +238,7 @@ final class CategorizationService
         $rangeBound = RangeBoundPattern::fromConfig();
         $weakProfit = WeakTierProfit::fromConfig();
         $tierSignal = TierSignalChip::fromConfig();
+        $nearPeak   = NearPeakReading::fromConfig();
         foreach ($result as $symbol => $entry) {
             $dd   = $drawdown[$symbol] ?? [];
             $perf = $performance[$symbol] ?? [];
@@ -250,6 +253,7 @@ final class CategorizationService
                 $entry, $gainPct, $gainEur !== null ? (float) $gainEur : null
             );
             $entry['tier_signal_chip'] = $tierSignal->detect($entry);
+            $entry['near_peak']        = $nearPeak->detect($entry);
             $result[$symbol] = TierSignalChip::noteOnWinner($entry);
         }
 

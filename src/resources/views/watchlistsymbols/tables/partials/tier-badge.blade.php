@@ -51,9 +51,6 @@
         title="{{ $cat['tier_tooltip'] ?? $explanation }}">
         {{ $label }}{{ $hasOverride ? ' ★' : '' }}
     </span>
-    @include('myfinance2::watchlistsymbols.tables.partials.tier-today-chip', [
-        'chip' => $cat['today_chip'] ?? null, 'compact' => true,
-    ])
     @include('myfinance2::watchlistsymbols.tables.partials.range-bound-chip', [
         'range' => $cat['range_bound'] ?? null, 'compact' => true,
     ])
@@ -62,6 +59,9 @@
     ])
     @include('myfinance2::watchlistsymbols.tables.partials.tier-signal-chip', [
         'tierSignal' => $cat['tier_signal_chip'] ?? null, 'compact' => true,
+    ])
+    @include('myfinance2::watchlistsymbols.tables.partials.near-peak-chip', [
+        'nearPeak' => $cat['near_peak'] ?? null, 'compact' => true,
     ])
     @include('myfinance2::watchlistsymbols.tables.partials.superstar-star', [
         'superstar' => $cat['superstar'] ?? null,

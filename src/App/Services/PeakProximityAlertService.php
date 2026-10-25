@@ -244,20 +244,14 @@ final class PeakProximityAlertService
         // symbol gets its own alert instead of this one).
         $action = PeakProximityAlert::readingAction($cat);
 
-        $meaningfulWindows = config('alerts.peak_proximity.meaningful_windows', ['6m', '1y', '2y']);
-        $meaningful        = array_values(array_intersect(array_keys($triggered), $meaningfulWindows));
-
-        $exitTiers  = array_map('strtoupper', config('alerts.peak_proximity.exit_tiers', ['RUST', 'BRONZE']));
-        $exitWorthy = $tier !== null && in_array(strtoupper((string) $tier), $exitTiers, true);
-
-        $exitFocused = (bool) config('alerts.peak_proximity.exit_focused', true);
-        if ($exitFocused) {
-            $actionable      = !empty($meaningful) && $exitWorthy;
-            $cadenceWindows  = $meaningful;
-        } else {
-            $actionable      = true;
-            $cadenceWindows  = array_keys($triggered);
-        }
+        // The rule shared with the near-peak chip (NearPeakReading).
+        $nearPeak       = NearPeakReading::fromConfig($this->windowThresholds(null));
+        $meaningful     = $nearPeak->meaningful($triggered);
+        $exitWorthy     = $nearPeak->exitWorthy($tier);
+        $actionable     = $nearPeak->actionable($triggered, $tier);
+        $cadenceWindows = (bool) config('alerts.peak_proximity.exit_focused', true)
+            ? $meaningful
+            : array_keys($triggered);
 
         $rsi        = $quoteData['technical_indicators']['rsi'] ?? null;
         $overbought = $rsi !== null && (float) $rsi >= (float) config('alerts.peak_proximity.rsi_overbought', 70);
@@ -291,10 +285,11 @@ final class PeakProximityAlertService
      *
      * @param array $quoteData
      * @param array $triggered  window label => exit-zone entry
+     * @param array $class      _classify() result (tier, actionable)
      *
      * @return array
      */
-    private function _buildSummary(array $quoteData, array $triggered): array
+    private function _buildSummary(array $quoteData, array $triggered, array $class): array
     {
         $price = isset($quoteData['price']) ? (float) $quoteData['price'] : null;
         $cur   = isset($quoteData['tradeCurrencyModel']->display_code)
@@ -321,6 +316,14 @@ final class PeakProximityAlertService
             'take_profit'         => $quoteData['categorization']['take_profit'] ?? null,
             // The tier signal chip the symbol shows (TierSignalChip; none when it defers), for the card's chip.
             'tier_signal'         => TierSignalChip::shown($quoteData['categorization'] ?? null),
+            // The card's own near-peak chip (NearPeakReading), on the windows and gate of this run.
+            'near_peak'           => NearPeakReading::reading(
+                array_keys($triggered),
+                self::closestProximityPct($triggered),
+                $class['tier'],
+                $class['actionable'] ? $class['action'] : null,
+                $class['actionable']
+            ),
         ];
     }
 
@@ -413,7 +416,7 @@ final class PeakProximityAlertService
             'meaningful_windows'    => implode(',', $class['meaningful']) ?: null,
             'closest_proximity_pct' => self::closestProximityPct($triggered),
             'peak_dates'            => self::peakDatesString($triggered),
-            'summary'               => $this->_buildSummary($quoteData, $triggered),
+            'summary'               => $this->_buildSummary($quoteData, $triggered, $class),
             'current_price'         => isset($quoteData['price']) ? (float) $quoteData['price'] : null,
             'last_seen_at'          => now(),
         ];
@@ -537,18 +540,8 @@ final class PeakProximityAlertService
      */
     private function _triggeredWindows(array $quoteData, ?float $override = null): array
     {
-        $exitZones = $quoteData['categorization']['exit_zones'] ?? [];
-        $windows   = config('alerts.peak_proximity.windows', ['3m', '6m', '1y', '2y']);
-
-        $triggered = [];
-        foreach ($windows as $window) {
-            $proximity = $exitZones[$window]['proximity_pct'] ?? null;
-            if ($proximity !== null && $proximity >= -$this->_windowThreshold($window, $override)) {
-                $triggered[$window] = $exitZones[$window];
-            }
-        }
-
-        return $triggered;
+        return NearPeakReading::fromConfig($this->windowThresholds($override))
+            ->triggeredWindows($quoteData['categorization']['exit_zones'] ?? []);
     }
 
     /**

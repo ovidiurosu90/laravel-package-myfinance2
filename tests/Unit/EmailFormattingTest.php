@@ -46,17 +46,15 @@ class EmailFormattingTest extends TestCase
             TierCalculationService::SILVER, TierCalculationService::GOLD, null, $none
         );
         $this->assertSame(TierCalculationService::GOLD, $settled['effective_tier']);
-        $this->assertSame(['tier' => TierCalculationService::SILVER, 'label' => 'Silver'], $settled['today_chip']);
 
         $overridden = StoredTierReading::fromState(
             TierCalculationService::SILVER, TierCalculationService::GOLD, TierCalculationService::RUST, $none
         );
         $this->assertSame(TierCalculationService::RUST, $overridden['effective_tier']);
-        $this->assertNull($overridden['today_chip'], 'An override already says what the computed tier was.');
 
         $short = StoredTierReading::fromState(TierCalculationService::BRONZE, null, null, $none);
         $this->assertSame(TierCalculationService::BRONZE, $short['effective_tier']);
-        $this->assertNull($short['today_chip']);
+        $this->assertArrayNotHasKey('today_chip', $short, 'No "today" chip: the tier signals cover the divergence.');
     }
 
     public function test_stored_tier_reading_carries_the_chips_in_the_categorization_shape(): void

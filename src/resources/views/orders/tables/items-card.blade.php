@@ -23,6 +23,7 @@
         </div>
     </div>
     <div class="card-body p-0">
+        @include('myfinance2::general.partials.tier-verdict-summary', ['tierNoun' => 'orders'])
         <div class="p-3">
             @include('myfinance2::orders.tables.items-table')
         </div>

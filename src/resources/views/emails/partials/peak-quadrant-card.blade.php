@@ -7,11 +7,6 @@
     <div style="margin-bottom:8px;">
         <span class="text-muted">Tier:</span>
         <span class="badge {{ $quadrant['tier_class'] }}">{{ $quadrant['tier_label'] }}</span>
-        @if ($quadrant['today_chip'] !== null)
-        <span class="text-muted">settled &middot; today</span>
-        <span class="badge" style="{{ $quadrant['today_chip']['style'] }}">
-            {{ $quadrant['today_chip']['label'] }}</span>
-        @endif
         @if ($quadrant['basis_val'] !== null)
         <span class="text-muted">&middot; tier basis</span>
         @if ($quadrant['gain_eur'] !== null)

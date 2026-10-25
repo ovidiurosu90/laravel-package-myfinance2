@@ -14,15 +14,15 @@
 @endphp
 @if($isMarketBasis)
     <span class="text-body">Market Settled</span>, the 1Y market return the symbol held or beat on
-    {{ $shareText }}, on the lines 0 / 5 / 10 / 15 %; the same yardstick for every symbol. An outlined badge is
-    today's tier when it differs; today's tier is used with under {{ $minDays }} days of history, or after
+    {{ $shareText }}, on the lines 0 / 5 / 10 / 15 %; the same yardstick for every symbol. Today's tier
+    (Market Snapshot on the row's Tier line) is used with under {{ $minDays }} days of history, or after
     {{ $persistDays }} trading days two tiers below (for Bronze, at or under &minus;5%).
     Without a usable market figure (missing, or below
     &minus;75%, usually a missed split), your own return; above +200% the figure is used and flagged.
     A manual override (&#9733;) always wins.
 @else
-    The settled tier: the level the symbol held or beat on {{ $shareText }}; an outlined badge shows today's
-    tier when it differs. Today's reading follows this priority order:
+    The settled tier: the level the symbol held or beat on {{ $shareText }}. Today's reading follows this
+    priority order:
     <ol class="mb-1 mt-1 ps-3">
         <li>
             <span class="fw-semibold text-body">Held &ge; 1 year &rarr; annualized return (CAGR)</span>

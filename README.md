@@ -137,8 +137,8 @@ sudo su - www-data -s /bin/bash -c "cd /home/$USER/Repositories/laravel-admin/ &
   default); `own` restores the legacy rule (owned positions tiered on your own return). After changing it, clear the
   cache and re-run the backfill.
 - **Settled tier.** The tier shown everywhere is the 12-month median of the daily readings. It follows today's reading
-  with under 60 weekdays of history or after a lasting drop; a manual override still wins. An outlined "today" badge
-  shows today's reading when it differs.
+  with under 60 weekdays of history or after a lasting drop; a manual override still wins. Today's reading is not
+  shown on its own; the tier signals below compare it with the last 12 months.
 - **Readings on top of the tier**, one chip per symbol on the watchlist Tier line and column and in the
   peak-proximity page, inbox and emails:
   - *Range-bound* (`RangeBoundPattern`, `watchlistsymbols.range_bound`): a stock you trade well that swings widely
@@ -147,6 +147,7 @@ sudo su - www-data -s /bin/bash -c "cd /home/$USER/Repositories/laravel-admin/ &
     profit. TAKE PROFIT.
   - *Tier signals* (`TierSignalChip`, `watchlistsymbols.tier_history`): today's tier against the last 12 months.
     Rare high SELL / TRIM, rare low ADD / BUY, deteriorating REVIEW; severity in `TierSignalSeverity`.
+  - *Near peak* (`NearPeakReading`), next to them: near a 3M / 6M / 1Y / 2Y peak; dimmed when the alert does not email.
 - **Signal backtest.** `/peak-proximity-alerts/backtest`, or `php artisan finance:tier-signal-backtest --user-id=N
   [--from=Y-m-d] [--rare-share=20] [--consistency=50] [--grid]`, replays these readings on the stored history without
   look-ahead and compares each episode with VUSA.AS 21 / 63 / 126 trading days later. A sanity check, not proof; the
@@ -154,6 +155,23 @@ sudo su - www-data -s /bin/bash -c "cd /home/$USER/Repositories/laravel-admin/ &
 - **Missing prices.** Early 2025 days need 2024 prices; those missing from `stats_historical` are fetched through the
   7-day `HistoricalPriceCache` (never stored), unless `--no-fetch`. A held symbol with no stored close on a day is
   skipped and reported: populate its history and re-run.
+
+
+### Tier readings and warnings on orders and trades
+
+Orders and trades save the watchlist tier reading at decision time (`tier_snapshots`, locked; in the git backup, since
+a live reading cannot be rebuilt). Order create / edit warns against the tiers (`OrderTierWarnings`, levels in
+`watchlistsymbols.order_warnings.levels`: serious asks for a confirmation on save, soft is a banner).
+
+```bash
+# Calibrate the warning levels on past trades vs VUSA.AS (read-only)
+sudo su - www-data -s /bin/bash -c "cd /home/$USER/Repositories/laravel-admin/ && php artisan finance:order-warning-review --user-id=1"
+# Readings for orders and trades without one, rebuilt from symbol_tier_history (once after the migration;
+# --dry-run first). (NOT in crontab)
+sudo su - www-data -s /bin/bash -c "cd /home/$USER/Repositories/laravel-admin/ && php artisan finance:tier-snapshot-backfill --user-id=1"
+# Replace one reading: --force needs --id and --only (for a filled order: the order, then its trade)
+sudo su - www-data -s /bin/bash -c "cd /home/$USER/Repositories/laravel-admin/ && php artisan finance:tier-snapshot-backfill --user-id=1 --only=orders --id=N --force"
+```
 
 
 ### Refresh returns data
@@ -295,8 +313,8 @@ Emails an exit hint when an open position is near its peak: within 2% of the 3M 
   `range_reminder_days` / `take_profit_reminder_days` / `tier_signal_reminder_days` (7). The Re-arm button on
   `/peak-proximity-alerts` clears today's record, so a symbol can alert again the same day.
 - **Email.** The three watchlist-symbols cards for the symbol plus price, distance from the peak and the gain if sold
-  now. The subject leads with the tier, e.g. `[MyFinance2] EZJ.L (Bronze, EXIT) near peak => -4.25% to 6M`, or
-  `(Bronze, today Gold, EXIT)` when today's tier differs; reminders are prefixed `Reminder:`.
+  now. The subject leads with the tier, e.g. `[MyFinance2] EZJ.L (Bronze, EXIT) near peak => -4.25% to 6M`;
+  reminders are prefixed `Reminder:`.
 - **Inbox** (`/peak-proximity-alerts/inbox`): a card per alert, sorted by severity, kept until dismissed. Dismissing
   ends the reminders; a later return to peak opens a fresh alert.
 

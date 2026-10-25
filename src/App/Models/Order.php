@@ -37,6 +37,7 @@ class Order extends MyFinance2Model
         'account_id'        => 'integer',
         'trade_currency_id' => 'integer',
         'trade_id'          => 'integer',
+        'tier_snapshot_id'  => 'integer',
         'quantity'          => 'decimal:8',
         'limit_price'       => 'decimal:4',
         'exchange_rate'     => 'decimal:4',
@@ -87,6 +88,19 @@ class Order extends MyFinance2Model
     public function tradeModel(): BelongsTo
     {
         return $this->belongsTo(Trade::class, 'trade_id', 'id');
+    }
+
+    /**
+     * The tier reading saved when the order was created (TierSnapshot), with the warnings it raised.
+     */
+    public function tierSnapshot(): BelongsTo
+    {
+        return $this->belongsTo(TierSnapshot::class, 'tier_snapshot_id', 'id');
+    }
+
+    public function isOpen(): bool
+    {
+        return in_array($this->status, ['DRAFT', 'PLACED'], true);
     }
 
     public function isEditable(): bool
@@ -185,7 +199,7 @@ class Order extends MyFinance2Model
             $this->tradeCurrencyModel->display_code,
             $amount,
             strtolower($this->action),
-            2
+            MoneyFormat::amount_decimals($amount)
         );
     }
 }

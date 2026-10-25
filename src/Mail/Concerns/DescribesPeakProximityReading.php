@@ -52,32 +52,26 @@ trait DescribesPeakProximityReading
     }
 
     /**
-     * "Tier, today Tier, ACTION" for the subject and the header, omitting whichever pieces are unknown ('' when
-     * all are). For a range-bound, a weak-tier-in-profit or a tier signal symbol the action reads as its chip does:
+     * "Tier, ACTION" for the subject and the header, omitting whichever piece is unknown ('' when both are). For a
+     * range-bound, a weak-tier-in-profit or a tier signal symbol the action reads as its chip does:
      * "Tier; Range-bound, near the high: TRIM", "Tier; Weak tier in profit: TAKE PROFIT", "Tier; Rare high: SELL"
      * ("Tier; Rare high" without an action).
      *
-     * @param string|null $todayLabel today's tier, only when it differs from the effective one
-     * @param array|null  $reading    RangeBoundPattern::detect(), WeakTierProfit::detect() or TierSignalChip::detect():
-     *                                'label', 'action'
+     * @param array|null $reading RangeBoundPattern::detect(), WeakTierProfit::detect() or TierSignalChip::detect():
+     *                            'label', 'action'
      */
     private function _tierSummary(
         ?string $tierLabel,
-        ?string $todayLabel,
         ?string $action,
         ?array $reading = null
     ): string
     {
-        $tiers = implode(', ', array_filter([
-            $tierLabel,
-            $todayLabel !== null ? "today {$todayLabel}" : null,
-        ]));
         if ($reading !== null) {
             $chip = $reading['label'] . (!empty($reading['action']) ? ': ' . $reading['action'] : '');
 
-            return implode('; ', array_filter([$tiers, $chip]));
+            return implode('; ', array_filter([$tierLabel, $chip]));
         }
 
-        return implode(', ', array_filter([$tiers, $action]));
+        return implode(', ', array_filter([$tierLabel, $action]));
     }
 }

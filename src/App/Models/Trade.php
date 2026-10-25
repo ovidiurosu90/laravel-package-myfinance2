@@ -6,6 +6,7 @@ use ovidiuro\myfinance2\App\Models\Order;
 use ovidiuro\myfinance2\App\Models\Concerns\InvalidatesSymbolPerformanceCache;
 use ovidiuro\myfinance2\App\Services\MoneyFormat;
 use ovidiuro\myfinance2\App\Services\FinanceAPI;
+use ovidiuro\myfinance2\App\Services\LatestEurRates;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -45,6 +46,7 @@ class Trade extends MyFinance2Model
         'unit_price'        => 'decimal:4',
         'fee'               => 'decimal:2',
         'is_transfer'       => 'boolean',
+        'tier_snapshot_id'  => 'integer',
         'created_at'        => 'datetime',
         'updated_at'        => 'datetime',
         'deleted_at'        => 'datetime',
@@ -87,6 +89,15 @@ class Trade extends MyFinance2Model
     public function linkedOrders(): HasMany
     {
         return $this->hasMany(Order::class, 'trade_id', 'id');
+    }
+
+    /**
+     * The tier reading of the decision behind the trade (TierSnapshot): the order's when it filled an order. Read with
+     * the soft-deleted rows too, since an edited order can retire a row the trade still points to.
+     */
+    public function tierSnapshot(): BelongsTo
+    {
+        return $this->belongsTo(TierSnapshot::class, 'tier_snapshot_id', 'id')->withTrashed();
     }
 
     /**
@@ -146,6 +157,24 @@ class Trade extends MyFinance2Model
         return implode(' ', $parts);
     }
 
+    /**
+     * The principal amount (quantity x unit price) in EUR at today's rate, signed as cash: a BUY spends (negative), a
+     * SELL brings in (positive). Without a stored rate, the account-currency amount when the account is in EUR, else
+     * the trade-currency amount as it is.
+     */
+    public function signedAmountEur(LatestEurRates $rates): float
+    {
+        $amount = (float) $this->quantity * (float) $this->unit_price;
+        $rate   = $rates->forCurrency((string) ($this->tradeCurrencyModel->iso_code ?? ''));
+        if ($rate !== null) {
+            $amount *= $rate;
+        } elseif (($this->accountModel->currency->iso_code ?? null) === 'EUR' && (float) $this->exchange_rate > 0) {
+            $amount /= (float) $this->exchange_rate;
+        }
+
+        return round($this->action === 'SELL' ? $amount : -$amount, 2);
+    }
+
     public function getCleanQuantity(): float|int
     {
         $quantity = (float) $this->quantity;
@@ -197,7 +226,7 @@ class Trade extends MyFinance2Model
             $this->tradeCurrencyModel->display_code,
             $amount,
             strtolower($this->action),
-            2
+            MoneyFormat::amount_decimals($amount)
         );
     }
 
@@ -208,7 +237,7 @@ class Trade extends MyFinance2Model
             $this->accountModel->currency->display_code,
             $amount,
             strtolower($this->action),
-            2
+            MoneyFormat::amount_decimals($amount)
         );
     }
 

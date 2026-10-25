@@ -1,7 +1,8 @@
-{{-- "How these alerts work", on the Manage and Inbox pages: the four kinds of alert (near peak, take profit,
-     tier signal, range-bound), what gates each, and how reminders and the inbox work. Figures come from
-     config/alerts.php and config/watchlistsymbols.php (range_bound, weak_tier_profit, tier_history), so the text
-     follows any change there. --}}
+{{-- "How these alerts work", on the Manage and Inbox pages, collapsed until the "How it works" toggle next to the
+     page title opens it (partials/rules-toggle): the four kinds of alert (near peak, take profit, tier signal,
+     range-bound), each led by its chip's icon, what gates each, and how reminders and the inbox work. Figures come
+     from config/alerts.php and config/watchlistsymbols.php (range_bound, weak_tier_profit, tier_history), so the
+     text follows any change there. --}}
 @use('ovidiuro\myfinance2\App\Services\MoneyFormat')
 @php
     $periodMap   = ['3m' => '3M', '6m' => '6M', '1y' => '1Y', '2y' => '2Y'];
@@ -43,15 +44,16 @@
         array_flip((array) config('alerts.peak_proximity.tier_signal_emails', []))
     ));
 @endphp
-<div class="card border-info mb-2">
+<div class="card border-info mb-2 collapse" id="peak-alert-rules">
     <div class="card-body py-2">
         <p class="mb-1 fw-semibold">
             <i class="fa fa-fw fa-info-circle text-info" aria-hidden="true"></i>
             How these alerts work
         </p>
         <p class="small text-muted mb-1">
-            Four kinds of alert share this page, the inbox and the history: <strong>near peak</strong>, an exit hint
-            for a held position close to its peak; <strong>take profit</strong>
+            Four kinds of alert share this page, the inbox and the history: <strong>near peak</strong>
+            (<i class="fas fa-mountain fa-xs" aria-hidden="true"></i> REDUCE / EXIT), an exit hint for a held
+            position close to its peak; <strong>take profit</strong>
             (<i class="fas fa-sack-dollar fa-xs" aria-hidden="true"></i> TAKE PROFIT), for a held position in profit
             on a weak tier; <strong>tier signal</strong>
             (<i class="fas fa-caret-up fa-xs" aria-hidden="true"></i> rare high,
@@ -78,7 +80,9 @@
                 has passed. Dismissing one ends its email reminders; if the condition returns, a fresh alert opens.
             </li>
         </ul>
-        <p class="small fw-semibold text-body mb-0">Near-peak alerts (held positions)</p>
+        <p class="small fw-semibold text-body mb-0">
+            <i class="fas fa-mountain fa-xs" aria-hidden="true"></i> Near-peak alerts (held positions)
+        </p>
         <ul class="small text-muted mb-1 ps-3">
             <li>
                 <strong>An exit aid, not a buy/hold signal.</strong> "Near peak" only matters for a position you
@@ -88,8 +92,9 @@
             </li>
             <li>
                 <strong>Tier gates, action does not.</strong> The tier in use (settled over the last 12 months, or
-                your manual tier) decides whether a symbol can email. The HOLD / EXIT action is shown for context but
-                never gates.
+                your manual tier) decides whether a symbol can email. The chip's action (the quadrant's REDUCE /
+                EXIT, or the tier signal's SELL / TRIM when one shows) is context and never gates; an alert that does
+                not email shows "Near peak" alone, dimmed.
             </li>
             <li>
                 <strong>{{ $longLabels }} matter; {{ $shortLabels }} is context.</strong> An email needs one of the
@@ -122,8 +127,9 @@
             </li>
         </ul>
         <p class="small fw-semibold text-body mb-0">
-            <i class="fas fa-caret-up fa-xs" aria-hidden="true"></i> Tier signal alerts (SELL / TRIM / ADD / BUY /
-            REVIEW)
+            <i class="fas fa-caret-up fa-xs" aria-hidden="true"></i><i class="fas fa-caret-down fa-xs"
+            aria-hidden="true"></i><i class="fas fa-arrow-trend-down fa-xs ms-1" aria-hidden="true"></i> Tier signal
+            alerts (SELL / TRIM / ADD / BUY / REVIEW)
         </p>
         <ul class="small text-muted mb-1 ps-3">
             <li>

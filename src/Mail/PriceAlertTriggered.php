@@ -18,7 +18,7 @@ use ovidiuro\myfinance2\Mail\Concerns\LinksSymbolActions;
 
 /**
  * Price alert email (and its split-anomaly warning), laid out as the peak-proximity alert: the subject and header
- * lead with the symbol and its tier reading ("ABN.AS (Gold, today Silver) above target 39.00 € => now 39.12 €"),
+ * lead with the symbol and its tier reading ("ABN.AS (Gold) above target 39.00 € => now 39.12 €"),
  * then a Summary with today's move and the unrealized gain, the position and the same row of buttons.
  */
 class PriceAlertTriggered extends Mailable
@@ -71,7 +71,6 @@ class PriceAlertTriggered extends Mailable
         $tierLabel     = TierCalculationService::tierLabel($tier);
         $tierSummary   = $this->_tierReading !== null ? $this->_tierSummary(
             $tierLabel,
-            $this->_tierReading['today_chip']['label'] ?? null,
             self::readingAction($this->_tierReading),
             $this->_tierReading['range_bound'] ?? $this->_tierReading['take_profit']
                 ?? TierSignalChip::shown($this->_tierReading)

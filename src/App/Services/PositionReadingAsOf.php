@@ -56,12 +56,9 @@ final class PositionReadingAsOf
         bool $traded
     ): ?array
     {
-        $owned = !empty($row['o']);
-        $range = $this->_rangeBound->detect($this->_cat($row, $closes), [
-            'window_count'               => $traded ? 1 : 0,
-            'windows'                    => $owned ? [['is_open' => true]] : [],
-            'annualized_percentage_gain' => $row['w'] ?? null,
-        ], $price);
+        $owned    = !empty($row['o']);
+        $readings = $this->readings($row, $tierInUse, $settledTier, $closes, $price, $traded);
+        $range    = $readings['range_bound'];
         if ($range !== null) {
             $signal = match ($range['action']) {
                 RangeBoundPattern::ACTION_TRIM => PeakProximityAlertEvent::SIGNAL_RANGE_HIGH,
@@ -75,7 +72,35 @@ final class PositionReadingAsOf
             return $signal === null ? null : ['signal' => $signal, 'action' => $range['action'], 'owned' => $owned];
         }
 
-        $profit = $this->_weakProfit->detect([
+        return $readings['take_profit'] === null ? null : [
+            'signal' => PeakProximityAlertEvent::SIGNAL_TAKE_PROFIT,
+            'action' => WeakTierProfit::ACTION,
+            'owned'  => true,
+        ];
+    }
+
+    /**
+     * The day's range-bound and weak-tier-in-profit readings in full (the chips' arrays, HOLD / WATCH / WAIT
+     * included), as the live detectors return them; the arguments as read() takes them.
+     *
+     * @return array{range_bound: ?array, take_profit: ?array}
+     */
+    public function readings(
+        array $row,
+        ?string $tierInUse,
+        ?string $settledTier,
+        array $closes,
+        ?float $price,
+        bool $traded
+    ): array
+    {
+        $owned = !empty($row['o']);
+        $range = $this->_rangeBound->detect($this->_cat($row, $closes), [
+            'window_count'               => $traded ? 1 : 0,
+            'windows'                    => $owned ? [['is_open' => true]] : [],
+            'annualized_percentage_gain' => $row['w'] ?? null,
+        ], $price);
+        $profit = $range !== null ? null : $this->_weakProfit->detect([
             'effective_tier' => $tierInUse,
             'settled_tier'   => $settledTier,
             'has_override'   => false,
@@ -83,11 +108,7 @@ final class PositionReadingAsOf
             'range_bound'    => null,
         ], $owned && isset($row['h']) ? (float) $row['h'] : null);
 
-        return $profit === null ? null : [
-            'signal' => PeakProximityAlertEvent::SIGNAL_TAKE_PROFIT,
-            'action' => WeakTierProfit::ACTION,
-            'owned'  => true,
-        ];
+        return ['range_bound' => $range, 'take_profit' => $profit];
     }
 
     /**

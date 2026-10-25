@@ -32,6 +32,7 @@
                             </a>
                         </div>
                         Peak-Proximity Alerts
+                        @include('myfinance2::peakproximityalerts.partials.rules-toggle')
                     </div>
                     <div class="card-body p-0">
                         <div class="p-3">

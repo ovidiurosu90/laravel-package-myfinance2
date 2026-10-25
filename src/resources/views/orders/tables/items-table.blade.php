@@ -1,20 +1,33 @@
 @use('ovidiuro\myfinance2\App\Services\MoneyFormat')
+@use('ovidiuro\myfinance2\App\Services\TierVerdictPresenter')
 <table class="table table-sm table-striped data-table order-items-table">
         <thead class="thead">
             <tr role="row">
                 <th>Id</th>
                 <th>Status</th>
                 <th>Symbol</th>
+                <th class="text-nowrap text-start">
+                    Tier <i class="fas fa-info-circle fa-xs text-muted" aria-hidden="true" data-bs-toggle="tooltip"
+                        data-bs-custom-class="tooltip-wide"
+                        title="At creation, locked: the tier reading saved when the order was created. The verdict (no
+                            warning, soft warnings, against the tiers), the tier in use with its chips and the 7
+                            approaches beneath. An open order shows today's tier as well when it differs."></i>
+                </th>
                 <th>Account</th>
                 <th>Action</th>
-                <th class="text-right text-nowrap no-search">Current → Limit Price</th>
-                <th class="text-right text-nowrap">Projected Gain</th>
-                <th class="d-none d-xl-table-cell text-nowrap">
-                    <span data-bs-toggle="tooltip" title="Linked trade for this order">Trade</span>
+                <th class="text-right text-nowrap no-search">
+                    Limit <i class="fas fa-info-circle fa-xs text-muted" aria-hidden="true" data-bs-toggle="tooltip"
+                        title="The limit price; beneath, today's price and how far the limit is from it. Sorts by that
+                            gap."></i>
                 </th>
                 <th class="text-right text-nowrap">
-                    <span data-bs-toggle="tooltip"
-                          title="Principal Amount: total estimated value of this order (quantity × limit price)">P Amount</span>
+                    <span data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
+                          title="Principal amount: the total estimated value of the order (quantity × limit price). For
+                              a SELL, the projected gain at the limit price beneath, against your average cost. Sorts
+                              by the amount.">Amount</span>
+                </th>
+                <th class="d-none d-xl-table-cell text-nowrap">
+                    <span data-bs-toggle="tooltip" title="Linked trade for this order">Trade</span>
                 </th>
                 <th class="d-none d-xl-table-cell">Description</th>
                 <th class="d-none show-1350">Created</th>
@@ -31,6 +44,15 @@
                 $cp           = $qd['price'] ?? null;
                 $currencyCode = $item->tradeCurrencyModel ? $item->tradeCurrencyModel->display_code : '';
                 $gain         = $projectedGains[$item->id] ?? null;
+                $tierSnap     = $item->tierSnapshot;
+                $tierToday    = $tierNow[$item->id] ?? null;
+                $tierTodayTier = $tierToday['tier'] ?? null;
+                $tierNowChip  = $tierSnap !== null && $tierTodayTier !== null
+                    && $tierTodayTier !== $tierSnap->effective_tier
+                    ? view('myfinance2::orders.partials.tier-now-chip', [
+                        'tier' => $tierTodayTier, 'serious' => $tierToday['serious'],
+                    ])->render()
+                    : '';
             @endphp
             <tr>
                 <td>{{ $item->id }}</td>
@@ -52,6 +74,17 @@
                     @if ($item->getCleanQuantity())
                         <div class="text-muted small">x {{ $item->getCleanQuantity() }}</div>
                     @endif
+                </td>
+                <td class="text-start"
+                    data-order="{{ $tierSnap !== null ? TierVerdictPresenter::sortValue($tierSnap) : -1 }}">
+                    @include('myfinance2::watchlistsymbols.tables.partials.tier-reading-compact', [
+                        'snapshot'   => $tierSnap,
+                        'verdictTip' => $tierSnap !== null ? TierVerdictPresenter::tooltip(
+                            $tierSnap, $tierTodayTier, $tierToday['serious'] ?? []
+                        ) : null,
+                        'tierExtra'  => $tierNowChip,
+                        'tierNote'   => null,
+                    ])
                 </td>
                 <td class="text-nowrap">
                     @if ($item->accountModel)
@@ -116,7 +149,12 @@
                             $deltaPct  = $cp > 0 ? ($delta / $cp) * 100 : 0;
                             $deltaSign = $delta >= 0 ? '+' : '−';
                         @endphp
-                        <div class="text-nowrap">
+                        {{-- The limit price, then today's price and how far the limit is from it (stacked, so
+                             the column stays narrow; the gap in money in the % tooltip). The two parts of the second
+                             line wrap onto two lines when the column is tight. --}}
+                        <div class="text-nowrap">{!! $item->getFormattedLimitPrice() !!}</div>
+                        <div class="text-muted small text-wrap">
+                            <span class="d-inline-block text-nowrap">now
                             @include('myfinance2::partials.price-tooltip', [
                                 'currency'           => $currencyCode,
                                 'price'              => $qd['price'] ?? null,
@@ -133,12 +171,12 @@
                                 'postChangePct'      => $qd['post_market_change_pct'] ?? null,
                                 'marketOpen'         => $qd['market_open'] ?? false,
                                 'content'            => MoneyFormat::get_formatted_price_display($currencyCode, $cp, true),
-                            ])
-                            → {!! $item->getFormattedLimitPrice() !!}
-                        </div>
-                        <div class="text-muted small text-nowrap">
-                            delta: {{ $deltaSign }}{!! MoneyFormat::get_formatted_price_display($currencyCode, abs($delta)) !!}
-                            ({{ $deltaSign }}{{ MoneyFormat::get_formatted_pct(abs($deltaPct)) }}%)
+                            ])</span>
+                            <span class="d-inline-block text-nowrap" data-bs-toggle="tooltip"
+                                title="Limit vs now: {{ $deltaSign }}{{ html_entity_decode(strip_tags(
+                                    MoneyFormat::get_formatted_price_display($currencyCode, abs($delta))
+                                ), ENT_QUOTES | ENT_HTML5, 'UTF-8') }}"
+                                >{{ $deltaSign }}{{ MoneyFormat::get_formatted_pct(abs($deltaPct)) }}%</span>
                         </div>
                     @else
                         {!! $item->getFormattedLimitPrice() !!}
@@ -149,33 +187,9 @@
                         </div>
                     @endif
                 </td>
-                <td class="text-right text-nowrap"
-                    data-order="{{ $gain ? $gain['gain_value'] : -999999 }}">
-                    @if ($gain)
-                        @php
-                            $gainClass = $gain['gain_value'] >= 0 ? 'text-success' : 'text-danger';
-                            $gainSign  = $gain['gain_value'] >= 0 ? '+' : '';
-                            $isLoss    = $gain['gain_value'] < 0;
-                            $fmtQty    = MoneyFormat::get_formatted_quantity_plain($gain['total_qty']);
-                        @endphp
-                        <span class="{{ $gainClass }} text-nowrap">
-                            {{ $gainSign }}{!! MoneyFormat::get_formatted_price_display($currencyCode, $gain['gain_value']) !!}
-                        </span>
-                        <div class="{{ $gainClass }} small text-nowrap">
-                            {{ $gainSign }}{{ MoneyFormat::get_formatted_pct($gain['gain_pct']) }}%
-                            @if ($isLoss)
-                                <span data-bs-toggle="tooltip"
-                                      data-bs-placement="top"
-                                      title="Limit price is below your average cost; selling at limit would realize a loss">⚠️</span>
-                            @endif
-                        </div>
-                        <div class="text-muted small text-nowrap">
-                            {{ $fmtQty }}x @ avg {!! MoneyFormat::get_formatted_price_display($currencyCode, $gain['avg_cost'], true) !!}
-                        </div>
-                    @else
-                        <span class="text-muted">—</span>
-                    @endif
-                </td>
+                @include('myfinance2::orders.tables.partials.amount-cell', [
+                    'order' => $item, 'gain' => $gain, 'currencyCode' => $currencyCode,
+                ])
                 <td class="d-none d-xl-table-cell">
                     @if ($item->trade_id)
                         <a href="{{ route('myfinance2::trades.edit', $item->trade_id) }}"
@@ -188,9 +202,6 @@
                     @else
                         <span class="text-muted">—</span>
                     @endif
-                </td>
-                <td class="text-right text-nowrap">
-                    {!! $item->getFormattedPrincipleAmount() !!}
                 </td>
                 <td class="d-none d-xl-table-cell">{{ $item->description }}</td>
                 <td class="d-none show-1350">{{ $item->created_at }}</td>
@@ -237,12 +248,12 @@
                 <th>Id</th>
                 <th>Status</th>
                 <th>Symbol</th>
+                <th>Tier</th>
                 <th>Account</th>
                 <th>Action</th>
                 <th class="text-right text-nowrap no-search"></th>
-                <th class="text-right text-nowrap">Projected Gain</th>
+                <th class="text-right text-nowrap">Amount</th>
                 <th class="d-none d-xl-table-cell text-nowrap">Trade</th>
-                <th class="text-right text-nowrap">P Amount</th>
                 <th class="d-none d-xl-table-cell">Description</th>
                 <th class="d-none show-1350">Created</th>
                 <th class="no-search no-sort"></th>

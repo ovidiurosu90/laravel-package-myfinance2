@@ -83,7 +83,7 @@ final class TierSignalBacktest
             if ($symbol === TierCalculationService::BENCHMARK_SYMBOL || empty($prices[$symbol])) {
                 continue;
             }
-            $forward = $this->_forwardFn($prices[$symbol], $benchmark, $benchDates);
+            $forward = self::forwardFn($prices[$symbol], $benchmark, $benchDates);
             [$signals, $evaluated, $readings] = $this->_dailySignals((string) $symbol, $rows, $prices[$symbol], $from);
             $days += count($evaluated);
             foreach ($evaluated as $day) {
@@ -254,15 +254,19 @@ final class TierSignalBacktest
 
     /**
      * fn (day, h) => the symbol's return from its close on or before day to its close h trading days later, less
-     * VUSA.AS's over the same dates, in percentage points; null without h later closes or a benchmark price.
+     * VUSA.AS's over the same dates, in percentage points; null without h later closes or a benchmark price. Also the
+     * order warning review's measure of a trade (finance:order-warning-review).
+     *
+     * @param string[]|null $benchDates the benchmark's dates (its keys), when already at hand
      */
-    private function _forwardFn(array $prices, array $benchmark, array $benchDates): callable
+    public static function forwardFn(array $prices, array $benchmark, ?array $benchDates = null): callable
     {
-        $dates = array_keys($prices);
-        $index = array_flip($dates);
+        $dates      = array_keys($prices);
+        $index      = array_flip($dates);
+        $benchDates ??= array_keys($benchmark);
 
-        return function (string $day, int $h) use ($prices, $dates, $index, $benchmark, $benchDates): ?float {
-            $k = $index[$day] ?? $this->_positionOnOrBefore($dates, $day);
+        return static function (string $day, int $h) use ($prices, $dates, $index, $benchmark, $benchDates): ?float {
+            $k = $index[$day] ?? self::_positionOnOrBefore($dates, $day);
             if ($k === null || !isset($dates[$k + $h])) {
                 return null;
             }
@@ -278,7 +282,7 @@ final class TierSignalBacktest
         };
     }
 
-    private function _positionOnOrBefore(array $dates, string $day): ?int
+    private static function _positionOnOrBefore(array $dates, string $day): ?int
     {
         $lo   = 0;
         $hi   = count($dates) - 1;

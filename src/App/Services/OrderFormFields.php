@@ -36,6 +36,16 @@ class OrderFormFields extends MyFormFields
     ];
 
     /**
+     * The form's field names.
+     *
+     * @return string[]
+     */
+    public function fieldNames(): array
+    {
+        return array_keys($this->fieldList);
+    }
+
+    /**
      * Get the additional form fields data.
      *
      * @return array

@@ -84,6 +84,15 @@ class MoneyFormat
     }
 
     /**
+     * Decimals for a monetary amount, the rule of get_formatted_monetary_display(): none from 1,000 up, $decimals
+     * below. For callers that format through get_formatted_amount() (its coloured span).
+     */
+    public static function amount_decimals($value, int $decimals = 2): int
+    {
+        return abs((float) $value) >= 1000.0 ? 0 : $decimals;
+    }
+
+    /**
      * Format a percentage with threshold-aware decimal handling (plain, no HTML, no sign, no %).
      * - abs >= 100 : 0 decimals
      * - abs < 100  : 2 decimals

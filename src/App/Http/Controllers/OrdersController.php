@@ -4,13 +4,20 @@ declare(strict_types=1);
 
 namespace ovidiuro\myfinance2\App\Http\Controllers;
 
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 use ovidiuro\myfinance2\App\Models\Order;
 use ovidiuro\myfinance2\App\Models\PriceAlert;
 use ovidiuro\myfinance2\App\Models\Trade;
 use ovidiuro\myfinance2\App\Services\FinanceUtils;
 use ovidiuro\myfinance2\App\Services\OrderFormFields;
+use ovidiuro\myfinance2\App\Services\OrderTierSnapshots;
+use ovidiuro\myfinance2\App\Services\OrderTierWarnings;
+use ovidiuro\myfinance2\App\Services\TierVerdictSummary;
+use ovidiuro\myfinance2\App\Services\TradeTierSnapshots;
 use ovidiuro\myfinance2\App\Http\Requests\StoreOrder;
 use ovidiuro\myfinance2\App\Http\Requests\UpdateOrder;
 
@@ -32,7 +39,7 @@ class OrdersController extends MyFinance2Controller
     {
         $view = $request->query('view', 'active');
 
-        $items = Order::with('accountModel', 'tradeCurrencyModel')->get();
+        $items = Order::with('accountModel', 'tradeCurrencyModel', 'tierSnapshot')->get();
 
         $trades = Trade::with('accountModel', 'tradeCurrencyModel')
             ->where('status', 'OPEN')
@@ -43,6 +50,7 @@ class OrdersController extends MyFinance2Controller
         $quoteData      = $this->_buildQuoteData($items);
         $projectedGains = $this->_buildProjectedGains($items);
         $activeAlerts   = $this->_buildActiveAlertsBySymbol($items);
+        $tierNow        = $this->_buildTierNow($items);
 
         return view('myfinance2::orders.crud.dashboard', [
             'items'          => $items,
@@ -51,6 +59,11 @@ class OrdersController extends MyFinance2Controller
             'quoteData'      => $quoteData,
             'projectedGains' => $projectedGains,
             'activeAlerts'   => $activeAlerts,
+            'tierNow'        => $tierNow,
+            // The decision's day: when the order was placed, else created (as the backfill dates it).
+            'tierSummary'    => TierVerdictSummary::build(
+                $items, fn ($order) => $order->placed_at ?? $order->created_at
+            ),
         ]);
     }
 
@@ -125,7 +138,7 @@ class OrdersController extends MyFinance2Controller
         $data['openAlerts']   = $symbolPrefill ? $this->_buildOpenAlertsForSymbol($symbolPrefill) : collect();
         $data['bannerSymbol'] = $symbolPrefill ?? '';
 
-        return view('myfinance2::orders.crud.create', $data);
+        return view('myfinance2::orders.crud.create', $this->_withOldInput($data));
     }
 
     /**
@@ -137,8 +150,21 @@ class OrdersController extends MyFinance2Controller
      */
     public function store(StoreOrder $request)
     {
-        $data = $request->fillData();
-        $item = Order::create($data);
+        $data    = $request->fillData();
+        $tier    = OrderTierSnapshots::make();
+        $checked = $this->_tierCheck($tier, null, $data);
+        $confirm = $this->_tierConfirmation($request, $checked, $data);
+        if ($confirm !== null) {
+            return $confirm;
+        }
+
+        $item = DB::connection(config('myfinance2.db_connection'))->transaction(function () use ($data, $tier, $checked)
+        {
+            $item = Order::create($data);
+            $tier->save($item, $checked['check'], null);
+
+            return $item;
+        });
 
         $alertCreated = $this->_createOrderAlert($item);
 
@@ -179,7 +205,7 @@ class OrdersController extends MyFinance2Controller
         $data['openAlerts']              = $this->_buildOpenAlertsForSymbol($item->symbol);
         $data['bannerSymbol']            = $item->symbol;
 
-        return view('myfinance2::orders.crud.edit', $data);
+        return view('myfinance2::orders.crud.edit', $this->_withOldInput($data));
     }
 
     /**
@@ -204,9 +230,20 @@ class OrdersController extends MyFinance2Controller
         $oldAction     = $item->action;
         $oldSymbol     = $item->symbol;
 
-        $data = $request->fillData($id);
-        $item->fill($data);
-        $item->save();
+        $data    = $request->fillData($id);
+        $tier    = OrderTierSnapshots::make();
+        $checked = $this->_tierCheck($tier, $item, $data);
+        $confirm = $this->_tierConfirmation($request, $checked, $data);
+        if ($confirm !== null) {
+            return $confirm;
+        }
+
+        DB::connection(config('myfinance2.db_connection'))->transaction(function () use ($item, $data, $tier, $checked)
+        {
+            $item->fill($data);
+            $item->save();
+            $tier->save($item, $checked['check'], $checked['kept']);
+        });
 
         $alertUpdated = $this->_syncOrderAlert($item, $oldAction, $oldSymbol, $oldLimitPrice, $data['limit_price']);
 
@@ -291,6 +328,7 @@ class OrdersController extends MyFinance2Controller
         }
 
         $item->save();
+        $this->_linkTradeTierReading($item);
 
         $alertDeleted = $this->_deleteOrderAlert($item);
 
@@ -477,6 +515,7 @@ class OrdersController extends MyFinance2Controller
         $item = Order::findOrFail($id);
         $item->trade_id = (int) $request->trade_id;
         $item->save();
+        $this->_linkTradeTierReading($item);
 
         return redirect()->route('myfinance2::orders.index')->with('success',
             trans('myfinance2::orders.flash-messages.trade-linked',
@@ -498,6 +537,105 @@ class OrdersController extends MyFinance2Controller
 
         return redirect()->route('myfinance2::orders.index')->with('success',
             trans('myfinance2::orders.flash-messages.trade-unlinked', ['id' => $item->id]));
+    }
+
+    /**
+     * A trade linked to the order takes the order's tier reading when its own is only rebuilt (TradeTierSnapshots).
+     */
+    private function _linkTradeTierReading(Order $order): void
+    {
+        $trade = $order->trade_id ? Trade::with('tierSnapshot')->find($order->trade_id) : null;
+        if ($trade === null) {
+            return;
+        }
+        try {
+            TradeTierSnapshots::make()->linkToOrder($trade, $order->load('tierSnapshot'));
+        } catch (\Throwable $e) {
+            Log::warning('OrdersController: tier reading not linked to trade #' . $trade->id . ': '
+                . $e->getMessage());
+        }
+    }
+
+    /**
+     * Today's tier of each open order with a saved reading (the list's "now" chip); none when the live reading cannot
+     * be taken, so the list always loads.
+     *
+     * @return array<int, array{tier: ?string, serious: array}>
+     */
+    private function _buildTierNow(\Illuminate\Support\Collection $orders): array
+    {
+        try {
+            return OrderTierSnapshots::make()->nowFor($orders, (int) auth()->id());
+        } catch (\Throwable $e) {
+            Log::warning('OrdersController: today\'s tier readings unavailable: ' . $e->getMessage());
+
+            return [];
+        }
+    }
+
+    /**
+     * The tier check the order is saved against (OrderTierSnapshots::checkFor()); no check when the reading cannot
+     * be taken, so a failing quote or pipeline never blocks an order.
+     *
+     * @return array{check: ?array, kept: ?\ovidiuro\myfinance2\App\Models\TierSnapshot}
+     */
+    private function _tierCheck(OrderTierSnapshots $tier, ?Order $order, array $data): array
+    {
+        try {
+            return $tier->checkFor(
+                $order, (int) auth()->id(), (string) $data['symbol'], (string) $data['action'],
+                is_numeric($data['quantity'] ?? null) ? (float) $data['quantity'] : null,
+                is_numeric($data['limit_price'] ?? null) ? (float) $data['limit_price'] : null
+            );
+        } catch (\Throwable $e) {
+            Log::warning('OrdersController: tier reading unavailable for ' . $data['symbol'] . ', saved without one: '
+                . $e->getMessage());
+
+            return ['check' => null, 'kept' => $order?->tierSnapshot];
+        }
+    }
+
+    /**
+     * Back to the form with the confirmation open when a serious tier warning was not confirmed (the form posts the
+     * codes its confirmation showed as acknowledged_warnings[]; a warning can appear between the page load and the
+     * save). Null when there is nothing left to confirm.
+     */
+    private function _tierConfirmation(Request $request, array $checked, array $data): ?RedirectResponse
+    {
+        $missing = OrderTierSnapshots::missing(
+            $checked['check'], array_map('strval', (array) $request->input('acknowledged_warnings', [])),
+            $checked['kept']
+        );
+        if (empty($missing)) {
+            return null;
+        }
+        $warnings = array_values(array_filter(
+            OrderTierWarnings::serious($checked['check']['warnings']), fn ($w) => in_array($w['code'], $missing, true)
+        ));
+
+        return redirect()->back()->withInput($request->except('acknowledged_warnings'))->with('tier_confirm', [
+            'warnings' => $warnings,
+            'action'   => $data['action'],
+            'symbol'   => strtoupper((string) $data['symbol']),
+            'quantity' => is_numeric($data['quantity'] ?? null) ? (float) $data['quantity'] : null,
+            'price'    => is_numeric($data['limit_price'] ?? null) ? (float) $data['limit_price'] : null,
+        ]);
+    }
+
+    /**
+     * The form's values from the previous request after a redirect back (a validation error, a tier confirmation),
+     * over the defaults or the saved order.
+     */
+    private function _withOldInput(array $data): array
+    {
+        foreach ((new OrderFormFields())->fieldNames() as $field) {
+            $old = old($field);
+            if ($old !== null) {
+                $data[$field] = $old;
+            }
+        }
+
+        return $data;
     }
 
     /**

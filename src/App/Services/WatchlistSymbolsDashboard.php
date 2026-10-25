@@ -158,6 +158,8 @@ class WatchlistSymbolsDashboard
             'quadrant'     => $quadrant,
             'staleQuotes'  => $staleQuotes,
             'reconAlerts'  => $reconAlerts,
+            // Trade currency => EUR per unit at the live rates (the order form's share of the portfolio).
+            'eurRates'     => $liveEurRates,
         ];
     }
 

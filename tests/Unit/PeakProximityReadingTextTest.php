@@ -66,11 +66,10 @@ class PeakProximityReadingTextTest extends TestCase
 
     public function testTierSummaryReadsAsTheChip(): void
     {
-        $this->assertSame('Rust; Deteriorating: REVIEW', $this->text->tierSummary('Rust', null, 'REVIEW',
+        $this->assertSame('Rust; Deteriorating: REVIEW', $this->text->tierSummary('Rust', 'REVIEW',
             $this->chip('REVIEW')));
-        $this->assertSame('Rust, today Silver; Deteriorating', $this->text->tierSummary('Rust', 'Silver', null,
-            $this->chip(null)));
-        $this->assertSame('Bronze, EXIT', $this->text->tierSummary('Bronze', null, 'EXIT'));
+        $this->assertSame('Rust; Deteriorating', $this->text->tierSummary('Rust', null, $this->chip(null)));
+        $this->assertSame('Bronze, EXIT', $this->text->tierSummary('Bronze', 'EXIT'));
     }
 
     public function testSubjectTailForATierSignal(): void

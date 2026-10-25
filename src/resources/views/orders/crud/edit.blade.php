@@ -33,10 +33,14 @@
                         </div>
                     </div>
 
-                    <div id="open-alerts-banner-wrapper" class="mx-3 mt-3">
+                    {{-- The tier warnings and reading (scripts/tier-reading), then the price alerts --}}
+                    <div id="tier-reading-wrapper" class="mx-3 mt-3"></div>
+                    <div id="open-alerts-banner-wrapper" class="mx-3">
                         @include('myfinance2::orders.partials.open-alerts-banner')
                     </div>
                     @include('myfinance2::orders.forms.edit-item-form')
+                    @include('myfinance2::watchlistsymbols.tables.partials.tier-history-modal')
+                    @include('myfinance2::orders.partials.tier-confirm-modal', ['isEdit' => true])
                 </div>
             </div>
         </div>
@@ -55,4 +59,10 @@
     @include('myfinance2::orders.scripts.open-alerts-banner', [
         'openAlertsFetchUrl' => route('myfinance2::orders.open-alerts-for-symbol'),
     ])
+    @include('myfinance2::orders.scripts.tier-reading', [
+        'tierReadingUrl' => route('myfinance2::orders.tier-reading'),
+        'tierOrderId'    => $id,
+    ])
+    @include('myfinance2::watchlistsymbols.scripts.tier-history-chart')
+    @include('myfinance2::watchlistsymbols.scripts.tier-history-ribbon')
 @endsection

@@ -1,6 +1,6 @@
 {{-- Bottom of the health card: the owned symbols' tiers under each way of measuring return, with the
      portfolio split each one gives. $comparison is TierApproachComparison::build(). Each symbol shows its tier
-     in use and, outlined, today's tier when it differs, as in the Holdings by tier tables. --}}
+     in use. --}}
 @php
     use ovidiuro\myfinance2\App\Services\MoneyFormat;
     use ovidiuro\myfinance2\App\Services\TierApproachCatalog;
@@ -158,9 +158,6 @@
                 <td class="px-1 fw-semibold">
                     @include('myfinance2::watchlistsymbols.tables.partials.health-score-approach-badge', [
                         'tier' => $row['tier'], 'title' => 'Tier in use',
-                    ])
-                    @include('myfinance2::watchlistsymbols.tables.partials.tier-today-chip', [
-                        'chip' => $row['today_chip'], 'compact' => true,
                     ])
                     @include('myfinance2::watchlistsymbols.tables.partials.symbol-label', [
                         'symbol' => $row['symbol'],

@@ -7,6 +7,7 @@ namespace ovidiuro\myfinance2\App\Models\Concerns;
 use ovidiuro\myfinance2\App\Services\CategorizationService;
 use ovidiuro\myfinance2\App\Services\DipBuyingPlanService;
 use ovidiuro\myfinance2\App\Services\DrawdownService;
+use ovidiuro\myfinance2\App\Services\LiveTierReadings;
 use ovidiuro\myfinance2\App\Services\SymbolPerformanceService;
 
 /**
@@ -39,6 +40,8 @@ trait InvalidatesSymbolPerformanceCache
             // Categorization is currently recomputed live (uncached); clearing it here is a no-op
             // today but keeps the invalidation correct if that cache is ever re-enabled.
             CategorizationService::clearCache($userId);
+            // The order form's live tier readings (positions and shares of the portfolio change with a trade).
+            LiveTierReadings::clearCache($userId);
         };
 
         // saved covers both create and update; deleted/restored cover soft-delete lifecycle.

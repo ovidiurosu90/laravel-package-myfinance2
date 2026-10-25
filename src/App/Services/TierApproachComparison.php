@@ -74,8 +74,6 @@ final class TierApproachComparison
                 'symbol'     => $detail['symbol'],
                 'tier'       => $detail['tier'],
                 'mvalue_eur' => $detail['mvalue_eur'],
-                // Today's tier when it differs from the one in use (outlined next to it, as in Holdings by tier).
-                'today_chip' => $detail['today_chip'] ?? null,
                 'cells'      => $cells,
                 'superstar'  => self::superstar($cells),
             ];

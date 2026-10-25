@@ -1,54 +1,30 @@
 @php
 use ovidiuro\myfinance2\App\Services\TierCalculationService;
-use ovidiuro\myfinance2\App\Services\TierDecision;
+use ovidiuro\myfinance2\App\Services\TierReadingBuilder;
 use ovidiuro\myfinance2\App\Services\QuadrantClassifier;
 use ovidiuro\myfinance2\App\Services\MoneyFormat;
 use ovidiuro\myfinance2\App\Services\ReturnsTooltips;
-use ovidiuro\myfinance2\App\Services\SettledTierResolver;
 
 $cat          = $quoteData['categorization'] ?? null;
 $tier         = $cat['effective_tier'] ?? null;
-$computedTier = $cat['computed_tier'] ?? null;
-$hasOverride  = $cat['has_override'] ?? false;
-$confidence   = $cat['confidence'] ?? TierDecision::CONFIDENCE_HIGH;
-$explanation  = $cat['explanation'] ?? '';
-$action       = $cat['action'] ?? null;
-// The 1Y market proxy was rejected (below the trusted floor) and the tier fell back: an irregularity
-// worth flagging on its own, with a specific note explaining the clamp.
-$marketArtifact     = !empty($cat['market_artifact']);
-$marketArtifactNote = $cat['market_artifact_note'] ?? '';
-// A 1Y market return above the unusual-move line decides the tier: used, but flagged.
-$marketUnusual      = !empty($cat['market_unusual']);
-$marketUnusualNote  = $cat['market_unusual_note'] ?? '';
-// Generic low-confidence warning. Suppressed when the artifact icon already explains the fallback,
-// so the same fallback is not flagged twice.
-$showWarn     = $cat !== null && !$hasOverride && !$marketArtifact
-                && $confidence === TierDecision::CONFIDENCE_LOW;
-$isStale      = !empty($cat['is_stale']);
 $isOwned      = !empty($quoteData['open_positions']);
 $isBenchmark  = !empty($cat['is_benchmark']);
-// History part of the Tier line: the median of 12 months behind the tier, or why there is none.
-$tierHistory  = $cat['tier_history'] ?? null;
-$settledFig   = !$hasOverride ? ($tierHistory['settled_value'] ?? null) : null;
-$historyNote  = match (true) {
-    $hasOverride => 'manual override',
-    $tierHistory === null => 'none stored yet',
-    ($cat['tier_signal']['status'] ?? null) === SettledTierResolver::STATUS_DETERIORATING
-        => 'follows today after a lasting drop',
-    ($cat['tier_signal']['status'] ?? null) === SettledTierResolver::STATUS_INSUFFICIENT
-        => 'too short, today\'s reading used',
-    default => 'today\'s reading used',
-};
 
 // Per-period "P&L if sold at this window's peak" (EUR + %), built in the BE (PeakExitPnlBuilder).
 // Owned symbols only; null per period when there is no held position or no window peak.
 $peakPnlMap = $quoteData['table_meta']['period_peak_pnl'] ?? [];
 
-// Portfolio mvalue from health score lookup (built in items-table.blade.php)
-$hsRow      = ($healthSymbolIndex ?? [])[$symbol] ?? null;
-$mvalueEur  = $hsRow['mvalue_eur'] ?? null;
-$mvaluePct  = $hsRow['mvalue_pct'] ?? null;
-$mvalueColor = $health_score['mvalue_color'] ?? null;
+// The Tier and Tier History lines, from the same reading the order and trade pages save (TierReadingBuilder); the
+// portfolio share from the health score lookup (built in items-table.blade.php).
+$tierReading = TierReadingBuilder::fromCategorization(
+    $symbol, $cat, ($healthSymbolIndex ?? [])[$symbol] ?? null, $health_score['mvalue_color'] ?? null
+);
+$tierEdit = $tier !== null && $isOwned ? [
+    'current'      => $tier,
+    'computed'     => $cat['computed_tier'] ?? null,
+    'has_override' => !empty($cat['has_override']),
+    'note'         => $cat['override_note'] ?? '',
+] : null;
 
 $quadrantColors = [
     QuadrantClassifier::STEADY_GROWERS   => 'bg-success',
@@ -79,112 +55,13 @@ $actionColors = [
             $cat['vusa_same_window_pct'] ?? null,
             $cat['vusa_same_window_raw_pct'] ?? null
         );
-        $approachCells = $cat['approach_cells'] ?? [];
-        $approachesId  = 'tier-approaches-' . preg_replace('/[^A-Za-z0-9]+/', '-', $symbol);
     @endphp
 
-    {{-- Line 1: Tier (with the edit button for an owned symbol), under each of the 7 approaches; the one in use is
-         the tier itself (full name, outlined), a manual override shows its own badge first. Then the share of the
-         portfolio. --}}
-    <div class="d-flex flex-wrap align-items-center" style="column-gap:0.6rem;row-gap:0.15rem;">
-        <span class="text-muted text-nowrap">@include('myfinance2::watchlistsymbols.tables.partials.superstar-star', [
-            'superstar' => $cat['superstar'] ?? null,
-        ])<span data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
-            title="The tier under each of the 7 ways of measuring return compared in the Portfolio Health card.
-                The outlined one is in use: it is the symbol's tier. * marks a stand-in."
-            >Tier</span>@if($tier !== null && $isOwned)<span class="ms-1" data-bs-toggle="tooltip"
-                title="Edit tier for {{ $symbol }}" style="line-height:1;vertical-align:middle;">
-                <button type="button" class="btn btn-link btn-sm p-0"
-                    data-symbol="{{ $symbol }}"
-                    data-current-tier="{{ $tier }}"
-                    data-computed-tier="{{ $computedTier }}"
-                    data-has-override="{{ $hasOverride ? 'true' : 'false' }}"
-                    data-override-note="{{ $cat['override_note'] ?? '' }}"
-                    data-bs-toggle="modal"
-                    data-bs-target="#tier-override-modal">
-                    <i class="fa fa-pencil fa-xs text-muted" aria-hidden="true"></i>
-                </button></span>@endif:</span>
-        @if($tier === null)
-            <span class="badge bg-light text-dark border"
-                data-bs-toggle="tooltip" title="{{ $explanation }}">Unrated</span>
-        @elseif($hasOverride || empty($approachCells))
-            <span class="badge {{ TierCalculationService::tierBadgeClass($tier) }}"
-                @if($tier === TierCalculationService::BRONZE) style="background-color:#e67e22!important;"@endif
-                data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
-                title="{{ $cat['tier_tooltip'] ?? $explanation }}">
-                {{ TierCalculationService::tierLabel($tier) }}{{ $hasOverride ? ' ★' : '' }}
-            </span>
-        @endif
-        @include('myfinance2::watchlistsymbols.tables.partials.tier-approaches', [
-            'cells' => $approachCells, 'detailsId' => $approachesId,
-        ])
-        @if($isStale)
-        <span data-bs-toggle="tooltip" title="{{ $explanation }}" style="line-height:1;vertical-align:middle;">
-            <i class="fa fa-clock-o fa-xs text-warning" aria-hidden="true"></i>
-        </span>
-        @endif
-        @if($marketArtifact)
-        <span data-bs-toggle="tooltip" title="{{ $marketArtifactNote }}"
-              style="line-height:1;vertical-align:middle;">
-            <i class="fa fa-exclamation-triangle fa-xs text-danger" aria-hidden="true"></i>
-        </span>
-        @endif
-        @if($marketUnusual)
-        <span data-bs-toggle="tooltip" title="{{ $marketUnusualNote }}"
-              style="line-height:1;vertical-align:middle;">
-            <i class="fa fa-exclamation-triangle fa-xs text-warning" aria-hidden="true"></i>
-        </span>
-        @endif
-        @if($showWarn)
-        <span data-bs-toggle="tooltip" title="{{ $explanation }}" style="line-height:1;vertical-align:middle;">
-            <i class="fa fa-exclamation-circle fa-xs text-warning" aria-hidden="true"></i>
-        </span>
-        @endif
-        @if($mvalueEur !== null)
-            <span class="text-muted">·</span>
-            <span class="text-nowrap" data-bs-toggle="tooltip"
-                title="€ {{ MoneyFormat::get_formatted_price_plain($mvalueEur) }} current market value"
-                @if($mvalueColor) style="color:{{ $mvalueColor }}" @endif>{{ $mvaluePct }}% of portfolio</span>
-        @endif
-    </div>
-
-    @include('myfinance2::watchlistsymbols.tables.partials.tier-approaches-table', [
-        'cells' => $approachCells, 'detailsId' => $approachesId,
+    {{-- Lines 1 and 2: the Tier line (the tier under each of the 7 approaches, the share of the portfolio) and the
+         Tier History line (ribbon, chart and chips) --}}
+    @include('myfinance2::watchlistsymbols.tables.partials.tier-reading', [
+        'reading' => $tierReading, 'tierEdit' => $tierEdit,
     ])
-
-    {{-- Line 2: Tier history (the per-day ribbon, why there is no median when there is none, the split-year
-         note and the chart), then the range-bound chip (TRIM / HOLD / ADD ...) when the symbol is range-bound, or
-         the weak-tier-in-profit chip (TAKE PROFIT), or the tier signal chip (rare high, rare low, deteriorating;
-         it shows nothing when it defers to one of the other two) --}}
-    @if(($tier !== null && $tierHistory !== null) || !empty($cat['range_bound']) || !empty($cat['take_profit'])
-        || !empty($cat['tier_signal_chip']))
-    <div class="d-flex flex-wrap gap-1 align-items-center mt-1">
-        @if($tier !== null && $tierHistory !== null)
-            <span class="text-muted">Tier History 12M:</span>
-            @if($settledFig === null)
-                <span class="text-muted fst-italic" data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
-                    title="{{ $cat['tier_tooltip'] ?? $explanation }}">{{ $historyNote }}</span>
-            @endif
-            @include('myfinance2::watchlistsymbols.tables.partials.tier-history-ribbon')
-            @if(!empty($tierHistory['split']))
-                <span class="text-muted text-nowrap" data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
-                    title="{{ $tierHistory['split']['title'] }}"><i
-                    class="fa fa-exclamation-triangle fa-xs text-warning" aria-hidden="true"></i>
-                    {{ $tierHistory['split']['label'] }}</span>
-            @endif
-            @include('myfinance2::watchlistsymbols.tables.partials.tier-history-chart-button')
-        @endif
-        @include('myfinance2::watchlistsymbols.tables.partials.range-bound-chip', [
-            'range' => $cat['range_bound'] ?? null,
-        ])
-        @include('myfinance2::watchlistsymbols.tables.partials.take-profit-chip', [
-            'takeProfit' => $cat['take_profit'] ?? null,
-        ])
-        @include('myfinance2::watchlistsymbols.tables.partials.tier-signal-chip', [
-            'tierSignal' => $cat['tier_signal_chip'] ?? null,
-        ])
-    </div>
-    @endif
 
     {{-- Line 3: Returns (money-weighted XIRR and alpha vs the benchmark), both per year. The
          benchmark does not compare against itself, so it just states what it is. --}}

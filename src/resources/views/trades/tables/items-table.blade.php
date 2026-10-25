@@ -17,13 +17,28 @@
                 <th>Status</th>
                 <th>Action</th>
                 <th>Symbol</th>
-                <th>Quantity</th>
-                <th class="text-right text-nowrap">Unit Price</th>
+                <th class="text-nowrap text-start">
+                    Tier <i class="fas fa-info-circle fa-xs text-muted" aria-hidden="true" data-bs-toggle="tooltip"
+                        data-bs-custom-class="tooltip-wide"
+                        title="At the decision, locked: the order's reading when the trade filled an order (the order
+                            number under the trade id), else the trade's own (live when recorded the same day, rebuilt
+                            from the stored history for a past date). The verdict (no warning, soft warnings, against
+                            the tiers), the tier in use with its chips and the 7 approaches beneath."></i>
+                </th>
                 <th class="text-right text-nowrap">
-                    <span data-bs-toggle="tooltip"
-                          title="Principle Amount = Quantity * Unit Price">P Amount</span>
+                    <span data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
+                          title="Principal amount = quantity × unit price, in the trade currency (and the account
+                              currency when it differs); quantity × unit price and the exchange rate beneath.
+                              Sorts by the amount in EUR at today's rate, signed as cash: a BUY negative, a SELL
+                              positive.">Amount</span>
                 </th>
                 <th class="text-right text-nowrap">Fee</th>
+                <th class="d-none d-xl-table-cell text-right text-nowrap no-search">
+                    <span data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
+                        title="The trade against VUSA.AS since it was made, in points: a BUY from its price to today's
+                            (or to the SELL that closed it), less VUSA.AS over the same span; a SELL the other way
+                            round, so positive means the sale was right. In the symbol's own currency.">Vs Index</span>
+                </th>
                 <th class="d-none d-xl-table-cell">Description</th>
                 <th class="d-none d-xl-table-cell">Created</th>
                 <th class="d-none d-xl-table-cell">Updated</th>
@@ -60,27 +75,14 @@
                     @endif
                 </td>
                 <td>{!! $item->getFormattedSymbol() !!}</td>
-                <td>{{ $item->getCleanQuantity() }}</td>
-                <td class="text-right">
-                    <div class="text-nowrap">{!! $item->getFormattedUnitPrice() !!}</div>
-                    <div class="text-nowrap">FX {{ $item->getCleanExchangeRate() }}</div>
-                </td>
-                <td class="text-right text-nowrap">
-                    <div data-bs-toggle="tooltip" title="Amount in trade currency">
-                        {!! $item->getFormattedPrincipleAmount() !!}
-                    </div>
-                    @if($item->accountModel->currency->iso_code !=
-                        $item->tradeCurrencyModel->iso_code)
-                    <div data-bs-toggle="tooltip"
-                        title="Amount in account currency">
-                        {!! $item->getFormattedPrincipleAmountInAccountCurrency()
-                        !!}
-                    </div>
-                    @endif
-                </td>
+                @include('myfinance2::trades.tables.partials.tier-cell', ['trade' => $item])
+                @include('myfinance2::trades.tables.partials.amount-cell', ['trade' => $item])
                 <td class="text-right text-nowrap">
                     {!! $item->getFormattedFee() !!}
                 </td>
+                @include('myfinance2::trades.tables.partials.vs-index-cell', [
+                    'comparison' => $vsIndex[$item->id] ?? null,
+                ])
                 <td class="d-none d-xl-table-cell">{{ $item->description }}</td>
                 <td class="d-none d-xl-table-cell">{{ $item->created_at }}</td>
                 <td class="d-none d-xl-table-cell">{{ $item->updated_at }}</td>
@@ -115,13 +117,15 @@
                 <th>Status</th>
                 <th>Action</th>
                 <th>Symbol</th>
-                <th>Quantity</th>
-                <th class="text-right text-nowrap">Unit Price</th>
+                <th>Tier</th>
                 <th class="text-right text-nowrap">
-                    <span data-bs-toggle="tooltip"
-                          title="Principle Amount = Quantity * Unit Price">P Amount</span>
+                    <span data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
+                          title="Principal amount = quantity × unit price, in the trade currency (and the account
+                              currency when it differs); quantity × unit price and the exchange rate beneath.
+                              Sorts by the amount.">Amount</span>
                 </th>
                 <th class="text-right text-nowrap">Fee</th>
+                <th class="d-none d-xl-table-cell text-right text-nowrap no-search"></th>
                 <th class="d-none d-xl-table-cell">Description</th>
                 <th class="d-none d-xl-table-cell">Created</th>
                 <th class="d-none d-xl-table-cell">Updated</th>

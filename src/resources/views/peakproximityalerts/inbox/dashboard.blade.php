@@ -12,12 +12,6 @@
         'MEDIUM' => 'bg-warning text-dark',
         'LOW'    => 'bg-secondary',
     ];
-    $actionClass = [
-        'ACCUMULATE' => 'bg-success',
-        'HOLD'       => 'bg-info text-dark',
-        'REDUCE'     => 'bg-warning text-dark',
-        'EXIT'       => 'bg-danger',
-    ];
 
     $windowsLabel = function (?string $csv) use ($periodMap) {
         $parts = array_filter(array_map('trim', explode(',', (string) $csv)));
@@ -67,6 +61,7 @@
                             </a>
                         </div>
                         Peak-Proximity Inbox
+                        @include('myfinance2::peakproximityalerts.partials.rules-toggle')
                     </div>
                     <div class="card-body">
                         @include('myfinance2::peakproximityalerts.partials.rules')
@@ -88,7 +83,6 @@
                                             @include('myfinance2::peakproximityalerts.inbox.partials.card', [
                                                 'event'         => $event,
                                                 'severityClass' => $severityClass,
-                                                'actionClass'   => $actionClass,
                                                 'windowsLabel'  => $windowsLabel,
                                             ])
                                         </div>
@@ -125,7 +119,6 @@
                                     @include('myfinance2::peakproximityalerts.inbox.partials.card', [
                                         'event'         => $event,
                                         'severityClass' => $severityClass,
-                                        'actionClass'   => $actionClass,
                                         'windowsLabel'  => $windowsLabel,
                                     ])
                                 </div>
@@ -173,7 +166,6 @@
                                     @include('myfinance2::peakproximityalerts.inbox.partials.card', [
                                         'event'         => $event,
                                         'severityClass' => $severityClass,
-                                        'actionClass'   => $actionClass,
                                         'windowsLabel'  => $windowsLabel,
                                     ])
                                 </div>

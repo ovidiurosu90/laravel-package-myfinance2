@@ -48,9 +48,6 @@
                     @if($rowTier === TierCalculationService::BRONZE) style="background-color:#e67e22!important;"@endif
                     data-bs-toggle="tooltip"
                     title="{{ $rowTierTip }}">{{ $rowBadge }}</span>
-                @include('myfinance2::watchlistsymbols.tables.partials.tier-today-chip', [
-                    'chip' => $row['today_chip'] ?? null, 'compact' => true,
-                ])
                 @else
                 <span class="badge bg-light text-dark border me-1"
                     data-bs-toggle="tooltip"

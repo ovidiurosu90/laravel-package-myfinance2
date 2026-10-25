@@ -406,9 +406,8 @@ class PortfolioHealthScore
                 'is_stale'             => $cat['is_stale'] ?? false,
                 'is_benchmark'         => $cat['is_benchmark'] ?? false,
                 'explanation'          => $cat['explanation'] ?? '',
-                // Settled tier explanation (or the override reason) and today's tier when it differs.
+                // Settled tier explanation (or the override reason).
                 'tier_tooltip'         => $cat['tier_tooltip'] ?? '',
-                'today_chip'           => $cat['today_chip'] ?? null,
                 // Platinum or Gold under most tier approaches (TierApproachComparison::superstar()): the star.
                 'superstar'            => $cat['superstar'] ?? null,
                 'position_start'       => $this->_resolvePositionStart($openWin, $positions),

@@ -33,7 +33,10 @@
                     </div>
                     @endif
 
+                    {{-- The tier reading the trade is saved with (scripts/tier-reading) --}}
+                    <div id="tier-reading-wrapper" class="mx-3 mt-3"></div>
                     @include('myfinance2::trades.forms.create-item-form')
+                    @include('myfinance2::watchlistsymbols.tables.partials.tier-history-modal')
                 </div>
             </div>
         </div>
@@ -47,5 +50,12 @@
     @include('myfinance2::general.scripts.available-quantity')
     @include('myfinance2::trades.scripts.finance')
     @include('myfinance2::general.scripts.symbol-chart-panel')
+    @include('myfinance2::trades.scripts.tier-reading', [
+        'tierReadingUrl' => route('myfinance2::trades.tier-reading'),
+        'tierTradeId'    => null,
+        'tierOrderId'    => $order_id ?? null,
+    ])
+    @include('myfinance2::watchlistsymbols.scripts.tier-history-chart')
+    @include('myfinance2::watchlistsymbols.scripts.tier-history-ribbon')
 @endsection
 

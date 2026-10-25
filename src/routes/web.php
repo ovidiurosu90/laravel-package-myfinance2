@@ -106,6 +106,10 @@ Route::group([
                 'OrdersController@unlinkTrade')->name('orders.unlink-trade');
     Route::get('orders/open-alerts-for-symbol',
                'OrdersController@openAlertsForSymbol')->name('orders.open-alerts-for-symbol');
+    Route::get('orders/tier-reading',
+               'OrderTierReadingController@show')->name('orders.tier-reading');
+    Route::get('trades/tier-reading',
+               'TradeTierReadingController@show')->name('trades.tier-reading');
 
     Route::resource('orders', 'OrdersController');
 

@@ -14,8 +14,6 @@ use ovidiuro\myfinance2\Mail\PriceAlertTriggered;
 use ovidiuro\myfinance2\App\Models\Currency;
 use ovidiuro\myfinance2\App\Models\PriceAlert;
 use ovidiuro\myfinance2\App\Models\PriceAlertNotification;
-use ovidiuro\myfinance2\App\Models\StatHistorical;
-use ovidiuro\myfinance2\App\Models\StatToday;
 use ovidiuro\myfinance2\App\Models\Trade;
 use ovidiuro\myfinance2\App\Models\Scopes\AssignedToUserScope;
 
@@ -29,8 +27,8 @@ use ovidiuro\myfinance2\App\Models\Scopes\AssignedToUserScope;
  */
 class AlertService
 {
-    /** Per-instance EUR rate cache: currency+date → float|null */
-    private array $_eurRateCache = [];
+    /** EUR rates per trade currency (LatestEurRates, cached per instance and day). */
+    private ?LatestEurRates $_eurRates = null;
 
     /** Per-instance open position cache: userId:symbol → array|null */
     private array $_positionCache = [];
@@ -786,7 +784,7 @@ class AlertService
     }
 
     /**
-     * Get EUR multiplier for a trade currency (cached within this instance).
+     * Get EUR multiplier for a trade currency (cached within this instance, LatestEurRates).
      * Returns null if the currency is not supported or rate is unavailable.
      *
      * @param string $tradeCurrency ISO code
@@ -795,63 +793,9 @@ class AlertService
      */
     private function _getEurRate(string $tradeCurrency): ?float
     {
-        if ($tradeCurrency === 'EUR') {
-            return 1.0;
-        }
+        $this->_eurRates ??= new LatestEurRates();
 
-        $cacheKey = $tradeCurrency . ':' . date('Y-m-d');
-
-        if (array_key_exists($cacheKey, $this->_eurRateCache)) {
-            return $this->_eurRateCache[$cacheKey];
-        }
-
-        $exchangeMap = [
-            'USD' => ['symbol' => 'EURUSD=X', 'scale' => 1],
-            'GBP' => ['symbol' => 'EURGBP=X', 'scale' => 1],
-            'GBp' => ['symbol' => 'EURGBP=X', 'scale' => 100],
-            'GBX' => ['symbol' => 'EURGBP=X', 'scale' => 100],
-        ];
-
-        if (!isset($exchangeMap[$tradeCurrency])) {
-            $this->_eurRateCache[$cacheKey] = null;
-            return null;
-        }
-
-        $cfg = $exchangeMap[$tradeCurrency];
-        $rate = $this->_fetchEurRate($cfg['symbol'], $cfg['scale']);
-
-        $this->_eurRateCache[$cacheKey] = $rate;
-        return $rate;
-    }
-
-    /**
-     * Fetch EUR rate from stats tables.
-     *
-     * @param string $symbol Exchange rate symbol (e.g. EURUSD=X)
-     * @param int    $scale  Scaling factor (100 for GBX pence)
-     *
-     * @return float|null
-     */
-    private function _fetchEurRate(string $symbol, int $scale): ?float
-    {
-        $row = StatToday::withoutGlobalScope(AssignedToUserScope::class)
-            ->where('symbol', $symbol)
-            ->orderBy('timestamp', 'DESC')
-            ->first();
-
-        if (empty($row) || (float) $row->unit_price <= 0) {
-            $row = StatHistorical::withoutGlobalScope(AssignedToUserScope::class)
-                ->where('symbol', $symbol)
-                ->where('date', '<=', date('Y-m-d'))
-                ->orderBy('date', 'DESC')
-                ->first();
-        }
-
-        if (empty($row) || (float) $row->unit_price <= 0) {
-            return null;
-        }
-
-        return 1.0 / ((float) $row->unit_price * $scale);
+        return $this->_eurRates->forCurrency($tradeCurrency);
     }
 
     /**

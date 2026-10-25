@@ -72,6 +72,8 @@ class MyFinance2ServiceProvider extends ServiceProvider
             \ovidiuro\myfinance2\App\Console\Commands\PortfolioPeakAlerts::class,
             \ovidiuro\myfinance2\App\Console\Commands\TierHistoryBackfill::class,
             \ovidiuro\myfinance2\App\Console\Commands\TierSignalBacktest::class,
+            \ovidiuro\myfinance2\App\Console\Commands\OrderWarningReview::class,
+            \ovidiuro\myfinance2\App\Console\Commands\TierSnapshotBackfill::class,
         ]);
     }
 

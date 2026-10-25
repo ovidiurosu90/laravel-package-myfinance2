@@ -117,14 +117,11 @@ class PeakProximityAlert extends Mailable
         // The tier signal chip the symbol shows (none when it defers to the range-bound or TAKE PROFIT chip).
         $tierSignal = TierSignalChip::shown($cat);
         $action     = self::readingAction($cat);
-        // Today's tier, only when it differs from the effective (settled) one.
-        $todayChip = $cat['today_chip'] ?? null;
 
         // Lead the subject with the tier (and action) so a near-peak winner reads differently from a
         // near-peak laggard at a glance, e.g.
         // "[MyFinance2-LOCAL] EZJ.L (Bronze, EXIT) near peak => -4.25% to 6M, +0.00% to 3M"
-        // or, when today's reading differs from the settled tier, "(Bronze, today Gold, EXIT)", or for a range-bound
-        // symbol "(Rust, today Silver; Range-bound, near the high: TRIM)", the same words as its chip.
+        // or for a range-bound symbol "(Rust; Range-bound, near the high: TRIM)", the same words as its chip.
         $parts = [];
         foreach ($orderedWindows as $window) {
             // Compact in the subject ("-3.68%"); the body reads "- 3.68 %" as the web pages do.
@@ -133,9 +130,7 @@ class PeakProximityAlert extends Mailable
             ) . ' to ' . strtoupper($window);
         }
 
-        $tierSummary  = $this->_tierSummary(
-            $tierLabel, $todayChip['label'] ?? null, $action, $rangeBound ?? $takeProfit ?? $tierSignal
-        );
+        $tierSummary  = $this->_tierSummary($tierLabel, $action, $rangeBound ?? $takeProfit ?? $tierSignal);
         $tierTag      = $tierSummary !== '' ? " ({$tierSummary})" : '';
         $prefix       = $this->_isReminder ? 'Reminder: ' : '';
         $isRange      = PeakProximityAlertEvent::isRange($this->_signal) && $rangeBound !== null;
@@ -328,7 +323,6 @@ class PeakProximityAlert extends Mailable
         return [
             'tier_label'   => $tier ? TierCalculationService::tierLabel($tier) : 'Unrated',
             'tier_class'   => $tier ? TierCalculationService::tierBadgeClass($tier) : 'bg-light text-dark',
-            'today_chip'   => $this->_todayChipView($cat['today_chip'] ?? null),
             'gain_eur'     => $tableMeta['basis_gain_eur'] ?? null,
             'basis_val'    => $cat['basis_value'] ?? null,
             'action'       => $action,
@@ -454,27 +448,6 @@ class PeakProximityAlert extends Mailable
         ];
 
         return $map[$quadrant] ?? 'bg-secondary';
-    }
-
-    /**
-     * The outlined "today" badge for the email (inline styles, no tooltip), or null when today's tier matches the
-     * effective one. $chip is CategorizationTierHistory::todayChip(): ['tier', 'label', 'title'].
-     *
-     * @param array|null $chip
-     *
-     * @return array|null ['label', 'style']
-     */
-    private function _todayChipView(?array $chip): ?array
-    {
-        if (empty($chip)) {
-            return null;
-        }
-
-        return [
-            'label' => $chip['label'],
-            'style' => 'background:transparent;color:#212529;font-weight:400;border:2px solid '
-                . TierCalculationService::tierColor($chip['tier']) . ';',
-        ];
     }
 
     /**

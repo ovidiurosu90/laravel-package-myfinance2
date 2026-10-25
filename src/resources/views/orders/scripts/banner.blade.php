@@ -12,6 +12,14 @@ $(document).ready(function ()
     var avgCost         = avgCostRaw !== '' ? parseFloat(avgCostRaw) : NaN;
     var totalOpenQty    = totalOpenQtyRaw !== '' ? parseFloat(totalOpenQtyRaw) : NaN;
 
+    // Amounts and prices as MoneyFormat shows them: no decimals from 1,000 up (with thousands separators), 2 below.
+    function fmtAmount(value)
+    {
+        return Math.abs(value) >= 1000
+            ? value.toLocaleString('en-US', { maximumFractionDigits: 0 })
+            : value.toFixed(2);
+    }
+
     function updateBanner()
     {
         var action   = $('#action-select').val();
@@ -39,10 +47,10 @@ $(document).ready(function ()
         var html = '<strong>' + action + '</strong> '
             + qtyDisplay + 'x ' + symbol
             + ' @ ' + priceStr + (currDisplay ? ' ' + currDisplay : '')
-            + ' ≈ ' + total.toFixed(2) + (currDisplay ? ' ' + currDisplay : '');
+            + ' ≈ ' + fmtAmount(total) + (currDisplay ? ' ' + currDisplay : '');
 
         if (!isNaN(exRate) && exRate > 0 && exRate !== 1 && acctDisplay) {
-            html += ' (~' + (total / exRate).toFixed(2) + ' ' + acctDisplay + ')';
+            html += ' (~' + fmtAmount(total / exRate) + ' ' + acctDisplay + ')';
         }
 
         if (action === 'SELL' && !isNaN(avgCost) && avgCost > 0) {
@@ -52,8 +60,8 @@ $(document).ready(function ()
             var isLoss      = totalGain < 0;
             var sign        = totalGain >= 0 ? '+' : '';
             html += ' — Projected ' + (isLoss ? 'Loss ⚠️' : 'Gain ✅') + ': '
-                + sign + totalGain.toFixed(2) + ' (' + sign + gainPct.toFixed(2) + '%)'
-                + '<span class="text-muted ms-2">@ avg ' + avgCost.toFixed(2)
+                + sign + fmtAmount(totalGain) + ' (' + sign + gainPct.toFixed(2) + '%)'
+                + '<span class="text-muted ms-2">@ avg ' + fmtAmount(avgCost)
                 + (currDisplay ? ' ' + currDisplay : '') + '</span>';
             if (isLoss) {
                 html += '<div class="mt-1 text-muted">'

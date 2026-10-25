@@ -82,7 +82,6 @@ class CategorizationTierHistoryTest extends TestCase
         $settled  = $this->_settled($decision, array_fill(0, 100, 7.0));
 
         $this->_assertEffective(TierCalculationService::BRONZE, $decision, $settled);
-        $this->assertNull(CategorizationTierHistory::todayChip($decision, TierCalculationService::BRONZE));
     }
 
     public function test_insufficient_history_uses_todays_tier(): void
@@ -115,7 +114,6 @@ class CategorizationTierHistoryTest extends TestCase
         $settled  = $this->_settled($decision, array_fill(0, 100, 20.0), $symbol);
 
         $this->_assertEffective(TierCalculationService::GOLD, $decision, $settled);
-        $this->assertNull(CategorizationTierHistory::todayChip($decision, TierCalculationService::GOLD));
     }
 
     public function test_unrated_today_is_not_rated_from_the_history(): void
@@ -125,19 +123,6 @@ class CategorizationTierHistoryTest extends TestCase
 
         $this->assertSame(TierCalculationService::GOLD, $settled->settledTier);
         $this->_assertEffective(null, $decision, $settled);
-        $this->assertNull(CategorizationTierHistory::todayChip($decision, null));
-    }
-
-    public function test_today_chip_only_when_today_differs(): void
-    {
-        $decision = $this->_decision(TierCalculationService::GOLD);
-
-        $chip = CategorizationTierHistory::todayChip($decision, TierCalculationService::SILVER);
-        $this->assertSame(TierCalculationService::GOLD, $chip['tier']);
-        $this->assertSame('Gold', $chip['label']);
-        $this->assertStringStartsWith('Today: Gold', $chip['title']);
-
-        $this->assertNull(CategorizationTierHistory::todayChip($decision, TierCalculationService::GOLD));
     }
 
     public function test_tooltip_puts_the_settled_explanation_before_the_basis(): void

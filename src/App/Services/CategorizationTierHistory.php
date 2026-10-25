@@ -19,8 +19,6 @@ use Carbon\Carbon;
  *   effective_tier      the tier every consumer reads (badge, health card, alerts): see effectiveTier()
  *   tier_tooltip        settled explanation followed by the basis explanation (the override reason
  *                       alone when overridden)
- *   today_chip          null, or ['tier', 'label', 'title'] when today's tier differs from the
- *                       effective one, for the outlined "today" badge next to it
  *
  * The entry is merged last into the categorization, so effective_tier replaces the decision's.
  */
@@ -98,7 +96,6 @@ final class CategorizationTierHistory
             'tier_signal'         => $settled->toArray(),
             'settled_explanation' => $settled->explanation,
             'tier_tooltip'        => self::tierTooltip($decision, $settled),
-            'today_chip'          => self::todayChip($decision, $effective),
         ];
     }
 
@@ -109,27 +106,5 @@ final class CategorizationTierHistory
         }
 
         return trim($settled->explanation . ' ' . $decision->explanation);
-    }
-
-    /**
-     * The outlined "today" badge, only when today's tier differs from the effective one (never for an
-     * override, which already says what the computed tier was, nor for the pinned benchmark).
-     */
-    public static function todayChip(TierDecision $decision, ?string $effective): ?array
-    {
-        $today = $decision->computedTier;
-        if ($today === null || $effective === null || $today === $effective
-            || $decision->hasOverride || $decision->isBenchmark
-        ) {
-            return null;
-        }
-        $label = TierCalculationService::tierLabel($today);
-
-        return [
-            'tier'  => $today,
-            'label' => $label,
-            'title' => 'Today: ' . $label . ' on today\'s reading alone. The tier shown is settled over the'
-                . ' last 12 months, so a single day does not move it.',
-        ];
     }
 }

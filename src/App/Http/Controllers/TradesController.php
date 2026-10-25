@@ -8,7 +8,11 @@ use Illuminate\Support\Facades\Log;
 use ovidiuro\myfinance2\App\Models\Order;
 use ovidiuro\myfinance2\App\Models\Trade;
 use ovidiuro\myfinance2\App\Services\TradeFormFields;
+use ovidiuro\myfinance2\App\Services\TradeTierSnapshots;
+use ovidiuro\myfinance2\App\Services\TierVerdictSummary;
+use ovidiuro\myfinance2\App\Services\TradeVsIndex;
 use ovidiuro\myfinance2\App\Services\DisableAutoFxLedgerService;
+use ovidiuro\myfinance2\App\Services\LatestEurRates;
 use ovidiuro\myfinance2\App\Http\Requests\StoreTrade;
 use ovidiuro\myfinance2\App\Http\Requests\UpdateTrade;
 use ovidiuro\myfinance2\App\Http\Requests\CloseTrades;
@@ -27,8 +31,15 @@ class TradesController extends MyFinance2Controller
      */
     public function index()
     {
-        $items = Trade::with('accountModel', 'tradeCurrencyModel', 'linkedOrders')->get();
-        return view('myfinance2::trades.crud.dashboard', ['items' => $items]);
+        $items   = Trade::with('accountModel', 'tradeCurrencyModel', 'linkedOrders', 'tierSnapshot')->get();
+        $vsIndex = $this->_vsIndex($items);
+
+        return view('myfinance2::trades.crud.dashboard', [
+            'items'       => $items,
+            'vsIndex'     => $vsIndex,
+            'tierSummary' => TierVerdictSummary::build($items, fn ($trade) => $trade->timestamp, null, $vsIndex),
+            'eurRates'    => new LatestEurRates(),
+        ]);
     }
 
     /**
@@ -76,15 +87,19 @@ class TradesController extends MyFinance2Controller
      */
     public function store(StoreTrade $request)
     {
-        $data = $request->fillData();
+        $data  = $request->fillData();
+        $order = $request->order_id ? Order::with('tierSnapshot')->find((int) $request->order_id) : null;
+        // Before the create: a live reading taken after it would already hold the trade (position, share of the
+        // portfolio), and the create clears the cached live reading.
+        $tier = $this->_tierReadingFor(null, $order, $data);
         $item = Trade::create($data);
 
-        if ($request->order_id) {
-            $order = Order::find((int) $request->order_id);
-            if ($order) {
-                $order->trade_id = $item->id;
-                $order->save();
-            }
+        if ($order) {
+            $order->trade_id = $item->id;
+            $order->save();
+        }
+        if ($tier !== null) {
+            $this->_tierSnapshots()->save($item, $tier);
         }
 
         if ($request->boolean('disable_auto_fx_rate') && $request->paired_account_id) {
@@ -123,13 +138,59 @@ class TradesController extends MyFinance2Controller
     public function update(UpdateTrade $request, $id)
     {
         $data = $request->fillData($id);
-        $item = Trade::findOrFail($id);
+        $item = Trade::with('tierSnapshot')->findOrFail($id);
+        // Before the fill: the reading depends on whether the symbol, action or date changed.
+        $tier = $this->_tierReadingFor($item, null, $data);
         $item->fill($data);
         $item->save();
+        if ($tier !== null) {
+            $this->_tierSnapshots()->save($item, $tier);
+        }
 
         return redirect()->route('myfinance2::trades.index')->with('success',
             trans('myfinance2::general.flash-messages.item-updated',
                 ['type' => 'Trade', 'id' => $item->id]));
+    }
+
+    /**
+     * The reading a trade with these values gets, or null when it cannot be taken (a failing reading never blocks
+     * the trade). Taken before the trade is saved.
+     */
+    private function _tierReadingFor(?Trade $trade, ?Order $order, array $data): ?array
+    {
+        try {
+            return $this->_tierSnapshots()->readingFor(
+                $trade, $order, (int) auth()->id(), (string) $data['symbol'], (string) $data['action'],
+                (string) $data['timestamp'],
+                is_numeric($data['quantity'] ?? null) ? (float) $data['quantity'] : null,
+                is_numeric($data['unit_price'] ?? null) ? (float) $data['unit_price'] : null
+            );
+        } catch (\Throwable $e) {
+            Log::warning('TradesController: tier reading unavailable for ' . $data['symbol'] . ', saved without one: '
+                . $e->getMessage());
+
+            return null;
+        }
+    }
+
+    /**
+     * Each trade against VUSA.AS since it was made (TradeVsIndex); none when the prices cannot be read, so the list
+     * always loads.
+     */
+    private function _vsIndex(\Illuminate\Support\Collection $items): array
+    {
+        try {
+            return (new TradeVsIndex())->forTrades($items);
+        } catch (\Throwable $e) {
+            Log::warning('TradesController: trades vs index unavailable: ' . $e->getMessage());
+
+            return [];
+        }
+    }
+
+    private function _tierSnapshots(): TradeTierSnapshots
+    {
+        return TradeTierSnapshots::make();
     }
 
     /**

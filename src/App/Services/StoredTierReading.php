@@ -12,7 +12,7 @@ use ovidiuro\myfinance2\App\Models\SymbolTierState;
  * A symbol's tier reading as of the last hourly cron run (symbol_tier_states, plus a manual tier override), for an
  * email sent outside the dashboard (the price alert), so it names the tier and chip as the peak-proximity alerts do
  * without a categorization run. Returned in the shape CategorizationService gives those alerts: 'effective_tier',
- * 'today_chip', 'range_bound', 'take_profit', 'tier_signal_chip'. The quadrant action and the superstar need the
+ * 'range_bound', 'take_profit', 'tier_signal_chip'. The quadrant action and the superstar need the
  * dashboard, so they are left out.
  */
 class StoredTierReading
@@ -49,8 +49,7 @@ class StoredTierReading
 
     /**
      * The reading from the stored fields: the effective tier is the override, else the settled tier, else today's
-     * (CategorizationTierHistory::effectiveTier()); today's chip only when today's tier differs and there is no
-     * override (CategorizationTierHistory::todayChip()).
+     * (CategorizationTierHistory::effectiveTier()).
      *
      * @param string      $todayTier
      * @param string|null $settledTier
@@ -66,14 +65,8 @@ class StoredTierReading
         array $readings
     ): array
     {
-        $effective = $overrideTier ?? $settledTier ?? $todayTier;
-        $todayChip = $overrideTier === null && $todayTier !== $effective
-            ? ['tier' => $todayTier, 'label' => TierCalculationService::tierLabel($todayTier)]
-            : null;
-
         return [
-            'effective_tier'   => $effective,
-            'today_chip'       => $todayChip,
+            'effective_tier'   => $overrideTier ?? $settledTier ?? $todayTier,
             'range_bound'      => $readings['range_bound'] ?: null,
             'take_profit'      => $readings['take_profit'] ?: null,
             'tier_signal_chip' => $readings['tier_signal'] ?: null,
