@@ -115,15 +115,15 @@
 <div class="col-12">
     <div class="card">
         <div class="card-header">
-            <span id="card_title" style="cursor: pointer;"
+            <span id="card_title" class="collapse-title collapsed"
                 data-bs-toggle="collapse"
-                data-bs-target="#transferred-positions-body">
+                data-bs-target="#transferred-positions-body"
+                aria-expanded="false" aria-controls="transferred-positions-body">
+                @include('myfinance2::general.partials.collapse-chevron')
                 <i class="fa-solid fa-shuffle me-1"
                     style="font-size: 0.8rem; color: #6c757d;"></i>
                 {!! trans('myfinance2::overview.cards.'
                           . 'transferred-positions.title') !!}
-                <i class="fa fa-chevron-right ms-2"
-                    id="transferred-positions-chevron"></i>
             </span>
         </div>
         <div id="transferred-positions-body" class="collapse">

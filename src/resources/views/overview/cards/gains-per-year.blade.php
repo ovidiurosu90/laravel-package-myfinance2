@@ -2,11 +2,13 @@
 
 <div class="col-8 pe-1">
     <div class="card">
-        <div class="card-header">
+        <div class="card-header d-flex align-items-center">
             <span id="card_title">
                 {!! trans('myfinance2::overview.cards.'
                           . 'gains-per-year.title') !!}
             </span>
+            @include('myfinance2::overview.cards.partials.card-info', ['card' => 'gains-per-year'])
+            @include('myfinance2::overview.cards.partials.gains-per-year-filters')
         </div>
         <div class="card-body p-0">
             <div class="list-group-flush flex-fill">
@@ -254,7 +256,7 @@
                                 @endif
                             </th>
                             <td></td>
-                            <td class="text-right table-info">
+                            <td class="text-right table-info" data-gpy-col="gain-eur">
                                 @if($yearGainEurTotal != 0)
                                     {!! MoneyFormat
                                         ::get_formatted_gain(
@@ -264,7 +266,7 @@
                                 @endif
                             </td>
                             <td></td>
-                            <td class="text-right table-info">
+                            <td class="text-right table-info" data-gpy-col="div-eur">
                                 @if($yearDivEurTotal != 0)
                                     {!! MoneyFormat
                                         ::get_formatted_gain(
@@ -273,7 +275,7 @@
                                     ) !!}
                                 @endif
                             </td>
-                            <td class="text-right table-warning">
+                            <td class="text-right table-warning" data-gpy-col="total-eur">
                                 @if($yearTotalEur != 0)
                                     {!! MoneyFormat
                                         ::get_formatted_gain(
@@ -327,7 +329,9 @@
                                    display: none;
                                    cursor: pointer;"
                             data-gpy-parent-year="{{ $year }}"
-                            data-gpy-account="{{ $year }}-{{ $accId }}">
+                            data-gpy-account="{{ $year }}-{{ $accId }}"
+                            data-gpy-name="{{ $accountModel->name }}"
+                            data-gpy-code="{{ $displayCode }}">
                             @php
                                 $accAnnotation =
                                     $annotatedPerAccount[$accId] ?? null;
@@ -395,7 +399,7 @@
                                     </i>
                                 @endif
                             </td>
-                            <td class="text-right">
+                            <td class="text-right" data-gpy-col="gain">
                                 @if($accGain != 0)
                                     <strong>
                                     {!! MoneyFormat
@@ -406,7 +410,7 @@
                                     </strong>
                                 @endif
                             </td>
-                            <td class="text-right table-info">
+                            <td class="text-right table-info" data-gpy-col="gain-eur">
                                 @if($accGainEur != 0)
                                     <strong>
                                     <span
@@ -426,7 +430,7 @@
                                     </strong>
                                 @endif
                             </td>
-                            <td class="text-right">
+                            <td class="text-right" data-gpy-col="div">
                                 @if($accDiv != 0)
                                     <strong>
                                     {!! MoneyFormat
@@ -437,7 +441,7 @@
                                     </strong>
                                 @endif
                             </td>
-                            <td class="text-right table-info">
+                            <td class="text-right table-info" data-gpy-col="div-eur">
                                 @if($accDivEur != 0)
                                     <strong>
                                     <span
@@ -457,7 +461,7 @@
                                     </strong>
                                 @endif
                             </td>
-                            <td class="text-right table-warning">
+                            <td class="text-right table-warning" data-gpy-col="total-eur">
                                 @if($accTotalEur != 0)
                                     <strong>
                                     <span
@@ -511,6 +515,11 @@
                                 @endphp
                         <tr class="gpy-account-child"
                             data-gpy-parent-account="{{ $year }}-{{ $accId }}"
+                            data-gpy-symbol="{{ $sym }}"
+                            data-gpy-gain="{{ $row['gain'] }}"
+                            data-gpy-div="{{ $row['dividend'] }}"
+                            data-gpy-gain-eur="{{ $symGainEur }}"
+                            data-gpy-div-eur="{{ $symDivEur }}"
                             style="display: none;">
                             <td style="padding-left: 3rem;">
                                 {{ $sym }}
@@ -627,9 +636,9 @@
                     </tbody>
                     <tfoot>
                         <tr class="table-warning">
-                            <td><strong>Total</strong></td>
+                            <td class="gpy-foot-label"><strong>Total</strong></td>
                             <td></td>
-                            <td class="text-right">
+                            <td class="text-right" data-gpy-col="gain-eur">
                                 <strong>
                                     {!! MoneyFormat
                                         ::get_formatted_gain(
@@ -639,7 +648,7 @@
                                 </strong>
                             </td>
                             <td></td>
-                            <td class="text-right">
+                            <td class="text-right" data-gpy-col="div-eur">
                                 <strong>
                                     {!! MoneyFormat
                                         ::get_formatted_gain(
@@ -648,7 +657,7 @@
                                     ) !!}
                                 </strong>
                             </td>
-                            <td class="text-right">
+                            <td class="text-right" data-gpy-col="total-eur">
                                 <strong>
                                     {!! MoneyFormat
                                         ::get_formatted_gain(

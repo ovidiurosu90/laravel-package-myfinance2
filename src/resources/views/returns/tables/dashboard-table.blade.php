@@ -112,11 +112,13 @@
         @continue
     @endif
 <div class="card mb-4">
-    <div class="card-header" style="cursor: pointer;"
+    <div class="card-header collapsed" style="cursor: pointer;"
         data-bs-toggle="collapse"
-        data-bs-target="#account-{{ $accountId }}">
+        data-bs-target="#account-{{ $accountId }}"
+        aria-expanded="false" aria-controls="account-{{ $accountId }}">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span>
+            <span class="collapse-title">
+                @include('myfinance2::general.partials.collapse-chevron')
                 {{ $data['account']->name }} - Returns for {{ $selectedYear }}
                 @if($selectedYear == date('Y'))
                     <small class="text-muted">(Year-to-date)</small>
@@ -223,11 +225,13 @@
             : $data['actualReturnColored']['USD']['formatted'];
     @endphp
 <div class="card mb-4" style="border-style: dashed;">
-    <div class="card-header" style="cursor: pointer; background-color: #f8f9fa;"
+    <div class="card-header collapsed" style="cursor: pointer; background-color: #f8f9fa;"
         data-bs-toggle="collapse"
-        data-bs-target="#account-{{ $accountId }}">
+        data-bs-target="#account-{{ $accountId }}"
+        aria-expanded="false" aria-controls="account-{{ $accountId }}">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span>
+            <span class="collapse-title">
+                @include('myfinance2::general.partials.collapse-chevron')
                 <i class="fa-solid fa-shuffle me-1" style="font-size: 0.85rem;"></i>
                 {{ $data['virtualName'] }} - {{ $selectedYear }}
             </span>

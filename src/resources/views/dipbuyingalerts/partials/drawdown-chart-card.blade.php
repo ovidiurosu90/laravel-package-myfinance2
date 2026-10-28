@@ -26,16 +26,15 @@
 </style>
 <div class="card card-default">
     <div class="card-header d-flex align-items-center gap-3">
-        <span class="text-nowrap">Drawdown overview</span>
+        <a id="dipchart-overview-title" class="collapse-title text-nowrap" href="#dipchart-overview" role="button"
+            aria-expanded="true" aria-controls="dipchart-overview" data-bs-toggle="collapse">
+            @include('myfinance2::general.partials.collapse-chevron')
+            Drawdown overview
+        </a>
         {{-- Populated by scripts/drawdown-chart.blade.php; shown only while the card is collapsed. --}}
         <div id="dipchart-summary"
              class="align-items-center gap-2 flex-grow-1 overflow-hidden justify-content-end"
              style="display:none;"></div>
-        <a id="dipchart-overview-title" class="btn btn-sm ms-auto flex-shrink-0" href="#dipchart-overview"
-            aria-expanded="true" aria-controls="dipchart-overview"
-            data-bs-toggle="collapse" title="Collapse">
-            <i class="fa fa-chevron-down pull-right"></i>
-        </a>
     </div>
     <div id="dipchart-overview" class="collapse show" aria-labelledby="dipchart-overview-title">
     <div class="card-body">

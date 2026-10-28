@@ -7,6 +7,7 @@
                 {!! trans('myfinance2::overview.cards.'
                           . 'funding-sources.title') !!}
             </span>
+            @include('myfinance2::overview.cards.partials.card-info', ['card' => 'funding-sources'])
         </div>
         <div class="card-body p-0" style="height: 320px; overflow: auto">
             <div class="list-group-flush flex-fill">

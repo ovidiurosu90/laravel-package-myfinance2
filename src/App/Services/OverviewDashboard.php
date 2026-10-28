@@ -65,6 +65,14 @@ class OverviewDashboard
             'dividendsPerYear'     => $dividendsPerYear,
             'eurRatesPerYear'      => $eurRatesPerYear,
             'topWinners'           => $topWinners,
+            'reconciliation'       => OverviewReconciliation::build(
+                $buckets[FundingRole::SOURCE->value],
+                $buckets[FundingRole::INTERMEDIARY->value],
+                $investmentAccounts,
+                $gainsPerYear ?? [],
+                $dividendsPerYear,
+                $eurRatesPerYear
+            ),
 
             // Stale-data safety net: warn when a market is open but its live prices have frozen.
             // The Overview's account market values are built from these same live quotes. Never
@@ -197,7 +205,12 @@ class OverviewDashboard
 
             $displayCode = $data['account']->currency->display_code;
             $isoCode = $data['account']->currency->iso_code;
-            $cash = $data['balance'];
+
+            // A trade account whose positions are all sold still has its cash in the cash balances, like the
+            // accounts above. The ledger balance is only the net funding (money in minus money out) and ignores
+            // the trades, so it's the fallback for accounts without a cash balance (e.g. savings accounts).
+            $cashBalance = ($positionAccountData[$accountId]['cashBalanceUtils'] ?? null)?->getAmount();
+            $cash = $cashBalance !== null ? (float) $cashBalance : (float) $data['balance'];
 
             $eurConversion = $this->_convertToEur(
                 $cash,

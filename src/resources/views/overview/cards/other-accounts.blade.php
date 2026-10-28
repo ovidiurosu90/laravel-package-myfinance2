@@ -16,17 +16,13 @@
 @if($hasAny)
 <div class="col-12">
     <div class="card">
-        <div class="card-header" style="cursor: pointer;"
+        <div class="card-header collapsed" style="cursor: pointer;"
              data-bs-toggle="collapse"
              data-bs-target="#otherAccountsBody"
              aria-expanded="false"
              aria-controls="otherAccountsBody">
-            <span id="card_title">
-                <i class="fa-solid fa-chevron-right me-1
-                          other-acc-chevron"
-                    style="font-size: 0.7rem;
-                           transition: transform 0.2s;">
-                </i>
+            <span id="card_title" class="collapse-title">
+                @include('myfinance2::general.partials.collapse-chevron')
                 {!! trans('myfinance2::overview.cards.'
                           . 'other-accounts.title') !!}
                 ({{ $otherCount }})

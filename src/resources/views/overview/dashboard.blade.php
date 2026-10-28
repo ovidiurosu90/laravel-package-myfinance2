@@ -44,7 +44,14 @@
 
         <div class="clearfix mb-2"></div>
 
-        {{-- Row 5: Returns Overview (All Years) --}}
+        {{-- Row 5: Reconciliation of the totals (collapsed) --}}
+        <div class="row">
+            @include('myfinance2::overview.cards.reconciliation')
+        </div>
+
+        <div class="clearfix mb-2"></div>
+
+        {{-- Row 6: Returns Overview (All Years) --}}
         <div class="row">
             <div class="col-12">
                 @include('myfinance2::returns.returns-overview')
@@ -57,7 +64,6 @@
 
 @section('myfinance2_scripts')
     @include('myfinance2::general.scripts.tooltips')
-    @include('myfinance2::overview.scripts.other-accounts')
     @include('myfinance2::overview.scripts.gains-per-year')
     @include('myfinance2::returns.scripts.returns-overview-graph')
 @endsection

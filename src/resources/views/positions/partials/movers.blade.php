@@ -53,13 +53,6 @@
 @endphp
 
 <style>
-    #biggest-movers-title .fa-chevron-down {
-        transition: transform 0.2s ease;
-        transform: rotate(0deg);
-    }
-    #biggest-movers-title.collapsed .fa-chevron-down {
-        transform: rotate(90deg);
-    }
     /* Per-symbol % is hidden below xl (see movers-entry), so drop the notes that explain it */
     @media (max-width: 1199.98px) {
         #biggest-movers .movers-pct-note {
@@ -70,9 +63,12 @@
 <div class="card">
     <div class="card-header">
         <div class="d-flex align-items-center gap-3">
-            <span id="card_title" class="text-nowrap">
-                {!! trans('myfinance2::positions.titles.biggest-movers') !!}
-            </span>
+            <a id="biggest-movers-title" class="collapse-title text-nowrap collapsed" href="#biggest-movers"
+                role="button" aria-expanded="false" aria-controls="biggest-movers" data-bs-toggle="collapse"
+                title="Expand">
+                @include('myfinance2::general.partials.collapse-chevron')
+                <span id="card_title">{!! trans('myfinance2::positions.titles.biggest-movers') !!}</span>
+            </a>
             @if($hasSummary)
             <div id="movers-summary"
                 class="align-items-center gap-2 flex-grow-1 overflow-hidden justify-content-end"
@@ -87,13 +83,6 @@
                 @endforeach
             </div>
             @endif
-            <div class="ms-auto flex-shrink-0">
-                <a id="biggest-movers-title" class="btn btn-sm collapsed" href="#biggest-movers"
-                    aria-expanded="false" aria-controls="biggest-movers"
-                    data-bs-toggle="collapse" title="Expand">
-                    <i class="fa fa-chevron-down pull-right"></i>
-                </a>
-            </div>
         </div>
     </div>
     <div id="biggest-movers" class="collapse" aria-labelledby="biggest-movers-title">

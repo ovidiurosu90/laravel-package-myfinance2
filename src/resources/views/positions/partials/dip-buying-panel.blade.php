@@ -27,19 +27,15 @@
         'none'          => ['status' => 'text-muted',               'gap' => 'text-muted'],
     ];
 @endphp
-<style>
-    #dip-buying-panel-title .fa-chevron-down {
-        transition: transform 0.2s ease;
-        transform: rotate(0deg);
-    }
-    #dip-buying-panel-title.collapsed .fa-chevron-down {
-        transform: rotate(90deg);
-    }
-</style>
 <div class="card">
     <div class="card-header">
         <div class="d-flex align-items-center gap-3">
-            <span id="card_title" class="text-nowrap">Dip Buying Plan</span>
+            <a id="dip-buying-panel-title" class="collapse-title text-nowrap collapsed" href="#dip-buying-panel"
+                role="button" aria-expanded="false" aria-controls="dip-buying-panel" data-bs-toggle="collapse"
+                title="Expand">
+                @include('myfinance2::general.partials.collapse-chevron')
+                <span id="card_title">Dip Buying Plan</span>
+            </a>
             {{-- Compact summary shown only while the panel is collapsed (toggled in scripts/dip-buying-panel). --}}
             <div id="dip-buying-summary"
                  class="align-items-center gap-2 flex-grow-1 overflow-hidden justify-content-end"
@@ -64,13 +60,6 @@
                 @if (!is_null($summary['local_dd']))
                     <span class="text-muted text-nowrap">(target {{ $summary['target_pct'] }}%)</span>
                 @endif
-            </div>
-            <div class="ms-auto flex-shrink-0">
-                <a id="dip-buying-panel-title" class="btn btn-sm collapsed" href="#dip-buying-panel"
-                   aria-expanded="false" aria-controls="dip-buying-panel"
-                   data-bs-toggle="collapse" title="Expand">
-                    <i class="fa fa-chevron-down pull-right"></i>
-                </a>
             </div>
         </div>
     </div>

@@ -58,12 +58,15 @@ $summaryCfg = [
 <div class="card mb-3">
     <div class="card-header py-2">
         <div class="d-flex align-items-center gap-3">
-            <span class="fw-semibold text-nowrap">
+            <a id="quadrant-chart-toggle" class="collapse-title fw-semibold text-nowrap collapsed"
+                href="#quadrant-chart-collapse" role="button" aria-expanded="false"
+                aria-controls="quadrant-chart-collapse" data-bs-toggle="collapse">
+                @include('myfinance2::general.partials.collapse-chevron')
                 Risk vs. Gain Quadrant
                 <small class="text-muted fw-normal ms-2">
                     Market return vs. relative drawdown
                 </small>
-            </span>
+            </a>
             <div id="quadrant-chart-summary"
                 class="align-items-center gap-2 flex-grow-1 overflow-hidden justify-content-end"
                 style="display: flex;">
@@ -75,16 +78,6 @@ $summaryCfg = [
                 </span>
                 @if(!$loop->last)<span class="text-muted">·</span>@endif
                 @endforeach
-            </div>
-            <div class="ms-auto flex-shrink-0">
-                <a id="quadrant-chart-toggle" class="btn btn-sm collapsed"
-                    href="#quadrant-chart-collapse"
-                    aria-expanded="false"
-                    aria-controls="quadrant-chart-collapse"
-                    data-bs-toggle="collapse"
-                    title="Collapse">
-                    <i class="fa fa-chevron-down pull-right"></i>
-                </a>
             </div>
         </div>
     </div>

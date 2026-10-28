@@ -4,15 +4,14 @@
 <div class="card mb-4 border-warning">
     <div class="card-header bg-warning text-dark" style="cursor: pointer;"
         data-bs-toggle="collapse"
-        data-bs-target="#returns-alerts-content">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span>
-                <i class="fa-solid fa-triangle-exclamation me-2"></i>
-                {{ trans('myfinance2::returns.alerts.title') }}
-                <small class="ms-2">({{ count($alerts) }} {{ count($alerts) === 1 ? 'alert' : 'alerts' }})</small>
-            </span>
-            <i class="fa-solid fa-chevron-down"></i>
-        </div>
+        data-bs-target="#returns-alerts-content"
+        aria-expanded="true" aria-controls="returns-alerts-content">
+        <span class="collapse-title">
+            @include('myfinance2::general.partials.collapse-chevron')
+            <i class="fa-solid fa-triangle-exclamation me-2"></i>
+            {{ trans('myfinance2::returns.alerts.title') }}
+            <small class="ms-2">({{ count($alerts) }} {{ count($alerts) === 1 ? 'alert' : 'alerts' }})</small>
+        </span>
     </div>
     <div class="card-body collapse show" id="returns-alerts-content">
         @foreach($alerts as $alert)

@@ -22,6 +22,16 @@ class UnlistedSymbol
     }
 
     /**
+     * The configured unlisted symbol a bare name stands for ("ACME" => "UNLISTED_ACME", as the trade form's Listed
+     * toggle builds it), or null when no unlisted_fmv entry has that name.
+     */
+    public static function prefixedFor(string $symbol): ?string
+    {
+        $prefixed = config('myfinance2.trades.unlisted') . '_' . $symbol;
+        return isset(config('myfinance2.trades.unlisted_fmv', [])[$prefixed]) ? $prefixed : null;
+    }
+
+    /**
      * The symbol split for display: the unlisted prefix with its separator (e.g. "UNLISTED_", shown smaller to
      * save width) and the rest ("ACME"). A listed symbol has an empty prefix.
      *

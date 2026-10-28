@@ -12,10 +12,10 @@
 <div class="card mb-4">
     <div class="card-header">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span id="card_title" style="cursor: pointer;"
-                data-bs-toggle="collapse" data-bs-target="#returns-overview-body">
+            <span id="card_title" class="collapse-title" data-bs-toggle="collapse"
+                data-bs-target="#returns-overview-body" aria-expanded="true" aria-controls="returns-overview-body">
+                @include('myfinance2::general.partials.collapse-chevron')
                 {{ trans('myfinance2::returns.titles.returns-overview') }}
-                <i class="fa fa-chevron-down ms-2" id="returns-overview-chevron"></i>
             </span>
             <div class="d-flex align-items-center gap-2">
                 <span style="display: inline-block;"

@@ -231,11 +231,28 @@ table.data-table {
     white-space: nowrap;
 }
 
-.card-header .fa {
-  transition: .3s transform ease-in-out;
+/* Collapsible cards: the chevron before the title (general.partials.collapse-chevron) points right while the
+   body is closed and down while it's open. Bootstrap toggles .collapsed on the trigger (data-bs-toggle="collapse");
+   a trigger whose body starts closed carries .collapsed in its markup. */
+.collapse-chevron {
+    font-size: 0.75rem;
+    transition: transform .2s ease-in-out;
 }
-.card-header .collapsed .fa {
-  transform: rotate(90deg);
+[data-bs-toggle="collapse"]:not(.collapsed) .collapse-chevron {
+    transform: rotate(90deg);
+}
+/* The title (with its chevron) of every collapsible card, whether it is the trigger itself or sits inside a trigger
+   (a whole clickable header): pointer, no underline, link blue on hover, the same on every page. Only the title turns
+   blue, not the figures elsewhere in a clickable header. */
+.collapse-title {
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+}
+[data-bs-toggle="collapse"].collapse-title:hover,
+[data-bs-toggle="collapse"]:hover .collapse-title {
+    color: var(--bs-link-hover-color);
+    text-decoration: none;
 }
 
 @media (min-width: 1350px) {

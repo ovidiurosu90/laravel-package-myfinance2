@@ -23,14 +23,19 @@
 <div class="card mb-3">
     <div class="card-header py-2">
         <div class="d-flex align-items-center gap-3">
-            <span class="badge bg-{{ $signalClass }}"
-                data-bs-toggle="tooltip"
-                title="{{ $health_score['signal_message'] }}">{{ ucfirst($signal) }}</span>
-            <span class="fw-semibold text-nowrap">
-                Portfolio Health <small class="text-muted fw-normal ms-1">Tier allocation by return</small>
-                <small class="text-muted fw-normal" data-bs-toggle="tooltip"
-                    title="{{ $settledTip }}">· Market Settled tiers</small>
-            </span>
+            <a id="portfolio-health-toggle" class="collapse-title d-flex align-items-center collapsed"
+                href="#portfolio-health-body" role="button" aria-expanded="false"
+                aria-controls="portfolio-health-body" data-bs-toggle="collapse">
+                @include('myfinance2::general.partials.collapse-chevron')
+                <span class="badge bg-{{ $signalClass }} me-3"
+                    data-bs-toggle="tooltip"
+                    title="{{ $health_score['signal_message'] }}">{{ ucfirst($signal) }}</span>
+                <span class="fw-semibold text-nowrap">
+                    Portfolio Health <small class="text-muted fw-normal ms-1">Tier allocation by return</small>
+                    <small class="text-muted fw-normal" data-bs-toggle="tooltip"
+                        title="{{ $settledTip }}">· Market Settled tiers</small>
+                </span>
+            </a>
             <div id="portfolio-health-summary"
                 class="align-items-center gap-2 flex-grow-1 overflow-hidden justify-content-end"
                 style="display: flex;">
@@ -64,16 +69,6 @@
                     {!! $eur($health_score['bronze_rust_mvalue_eur']) !!}
                     ({{ $health_score['bronze_rust_pct'] }}%)
                 </span>
-            </div>
-            <div class="ms-auto flex-shrink-0">
-                <a id="portfolio-health-toggle" class="btn btn-sm collapsed"
-                    href="#portfolio-health-body"
-                    aria-expanded="false"
-                    aria-controls="portfolio-health-body"
-                    data-bs-toggle="collapse"
-                    title="Collapse">
-                    <i class="fa fa-chevron-down pull-right"></i>
-                </a>
             </div>
         </div>
     </div>

@@ -515,17 +515,6 @@ $(document).ready(function()
         buildLegend(newCurrency);
     });
 
-    // Handle collapse toggle for chevron icon
-    $('#returns-overview-body').on('show.bs.collapse', function()
-    {
-        $('#returns-overview-chevron').removeClass('fa-chevron-right').addClass('fa-chevron-down');
-    });
-
-    $('#returns-overview-body').on('hide.bs.collapse', function()
-    {
-        $('#returns-overview-chevron').removeClass('fa-chevron-down').addClass('fa-chevron-right');
-    });
-
     // Handle window resize
     $(window).on('resize', function()
     {

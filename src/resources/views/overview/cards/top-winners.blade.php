@@ -7,6 +7,7 @@
                 {!! trans('myfinance2::overview.cards.'
                           . 'top-winners.title') !!}
             </span>
+            @include('myfinance2::overview.cards.partials.card-info', ['card' => 'top-winners'])
         </div>
         <div class="card-body p-0">
             <div class="list-group-flush flex-fill">

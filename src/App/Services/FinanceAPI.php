@@ -125,6 +125,10 @@ class FinanceAPI
                     fn () => $client->getQuote($symbol),
                     "getQuote($symbol)"
                 );
+                if (!empty($quote) && !self::hasMarketData($quote)) {
+                    self::_logNoMarketData($symbol);
+                    return null;
+                }
                 if (!empty($quote)) {
                     $this->cacheQuote($quote, $persistStats);
                 }
@@ -189,6 +193,7 @@ class FinanceAPI
                     fn () => $client->getQuotes($missingCachedSymbols),
                     'getQuotes(' . join(', ', $missingCachedSymbols) . ')'
                 );
+                $apiQuotes = self::_withMarketData($apiQuotes);
                 $this->cacheQuotes($apiQuotes, $persistStats);
                 $quotes = array_merge($quotes, $apiQuotes);
             } catch (\Exception $e) {
@@ -206,6 +211,47 @@ class FinanceAPI
         }
 
         return $quotes;
+    }
+
+    /**
+     * Yahoo answers a symbol it doesn't know with an empty Quote (no price, market time or exchange timezone).
+     * Such a quote can't be persisted, timezone-adjusted or used for a historical lookup.
+     */
+    public static function hasMarketData(Quote $quote): bool
+    {
+        return $quote->getRegularMarketTime() !== null && !empty($quote->getExchangeTimezoneName());
+    }
+
+    /**
+     * @param Quote[] $quotes
+     *
+     * @return Quote[] the quotes with market data, reindexed
+     */
+    private static function _withMarketData(array $quotes): array
+    {
+        $valid = [];
+        foreach ($quotes as $quote) {
+            if (self::hasMarketData($quote)) {
+                $valid[] = $quote;
+            } else {
+                self::_logNoMarketData((string) $quote->getSymbol());
+            }
+        }
+        return $valid;
+    }
+
+    /**
+     * An unlisted symbol without its prefix (the trade form's Listed toggle strips it, "UNLISTED_ACME" => "ACME")
+     * is expected to have no market data; any other symbol is an error worth surfacing.
+     */
+    private static function _logNoMarketData(string $symbol): void
+    {
+        $unlisted = UnlistedSymbol::prefixedFor($symbol);
+        if ($unlisted !== null) {
+            Log::info("No market data for $symbol: it is the unlisted symbol $unlisted without its prefix");
+            return;
+        }
+        Log::error("Quote for symbol $symbol has no market data (unknown or delisted symbol?)");
     }
 
     public function getExchangeRates(
