@@ -1,13 +1,13 @@
-@extends('layouts.app')
+@extends('myfinance2::layouts.app')
 
-@section('template_title'){!! trans('myfinance2::home.titles.dashboard') !!}@endsection
+@section('myfinance2_title'){!! trans('myfinance2::home.titles.dashboard') !!}@endsection
 
-@section('template_linked_css')
+@section('myfinance2_styles')
     @include('myfinance2::general.partials.styles')
     @include('myfinance2::home.partials.styles')
 @endsection
 
-@section('content')
+@section('myfinance2_content')
 
     <div class="container-fluid">
 
@@ -36,7 +36,7 @@
 
 @endsection
 
-@section('footer_scripts')
+@section('myfinance2_scripts')
     @include('myfinance2::home.scripts.selectize-currency-exchanges')
     @include('myfinance2::general.scripts.confirm-modal', ['formTrigger' => 'confirm-delete-modal'])
     @include('myfinance2::general.scripts.tooltips')

@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace ovidiuro\myfinance2\App\Console\Commands;
 
-use App\Models\User;
 use Illuminate\Console\Command;
 
 use ovidiuro\myfinance2\App\Services\DipBuyingBacktestService;
 use ovidiuro\myfinance2\App\Services\MoneyFormat;
+use ovidiuro\myfinance2\App\Services\AppUser;
 
 /**
  * Self-validation backtest for the Dip Buying Plan (spec section 5).
@@ -41,7 +41,7 @@ class DipBuyingBacktest extends Command
             return Command::FAILURE;
         }
 
-        $user = User::find((int) $userId);
+        $user = AppUser::find((int) $userId);
         if (!$user) {
             $this->error("User #{$userId} not found.");
             return Command::FAILURE;

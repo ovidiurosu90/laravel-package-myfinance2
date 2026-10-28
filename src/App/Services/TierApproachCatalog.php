@@ -70,7 +70,7 @@ final class TierApproachCatalog
 
     private static function _descriptions(): array
     {
-        $minDays  = (int) config('watchlistsymbols.tier_history.min_history_days', 60);
+        $minDays  = (int) config('myfinance2.watchlistsymbols.tier_history.min_history_days', 60);
         $relative = ' Matching the index is the Gold line: Platinum beats it by more than 5 points, Gold beats'
             . ' it, Silver trails it by up to 5, Bronze by 5 to 10, Rust by more than 10.';
 

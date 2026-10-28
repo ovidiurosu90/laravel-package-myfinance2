@@ -67,7 +67,7 @@ $(document).ready(function ()
 
         $.ajax({
             type:    'GET',
-            url:     "{{ url('/get-trades') }}",
+            url:     "{{ route('myfinance2::get-trades') }}",
             headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
             data:    { symbol: symbol },
             success: function (data)

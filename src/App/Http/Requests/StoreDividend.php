@@ -3,30 +3,24 @@
 namespace ovidiuro\myfinance2\App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 use ovidiuro\myfinance2\App\Models\Account;
 use ovidiuro\myfinance2\App\Models\Currency;
+use ovidiuro\myfinance2\App\Rules\OwnRecord;
 
 class StoreDividend extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
      *
-     * @return bool
+     * @return \Illuminate\Auth\Access\Response
      */
     public function authorize()
     {
-        if (config('dividends.guiCreateMiddlewareType') == 'role') {
-            return $this->user()->hasRole(
-                config('dividends.guiCreateMiddleware'));
-        }
-        if (config('dividends.guiCreateMiddlewareType') == 'permissions') {
-            return $this->user()->hasPermission(
-                config('dividends.guiCreateMiddleware'));
-        }
-
-        return false;
+        // The host app decides who manages this area (gate defined in its AuthServiceProvider).
+        return Gate::inspect('myfinance2.manage', 'dividends');
     }
 
     /**
@@ -36,16 +30,10 @@ class StoreDividend extends FormRequest
      */
     public function rules()
     {
-        $dbConnection = config('myfinance2.db_connection');
-        $accountsTableName = $dbConnection . '.' . (new Account())->getTable();
-        $currenciesTableName = $dbConnection . '.' . (new Currency())->getTable();
-
         return [
             'timestamp'            => 'required|date_format:Y-m-d H:i:s',
-            'account_id'           => 'required|integer|exists:' .
-                                      $accountsTableName . ',id',
-            'dividend_currency_id' => 'required|integer|exists:' .
-                                      $currenciesTableName . ',id',
+            'account_id'           => ['required', 'integer', OwnRecord::of(Account::class)],
+            'dividend_currency_id' => ['required', 'integer', OwnRecord::of(Currency::class)],
             'exchange_rate'        => 'required|numeric',
             'symbol'               => 'required|string|max:16',
             'amount'               => 'required|numeric',

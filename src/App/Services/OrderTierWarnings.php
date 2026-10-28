@@ -7,8 +7,9 @@ namespace ovidiuro\myfinance2\App\Services;
 /**
  * The warnings an order raises against the symbol's tier reading (the /watchlist-symbols Tier and Tier History lines),
  * evaluated on the order create / edit form (the banner) and again on save. A serious warning asks for a confirmation
- * on save; a soft one is a banner only. Which codes are serious is set in config (watchlistsymbols.order_warnings
- * .levels), decided by the calibration command (finance:order-warning-review), not here.
+ * on save; a soft one is a banner only. Which codes are serious is set in config
+ * (myfinance2.watchlistsymbols.order_warnings.levels), decided by the calibration command
+ * (finance:order-warning-review), not here.
  *
  * Input: the reading's facts (TierReadingBuilder for a live reading, TierReadingAsOf for a rebuilt one). A fact that
  * is null (not known for that reading: a rebuilt reading has no portfolio, quote or superstar) raises nothing.
@@ -98,9 +99,9 @@ final class OrderTierWarnings
     public static function fromConfig(): self
     {
         return new self(
-            (array) config('watchlistsymbols.order_warnings.levels', []),
-            (float) config('watchlistsymbols.tier_history.max_position_pct', 10),
-            (bool) config('watchlistsymbols.order_warnings.soften_weak_tier_on_index_gap', false)
+            (array) config('myfinance2.watchlistsymbols.order_warnings.levels', []),
+            (float) config('myfinance2.watchlistsymbols.tier_history.max_position_pct', 10),
+            (bool) config('myfinance2.watchlistsymbols.order_warnings.soften_weak_tier_on_index_gap', false)
         );
     }
 

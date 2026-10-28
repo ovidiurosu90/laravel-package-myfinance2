@@ -56,7 +56,7 @@ $(document).ready(function()
 
         $.ajax({
             type: 'GET',
-            url:  "{{ url('/get-finance-data') }}",
+            url:  "{{ route('myfinance2::get-finance-data') }}",
             data: { symbol: symbol, timestamp: null, account_id: accountId || null },
             success: function(data)
             {

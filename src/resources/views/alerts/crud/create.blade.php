@@ -1,9 +1,9 @@
-@extends('layouts.app')
-@section('template_title'){{ trans('myfinance2::general.titles.create-item', ['type' => 'Price Alert']) }}@endsection
-@section('template_linked_css')
+@extends('myfinance2::layouts.app')
+@section('myfinance2_title'){{ trans('myfinance2::general.titles.create-item', ['type' => 'Price Alert']) }}@endsection
+@section('myfinance2_styles')
     @include('myfinance2::general.partials.styles')
 @endsection
-@section('content')
+@section('myfinance2_content')
     <div class="container">
         <div class="row">
             <div class="col-12">
@@ -25,7 +25,7 @@
         </div>
     </div>
 @endsection
-@section('footer_scripts')
+@section('myfinance2_scripts')
     @include('myfinance2::alerts.scripts.selectize-item')
     @include('myfinance2::alerts.scripts.finance')
     @include('myfinance2::alerts.scripts.relative-target')

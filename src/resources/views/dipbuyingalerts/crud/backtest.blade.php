@@ -1,8 +1,8 @@
 @use('ovidiuro\myfinance2\App\Services\MoneyFormat')
 @use('ovidiuro\myfinance2\App\Services\DipBuyingBacktestService')
-@extends('layouts.app')
-@section('template_title', 'Dip Buying Plan Backtest')
-@section('template_linked_css')
+@extends('myfinance2::layouts.app')
+@section('myfinance2_title', 'Dip Buying Plan Backtest')
+@section('myfinance2_styles')
     @include('myfinance2::general.partials.styles')
 @endsection
 @php
@@ -16,7 +16,7 @@
         return ($v >= 0 ? '+' : '') . MoneyFormat::get_formatted_pct((float) $v) . '%';
     };
 @endphp
-@section('content')
+@section('myfinance2_content')
     <div class="container-fluid">
         <div class="row">
             <div class="col-sm-12">
@@ -193,7 +193,7 @@
         <div class="clearfix mb-4"></div>
     </div>
 @endsection
-@section('footer_scripts')
+@section('myfinance2_scripts')
     @include('myfinance2::general.scripts.tooltips')
     @include('myfinance2::dipbuyingalerts.scripts.drawdown-chart')
 @endsection

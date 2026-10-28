@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace ovidiuro\myfinance2\App\Console\Commands;
 
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 use ovidiuro\myfinance2\App\Models\Trade;
@@ -16,6 +15,7 @@ use ovidiuro\myfinance2\App\Services\DrawdownService;
 use ovidiuro\myfinance2\App\Services\CategorizationService;
 use ovidiuro\myfinance2\App\Services\SymbolPerformanceService;
 use ovidiuro\myfinance2\App\Services\TechnicalIndicatorsService;
+use ovidiuro\myfinance2\App\Services\AppUser;
 
 /**
  * Trait for symbol performance pre-computation operations
@@ -33,7 +33,7 @@ trait FinanceApiCronSymbolPerformanceTrait
         Log::info('START app:finance-api-cron refreshSymbolPerformance()');
 
         try {
-            $userIds = DB::table('users')->pluck('id');
+            $userIds = AppUser::allIds();
             $processed = 0;
 
             foreach ($userIds as $userId) {

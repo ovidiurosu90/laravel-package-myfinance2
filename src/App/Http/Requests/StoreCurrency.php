@@ -3,6 +3,7 @@
 namespace ovidiuro\myfinance2\App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 class StoreCurrency extends FormRequest
@@ -10,21 +11,12 @@ class StoreCurrency extends FormRequest
     /**
      * Determine if the user is authorized to make this request.
      *
-     * @return bool
+     * @return \Illuminate\Auth\Access\Response
      */
     public function authorize()
     {
-        if (config('currencies.guiCreateMiddlewareType') == 'role') {
-            return $this->user()->hasRole(
-                config('currencies.guiCreateMiddleware')
-            );
-        }
-        if (config('currencies.guiCreateMiddlewareType') == 'permissions') {
-            return $this->user()->hasPermission(
-                config('currencies.guiCreateMiddleware')
-            );
-        }
-        return false;
+        // The host app decides who manages this area (gate defined in its AuthServiceProvider).
+        return Gate::inspect('myfinance2.manage', 'currencies');
     }
 
     /**

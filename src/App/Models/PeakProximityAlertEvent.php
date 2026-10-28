@@ -30,8 +30,8 @@ use ovidiuro\myfinance2\App\Services\WeakTierProfit;
  *
  * A range-bound symbol (signal RANGE_HIGH / RANGE_LOW / RANGE_BUY) is read on its swing instead of near-peak: an
  * episode opens when its price enters the top or bottom of its 52-week range (TRIM / ADD for a held position, BUY for
- * one you exited): ACTIONABLE when the signal is listed in alerts.peak_proximity.range_emails (ADD and BUY by
- * default), else INFO (TRIM by default).
+ * one you exited): ACTIONABLE when the signal is listed in myfinance2.alerts.peak_proximity.range_emails (ADD and BUY
+ * by default), else INFO (TRIM by default).
  *
  * A held symbol whose tier in use is weak while its open position is in profit (WeakTierProfit, signal TAKE_PROFIT)
  * gets a TAKE PROFIT episode in place of a near-peak one: always ACTIONABLE, opened while the condition holds,
@@ -40,8 +40,8 @@ use ovidiuro\myfinance2\App\Services\WeakTierProfit;
  * A tier signal (TierSignalChip, signal RARE_HIGH / RARE_LOW / DETERIORATING) shown with an action (SELL / TRIM /
  * ADD / BUY / REVIEW; not on a range-bound or TAKE PROFIT symbol, whose chip names it instead) gets its own episode,
  * whatever the tier, with the near-peak windows kept as context: INFO (never emailed) unless the signal is listed in
- * alerts.peak_proximity.tier_signal_emails, then ACTIONABLE. A rare-low BUY can fire on a symbol you traded before
- * but no longer hold.
+ * myfinance2.alerts.peak_proximity.tier_signal_emails, then ACTIONABLE. A rare-low BUY can fire on a symbol you traded
+ * before but no longer hold.
  *
  * No user scope; user_id is set explicitly by the engine and the controller.
  */

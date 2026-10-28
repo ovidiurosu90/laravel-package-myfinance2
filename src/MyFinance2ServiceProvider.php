@@ -2,16 +2,38 @@
 
 namespace ovidiuro\myfinance2;
 
-use App\Models\Role;
-use App\Models\User;
 use Config;
+use Illuminate\Auth\Access\Response;
+use Illuminate\Auth\Events\Verified;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
-use ovidiuro\myfinance2\App\Models\Currency;
+use ovidiuro\myfinance2\App\Listeners\SeedStarterCurrencies;
 
 class MyFinance2ServiceProvider extends ServiceProvider
 {
     private $_packageTag = 'myfinance2';
+
+    /**
+     * The gates MyFinance2 checks; the host app defines them (README, "Authorization"):
+     * - myfinance2.access: every MyFinance2 page and AJAX endpoint, and the navbar menu
+     * - myfinance2.manage: the create / edit forms of one area, passed as the argument (MANAGED_AREAS)
+     */
+    public const GATES = ['myfinance2.access', 'myfinance2.manage'];
+
+    /**
+     * The areas myfinance2.manage is asked about.
+     */
+    public const MANAGED_AREAS = [
+        'accounts', 'alerts', 'cashbalances', 'currencies', 'dividends', 'ledger', 'orders', 'splits', 'trades',
+        'watchlistsymbols',
+    ];
+
+    /**
+     * The config files besides myfinance2.php (src/config/<area>.php), each read as config('myfinance2.<area>.…').
+     */
+    public const CONFIG_AREAS = ['general', 'ledger', 'trades', 'watchlistsymbols', 'alerts'];
 
     /**
      * Indicates if loading of the provider is deferred.
@@ -31,6 +53,45 @@ class MyFinance2ServiceProvider extends ServiceProvider
             Config::get($this->_packageTag . '.connections.myfinance2_mysql'));
         $this->loadTranslationsFrom(__DIR__ . '/resources/lang/',
             $this->_packageTag);
+        $this->defineDefaultGates();
+        Event::listen(Verified::class, SeedStarterCurrencies::class);
+        $this->_registerNavbarMenu();
+    }
+
+    /**
+     * Adds the navbar menu partial to the host's list of menu partials, when the host names that list in
+     * 'myfinance2.navbar_registry' (README, "Navbar"). Skipped when already listed (a cached config keeps it).
+     *
+     * @return void
+     */
+    private function _registerNavbarMenu()
+    {
+        $registry = config($this->_packageTag . '.navbar_registry');
+        $partial  = $this->_packageTag . '::partials.nav';
+        if (empty($registry) || in_array($partial, (array) config($registry, []), true)) {
+            return;
+        }
+        config()->push($registry, $partial);
+    }
+
+    /**
+     * Deny by default, to keep things safe: until the host app defines the gates, nobody can open MyFinance2, so
+     * installing the package never exposes anyone's finance data. The host's own Gate::define() replaces these (its
+     * AuthServiceProvider boots after the package providers). The denial says what is missing, so a new install
+     * shows why it is blocked instead of a bare 403.
+     *
+     * @return void
+     */
+    public function defineDefaultGates()
+    {
+        foreach (self::GATES as $ability) {
+            if (Gate::has($ability)) {
+                continue;
+            }
+            Gate::define($ability, fn ($user, ...$arguments) => Response::deny(
+                "MyFinance2 access is not configured: the app has to define the '{$ability}' gate"
+                . ' (see the ovidiuro/myfinance2 README, "Authorization").'));
+        }
     }
 
     /**
@@ -42,19 +103,12 @@ class MyFinance2ServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__ . '/config/' . $this->_packageTag . '.php',
             $this->_packageTag);
-        $this->mergeConfigFrom(__DIR__ . '/config/cashbalances.php',
-            'cashbalances');
-        $this->mergeConfigFrom(__DIR__ . '/config/dividends.php', 'dividends');
-        $this->mergeConfigFrom(__DIR__ . '/config/general.php', 'general');
-        $this->mergeConfigFrom(__DIR__ . '/config/ledger.php', 'ledger');
-        $this->mergeConfigFrom(__DIR__ . '/config/trades.php', 'trades');
-        $this->mergeConfigFrom(__DIR__ . '/config/watchlistsymbols.php',
-            'watchlistsymbols');
-        $this->mergeConfigFrom(__DIR__ . '/config/currencies.php', 'currencies');
-        $this->mergeConfigFrom(__DIR__ . '/config/accounts.php', 'accounts');
-        $this->mergeConfigFrom(__DIR__ . '/config/orders.php', 'orders');
-        $this->mergeConfigFrom(__DIR__ . '/config/alerts.php', 'alerts');
-        $this->mergeConfigFrom(__DIR__ . '/config/splits.php', 'splits');
+        // After the main file: each area's file under its own key (myfinance2.trades, ...), so the package claims
+        // no generic top-level config names. The app overrides a key of an area in its config/myfinance2.php
+        // (e.g. 'trades' => ['price_overrides' => [...]]).
+        foreach (self::CONFIG_AREAS as $area) {
+            $this->mergeConfigFrom(__DIR__ . '/config/' . $area . '.php', $this->_packageTag . '.' . $area);
+        }
         $this->loadMigrations();
 
         $this->loadRoutesFrom(__DIR__ . '/routes/web.php');
@@ -105,83 +159,11 @@ class MyFinance2ServiceProvider extends ServiceProvider
             __DIR__ . '/resources/lang' =>
                 resource_path('lang/vendor/' . $this->_packageTag),
         ], $publishTag);
-    }
 
-    /**
-     * @param string $token
-     * @return bool
-     */
-    public function hasValidInviteToken($token)
-    {
-        $inviteToken = Config::get($this->_packageTag
-            . '.myfinance2_invite_token');
-        if (empty($inviteToken) || empty($token) || $token != $inviteToken) {
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * @param User $user
-     * @return bool
-     */
-    public function hasUnverifiedRole(User $user)
-    {
-        return $user->hasRole('unverifiedfinanceadmin');
-    }
-
-    /**
-     * @return Role
-     */
-    public function getUnverifiedRole()
-    {
-         return Role::where('slug', '=', 'unverifiedfinanceadmin')->first();
-    }
-
-    /**
-     * @return Role
-     */
-    public function getVerifiedRole()
-    {
-         return Role::where('slug', '=', 'financeadmin')->first();
-    }
-
-    /**
-     * @param User $user
-     * @return bool
-     */
-    public function createInitialSeeds(User $user)
-    {
-        Currency::insert([
-            [
-                'user_id'              => $user->id,
-                'iso_code'             => 'UNK',
-                'display_code'         => '&curren;',
-                'name'                 => 'Unknown',
-                'is_ledger_currency'   => false,
-                'is_trade_currency'    => false,
-                'is_dividend_currency' => false,
-            ],
-            [
-                'user_id'              => $user->id,
-                'iso_code'             => 'USD',
-                'display_code'         => '&dollar;',
-                'name'                 => 'US Dollar',
-                'is_ledger_currency'   => true,
-                'is_trade_currency'    => true,
-                'is_dividend_currency' => true,
-            ],
-            [
-                'user_id'              => $user->id,
-                'iso_code'             => 'EUR',
-                'display_code'         => '&euro;',
-                'name'                 => 'Euro',
-                'is_ledger_currency'   => true,
-                'is_trade_currency'    => true,
-                'is_dividend_currency' => true,
-            ],
-        ]);
+        // The prebuilt JS / CSS (dist/, README "Assets"); 'laravel-assets' is the tag Laravel apps republish on every
+        // composer update (post-update-cmd), so they stay current without a step of their own
+        $this->publishes([
+            __DIR__ . '/../dist' => public_path('vendor/' . $this->_packageTag),
+        ], [$publishTag . '-assets', 'laravel-assets']);
     }
 }
-

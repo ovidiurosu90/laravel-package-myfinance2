@@ -9,6 +9,7 @@ use ovidiuro\myfinance2\App\Services\Returns\Returns;
 use ovidiuro\myfinance2\App\Services\Returns\ReturnsConstants;
 use ovidiuro\myfinance2\App\Services\Returns\ReturnsMissingQuoteNotifier;
 use ovidiuro\myfinance2\App\Services\Returns\ReturnsOverview;
+use ovidiuro\myfinance2\App\Services\AppUser;
 
 /**
  * Trait for returns refresh operations
@@ -203,7 +204,7 @@ trait FinanceApiCronReturnsTrait
             GROUP BY 1, 2
         ");
 
-        $currenciesReverseMapping = config('general.currencies_reverse_mapping');
+        $currenciesReverseMapping = config('myfinance2.general.currencies_reverse_mapping');
         $currencyPairs = [];
         foreach ($result as $resultItem) {
             $pair = [
@@ -263,7 +264,7 @@ trait FinanceApiCronReturnsTrait
     {
         Log::info('START _refreshReturnsOverview()');
         try {
-            $userIds = \DB::table('users')->pluck('id');
+            $userIds = AppUser::allIds();
             $overviewService = new ReturnsOverview();
 
             foreach ($userIds as $userId) {

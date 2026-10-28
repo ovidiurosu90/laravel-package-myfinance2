@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace ovidiuro\myfinance2\App\Console\Commands;
 
-use App\Models\User;
 use Illuminate\Console\Command;
 
 use ovidiuro\myfinance2\App\Services\MoneyFormat;
 use ovidiuro\myfinance2\App\Services\TierSignalBacktest as Backtest;
 use ovidiuro\myfinance2\App\Services\TierSignalBacktestService;
+use ovidiuro\myfinance2\App\Services\AppUser;
 
 /**
  * Signal backtest (phase 4): replays the tier signals (rare high, rare low, deteriorating) and the range-bound (TRIM /
@@ -39,7 +39,7 @@ class TierSignalBacktest extends Command
     public function handle(): int
     {
         $userId = (int) $this->option('user-id');
-        if ($userId <= 0 || !User::find($userId)) {
+        if ($userId <= 0 || !AppUser::find($userId)) {
             $this->error('Provide --user-id=N of an existing user.');
             return Command::FAILURE;
         }

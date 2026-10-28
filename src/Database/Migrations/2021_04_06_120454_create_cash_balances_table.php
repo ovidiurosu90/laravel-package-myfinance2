@@ -24,9 +24,9 @@ class CreateCashBalancesTable extends Migration
                 $table->increments('id')->unsigned();
                 $table->timestamps();
                 $table->timestamp('timestamp')->default(\DB::raw('CURRENT_TIMESTAMP'));
-                $table->enum('account', array_keys(config('general.trade_accounts')));
+                $table->enum('account', array_keys(config('myfinance2.general.trade_accounts')));
                 $table->enum('account_currency',
-                    array_keys(config('general.ledger_currencies')));
+                    array_keys(config('myfinance2.general.ledger_currencies')));
                 $table->decimal('amount', 10, 4);
                 $table->string('description', 127)->nullable();
                 $table->softDeletes();

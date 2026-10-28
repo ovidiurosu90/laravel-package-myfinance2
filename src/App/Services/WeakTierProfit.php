@@ -20,7 +20,7 @@ namespace ovidiuro\myfinance2\App\Services;
  * the backtest's settled tier), a TAKE PROFIT reading was followed by trailing VUSA.AS over 126 trading days in 60 %
  * of 57 episodes against a 56 % base rate, median -4.7 points against -3.3 (63 % of 54, -5.8 before the drop-rule
  * fix): modest support, so the alert stays as is.
- * To tune it on a rerun: min_gain_pct or the tiers (config watchlistsymbols.weak_tier_profit).
+ * To tune it on a rerun: min_gain_pct or the tiers (config myfinance2.watchlistsymbols.weak_tier_profit).
  *
  * Pure: no database, no config read outside fromConfig().
  */
@@ -43,7 +43,7 @@ final class WeakTierProfit
 
     public static function fromConfig(): self
     {
-        $cfg = (array) config('watchlistsymbols.weak_tier_profit', []);
+        $cfg = (array) config('myfinance2.watchlistsymbols.weak_tier_profit', []);
 
         return new self(
             array_map('strtoupper', (array) ($cfg['tiers'] ?? [TierCalculationService::RUST,

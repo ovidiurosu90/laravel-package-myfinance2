@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace ovidiuro\myfinance2\App\Services;
 
-use App\Models\User;
 use Illuminate\Support\Facades\Log;
 
 use ovidiuro\myfinance2\App\Models\Scopes\AssignedToUserScope;
@@ -142,7 +141,7 @@ class SymbolPositionReturns
      */
     private function _load(int $userId): array
     {
-        $user = User::find($userId);
+        $user = AppUser::find($userId);
         if ($user === null) {
             return [];
         }

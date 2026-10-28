@@ -36,7 +36,7 @@
                         </tr>
                     </thead>
                     @php
-                        $gainsAnnotations = config('trades.gains_annotations', []);
+                        $gainsAnnotations = config('myfinance2.trades.gains_annotations', []);
                     @endphp
                     <tbody>
                     @foreach($gainsPerYear as $year => $accounts)

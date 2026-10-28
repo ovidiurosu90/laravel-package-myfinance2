@@ -31,13 +31,14 @@ namespace ovidiuro\myfinance2\App\Services;
  *   - The grid (rare share 10 / 20 / 30 x consistency 50 / 60) did not change the direction: that period rewarded
  *     momentum. Single path, short overlapping episodes (median 3-5 days): a sanity check, not proof.
  *   Done since: every tier signal alert is an inbox card (INFO), emailed only when listed in
- *   alerts.peak_proximity.tier_signal_emails (none by default). If a rerun (finance:tier-signal-backtest) confirms it:
+ *   myfinance2.alerts.peak_proximity.tier_signal_emails (none by default). If a rerun (finance:tier-signal-backtest)
+ *   confirms it:
  *   - Narrow the inbox cards too: make alertable() return DETERIORATING chips only (PeakProximityTierSignals and the
  *     alerts page's "not enabled" note both go through it).
  *   - Or read the signals with momentum: change the actions in SettledTierResolver::_withSignal() (e.g. a rare low on
  *     a strong name as a warning, not a buy) and their words in _advice() and LABELS; TierSignalSeverity's rules
  *     follow the action.
- *   - Or tune: rare_share_pct, consistency_pct, buy_settled_tiers (config watchlistsymbols.tier_history).
+ *   - Or tune: rare_share_pct, consistency_pct, buy_settled_tiers (config myfinance2.watchlistsymbols.tier_history).
  *   The range-bound and TAKE PROFIT readings were backtested the same way; their notes are in RangeBoundPattern and
  *   WeakTierProfit (ADD / BUY and TAKE PROFIT supported, TRIM no edge).
  *
@@ -66,7 +67,7 @@ final class TierSignalChip
 
     public static function fromConfig(): self
     {
-        return new self((int) config('watchlistsymbols.tier_history.deteriorate_persist_days', 20));
+        return new self((int) config('myfinance2.watchlistsymbols.tier_history.deteriorate_persist_days', 20));
     }
 
     /**

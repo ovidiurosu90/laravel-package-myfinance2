@@ -40,7 +40,7 @@ class TradeFormFields extends MyFormFields
     protected function formFieldData()
     {
         return [
-            'actions'         => config('trades.actions'),
+            'actions'         => config('myfinance2.trades.actions'),
             'accounts'        => Account::with('currency')
                                     ->where('is_trade_account', 1)
                                     ->get(),

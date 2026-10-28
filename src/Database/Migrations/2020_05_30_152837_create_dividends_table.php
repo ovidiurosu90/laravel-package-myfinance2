@@ -24,9 +24,9 @@ class CreateDividendsTable extends Migration
                 $table->increments('id')->unsigned();
                 $table->timestamps();
                 $table->timestamp('timestamp')->default(\DB::raw('CURRENT_TIMESTAMP'));
-                $table->enum('account', array_keys(config('general.dividend_accounts')));
-                $table->enum('account_currency', array_keys(config('general.ledger_currencies')));
-                $table->enum('dividend_currency', array_keys(config('general.dividend_currencies')));
+                $table->enum('account', array_keys(config('myfinance2.general.dividend_accounts')));
+                $table->enum('account_currency', array_keys(config('myfinance2.general.ledger_currencies')));
+                $table->enum('dividend_currency', array_keys(config('myfinance2.general.dividend_currencies')));
                 $table->decimal('exchange_rate', 8, 4);
                 $table->string('symbol', 16);
                 $table->decimal('amount', 10, 4);

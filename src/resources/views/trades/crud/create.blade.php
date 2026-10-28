@@ -1,12 +1,12 @@
-@extends('layouts.app')
+@extends('myfinance2::layouts.app')
 
-@section('template_title'){{ trans('myfinance2::general.titles.create-item', ['type' => 'Trade']) }}@endsection
+@section('myfinance2_title'){{ trans('myfinance2::general.titles.create-item', ['type' => 'Trade']) }}@endsection
 
-@section('template_linked_css')
+@section('myfinance2_styles')
     @include('myfinance2::general.partials.styles')
 @endsection
 
-@section('content')
+@section('myfinance2_content')
 
     <div class="container">
         <div class="row">
@@ -15,7 +15,7 @@
                     <div class="card-header">
                         {!! trans('myfinance2::general.titles.create-item', ['type' => 'Trade']) !!}
                         <div class="pull-right">
-                            <a href="{{ url('trades') }}" class="btn btn-outline-secondary btn-sm float-right" data-bs-toggle="tooltip" data-bs-placement="left" title="Back to Trades Dashboard">
+                            <a href="{{ route('myfinance2::trades.index') }}" class="btn btn-outline-secondary btn-sm float-right" data-bs-toggle="tooltip" data-bs-placement="left" title="Back to Trades Dashboard">
                                 <i class="fa fa-fw fa-reply-all" aria-hidden="true"></i>
                                 Back to Index
                             </a>
@@ -43,7 +43,7 @@
     </div>
 @endsection
 
-@section('footer_scripts')
+@section('myfinance2_scripts')
     @include('myfinance2::trades.scripts.selectize-item')
     @include('myfinance2::general.scripts.timestamp-picker')
     @include('myfinance2::general.scripts.tooltips')

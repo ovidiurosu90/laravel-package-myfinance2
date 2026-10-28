@@ -4,32 +4,28 @@ declare(strict_types=1);
 
 namespace ovidiuro\myfinance2\App\Http\Requests;
 
+use Illuminate\Auth\Access\Response;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 use ovidiuro\myfinance2\App\Models\Account;
 use ovidiuro\myfinance2\App\Models\Currency;
+use ovidiuro\myfinance2\App\Models\Trade;
 use ovidiuro\myfinance2\App\Rules\TradeQuantityIsAvailable;
+use ovidiuro\myfinance2\App\Rules\OwnRecord;
 
 class StoreOrder extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
      *
-     * @return bool
+     * @return Response
      */
-    public function authorize(): bool
+    public function authorize(): Response
     {
-        if (config('orders.guiCreateMiddlewareType') == 'role') {
-            return $this->user()->hasRole(
-                config('orders.guiCreateMiddleware'));
-        }
-        if (config('orders.guiCreateMiddlewareType') == 'permissions') {
-            return $this->user()->hasPermission(
-                config('orders.guiCreateMiddleware'));
-        }
-
-        return false;
+        // The host app decides who manages this area (gate defined in its AuthServiceProvider).
+        return Gate::inspect('myfinance2.manage', 'orders');
     }
 
     /**
@@ -39,10 +35,6 @@ class StoreOrder extends FormRequest
      */
     public function rules(): array
     {
-        $dbConnection = config('myfinance2.db_connection');
-        $accountsTableName = $dbConnection . '.' . (new Account())->getTable();
-        $currenciesTableName = $dbConnection . '.' . (new Currency())->getTable();
-
         return [
             'symbol'            => 'required|string|max:16',
             'action'            => [
@@ -53,10 +45,8 @@ class StoreOrder extends FormRequest
                 'required',
                 Rule::in(['DRAFT', 'PLACED', 'FILLED', 'EXPIRED', 'CANCELLED']),
             ],
-            'account_id'        => 'nullable|integer|exists:' .
-                                        $accountsTableName . ',id',
-            'trade_currency_id' => 'nullable|integer|exists:' .
-                                        $currenciesTableName . ',id',
+            'account_id'        => ['nullable', 'integer', OwnRecord::of(Account::class)],
+            'trade_currency_id' => ['nullable', 'integer', OwnRecord::of(Currency::class)],
             'exchange_rate'     => 'nullable|numeric',
             'quantity'          => array_merge(
                 ['nullable', 'numeric'],
@@ -65,7 +55,7 @@ class StoreOrder extends FormRequest
                     : []
             ),
             'limit_price'       => 'nullable|numeric',
-            'trade_id'          => 'nullable|integer',
+            'trade_id'          => ['nullable', 'integer', OwnRecord::of(Trade::class)],
             'placed_at'         => 'nullable|date',
             'filled_at'         => 'nullable|date',
             'expired_at'        => 'nullable|date',

@@ -4,7 +4,7 @@
     markers as the /positions and /watchlist-symbols "expand chart" modal.
 
     Hidden until general.scripts.symbol-chart-panel fills it for the form's #symbol-input,
-    so include that script in the page's footer_scripts.
+    so include that script in the page's myfinance2_scripts.
 
     Usage:
         @include('myfinance2::general.partials.symbol-chart-panel')

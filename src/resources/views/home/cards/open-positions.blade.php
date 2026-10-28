@@ -4,7 +4,7 @@
             <div style="display: flex; justify-content: space-between;
                         align-items: center;">
                 <span id="card_title">
-                    <a target="_blank" href="{{ url('/positions') }}">
+                    <a target="_blank" href="{{ route('myfinance2::positions') }}">
                         {!! trans('myfinance2::positions.titles.open-positions') !!}
                     </a>
                 </span>

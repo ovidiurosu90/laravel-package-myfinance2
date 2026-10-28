@@ -74,7 +74,7 @@ class RebuiltTierReadings
                 $this->_closes[$symbol]);
         }
 
-        $lookback = (int) config('watchlistsymbols.tier_history.lookback_days', 365);
+        $lookback = (int) config('myfinance2.watchlistsymbols.tier_history.lookback_days', 365);
         // The rows of [day - lookback - a week, day]: the day's own row (or the last one before it) and its window.
         $history = (new TierHistoryRepository())->loadWindow(
             $userId, Carbon::parse($day)->addDay(), $lookback + 8, [$symbol, $benchmark]

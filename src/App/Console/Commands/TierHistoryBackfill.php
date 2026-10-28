@@ -6,7 +6,6 @@ namespace ovidiuro\myfinance2\App\Console\Commands;
 
 use Carbon\Carbon;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 
 use ovidiuro\myfinance2\App\Models\Scopes\AssignedToUserScope;
 use ovidiuro\myfinance2\App\Services\CategorizationService;
@@ -15,6 +14,7 @@ use ovidiuro\myfinance2\App\Services\PerformanceDataset;
 use ovidiuro\myfinance2\App\Services\TierAsOfClassifier;
 use ovidiuro\myfinance2\App\Services\TierCalculationService;
 use ovidiuro\myfinance2\App\Services\TierHistoryRecorder;
+use ovidiuro\myfinance2\App\Services\AppUser;
 
 /**
  * Rebuilds the daily tier history (symbol_tier_history) for a date range: for every trading day, the
@@ -56,7 +56,7 @@ class TierHistoryBackfill extends Command
             return Command::FAILURE;
         }
 
-        $from   = Carbon::parse($this->option('from') ?: config('watchlistsymbols.tier_history.start_date'));
+        $from   = Carbon::parse($this->option('from') ?: config('myfinance2.watchlistsymbols.tier_history.start_date'));
         $to     = $this->option('to') ? Carbon::parse($this->option('to')) : Carbon::today();
         $symbol = $this->option('symbol') ?: null;
 
@@ -87,7 +87,7 @@ class TierHistoryBackfill extends Command
             return [(int) $this->option('user-id')];
         }
         if ($this->option('all-users')) {
-            return DB::table('users')->pluck('id')->map(fn ($id) => (int) $id)->all();
+            return AppUser::allIds()->map(fn ($id) => (int) $id)->all();
         }
 
         return null;

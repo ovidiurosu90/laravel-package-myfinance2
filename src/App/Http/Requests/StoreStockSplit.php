@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace ovidiuro\myfinance2\App\Http\Requests;
 
+use Illuminate\Auth\Access\Response;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 
 use ovidiuro\myfinance2\App\Models\StockSplit;
 
@@ -13,19 +15,12 @@ class StoreStockSplit extends FormRequest
     /**
      * Determine if the user is authorized to make this request.
      *
-     * @return bool
+     * @return Response
      */
-    public function authorize(): bool
+    public function authorize(): Response
     {
-        if (config('splits.guiCreateMiddlewareType') == 'role') {
-            return $this->user()->hasRole(config('splits.guiCreateMiddleware'));
-        }
-
-        if (config('splits.guiCreateMiddlewareType') == 'permissions') {
-            return $this->user()->hasPermission(config('splits.guiCreateMiddleware'));
-        }
-
-        return false;
+        // The host app decides who manages this area (gate defined in its AuthServiceProvider).
+        return Gate::inspect('myfinance2.manage', 'splits');
     }
 
     /**

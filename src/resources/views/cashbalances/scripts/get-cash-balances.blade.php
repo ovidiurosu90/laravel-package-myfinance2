@@ -70,7 +70,7 @@ $(document).ready(function()
 
         $.ajax({
             type: 'GET',
-            url:  "{{ url('/get-cash-balances') }}",
+            url:  "{{ route('myfinance2::get-cash-balances') }}",
             data: {
                 timestamp: timestamp,
                 account_id: account_id,

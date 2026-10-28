@@ -1,10 +1,10 @@
 @use('ovidiuro\myfinance2\App\Services\MoneyFormat')
-@extends('layouts.app')
-@section('template_title', 'Dip Buying Plan Alerts')
-@section('template_linked_css')
+@extends('myfinance2::layouts.app')
+@section('myfinance2_title', 'Dip Buying Plan Alerts')
+@section('myfinance2_styles')
     @include('myfinance2::general.partials.styles')
 @endsection
-@section('content')
+@section('myfinance2_content')
     <div class="container-fluid">
         <div class="row">
             <div class="col-sm-12">
@@ -157,7 +157,7 @@
         <div class="clearfix mb-4"></div>
     </div>
 @endsection
-@section('footer_scripts')
+@section('myfinance2_scripts')
     @include('myfinance2::general.scripts.tooltips')
     @include('myfinance2::dipbuyingalerts.scripts.drawdown-chart')
     <script type="module">

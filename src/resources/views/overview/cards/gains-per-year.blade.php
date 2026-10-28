@@ -17,7 +17,7 @@
                     ));
                     sort($allYears);
                     $gainsAnnotations = config(
-                        'trades.gains_annotations', []
+                        'myfinance2.trades.gains_annotations', []
                     );
                 @endphp
                 @if(count($allYears) != 0)

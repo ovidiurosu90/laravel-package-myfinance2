@@ -27,7 +27,9 @@ class ReturnsMissingQuoteNotifierTest extends TestCase
     {
         parent::setUp();
         $container = new Container();
-        $container->instance('config', new ConfigRepository(['trades' => ['delisted_symbols' => ['WBD']]]));
+        $container->instance('config', new ConfigRepository([
+            'myfinance2' => ['trades' => ['delisted_symbols' => ['WBD']]],
+        ]));
         Container::setInstance($container);
         Facade::setFacadeApplication($container);
         Cache::swap(new CacheRepository(new ArrayStore()));

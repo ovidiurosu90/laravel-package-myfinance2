@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace ovidiuro\myfinance2\App\Console\Commands;
 
-use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -16,6 +15,7 @@ use ovidiuro\myfinance2\App\Services\AlertMailer;
 use ovidiuro\myfinance2\App\Services\DipBuyingBacktestService;
 use ovidiuro\myfinance2\App\Services\DipBuyingPlanService;
 use ovidiuro\myfinance2\Mail\DipBuyingAlert;
+use ovidiuro\myfinance2\App\Services\AppUser;
 
 /**
  * Dip Buying Plan email on a plan state change. Run hourly from cron; the per-day throttle below
@@ -44,8 +44,8 @@ class DipBuyingAlerts extends Command
 
     public function handle(): int
     {
-        if (!config('alerts.dip_buying.enabled', true)) {
-            $this->info('Dip Buying Plan alerts are disabled (alerts.dip_buying.enabled).');
+        if (!config('myfinance2.alerts.dip_buying.enabled', true)) {
+            $this->info('Dip Buying Plan alerts are disabled (myfinance2.alerts.dip_buying.enabled).');
             return Command::SUCCESS;
         }
 
@@ -78,7 +78,7 @@ class DipBuyingAlerts extends Command
         $failed  = 0;
 
         foreach ($userIds as $id) {
-            $user = User::find($id);
+            $user = AppUser::find($id);
             if (!$user) {
                 $this->warn("  User #{$id}: not found, skipping.");
                 continue;
@@ -210,9 +210,9 @@ class DipBuyingAlerts extends Command
      */
     private function _send(array $plan, string $trigger, int $userId): string
     {
-        $emailTo = config('alerts.dip_buying.email_to')
-            ?: config('alerts.email_to')
-            ?: User::find($userId)?->email;
+        $emailTo = config('myfinance2.alerts.dip_buying.email_to')
+            ?: config('myfinance2.alerts.email_to')
+            ?: AppUser::find($userId)?->email;
 
         if (empty($emailTo)) {
             Log::warning("DipBuyingAlerts: no email address for user {$userId}, skipping.");

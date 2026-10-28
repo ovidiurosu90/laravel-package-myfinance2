@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Model;
  * pool amount and enables the feature on /dip-buying-alerts. No user scope; user_id is set
  * explicitly by the controller and the engine.
  *
- * `bands` optionally overrides the default reserve ladder (config alerts.dip_buying.bands): a JSON
+ * `bands` optionally overrides the default reserve ladder (config myfinance2.alerts.dip_buying.bands): a JSON
  * array of {dd, target} entries, cumulative target % deployed at each effective drawdown depth.
  */
 class DipBuyingSetting extends Model

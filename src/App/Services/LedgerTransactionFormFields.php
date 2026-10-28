@@ -57,7 +57,7 @@ class LedgerTransactionFormFields extends MyFormFields
     protected function formFieldData()
     {
         return [
-            'transactionTypes' => config('ledger.transaction_types'),
+            'transactionTypes' => config('myfinance2.ledger.transaction_types'),
             'accounts'         => Account::with('currency')
                                     ->where('is_ledger_account', 1)
                                     ->get(),

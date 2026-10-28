@@ -80,7 +80,7 @@ return new class extends Migration
                 ->table($table, function (Blueprint $table)
             {
                 $table->enum('account',
-                    array_keys(config('general.trade_accounts')))
+                    array_keys(config('myfinance2.general.trade_accounts')))
                     ->after('account_id')
                     ->nullable();
             });
@@ -94,7 +94,7 @@ return new class extends Migration
                 ->table($table, function (Blueprint $table)
             {
                 $table->enum('account_currency',
-                    array_keys(config('general.ledger_currencies')))
+                    array_keys(config('myfinance2.general.ledger_currencies')))
                     ->after('account')
                     ->nullable();
             });
@@ -108,7 +108,7 @@ return new class extends Migration
                 ->table($table, function (Blueprint $table)
             {
                 $table->enum('trade_currency',
-                    array_keys(config('general.trade_currencies')))
+                    array_keys(config('myfinance2.general.trade_currencies')))
                     ->after('account_currency')
                     ->nullable();
             });

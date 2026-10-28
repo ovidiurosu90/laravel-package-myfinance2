@@ -1,12 +1,12 @@
-@extends('layouts.app')
+@extends('myfinance2::layouts.app')
 
-@section('template_title'){{ trans('myfinance2::general.titles.create-item', ['type' => 'Cash Balance']) }}@endsection
+@section('myfinance2_title'){{ trans('myfinance2::general.titles.create-item', ['type' => 'Cash Balance']) }}@endsection
 
-@section('template_linked_css')
+@section('myfinance2_styles')
     @include('myfinance2::general.partials.styles')
 @endsection
 
-@section('content')
+@section('myfinance2_content')
 
     <div class="container">
         <div class="row">
@@ -16,7 +16,7 @@
                         {!! trans('myfinance2::general.titles.create-item', ['type' => 'Cash Balance']) !!}
                         <span id="info-header"></span>
                         <div class="pull-right">
-                            <a href="{{ url('cash-balances') }}" class="btn btn-outline-secondary btn-sm float-right" data-bs-toggle="tooltip" data-bs-placement="left" title="Back to Cash Balances Dashboard">
+                            <a href="{{ route('myfinance2::cash-balances.index') }}" class="btn btn-outline-secondary btn-sm float-right" data-bs-toggle="tooltip" data-bs-placement="left" title="Back to Cash Balances Dashboard">
                                 <i class="fa fa-fw fa-reply-all" aria-hidden="true"></i>
                                 Back to Index
                             </a>
@@ -29,7 +29,7 @@
     </div>
 @endsection
 
-@section('footer_scripts')
+@section('myfinance2_scripts')
     @include('myfinance2::general.scripts.timestamp-picker')
     @include('myfinance2::cashbalances.scripts.selectize-item')
     @include('myfinance2::cashbalances.scripts.get-cash-balances')

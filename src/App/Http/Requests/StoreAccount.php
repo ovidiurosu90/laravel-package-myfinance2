@@ -3,32 +3,25 @@
 namespace ovidiuro\myfinance2\App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rules\Enum;
 use Illuminate\Validation\Rule;
 
 use ovidiuro\myfinance2\App\Enums\FundingRole;
 use ovidiuro\myfinance2\App\Models\Currency;
+use ovidiuro\myfinance2\App\Rules\OwnRecord;
 
 class StoreAccount extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
      *
-     * @return bool
+     * @return \Illuminate\Auth\Access\Response
      */
     public function authorize()
     {
-        if (config('accounts.guiCreateMiddlewareType') == 'role') {
-            return $this->user()->hasRole(
-                config('accounts.guiCreateMiddleware')
-            );
-        }
-        if (config('accounts.guiCreateMiddlewareType') == 'permissions') {
-            return $this->user()->hasPermission(
-                config('accounts.guiCreateMiddleware')
-            );
-        }
-        return false;
+        // The host app decides who manages this area (gate defined in its AuthServiceProvider).
+        return Gate::inspect('myfinance2.manage', 'accounts');
     }
 
     /**
@@ -38,11 +31,8 @@ class StoreAccount extends FormRequest
      */
     public function rules()
     {
-        $dbConnection = config('myfinance2.db_connection');
-        $tableName = $dbConnection . '.' . (new Currency())->getTable();
-
         return [
-            'currency_id'         => 'required|integer|exists:' . $tableName . ',id',
+            'currency_id'         => ['required', 'integer', OwnRecord::of(Currency::class)],
             'name'                => 'required|string|max:64',
             'description'         => 'required|string|max:512',
             'is_ledger_account'   => 'boolean',

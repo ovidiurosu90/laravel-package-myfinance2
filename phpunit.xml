@@ -4,19 +4,33 @@
          bootstrap="vendor/autoload.php"
          executionOrder="depends,defects">
     <testsuites>
-        <testsuite name="MyFinance2 Unit Tests">
+        <!-- Pure: no database, no Laravel app -->
+        <testsuite name="Unit">
             <directory suffix="Test.php">tests/Unit</directory>
         </testsuite>
-        <!--
-            Feature tests and tests requiring Laravel context should be run from parent laravel-admin project:
-            cd ../../
-            php artisan test tests/Packages/MyFinance2/Feature/ChangePercentageChartIntegrationTest.php
-        -->
+        <!-- A Laravel app with this package (orchestra/testbench) on the host app's databases, the local copy of
+             production (tests/Support/HostEnvironment): everything is rolled back (tests/TestCase) -->
+        <testsuite name="Feature">
+            <directory suffix="Test.php">tests/Feature</directory>
+        </testsuite>
     </testsuites>
+
+    <extensions>
+        <!-- Fails a run that leaves rows behind in those databases (only when feature tests run). stats_today is
+             rewritten every minute by the finance cron (app:finance-api-cron), so its row count moves on its own -->
+        <bootstrap class="ovidiuro\myfinance2\Tests\Support\LeftoverRowsExtension">
+            <parameter name="ignore" value="myfinance2_mysql.stats_today"/>
+        </bootstrap>
+    </extensions>
 
     <php>
         <ini name="display_errors" value="1"/>
         <ini name="error_reporting" value="-1"/>
         <ini name="date.timezone" value="UTC"/>
+        <env name="APP_ENV" value="testing"/>
+        <env name="CACHE_STORE" value="array"/>
+        <env name="MAIL_MAILER" value="array"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="SESSION_DRIVER" value="array"/>
     </php>
 </phpunit>

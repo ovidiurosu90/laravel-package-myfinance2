@@ -242,7 +242,7 @@ class TradesController extends MyFinance2Controller
             ->where('status', 'OPEN')
             ->update(['status' => 'CLOSED']);
 
-        return redirect(url('/positions'))->with('success',
+        return redirect(route('myfinance2::positions'))->with('success',
             trans_choice('myfinance2::trades.flash-messages.trades-closed',
                 $numUpdated));
     }

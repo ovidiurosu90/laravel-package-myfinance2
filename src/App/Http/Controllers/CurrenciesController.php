@@ -46,7 +46,7 @@ class CurrenciesController extends MyFinance2Controller
     /**
      * Store a newly created item.
      *
-     * @param \App\Http\Requests\StoreCurrency $request
+     * @param \ovidiuro\myfinance2\App\Http\Requests\StoreCurrency $request
      *
      * @return \Illuminate\Http\Response
      */
@@ -79,7 +79,7 @@ class CurrenciesController extends MyFinance2Controller
     /**
      * Update the specified item.
      *
-     * @param \App\Http\Requests\UpdateCurrency $request
+     * @param \ovidiuro\myfinance2\App\Http\Requests\UpdateCurrency $request
      * @param int                            $id
      *
      * @return \Illuminate\Http\Response

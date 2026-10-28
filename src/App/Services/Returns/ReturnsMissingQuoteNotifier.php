@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace ovidiuro\myfinance2\App\Services\Returns;
 
-use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 use ovidiuro\myfinance2\App\Services\AlertMailer;
 use ovidiuro\myfinance2\Mail\ReturnsMissingQuotes;
+use ovidiuro\myfinance2\App\Services\AppUser;
 
 /**
  * Emails the account owner when the returns refresh cron values held positions at 0 for lack of a price.
@@ -46,7 +46,7 @@ class ReturnsMissingQuoteNotifier
             $positions
         );
         Log::warning("Returns $year: " . count($positions) . ' held position(s) valued at 0 because no price '
-            . 'was found: ' . implode(', ', $described) . '. Add trades.price_overrides (and '
+            . 'was found: ' . implode(', ', $described) . '. Add myfinance2.trades.price_overrides (and '
             . 'delisted_symbols if the symbol was delisted).');
     }
 
@@ -112,7 +112,7 @@ class ReturnsMissingQuoteNotifier
      */
     protected function _email(int $userId, array $positionsByYear): bool
     {
-        $emailTo = config('alerts.email_to') ?: User::find($userId)?->email;
+        $emailTo = config('myfinance2.alerts.email_to') ?: AppUser::find($userId)?->email;
         if (empty($emailTo)) {
             Log::warning("ReturnsMissingQuoteNotifier: no email address for user #$userId");
             return false;

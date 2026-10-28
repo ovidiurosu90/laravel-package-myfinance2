@@ -45,7 +45,7 @@ class ReturnsMissingQuoteAlerts
      */
     private function _collect(array $returnsData, string $key): array
     {
-        $delisted = config('trades.delisted_symbols', []);
+        $delisted = config('myfinance2.trades.delisted_symbols', []);
         $positions = [];
 
         foreach ($returnsData as $accountId => $data) {

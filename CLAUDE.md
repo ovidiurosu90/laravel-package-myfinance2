@@ -9,6 +9,20 @@ This is a Laravel package used by the main `laravel-admin` project. The relation
 - myfinance2 is included in laravel-admin via Composer in vendor/ovidiuro/myfinance2
 - Both can be updated independently as needed
 
+### Repository boundaries (keep coupling minimal)
+Three repositories work together: **laravel-admin** (the host app), **myfinance2** (this package, public) and
+**laravel-package-admin-mydata** (private: backup table list, schema dumps, private config, test data). Keep the
+coupling between them to a minimum:
+- Couple only as a last resort, when there is no other way. Prefer the package's contracts: its config
+  (`config/myfinance2.php`, which the host can override), its gates (`myfinance2.access`, `myfinance2.manage`), events
+  and view extension points.
+- myfinance2 must work in other Laravel apps: never reference laravel-admin code (`App\...`), its layout, roles,
+  permissions or middleware directly; the host supplies them through the config and the gates.
+- laravel-admin must keep working without myfinance2 and admin-mydata: guard every reference to them (`class_exists`,
+  `@includeIf`, tests that skip when the package is missing).
+- Document every coupling point that remains, with a comment at the spot and in the README of the repository that
+  depends on the other.
+
 ## Constraints & Guidelines
 Attention! Avoid running disruptive actions that are hard to revert (git checkout, git pull, git add, git commit, git reset, git push, composer update). Can suggest them as a last resort, but they should be run manually.
 
@@ -24,7 +38,7 @@ sudo chmod g+w -R storage/framework/
 
 **Clear cache if needed** (run in main laravel-admin project):
 ```bash
-php artisan cache:clear && php artisan config:cache
+php artisan cache:clear && php artisan config:clear
 ```
 
 ## Tech Stack
@@ -48,35 +62,49 @@ php artisan cache:clear && php artisan config:cache
 - `app/Models/Overrides/`, `app/Http/Controllers/Overrides/`, etc. - PHP module overrides
 
 ## Frontend Assets
-Frontend assets are built from the main **laravel-admin** project using `yarn install && yarn run prod` (not in this package directly).
+The package's own JS / CSS (charts, date pickers, toggles; plus jQuery, Bootstrap, DataTables, selectize and Font
+Awesome for apps without them) are built here into `dist/` (`yarn install && yarn build`, commit `dist/`) and
+published to the app's `public/vendor/myfinance2` (README, "Assets"). jQuery, Bootstrap, DataTables and selectize come
+from the app's bundle in laravel-admin (`yarn install && yarn run prod` there).
 
 ## Testing
-- **Main project tests**: `php artisan test` (run from laravel-admin)
-- **Package tests**: `php vendor/bin/phpunit --testdox` (run from myfinance2)
-- **Unit tests** (this package, `tests/Unit/`) are pure: no DB, no Laravel boot. Test private methods via reflection. Prefer these for anything testable without the database.
-- **Feature/integration tests** live in the **laravel-admin** project at `tests/Packages/MyFinance2/Feature/` (run with `php artisan test`), because they need the Laravel context and database.
+Each repository tests its own logic: everything MyFinance2 implements is tested here; laravel-admin only tests its own
+wiring (its roles -> the gates, its middleware, its layout, its config) plus two exceptions that need its real data
+(the Returns regression and holdings tests).
+- **Unit tests** (`tests/Unit/`) are pure: no DB, no Laravel boot. Test private methods via reflection. Prefer these
+  for anything testable without the database.
+- **Feature tests** (`tests/Feature/`) run a Laravel app with only this package (orchestra/testbench) on the host
+  app's databases: the local copy of production, there is no test database. From this package's directory:
+  `vendor/bin/phpunit --testsuite Unit`, `vendor/bin/phpunit --testsuite Feature` (`composer update` here installs
+  the dev dependencies into this package's own `vendor/`; never run it in laravel-admin).
 
 ### Writing MyFinance2 feature tests
-Feature tests run against the **production database** (no separate test DB; `RefreshDatabase` is intentionally unused). Follow these rules so a test never pollutes real data and never stalls:
+Extend `ovidiuro\myfinance2\Tests\TestCase`. It reads the host's `.env` (`tests/Support/HostEnvironment`), rolls back
+both connections after every test, opens the gates (`$opensTheGates = false` for the package's own deny-by-default)
+and resets auth. The leftover-rows check (`tests/Support/LeftoverRowsExtension`, in `phpunit.xml`) fails any run that
+leaves rows behind (`stats_today` is ignored: the finance cron rewrites it every minute). Follow these rules so a test
+never pollutes real data and never stalls:
 
-1. **Always roll back.** `use DatabaseTransactions;` and transact both connections, since myfinance2 models use a second connection:
-   ```php
-   public function connectionsToTransact(): array
-   {
-       return [null, config('myfinance2.db_connection', 'myfinance2_mysql')];
-   }
-   ```
-2. **Never save a User model.** Saving one triggers virtual attributes (e.g. `theme`) and lock-wait timeouts. Use `actingAs(User::first())` read-only (skip if absent) and `Auth::forgetGuards()` in `tearDown()`. Do not use `User::factory()->create()`.
-3. **Only write synthetic rows.** Use identifiers that cannot exist in production (e.g. symbol `TST.*`). Never insert or update a real row, not even rolled back; the `VUSA.AS` benchmark is read-only.
-4. **`stats_historical` has no `user_id`,** so the base model's `creating` hook fails on it. Insert via the query builder (`DB::connection($conn)->table(...)`), not Eloquent.
-5. **Isolate per-user pipelines** (e.g. `CategorizationService::build($userId)`) so they do not walk a real portfolio. Insert the synthetic trade under an unused id, then call `build()` for it:
-   ```php
-   $userId = (int) DB::connection($conn)->table('trades')->max('user_id') + 1;
-   ```
-   `trades.user_id` has a cross-database FK to the admin `users` table, so wrap the synthetic trade insert in `Schema::connection($conn)->withoutForeignKeyConstraints(fn () => ...)` (session-scoped, rolled back) to accept the unused id without referencing a real user.
-6. **Avoid live network calls.** The test cache driver is `array` (cold every run), so any code falling back to `HistoricalPriceCache` makes a live Yahoo Finance request per uncovered symbol (this is what makes an un-isolated `build()` take ~30s). Seed prices for the synthetic symbol across the date range so `DrawdownService` never hits that path. Assert deterministic values only on the seeded symbol; for benchmark-relative figures (alpha), assert how the value is assembled rather than an exact number, and skip if the benchmark history is missing.
+1. **Act as a user, never write one.** `existingUser()` is the host's first user (read-only); `userWithoutData()`
+   (and `userWithoutData(1)` for a second one) is a user with no MyFinance2 data, never saved. Both are `TestUser`,
+   whose `save()` / `delete()` throw. Never `Auth::logout()`: it writes the user's `remember_token`.
+2. **Only write synthetic rows.** Use identifiers that cannot exist in production (e.g. symbol `TST.*`). Never insert
+   or update a real row, not even rolled back; the `VUSA.AS` benchmark is read-only.
+3. **`stats_historical` has no `user_id`,** so the base model's `creating` hook fails on it. Insert via the query
+   builder (`DB::connection($conn)->table(...)`), not Eloquent.
+4. **Isolate per-user pipelines** (e.g. `CategorizationService::build($userId)`) so they do not walk a real portfolio:
+   run them for an unused id (`userWithoutData()`, or `max('user_id') + 1` of the table). The `user_id` columns may
+   have a cross-database FK to the host's `users`, so wrap inserts for an unused id in
+   `Schema::connection($conn)->withoutForeignKeyConstraints(fn () => ...)` (session-scoped, rolled back).
+5. **Avoid live network calls.** The test cache is `array` (cold every run), so any code falling back to
+   `HistoricalPriceCache` makes a live Yahoo Finance request per uncovered symbol. Seed prices for the synthetic symbol
+   across the date range. Assert deterministic values only on the seeded symbol; for benchmark-relative figures
+   (alpha), assert how the value is assembled rather than an exact number, and skip if the benchmark history is
+   missing. (`GetFinanceDataEndpointTest` calls Yahoo on purpose.)
+6. **Nothing of the host.** No `App\...` class, view, route or config: a test that needs the host's login page or
+   layout defines its own (`RouteGateTest::defineRoutes()`, `tests/Fixtures/views/host-layout.blade.php`).
 
-Reference example: `laravel-admin/tests/Packages/MyFinance2/Feature/CategorizationPipelineTest.php` (full pipeline, ~2s, touches no real data).
+Reference example: `tests/Feature/CategorizationPipelineTest.php` (full pipeline, ~2s, touches no real data).
 
 ## Code Standards
 **General:**
@@ -101,7 +129,8 @@ Reference example: `laravel-admin/tests/Packages/MyFinance2/Feature/Categorizati
 **JavaScript:**
 - Airbnb JavaScript Style Guide (https://github.com/airbnb/javascript) (with exceptions below)
 - Custom scripts in `<script type="module">` tags
-- Has access to jQuery, DataTables, Bootstrap, etc from the build
+- Has access to jQuery, DataTables, Bootstrap, selectize (the app's or the base bundle), LightweightCharts,
+  TempusDominus and bootstrapToggle (dist/myfinance2.js)
 - Functions/methods should not exceed 100 lines of code (refactor into smaller units if needed)
 
 **Laravel Views:**

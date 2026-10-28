@@ -5,7 +5,7 @@
             <div style="display: flex; justify-content: space-between;
                         align-items: center;">
                 <span id="card_title">
-                    <a target="_blank" href="{{ url('/funding') }}">
+                    <a target="_blank" href="{{ route('myfinance2::funding') }}">
                         {!!
                         trans('myfinance2::home.cards.currency-exchanges.title')
                         !!}

@@ -75,7 +75,7 @@ final class SettledTierResolver
 
     public static function fromConfig(): self
     {
-        $cfg = config('watchlistsymbols.tier_history', []);
+        $cfg = config('myfinance2.watchlistsymbols.tier_history', []);
 
         return new self(
             (float) ($cfg['consistency_pct'] ?? 50),

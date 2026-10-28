@@ -1,9 +1,9 @@
-@extends('layouts.app')
-@section('template_title'){!! trans('myfinance2::splits.titles.dashboard') !!}@endsection
-@section('template_linked_css')
+@extends('myfinance2::layouts.app')
+@section('myfinance2_title'){!! trans('myfinance2::splits.titles.dashboard') !!}@endsection
+@section('myfinance2_styles')
     @include('myfinance2::general.partials.styles')
 @endsection
-@section('content')
+@section('myfinance2_content')
     <div class="container-fluid">
         <div class="row">
             <div class="col-sm-12">
@@ -27,7 +27,7 @@
         </div>
     </div>
 @endsection
-@section('footer_scripts')
+@section('myfinance2_scripts')
     @include('myfinance2::splits.scripts.datatables')
     @include('myfinance2::general.scripts.tooltips')
 @endsection

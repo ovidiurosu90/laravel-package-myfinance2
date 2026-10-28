@@ -28,7 +28,7 @@
 
     // EUR-gain magnitude floor, shown in the legend so the "n/a" rows are self-explanatory.
     $minPeakAbs = MoneyFormat::get_formatted_monetary_display(
-        '€', (float) config('alerts.portfolio_peak.min_peak_abs_eur', 1000), 0
+        '€', (float) config('myfinance2.alerts.portfolio_peak.min_peak_abs_eur', 1000), 0
     );
 
     $hasPctRow = in_array('change_pct', array_column($breakdown, 'metric'), true);

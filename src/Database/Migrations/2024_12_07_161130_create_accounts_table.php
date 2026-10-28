@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 use ovidiuro\myfinance2\App\Models\Account;
 use ovidiuro\myfinance2\App\Models\Currency;
-use App\Models\User;
+use ovidiuro\myfinance2\App\Services\AppUser;
 
 class CreateAccountsTable extends Migration
 {
@@ -27,15 +27,9 @@ class CreateAccountsTable extends Migration
 
         Schema::connection($connection)->create($table, function (Blueprint $table)
         {
-            $usersDatabase = config('database.connections.' .
-                config('database.default') . '.database');
-            $usersTable = (new User())->getTable();
-
             $table->bigIncrements('id')->unsigned();
-            $table->foreignId('user_id')->constrained(
-                table:     $usersDatabase . '.' . $usersTable,
-                indexName: $table->getTable() . '_user_id'
-            );
+            $table->foreignId('user_id');
+            AppUser::addUserIdKey($table);
             $table->foreignId('currency_id')->constrained(
                 table:     (new Currency())->getTable(),
                 indexName: $table->getTable() . '_currency_id'

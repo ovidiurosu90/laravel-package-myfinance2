@@ -24,7 +24,7 @@ $(document).ready(function()
     {
         $.ajax({
             type: 'GET',
-            url:  "{{ url('/get-finance-data') }}",
+            url:  "{{ route('myfinance2::get-finance-data') }}",
             data: {
                 symbol: $symbolInput.val(),
                 timestamp: $timestampPickerInput.val(),

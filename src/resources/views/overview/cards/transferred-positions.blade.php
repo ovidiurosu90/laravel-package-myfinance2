@@ -15,7 +15,7 @@
     }
 
     // 2. Gains annotations per year (from Gains Per Year card)
-    $gainsAnnotations = config('trades.gains_annotations', []);
+    $gainsAnnotations = config('myfinance2.trades.gains_annotations', []);
     $allYears = array_unique(array_merge(
         array_keys($gainsPerYear ?? []),
         array_keys($dividendsPerYear ?? [])
@@ -76,7 +76,7 @@
     );
 
     // 4. Returns adjustment - virtual accounts with per-year details
-    $virtualAccountsConfig = config('trades.virtual_accounts', []);
+    $virtualAccountsConfig = config('myfinance2.trades.virtual_accounts', []);
     $virtualCumulativeEur = $overviewData['virtualCumulativeTotal']['EUR']
         ?? 0;
     $virtualCumulativeUsd = $overviewData['virtualCumulativeTotal']['USD']

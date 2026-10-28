@@ -6,7 +6,7 @@ $(document).ready(function()
     {
         var orderId = $(e.relatedTarget).data('order-id');
         var orderLabel = $(e.relatedTarget).data('order-label') || '';
-        var baseUrl = '{{ url('/orders') }}/' + orderId + '/fill';
+        var baseUrl = '{{ route('myfinance2::orders.fill', ['id' => '__ID__']) }}'.replace('__ID__', orderId);
         $('#fill-order-id-display').text('#' + orderId);
         $('#fill-order-label-display').text(orderLabel ? '— ' + orderLabel : '');
         $('#fill-link-form').attr('action', baseUrl);
@@ -24,7 +24,7 @@ $(document).ready(function()
         var price = $(e.relatedTarget).data('order-price');
         var currencyId = $(e.relatedTarget).data('order-currency') || '';
 
-        var baseUrl = '{{ url('/orders') }}/' + orderId + '/expire';
+        var baseUrl = '{{ route('myfinance2::orders.expire', ['id' => '__ID__']) }}'.replace('__ID__', orderId);
         var alertType = (action === 'SELL') ? 'PRICE_ABOVE' : 'PRICE_BELOW';
         var direction = (action === 'SELL')
             ? 'alert when ' + symbol + ' goes above ' + price + ' (PRICE_ABOVE)'
@@ -46,7 +46,7 @@ $(document).ready(function()
     {
         var orderId = $(e.relatedTarget).data('order-id');
         var orderLabel = $(e.relatedTarget).data('order-label') || '';
-        var linkUrl = '{{ url('/orders') }}/' + orderId + '/link-trade';
+        var linkUrl = '{{ route('myfinance2::orders.link-trade', ['id' => '__ID__']) }}'.replace('__ID__', orderId);
         $('#link-trade-order-id-display').text('#' + orderId);
         $('#link-trade-order-label-display').text(orderLabel ? '— ' + orderLabel : '');
         $('#link-trade-form').attr('action', linkUrl);

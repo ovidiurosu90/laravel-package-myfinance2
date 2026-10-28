@@ -21,7 +21,7 @@ class AddStatusToTradesTable extends Migration
 
         if (!$columnCheck) {
             Schema::connection($connection)->table($table, function (Blueprint $table) {
-                $table->enum('status', array_keys(config('trades.statuses')))->default('OPEN');
+                $table->enum('status', array_keys(config('myfinance2.trades.statuses')))->default('OPEN');
             });
         }
     }

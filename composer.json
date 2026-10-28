@@ -17,15 +17,13 @@
     "require": {
         "php": "^8.1 || ^8.2",
         "guzzlehttp/guzzle": "^7.2",
-        "jeremykenedy/laravel-blocker": "^5.0",
-        "jeremykenedy/laravel-logger": "^11.1",
-        "jeremykenedy/laravel-roles": "^11.5",
         "laravel/framework": "^12.0",
         "scheb/yahoo-finance-api": "^4.11.1",
         "symfony/process": "^7.0",
         "thiagoprz/eloquent-composite-key": "^1.0"
     },
     "require-dev": {
+        "orchestra/testbench": "^10.0",
         "phpunit/phpunit": "^11.0"
     },
     "autoload": {
@@ -35,7 +33,7 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "ovidiuro\\myfinance2\\Test\\": "tests/"
+            "ovidiuro\\myfinance2\\Tests\\": "tests/"
         }
     },
     "extra": {

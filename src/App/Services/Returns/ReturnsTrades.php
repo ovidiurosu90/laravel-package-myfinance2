@@ -54,7 +54,7 @@ class ReturnsTrades
         }
 
         // Get excluded trade IDs from config
-        $excludedTradeIds = config('trades.exclude_trades_from_returns', []);
+        $excludedTradeIds = config('myfinance2.trades.exclude_trades_from_returns', []);
 
         $purchases = [];
         $sales = [];
@@ -155,7 +155,7 @@ class ReturnsTrades
         $endDate = "$year-12-31 23:59:59";
 
         // Get excluded trade IDs from config
-        $excludedTradeIds = config('trades.exclude_trades_from_returns', []);
+        $excludedTradeIds = config('myfinance2.trades.exclude_trades_from_returns', []);
 
         if (empty($excludedTradeIds)) {
             return [];

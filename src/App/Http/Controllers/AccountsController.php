@@ -46,7 +46,7 @@ class AccountsController extends MyFinance2Controller
     /**
      * Store a newly created item.
      *
-     * @param \App\Http\Requests\StoreAccount $request
+     * @param \ovidiuro\myfinance2\App\Http\Requests\StoreAccount $request
      *
      * @return \Illuminate\Http\Response
      */
@@ -79,7 +79,7 @@ class AccountsController extends MyFinance2Controller
     /**
      * Update the specified item.
      *
-     * @param \App\Http\Requests\UpdateAccount $request
+     * @param \ovidiuro\myfinance2\App\Http\Requests\UpdateAccount $request
      * @param int                            $id
      *
      * @return \Illuminate\Http\Response

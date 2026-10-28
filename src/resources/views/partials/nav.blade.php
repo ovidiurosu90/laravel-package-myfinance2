@@ -5,7 +5,7 @@
 @use('ovidiuro\myfinance2\App\Models\PortfolioPeakSetting')
 @use('ovidiuro\myfinance2\App\Models\Order')
 @use('ovidiuro\myfinance2\App\Services\PortfolioPeakAlertService')
-@role(['admin', 'financeadmin'])
+@can('myfinance2.access')
 @php
     $activeOrdersCount = Order::whereIn('status', ['DRAFT', 'PLACED'])->count();
     $activeAlertsCount = PriceAlert::where('status', 'ACTIVE')->count();
@@ -33,17 +33,17 @@
         ? (new PortfolioPeakAlertService())->getTriggeredCount((int) auth()->id())
         : 0;
 
-    $alertsActive = Request::is('price-alerts') || Request::is('price-alerts/*')
-        || Request::is('peak-proximity-alerts') || Request::is('peak-proximity-alerts/*')
-        || Request::is('dip-buying-alerts') || Request::is('dip-buying-alerts/*')
-        || Request::is('portfolio-peak-alerts') || Request::is('portfolio-peak-alerts/*');
-    $tradingActive = Request::is('orders') || Request::is('orders/*')
-        || Request::is('trades')
-        || Request::is('stock-splits') || Request::is('stock-splits/*')
-        || Request::is('cash-balances')
-        || Request::is('dividends') || Request::is('timeline');
-    $fundingActive = Request::is('ledger-transactions') || Request::is('funding');
-    $setupActive = Request::is('currencies') || Request::is('accounts');
+    // The open page, by route name (myfinance2::<name>), so the menu follows myfinance2.route_prefix
+    $isPage = fn (string ...$names) => request()->routeIs(
+        ...array_map(fn (string $name) => "myfinance2::{$name}", $names)
+    );
+
+    $alertsActive = $isPage('price-alerts.*', 'peak-proximity-alerts.*', 'dip-buying-alerts.*',
+        'portfolio-peak-alerts.*');
+    $tradingActive = $isPage('orders.*', 'trades.index', 'stock-splits.*', 'cash-balances.index', 'dividends.index',
+        'timeline');
+    $fundingActive = $isPage('ledger-transactions.index', 'funding');
+    $setupActive = $isPage('currencies.index', 'accounts.index');
 @endphp
 <li class="nav-item dropdown">
     <a class="nav-link dropdown-toggle" href="#"
@@ -57,29 +57,31 @@
         @endif
     </a>
     <div class="dropdown-menu" aria-labelledby="navbar-dropdown-myfinance2">
-        <a class="dropdown-item {{ Request::is('finance-home') ? 'active' : null }}"
-           href="{{ url('/finance-home') }}">
+        <a class="dropdown-item {{ $isPage('home') ? 'active' : null }}"
+           href="{{ route('myfinance2::home') }}">
             {!! trans('myfinance2::titles.home') !!}
         </a>
         <div class="dropdown-divider"></div>
 
-        <a class="dropdown-item {{ Request::is('overview') ? 'active' : null }}" href="{{ url('/overview') }}">
+        <a class="dropdown-item {{ $isPage('overview') ? 'active' : null }}" href="{{ route('myfinance2::overview') }}">
             {!! trans('myfinance2::overview.titles.dashboard') !!}
         </a>
         <div class="dropdown-divider"></div>
 
-        <a class="dropdown-item {{ Request::is('watchlist-symbols') ? 'active' : null }}"
-           href="{{ url('/watchlist-symbols') }}">
+        <a class="dropdown-item {{ $isPage('watchlist-symbols.index') ? 'active' : null }}"
+           href="{{ route('myfinance2::watchlist-symbols.index') }}">
             {!! trans('myfinance2::watchlistsymbols.titles.dashboard') !!}
         </a>
         <div class="dropdown-divider"></div>
 
-        <a class="dropdown-item {{ Request::is('positions') ? 'active' : null }}" href="{{ url('/positions') }}">
+        <a class="dropdown-item {{ $isPage('positions') ? 'active' : null }}"
+           href="{{ route('myfinance2::positions') }}">
             {!! trans('myfinance2::positions.titles.dashboard') !!}
         </a>
         <div class="dropdown-divider"></div>
 
-        <a class="dropdown-item {{ Request::is('returns') ? 'active' : null }}" href="{{ url('/returns') }}">
+        <a class="dropdown-item {{ $isPage('returns.index') ? 'active' : null }}"
+           href="{{ route('myfinance2::returns.index') }}">
             {!! trans('myfinance2::returns.titles.dashboard') !!}
         </a>
         <div class="dropdown-divider"></div>
@@ -105,8 +107,8 @@
             <i class="fa fa-chevron-right myfinance2-submenu-caret"></i>
             <div class="dropdown-menu myfinance2-submenu-menu">
                 <a class="dropdown-item
-                    {{ Request::is('price-alerts') || Request::is('price-alerts/*') ? 'active' : null }}"
-                   href="{{ url('/price-alerts') }}">
+                    {{ $isPage('price-alerts.*') ? 'active' : null }}"
+                   href="{{ route('myfinance2::price-alerts.index') }}">
                     {!! trans('myfinance2::alerts.titles.dashboard') !!}
                     @if ($activeAlertsCount > 0)
                         <span class="badge bg-success ms-1">{{ $activeAlertsCount }}</span>
@@ -114,16 +116,16 @@
                 </a>
                 <div class="dropdown-divider"></div>
                 <a class="dropdown-item
-                    {{ Request::is('peak-proximity-alerts') ? 'active' : null }}"
-                   href="{{ url('/peak-proximity-alerts') }}">
+                    {{ $isPage('peak-proximity-alerts.index') ? 'active' : null }}"
+                   href="{{ route('myfinance2::peak-proximity-alerts.index') }}">
                     Peak-Proximity Alerts
                     @if ($enabledPeakCount > 0)
                         <span class="badge bg-success ms-1">{{ $enabledPeakCount }}</span>
                     @endif
                 </a>
                 <a class="dropdown-item ps-4
-                    {{ Request::is('peak-proximity-alerts/inbox') ? 'active' : null }}"
-                   href="{{ url('/peak-proximity-alerts/inbox') }}">
+                    {{ $isPage('peak-proximity-alerts.inbox') ? 'active' : null }}"
+                   href="{{ route('myfinance2::peak-proximity-alerts.inbox') }}">
                     Inbox
                     @if ($openPeakActionable > 0)
                         <span class="badge bg-danger ms-1"
@@ -135,33 +137,33 @@
                     @endif
                 </a>
                 <a class="dropdown-item ps-4
-                    {{ Request::is('peak-proximity-alerts/history') ? 'active' : null }}"
-                   href="{{ url('/peak-proximity-alerts/history') }}">
+                    {{ $isPage('peak-proximity-alerts.history') ? 'active' : null }}"
+                   href="{{ route('myfinance2::peak-proximity-alerts.history') }}">
                     History
                 </a>
                 <div class="dropdown-divider"></div>
                 <a class="dropdown-item
-                    {{ Request::is('dip-buying-alerts') ? 'active' : null }}"
-                   href="{{ url('/dip-buying-alerts') }}">
+                    {{ $isPage('dip-buying-alerts.index') ? 'active' : null }}"
+                   href="{{ route('myfinance2::dip-buying-alerts.index') }}">
                     Dip Buying Plan
                     @if ($dipEnabled)
                         <span class="badge bg-success ms-1">on</span>
                     @endif
                 </a>
                 <a class="dropdown-item ps-4
-                    {{ Request::is('dip-buying-alerts/backtest') ? 'active' : null }}"
-                   href="{{ url('/dip-buying-alerts/backtest') }}">
+                    {{ $isPage('dip-buying-alerts.backtest') ? 'active' : null }}"
+                   href="{{ route('myfinance2::dip-buying-alerts.backtest') }}">
                     Backtest
                 </a>
                 <a class="dropdown-item ps-4
-                    {{ Request::is('dip-buying-alerts/history') ? 'active' : null }}"
-                   href="{{ url('/dip-buying-alerts/history') }}">
+                    {{ $isPage('dip-buying-alerts.history') ? 'active' : null }}"
+                   href="{{ route('myfinance2::dip-buying-alerts.history') }}">
                     History
                 </a>
                 <div class="dropdown-divider"></div>
                 <a class="dropdown-item
-                    {{ Request::is('portfolio-peak-alerts') ? 'active' : null }}"
-                   href="{{ url('/portfolio-peak-alerts') }}">
+                    {{ $isPage('portfolio-peak-alerts.index') ? 'active' : null }}"
+                   href="{{ route('myfinance2::portfolio-peak-alerts.index') }}">
                     Portfolio Peak Alerts
                     @if ($portfolioPeakEnabled)
                         <span class="badge bg-success ms-1">on</span>
@@ -172,8 +174,8 @@
                     @endif
                 </a>
                 <a class="dropdown-item ps-4
-                    {{ Request::is('portfolio-peak-alerts/history') ? 'active' : null }}"
-                   href="{{ url('/portfolio-peak-alerts/history') }}">
+                    {{ $isPage('portfolio-peak-alerts.history') ? 'active' : null }}"
+                   href="{{ route('myfinance2::portfolio-peak-alerts.history') }}">
                     History
                 </a>
             </div>
@@ -191,36 +193,37 @@
             </span>
             <i class="fa fa-chevron-right myfinance2-submenu-caret"></i>
             <div class="dropdown-menu myfinance2-submenu-menu">
-                <a class="dropdown-item {{ Request::is('orders') || Request::is('orders/*') ? 'active' : null }}"
-                   href="{{ url('/orders') }}">
+                <a class="dropdown-item {{ $isPage('orders.*') ? 'active' : null }}"
+                   href="{{ route('myfinance2::orders.index') }}">
                     {!! trans('myfinance2::orders.titles.dashboard') !!}
                     @if ($activeOrdersCount > 0)
                         <span class="badge bg-success ms-1">{{ $activeOrdersCount }}</span>
                     @endif
                 </a>
                 <div class="dropdown-divider"></div>
-                <a class="dropdown-item {{ Request::is('trades') ? 'active' : null }}" href="{{ url('/trades') }}">
+                <a class="dropdown-item {{ $isPage('trades.index') ? 'active' : null }}"
+                   href="{{ route('myfinance2::trades.index') }}">
                     {!! trans('myfinance2::trades.titles.dashboard') !!}
                 </a>
                 <div class="dropdown-divider"></div>
-                <a class="dropdown-item {{ Request::is('dividends') ? 'active' : null }}"
-                   href="{{ url('/dividends') }}">
+                <a class="dropdown-item {{ $isPage('dividends.index') ? 'active' : null }}"
+                   href="{{ route('myfinance2::dividends.index') }}">
                     {!! trans('myfinance2::dividends.titles.dashboard') !!}
                 </a>
                 <div class="dropdown-divider"></div>
-                <a class="dropdown-item {{ Request::is('cash-balances') ? 'active' : null }}"
-                   href="{{ url('/cash-balances') }}">
+                <a class="dropdown-item {{ $isPage('cash-balances.index') ? 'active' : null }}"
+                   href="{{ route('myfinance2::cash-balances.index') }}">
                     {!! trans('myfinance2::cashbalances.titles.dashboard') !!}
                 </a>
                 <div class="dropdown-divider"></div>
                 <a class="dropdown-item
-                    {{ Request::is('stock-splits') || Request::is('stock-splits/*') ? 'active' : null }}"
-                   href="{{ url('/stock-splits') }}">
+                    {{ $isPage('stock-splits.*') ? 'active' : null }}"
+                   href="{{ route('myfinance2::stock-splits.index') }}">
                     {!! trans('myfinance2::splits.titles.dashboard') !!}
                 </a>
                 <div class="dropdown-divider"></div>
-                <a class="dropdown-item {{ Request::is('timeline') ? 'active' : null }}"
-                   href="{{ url('/timeline') }}">
+                <a class="dropdown-item {{ $isPage('timeline') ? 'active' : null }}"
+                   href="{{ route('myfinance2::timeline') }}">
                     {!! trans('myfinance2::timeline.titles.dashboard') !!}
                 </a>
             </div>
@@ -233,13 +236,13 @@
             <span class="myfinance2-submenu-label">Funding</span>
             <i class="fa fa-chevron-right myfinance2-submenu-caret"></i>
             <div class="dropdown-menu myfinance2-submenu-menu">
-                <a class="dropdown-item {{ Request::is('ledger-transactions') ? 'active' : null }}"
-                   href="{{ url('/ledger-transactions') }}">
+                <a class="dropdown-item {{ $isPage('ledger-transactions.index') ? 'active' : null }}"
+                   href="{{ route('myfinance2::ledger-transactions.index') }}">
                     {!! trans('myfinance2::ledger.titles.dashboard') !!}
                 </a>
                 <div class="dropdown-divider"></div>
-                <a class="dropdown-item {{ Request::is('funding') ? 'active' : null }}"
-                   href="{{ url('/funding') }}">
+                <a class="dropdown-item {{ $isPage('funding') ? 'active' : null }}"
+                   href="{{ route('myfinance2::funding') }}">
                     {!! trans('myfinance2::funding.titles.dashboard') !!}
                 </a>
             </div>
@@ -252,13 +255,13 @@
             <span class="myfinance2-submenu-label">Setup</span>
             <i class="fa fa-chevron-right myfinance2-submenu-caret"></i>
             <div class="dropdown-menu myfinance2-submenu-menu">
-                <a class="dropdown-item {{ Request::is('currencies') ? 'active' : null }}"
-                   href="{{ url('/currencies') }}">
+                <a class="dropdown-item {{ $isPage('currencies.index') ? 'active' : null }}"
+                   href="{{ route('myfinance2::currencies.index') }}">
                     {!! trans('myfinance2::currencies.titles.dashboard') !!}
                 </a>
                 <div class="dropdown-divider"></div>
-                <a class="dropdown-item {{ Request::is('accounts') ? 'active' : null }}"
-                   href="{{ url('/accounts') }}">
+                <a class="dropdown-item {{ $isPage('accounts.index') ? 'active' : null }}"
+                   href="{{ route('myfinance2::accounts.index') }}">
                     {!! trans('myfinance2::accounts.titles.dashboard') !!}
                 </a>
             </div>
@@ -364,4 +367,4 @@
         root.addEventListener('hidden.bs.dropdown', resetToDefault);
     }
 </script>
-@endrole
+@endcan

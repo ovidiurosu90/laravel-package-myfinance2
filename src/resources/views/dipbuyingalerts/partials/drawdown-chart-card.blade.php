@@ -2,7 +2,7 @@
 @php
     // Self-contained card. Expects $dipChart (from the controller via
     // DipBuyingBacktestService::chartContext): ['min_drop' => float, 'episodes' => [...]]. The script
-    // half lives in scripts/drawdown-chart.blade.php (include it in footer_scripts on the same page).
+    // half lives in scripts/drawdown-chart.blade.php (include it in myfinance2_scripts on the same page).
     $dipMetrics     = DipBuyingBacktestService::chartMetrics();
     $dropModes      = DipBuyingBacktestService::dropModes();
     $minDropDisplay = (float) $dipChart['min_drop'];

@@ -38,14 +38,14 @@ class TierHistoryController extends MyFinance2Controller
         $history   = (new TierHistoryRepository())->loadSymbol($userId, $symbol);
         $from      = !empty($history)
             ? (string) array_key_first($history)
-            : (string) config('watchlistsymbols.tier_history.start_date');
+            : (string) config('myfinance2.watchlistsymbols.tier_history.start_date');
 
         return response()->json((new TierHistoryPresenter())->forChart(
             $symbol,
             $history,
             $this->_quotes($userId, $symbol, $from),
             Carbon::today(),
-            (int) config('watchlistsymbols.tier_history.lookback_days', 365),
+            (int) config('myfinance2.watchlistsymbols.tier_history.lookback_days', 365),
             $this->_holdings($userId, $symbol)
         ));
     }

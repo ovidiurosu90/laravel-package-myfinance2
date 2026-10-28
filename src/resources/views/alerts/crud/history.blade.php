@@ -1,11 +1,11 @@
 @use('ovidiuro\myfinance2\App\Services\MoneyFormat')
 @use('ovidiuro\myfinance2\App\Services\SplitDetectionService')
-@extends('layouts.app')
-@section('template_title', 'Alert Notification History')
-@section('template_linked_css')
+@extends('myfinance2::layouts.app')
+@section('myfinance2_title', 'Alert Notification History')
+@section('myfinance2_styles')
     @include('myfinance2::general.partials.styles')
 @endsection
-@section('content')
+@section('myfinance2_content')
     <div class="container-fluid">
         <div class="row">
             <div class="col-sm-12">
@@ -194,7 +194,7 @@
         </div>
     </div>
 @endsection
-@section('footer_scripts')
+@section('myfinance2_scripts')
     @include('myfinance2::alerts.scripts.history-datatables')
     @include('myfinance2::general.scripts.tooltips')
 @endsection

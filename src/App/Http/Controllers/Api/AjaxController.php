@@ -78,7 +78,7 @@ class AjaxController extends MyFinance2Controller
         // as "GBp"); normalize to the stored trade-currency code ("GBX") so the
         // exchange-rate lookup, trade-currency match, and reason text line up. The
         // rate fetch reverse-maps GBX -> GBp internally and returns it keyed by GBX.
-        $currenciesMapping      = config('general.currencies_mapping');
+        $currenciesMapping      = config('myfinance2.general.currencies_mapping');
         $currency               = $currenciesMapping[$financeData['currency']] ?? $financeData['currency'];
         $financeData['currency'] = $currency;
 
@@ -182,7 +182,7 @@ class AjaxController extends MyFinance2Controller
         // trade-currency code ("GBX") before resolving the display code, the same way
         // getFinanceDataBySymbol's caller does, so both chart surfaces label the range bar
         // consistently. GBp and GBX are the same unit (pence), so the numeric figures are unchanged.
-        $currenciesMapping = config('general.currencies_mapping');
+        $currenciesMapping = config('myfinance2.general.currencies_mapping');
         $q['currency']     = $currenciesMapping[$q['currency']] ?? $q['currency'];
 
         $currencyModel = (new CurrencyUtils(true))->getCurrencyByIsoCode($q['currency']);

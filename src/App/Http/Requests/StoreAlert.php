@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace ovidiuro\myfinance2\App\Http\Requests;
 
+use Illuminate\Auth\Access\Response;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 use ovidiuro\myfinance2\App\Http\Requests\Concerns\ValidatesRelativeTarget;
 use ovidiuro\myfinance2\App\Models\Currency;
+use ovidiuro\myfinance2\App\Rules\OwnRecord;
 
 class StoreAlert extends FormRequest
 {
@@ -17,19 +20,12 @@ class StoreAlert extends FormRequest
     /**
      * Determine if the user is authorized to make this request.
      *
-     * @return bool
+     * @return Response
      */
-    public function authorize(): bool
+    public function authorize(): Response
     {
-        if (config('alerts.guiCreateMiddlewareType') == 'role') {
-            return $this->user()->hasRole(config('alerts.guiCreateMiddleware'));
-        }
-
-        if (config('alerts.guiCreateMiddlewareType') == 'permissions') {
-            return $this->user()->hasPermission(config('alerts.guiCreateMiddleware'));
-        }
-
-        return false;
+        // The host app decides who manages this area (gate defined in its AuthServiceProvider).
+        return Gate::inspect('myfinance2.manage', 'alerts');
     }
 
     /**
@@ -39,13 +35,10 @@ class StoreAlert extends FormRequest
      */
     public function rules(): array
     {
-        $dbConnection = config('myfinance2.db_connection');
-        $currenciesTableName = $dbConnection . '.' . (new Currency())->getTable();
-
         return array_merge([
             'symbol'               => 'required|string|max:16',
             'alert_type'           => ['required', Rule::in(['PRICE_ABOVE', 'PRICE_BELOW'])],
-            'trade_currency_id'    => 'nullable|integer|exists:' . $currenciesTableName . ',id',
+            'trade_currency_id'    => ['nullable', 'integer', OwnRecord::of(Currency::class)],
             'status'               => ['nullable', Rule::in(['ACTIVE', 'PAUSED'])],
             'source'               => 'nullable|string|max:50',
             'notification_channel' => 'nullable|string|max:20',

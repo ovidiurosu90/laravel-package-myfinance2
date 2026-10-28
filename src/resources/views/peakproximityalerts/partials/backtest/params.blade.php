@@ -4,8 +4,8 @@
 @use('ovidiuro\myfinance2\App\Services\TierSignalBacktestService')
 @php
     $num  = fn ($v) => MoneyFormat::get_formatted_number_plain((float) $v, 0);
-    $cfgRare = (float) config('watchlistsymbols.tier_history.rare_share_pct', 20);
-    $cfgCons = (float) config('watchlistsymbols.tier_history.consistency_pct', 50);
+    $cfgRare = (float) config('myfinance2.watchlistsymbols.tier_history.rare_share_pct', 20);
+    $cfgCons = (float) config('myfinance2.watchlistsymbols.tier_history.consistency_pct', 50);
 @endphp
 <form method="GET" action="{{ route('myfinance2::peak-proximity-alerts.backtest') }}"
       class="d-flex flex-wrap align-items-center gap-2 mb-2">
@@ -56,7 +56,8 @@
     <span class="d-block mt-1">
         One path through one period, with short, overlapping episodes that move together with the market: a sanity
         check, not proof. The full 12-month lookback exists only from a year after the history starts, and the
-        settled tier needs {{ (int) config('watchlistsymbols.tier_history.min_history_days', 60) }} stored days. Every
-        cell of the grid: <code>php artisan finance:tier-signal-backtest --user-id={{ auth()->id() }} --grid</code>.
+        settled tier needs {{ (int) config('myfinance2.watchlistsymbols.tier_history.min_history_days', 60) }}
+        stored days. Every cell of the grid:
+        <code>php artisan finance:tier-signal-backtest --user-id={{ auth()->id() }} --grid</code>.
     </span>
 </div>

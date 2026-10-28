@@ -67,10 +67,10 @@ class DipBuyingAlert extends Mailable
 
         $panelUrl = Route::has('myfinance2::positions')
             ? route('myfinance2::positions')
-            : url('/positions');
+            : route('myfinance2::positions');
         $settingsUrl = Route::has('myfinance2::dip-buying-alerts.index')
             ? route('myfinance2::dip-buying-alerts.index')
-            : url('/dip-buying-alerts');
+            : route('myfinance2::dip-buying-alerts.index');
 
         return $this->subject($subject)
             ->view('myfinance2::emails.dip-buying-alert')

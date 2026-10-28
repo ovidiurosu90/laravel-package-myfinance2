@@ -377,7 +377,7 @@ class Returns
      */
     private function _processVirtualAccounts(int $year): array
     {
-        $virtualAccounts = config('trades.virtual_accounts', []);
+        $virtualAccounts = config('myfinance2.trades.virtual_accounts', []);
         $result = [];
 
         foreach ($virtualAccounts as $id => $config) {
@@ -416,7 +416,7 @@ class Returns
      */
     private function _getReturnsOverride(int $accountId, int $year): ?array
     {
-        $config = config('trades.returns_overrides', []);
+        $config = config('myfinance2.trades.returns_overrides', []);
         $byAccount = $config['by_account'] ?? [];
 
         // Check if there's an override for this account and year
@@ -436,7 +436,7 @@ class Returns
      */
     private function _getDepositsOverride(int $accountId, int $year): ?array
     {
-        $config = config('trades.deposits_overrides', []);
+        $config = config('myfinance2.trades.deposits_overrides', []);
         $byAccount = $config['by_account'] ?? [];
 
         // Check if there's an override for this account and year
@@ -456,7 +456,7 @@ class Returns
      */
     private function _getWithdrawalsOverride(int $accountId, int $year): ?array
     {
-        $config = config('trades.withdrawals_overrides', []);
+        $config = config('myfinance2.trades.withdrawals_overrides', []);
         $byAccount = $config['by_account'] ?? [];
 
         // Check if there's an override for this account and year

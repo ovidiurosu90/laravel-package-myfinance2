@@ -113,7 +113,7 @@ class HistoricalBackfill
      */
     public static function isBackfillable(string $symbol): bool
     {
-        $delistedSymbols = config('trades.delisted_symbols', []);
+        $delistedSymbols = config('myfinance2.trades.delisted_symbols', []);
 
         return !in_array($symbol, $delistedSymbols, true)
             && !FinanceAPI::isUnlisted($symbol);

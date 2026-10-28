@@ -119,7 +119,7 @@ class ReturnsQuoteProvider
         string $symbol,
         \DateTimeInterface $dateTime
     ): ?float {
-        $obsoleteSymbols = config('general.obsolete_symbols', []);
+        $obsoleteSymbols = config('myfinance2.general.obsolete_symbols', []);
         if (in_array($symbol, $obsoleteSymbols) || FinanceAPI::isUnlisted(
             $symbol
         )) {
@@ -200,10 +200,10 @@ class ReturnsQuoteProvider
         string $symbol,
         \DateTimeInterface $date
     ): ?array {
-        $fmvData = config('trades.unlisted_fmv');
+        $fmvData = config('myfinance2.trades.unlisted_fmv');
         if (empty($fmvData[$symbol])) {
             Log::warning(
-                "Unlisted symbol $symbol not found in config trades.unlisted_fmv"
+                "Unlisted symbol $symbol not found in config myfinance2.trades.unlisted_fmv"
             );
             return null;
         }
@@ -725,7 +725,7 @@ class ReturnsQuoteProvider
      */
     private function isDelistedSymbol(string $symbol): bool
     {
-        $delistedSymbols = config('trades.delisted_symbols', []);
+        $delistedSymbols = config('myfinance2.trades.delisted_symbols', []);
         return in_array($symbol, $delistedSymbols, true);
     }
 

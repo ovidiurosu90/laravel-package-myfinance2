@@ -24,11 +24,11 @@ class CreateLedgerTransactionsTable extends Migration
                 $table->increments('id')->unsigned();
                 $table->timestamps();
                 $table->timestamp('timestamp')->default(\DB::raw('CURRENT_TIMESTAMP'));
-                $table->enum('type', array_keys(config('ledger.transaction_types')));
-                $table->enum('debit_account', array_keys(config('general.ledger_accounts')));
-                $table->enum('credit_account', array_keys(config('general.ledger_accounts')));
-                $table->enum('debit_currency', array_keys(config('general.ledger_currencies')));
-                $table->enum('credit_currency', array_keys(config('general.ledger_currencies')));
+                $table->enum('type', array_keys(config('myfinance2.ledger.transaction_types')));
+                $table->enum('debit_account', array_keys(config('myfinance2.general.ledger_accounts')));
+                $table->enum('credit_account', array_keys(config('myfinance2.general.ledger_accounts')));
+                $table->enum('debit_currency', array_keys(config('myfinance2.general.ledger_currencies')));
+                $table->enum('credit_currency', array_keys(config('myfinance2.general.ledger_currencies')));
                 $table->decimal('exchange_rate', 8, 4);
                 $table->decimal('amount', 8, 2);
                 $table->decimal('fee', 8, 2);

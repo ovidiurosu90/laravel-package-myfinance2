@@ -347,7 +347,7 @@ class PriceAlertController extends MyFinance2Controller
      */
     private function _sendCreatedEmail(array $alerts, string $source): void
     {
-        $emailTo = config('alerts.email_to') ?: auth()->user()?->email;
+        $emailTo = config('myfinance2.alerts.email_to') ?: auth()->user()?->email;
 
         if (empty($emailTo) || empty($alerts)) {
             return;
@@ -371,7 +371,7 @@ class PriceAlertController extends MyFinance2Controller
      */
     private function _sendStateChangedEmail(array $alerts, string $action): void
     {
-        $emailTo = config('alerts.email_to') ?: auth()->user()?->email;
+        $emailTo = config('myfinance2.alerts.email_to') ?: auth()->user()?->email;
 
         if (empty($emailTo) || empty($alerts)) {
             return;

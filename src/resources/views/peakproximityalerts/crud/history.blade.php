@@ -1,10 +1,10 @@
 @use('ovidiuro\myfinance2\App\Services\MoneyFormat')
-@extends('layouts.app')
-@section('template_title', 'Peak-Proximity Alert History')
-@section('template_linked_css')
+@extends('myfinance2::layouts.app')
+@section('myfinance2_title', 'Peak-Proximity Alert History')
+@section('myfinance2_styles')
     @include('myfinance2::general.partials.styles')
 @endsection
-@section('content')
+@section('myfinance2_content')
     <div class="container-fluid">
         <div class="row">
             <div class="col-sm-12">
@@ -47,7 +47,7 @@
                                     Show All
                                 </a>
                             @endif
-                            <a href="{{ url('/watchlist-symbols') }}"
+                            <a href="{{ route('myfinance2::watchlist-symbols.index') }}"
                                class="btn btn-outline-secondary btn-sm"
                                data-bs-toggle="tooltip"
                                title="Open the watchlist symbols dashboard">
@@ -177,7 +177,7 @@
         </div>
     </div>
 @endsection
-@section('footer_scripts')
+@section('myfinance2_scripts')
     @include('myfinance2::peakproximityalerts.scripts.history-datatables')
     @include('myfinance2::general.scripts.tooltips')
 @endsection

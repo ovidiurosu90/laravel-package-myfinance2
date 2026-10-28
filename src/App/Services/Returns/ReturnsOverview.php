@@ -111,7 +111,7 @@ class ReturnsOverview
         }
 
         // Initialize virtual account entries from config
-        $virtualAccounts = config('trades.virtual_accounts', []);
+        $virtualAccounts = config('myfinance2.trades.virtual_accounts', []);
         foreach ($virtualAccounts as $id => $config) {
             $virtualKey = 'virtual_' . $id;
             $result['accounts'][$virtualKey] = [

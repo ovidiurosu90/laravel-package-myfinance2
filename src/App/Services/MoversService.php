@@ -504,8 +504,8 @@ class MoversService
         \DateTimeInterface $referenceDate
     ): array
     {
-        $delistedSymbols = config('trades.delisted_symbols', []);
-        $apiPriceIssueSymbols = config('trades.api_price_issue_symbols', []);
+        $delistedSymbols = config('myfinance2.trades.delisted_symbols', []);
+        $apiPriceIssueSymbols = config('myfinance2.trades.api_price_issue_symbols', []);
         $refDateStr = $referenceDate->format('Y-m-d');
         $gains = [];
 
@@ -624,7 +624,7 @@ class MoversService
         float $totalPortfolioEur
     ): array
     {
-        $delistedSymbols = config('trades.delisted_symbols', []);
+        $delistedSymbols = config('myfinance2.trades.delisted_symbols', []);
         $gains = [];
 
         foreach ($positions as $symbol => $position) {
@@ -714,7 +714,7 @@ class MoversService
         // below independently skips these (at DEBUG), so warning per-computation would
         // turn a single missing symbol into six or seven WARNING lines. Delisted and
         // unlisted symbols are expected to lack a live quote and are excluded here.
-        $delistedSymbols = config('trades.delisted_symbols', []);
+        $delistedSymbols = config('myfinance2.trades.delisted_symbols', []);
         $missingQuoteSymbols = [];
         foreach ($positions as $symbol => $position) {
             if (UnlistedSymbol::isUnlisted($symbol)

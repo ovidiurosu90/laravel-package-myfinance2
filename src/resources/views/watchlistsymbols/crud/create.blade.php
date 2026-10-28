@@ -1,13 +1,13 @@
-@extends('layouts.app')
+@extends('myfinance2::layouts.app')
 
-@section('template_title'){{ trans('myfinance2::general.titles.create-item',
+@section('myfinance2_title'){{ trans('myfinance2::general.titles.create-item',
          ['type' => 'Watchlist Symbol']) }}@endsection
 
-@section('template_linked_css')
+@section('myfinance2_styles')
     @include('myfinance2::general.partials.styles')
 @endsection
 
-@section('content')
+@section('myfinance2_content')
     <div class="container">
         <div class="row">
             <div class="col-12">
@@ -16,7 +16,7 @@
                         {!! trans('myfinance2::general.titles.create-item',
                                   ['type' => 'Watchlist Symbol']) !!}
                         <div class="pull-right">
-                            <a href="{{ url('watchlist-symbols') }}"
+                            <a href="{{ route('myfinance2::watchlist-symbols.index') }}"
                                 class="btn btn-outline-secondary btn-sm float-right"
                                 data-bs-toggle="tooltip" data-bs-placement="left"
                                 title="Back to Watchlist Symbols Dashboard">
@@ -32,7 +32,7 @@
     </div>
 @endsection
 
-@section('footer_scripts')
+@section('myfinance2_scripts')
     @include('myfinance2::general.scripts.timestamp-picker')
     @include('myfinance2::general.scripts.tooltips')
 

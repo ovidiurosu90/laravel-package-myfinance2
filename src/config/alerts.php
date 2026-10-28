@@ -1,14 +1,10 @@
 <?php
 
 return [
-    'guiCreateMiddlewareType' => env('ALERTS_GUI_CREATE_MIDDLEWARE_TYPE', 'permissions'),
-    'guiCreateMiddleware'     => env('ALERTS_GUI_CREATE_MIDDLEWARE', 'alerts.create'),
-
     'enabled'                  => env('MYFINANCE2_ALERTS_ENABLED', true),
     'email_to'                 => env('MYFINANCE2_ALERTS_EMAIL_TO', null),
     'eval_interval_minutes'    => env('MYFINANCE2_ALERTS_EVAL_INTERVAL_MINUTES', 5),
     'eval_max_seconds'         => env('MYFINANCE2_ALERTS_EVAL_MAX_SECONDS', 20),
-    'throttle_hours'           => env('MYFINANCE2_ALERTS_THROTTLE_HOURS', 24),
     'suggestion_threshold_pct' => env('MYFINANCE2_SUGGESTION_THRESHOLD_PCT', 3),
     'market_hours_only'        => env('MYFINANCE2_ALERTS_MARKET_HOURS_ONLY', false),
 
@@ -50,12 +46,13 @@ return [
         'reminder_days_by_confluence' => [1 => 7, 2 => 3, 3 => 1],
         'reminder_days_default'       => env('MYFINANCE2_PEAK_PROXIMITY_REMINDER_DAYS', 7),
 
-        // Range-bound holdings (RangeBoundPattern, thresholds in watchlistsymbols.range_bound) are read on their
-        // swing instead of near-peak: an alert opens when the price enters the top of the 52-week range (TRIM) or the
-        // bottom (ADD; BUY for a symbol you exited), whatever the tier. The signals in range_emails (comma-separated:
-        // RANGE_HIGH, RANGE_LOW, RANGE_BUY) email: once when it opens, then a reminder every range_reminder_days while
-        // the price stays in that zone, until dismissed; the others are inbox cards only. TRIM (RANGE_HIGH) is left
-        // out by default: the first backtest (2026-10-13) found no edge for it (the note in RangeBoundPattern).
+        // Range-bound holdings (RangeBoundPattern, thresholds in myfinance2.watchlistsymbols.range_bound) are read on
+        // their swing instead of near-peak: an alert opens when the price enters the top of the 52-week range (TRIM) or
+        // the bottom (ADD; BUY for a symbol you exited), whatever the tier. The signals in range_emails
+        // (comma-separated: RANGE_HIGH, RANGE_LOW, RANGE_BUY) email: once when it opens, then a reminder every
+        // range_reminder_days while the price stays in that zone, until dismissed; the others are inbox cards only.
+        // TRIM (RANGE_HIGH) is left out by default: the first backtest (2026-10-13) found no edge for it (the note in
+        // RangeBoundPattern).
         'range_reminder_days' => env('MYFINANCE2_PEAK_PROXIMITY_RANGE_REMINDER_DAYS', 7),
         'range_emails'        => array_values(array_filter(array_map(
             'trim', explode(',', (string) env('MYFINANCE2_PEAK_PROXIMITY_RANGE_EMAILS', 'RANGE_LOW,RANGE_BUY'))
@@ -65,8 +62,8 @@ return [
         'rsi_oversold'        => env('MYFINANCE2_PEAK_PROXIMITY_RSI_OVERSOLD', 30),
 
         // A held symbol whose tier in use is weak while the open position is in profit (WeakTierProfit, thresholds
-        // in watchlistsymbols.weak_tier_profit) gets a TAKE PROFIT alert, near peak or not, in place of its near-peak
-        // alert. One email when it opens, at once when a meaningful window newly
+        // in myfinance2.watchlistsymbols.weak_tier_profit) gets a TAKE PROFIT alert, near peak or not, in place of its
+        // near-peak alert. One email when it opens, at once when a meaningful window newly
         // comes near its peak, else a reminder every take_profit_reminder_days, until dismissed. Severity is HIGH with
         // a meaningful window near peak or RSI overbought.
         'take_profit_reminder_days' => env('MYFINANCE2_PEAK_PROXIMITY_TAKE_PROFIT_REMINDER_DAYS', 7),

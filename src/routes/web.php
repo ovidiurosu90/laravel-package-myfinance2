@@ -1,8 +1,10 @@
 <?php
 
 Route::group([
-    'middleware' => ['web', 'activity', 'checkblocked', 'role:admin|financeadmin'],
+    // 'web' first, the access gate last (always), the app's own middleware in between (config, 'middleware')
+    'middleware' => array_merge(['web'], config('myfinance2.middleware', []), ['can:myfinance2.access']),
     'as'         => 'myfinance2::',
+    'prefix'     => config('myfinance2.route_prefix', ''),
     'namespace'  => 'ovidiuro\myfinance2\App\Http\Controllers',
 ], function ()
 {
@@ -142,12 +144,12 @@ Route::group([
                   'SymbolTierOverrideController@destroy')->name('symbol-tier-overrides.destroy');
 
     Route::get('finance-home', 'HomeController@index')->name('home');
-    Route::get('positions', 'PositionsController@index');
+    Route::get('positions', 'PositionsController@index')->name('positions');
     Route::get('returns', 'ReturnsController@index')->name('returns.index');
     Route::get('returns/refreshing', 'ReturnsController@refreshing')->name('returns.refreshing');
     Route::get('returns/refresh-status', 'ReturnsController@refreshStatus')->name('returns.refresh-status');
     Route::post('returns/clear-cache', 'ReturnsController@clearCache')->name('returns.clear-cache');
-    Route::get('funding', 'FundingController@index');
+    Route::get('funding', 'FundingController@index')->name('funding');
     Route::get('timeline', 'TimelineController@index')->name('timeline');
     Route::get('overview', 'OverviewController@index')->name('overview');
 });

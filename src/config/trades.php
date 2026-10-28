@@ -226,14 +226,4 @@ return [
     // Individual real account returns remain unchanged (for tax reporting)
     // Format: 'id' => ['name' => '...', 'returns' => [year => ['EUR' => x, 'USD' => y, 'reason' => '...']]]
     'virtual_accounts' => [],
-
-    // Used for both create and update
-    'guiCreateMiddlewareType' => env(
-        'TRADES_GUI_CREATE_MIDDLEWARE_TYPE',
-        'permissions'
-    ), // permissions or role
-    'guiCreateMiddleware' => env(
-        'TRADES_GUI_CREATE_MIDDLEWARE',
-        'trades.create'
-    ), // admin, name. ... or perms.name
 ];

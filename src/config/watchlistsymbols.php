@@ -1,10 +1,6 @@
 <?php
 
 return [
-    // Used for both create and update
-    'guiCreateMiddlewareType' => env('WATHCHLIST_SYMBOLS_GUI_CREATE_MIDDLEWARE_TYPE', 'permissions'), // permissions or role
-    'guiCreateMiddleware'     => env('WATHCHLIST_SYMBOLS_GUI_CREATE_MIDDLEWARE', 'watchlist.symbols.create'), // admin, name. ... or perms.name
-
     // What decides a symbol's tier. 'market': every symbol, owned or not, is tiered on its trailing 1Y
     // market return (owned positions fall back to their own return only when that figure is missing or
     // untrustworthy). 'own': the legacy rule, owned positions are tiered on your own overall return.

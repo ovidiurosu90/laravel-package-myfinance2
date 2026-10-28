@@ -89,7 +89,7 @@ final class PeakProximityTakeProfitSignals
     }
 
     /**
-     * The long windows (alerts.peak_proximity.meaningful_windows) among the ones near peak.
+     * The long windows (myfinance2.alerts.peak_proximity.meaningful_windows) among the ones near peak.
      *
      * @return string[]
      */
@@ -97,7 +97,7 @@ final class PeakProximityTakeProfitSignals
     {
         return array_values(array_intersect(
             array_keys($triggered),
-            config('alerts.peak_proximity.meaningful_windows', ['6m', '1y', '2y'])
+            config('myfinance2.alerts.peak_proximity.meaningful_windows', ['6m', '1y', '2y'])
         ));
     }
 
@@ -154,7 +154,7 @@ final class PeakProximityTakeProfitSignals
         if (!empty(array_diff($meaningful, $previous))) {
             return true;
         }
-        $days = (int) config('alerts.peak_proximity.take_profit_reminder_days', 7);
+        $days = (int) config('myfinance2.alerts.peak_proximity.take_profit_reminder_days', 7);
 
         return $event->last_emailed_at->lte(now()->subDays($days));
     }
@@ -166,7 +166,8 @@ final class PeakProximityTakeProfitSignals
      */
     private function _severity(array $meaningful, mixed $rsi): string
     {
-        $overbought = $rsi !== null && (float) $rsi >= (float) config('alerts.peak_proximity.rsi_overbought', 70);
+        $overbought = $rsi !== null
+            && (float) $rsi >= (float) config('myfinance2.alerts.peak_proximity.rsi_overbought', 70);
 
         return !empty($meaningful) || $overbought
             ? PeakProximityAlertEvent::SEVERITY_HIGH

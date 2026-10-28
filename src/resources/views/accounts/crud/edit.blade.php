@@ -1,13 +1,13 @@
-@extends('layouts.app')
+@extends('myfinance2::layouts.app')
 
-@section('template_title'){{ trans('myfinance2::general.titles.edit-item',
+@section('myfinance2_title'){{ trans('myfinance2::general.titles.edit-item',
                                    ['type' => 'Account']) }}@endsection
 
-@section('template_linked_css')
+@section('myfinance2_styles')
     @include('myfinance2::general.partials.styles')
 @endsection
 
-@section('content')
+@section('myfinance2_content')
 
     <div class="container">
         <div class="row">
@@ -17,7 +17,7 @@
                         {!! trans('myfinance2::general.titles.edit-item',
                                   ['type' => 'Account']) !!}
                         <div class="pull-right">
-                            <a href="{{ url('accounts') }}"
+                            <a href="{{ route('myfinance2::accounts.index') }}"
                                class="btn btn-outline-secondary btn-sm float-right"
                                data-bs-toggle="tooltip" data-bs-placement="left"
                                title="Back to {{ trans('myfinance2::accounts.'
@@ -36,7 +36,7 @@
 
 @endsection
 
-@section('footer_scripts')
+@section('myfinance2_scripts')
     @include('myfinance2::accounts.scripts.selectize-item')
     @include('myfinance2::general.scripts.tooltips')
 @endsection

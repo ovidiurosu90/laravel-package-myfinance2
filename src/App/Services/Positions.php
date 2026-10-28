@@ -260,7 +260,7 @@ class Positions
     public static function getTradeCurrency(string $symbol,
         array $position, array $quote = null): ?string
     {
-        $currenciesMapping = config('general.currencies_mapping');
+        $currenciesMapping = config('myfinance2.general.currencies_mapping');
 
         $isUnlisted = FinanceAPI::isUnlisted($symbol);
 
@@ -360,7 +360,7 @@ class Positions
         $isUnlisted = FinanceAPI::isUnlisted($symbol);
 
         if ($isUnlisted) {
-            $unlistedFMV = config('trades.unlisted_fmv');
+            $unlistedFMV = config('myfinance2.trades.unlisted_fmv');
             if (!empty($unlistedFMV[$symbol])) {
                 list($position['price'], $position['price_timestamp']) =
                     self::getUnlistedFMV($unlistedFMV[$symbol], $date);
@@ -403,8 +403,8 @@ class Positions
                 $position['price_timestamp'] = new \DateTime();
 
                 // Only warn if symbol is not obsolete or delisted
-                $obsoleteSymbols = config('general.obsolete_symbols', []);
-                $delistedSymbols = config('trades.delisted_symbols', []);
+                $obsoleteSymbols = config('myfinance2.general.obsolete_symbols', []);
+                $delistedSymbols = config('myfinance2.trades.delisted_symbols', []);
                 if (!in_array($symbol, $obsoleteSymbols)
                     && !in_array($symbol, $delistedSymbols, true)
                 ) {
@@ -440,8 +440,8 @@ class Positions
             $position['day_change'] = 0;
             $position['day_change_percentage'] = 0;
         } else {
-            $obsoleteSymbols = config('general.obsolete_symbols', []);
-            $delistedSymbols = config('trades.delisted_symbols', []);
+            $obsoleteSymbols = config('myfinance2.general.obsolete_symbols', []);
+            $delistedSymbols = config('myfinance2.trades.delisted_symbols', []);
             $shouldWarn = !in_array($symbol, $obsoleteSymbols)
                 && !in_array($symbol, $delistedSymbols, true)
                 && !in_array($symbol, $warnedSymbols, true);

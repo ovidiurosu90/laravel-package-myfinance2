@@ -6,7 +6,7 @@ namespace ovidiuro\myfinance2\App\Services;
 
 /**
  * Helpers for unlisted symbols — symbols that have no exchange listing and
- * whose prices are provided via the trades.unlisted_fmv config entry.
+ * whose prices are provided via the myfinance2.trades.unlisted_fmv config entry.
  *
  * All methods are stateless and static; no DB or API calls are made.
  */
@@ -18,7 +18,7 @@ class UnlistedSymbol
      */
     public static function isUnlisted(string $symbol): bool
     {
-        return str_starts_with($symbol, config('trades.unlisted'));
+        return str_starts_with($symbol, config('myfinance2.trades.unlisted'));
     }
 
     /**
@@ -29,7 +29,7 @@ class UnlistedSymbol
      */
     public static function labelParts(string $symbol): array
     {
-        $prefix = (string) config('trades.unlisted');
+        $prefix = (string) config('myfinance2.trades.unlisted');
         if ($prefix === '' || !str_starts_with($symbol, $prefix) || $symbol === $prefix) {
             return ['prefix' => '', 'name' => $symbol];
         }
@@ -91,7 +91,7 @@ class UnlistedSymbol
      */
     public static function getPrice(string $symbol, \DateTimeInterface $date): ?float
     {
-        $fmvData = config('trades.unlisted_fmv');
+        $fmvData = config('myfinance2.trades.unlisted_fmv');
         if (empty($fmvData[$symbol])) {
             return null;
         }
@@ -105,7 +105,7 @@ class UnlistedSymbol
      */
     public static function getName(string $symbol): string
     {
-        $fmvData = config('trades.unlisted_fmv');
+        $fmvData = config('myfinance2.trades.unlisted_fmv');
         return $fmvData[$symbol]['symbol_name'] ?? $symbol;
     }
 }

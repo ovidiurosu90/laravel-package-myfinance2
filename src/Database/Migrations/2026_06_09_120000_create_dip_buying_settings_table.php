@@ -24,7 +24,7 @@ return new class extends Migration
                 $t->enum('status', ['ENABLED', 'DISABLED'])->default('DISABLED');
                 // Opt-in for the daily email specifically; the panel can be on while email is off.
                 $t->boolean('email_enabled')->default(false);
-                // Optional advanced override of the default ladder (config alerts.dip_buying.bands).
+                // Optional advanced override of the default ladder (config myfinance2.alerts.dip_buying.bands).
                 $t->json('bands')->nullable();
                 $t->timestamps();
 

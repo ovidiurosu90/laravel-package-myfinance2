@@ -95,7 +95,7 @@ class ReturnsDividends
         int $year,
         string $currency = null
     ): float|array|null {
-        $allOverrides = config('trades.total_gross_dividends_overrides', []);
+        $allOverrides = config('myfinance2.trades.total_gross_dividends_overrides', []);
         $globalOverrides = $allOverrides['global'] ?? [];
         // Note: config keys are strings, so cast to string
         $accountSpecificOverrides = $allOverrides['by_account'][(string)$accountId] ?? [];
@@ -166,13 +166,13 @@ class ReturnsDividends
     private function _loadDividendCountryConfig(int $accountId): array
     {
         $allMappings = config(
-            'trades.dividend_country_mappings',
+            'myfinance2.trades.dividend_country_mappings',
             ['global' => [], 'by_account' => []]
         );
         return [
             'globalMappings'      => $allMappings['global'] ?? [],
             'accountMappings'     => $allMappings['by_account'][$accountId] ?? [],
-            'withholdingCountries' => config('trades.dividend_withholding_tax_countries', ['NL', 'US']),
+            'withholdingCountries' => config('myfinance2.trades.dividend_withholding_tax_countries', ['NL', 'US']),
         ];
     }
 

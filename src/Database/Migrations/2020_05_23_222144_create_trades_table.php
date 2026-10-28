@@ -24,10 +24,10 @@ class CreateTradesTable extends Migration
                 $table->increments('id')->unsigned();
                 $table->timestamps();
                 $table->timestamp('timestamp')->default(\DB::raw('CURRENT_TIMESTAMP'));
-                $table->enum('action', array_keys(config('trades.actions')));
-                $table->enum('account', array_keys(config('general.trade_accounts')));
-                $table->enum('account_currency', array_keys(config('general.ledger_currencies')));
-                $table->enum('trade_currency', array_keys(config('general.trade_currencies')));
+                $table->enum('action', array_keys(config('myfinance2.trades.actions')));
+                $table->enum('account', array_keys(config('myfinance2.general.trade_accounts')));
+                $table->enum('account_currency', array_keys(config('myfinance2.general.ledger_currencies')));
+                $table->enum('trade_currency', array_keys(config('myfinance2.general.trade_currencies')));
                 $table->decimal('exchange_rate', 8, 4);
                 $table->string('symbol', 16);
                 $table->integer('quantity')->unsigned();

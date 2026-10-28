@@ -45,7 +45,7 @@ final class OrderWarningReview
      */
     public function run(int $userId, ?string $from = null): array
     {
-        $from      = $from ?: (string) config('watchlistsymbols.tier_history.start_date', '2025-01-01');
+        $from      = $from ?: (string) config('myfinance2.watchlistsymbols.tier_history.start_date', '2025-01-01');
         $decisions = $this->_decisions($userId, $from);
         $history   = (new TierHistoryRepository())->loadAll($userId);
         $benchmark = TierCalculationService::BENCHMARK_SYMBOL;
@@ -56,7 +56,7 @@ final class OrderWarningReview
         // Softening always on here, so both weak-tier groups are measured whether or not it is configured.
         $warnings  = new OrderTierWarnings(
             array_fill_keys(array_keys(OrderTierWarnings::DEFAULT_LEVELS), OrderTierWarnings::LEVEL_SERIOUS),
-            (float) config('watchlistsymbols.tier_history.max_position_pct', 10),
+            (float) config('myfinance2.watchlistsymbols.tier_history.max_position_pct', 10),
             true
         );
 
@@ -131,7 +131,7 @@ final class OrderWarningReview
     public function suggest(array $codes, array $baseline): array
     {
         $levels    = OrderTierWarnings::fromConfig();
-        $softens   = (bool) config('watchlistsymbols.order_warnings.soften_weak_tier_on_index_gap', false);
+        $softens   = (bool) config('myfinance2.watchlistsymbols.order_warnings.soften_weak_tier_on_index_gap', false);
         $h         = max(self::HORIZONS);
         $suggested = [];
         foreach (array_keys(OrderTierWarnings::DEFAULT_LEVELS) as $code) {

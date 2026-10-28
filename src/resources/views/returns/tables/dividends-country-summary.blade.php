@@ -43,7 +43,7 @@
                             data-bs-toggle="tooltip"
                             data-bs-placement="top"
                             data-bs-custom-class="tooltip-md"
-                            data-bs-title="No withholding tax applies for this country. This is configured via dividend_withholding_tax_countries in trades.php."></i>
+                            data-bs-title="No withholding tax applies for this country. This is configured via myfinance2.trades.dividend_withholding_tax_countries."></i>
                     @endif
                 </td>
                 <td class="text-end text-nowrap">{!! $row['netFormatted'] !!}</td>

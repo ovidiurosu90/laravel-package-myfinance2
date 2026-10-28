@@ -3,32 +3,26 @@
 namespace ovidiuro\myfinance2\App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 use ovidiuro\myfinance2\App\Models\Account;
 use ovidiuro\myfinance2\App\Models\Currency;
 
 use ovidiuro\myfinance2\App\Rules\TradeQuantityIsAvailable;
+use ovidiuro\myfinance2\App\Rules\OwnRecord;
 
 class StoreTrade extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
      *
-     * @return bool
+     * @return \Illuminate\Auth\Access\Response
      */
     public function authorize()
     {
-        if (config('trades.guiCreateMiddlewareType') == 'role') {
-            return $this->user()->hasRole(
-                config('trades.guiCreateMiddleware'));
-        }
-        if (config('trades.guiCreateMiddlewareType') == 'permissions') {
-            return $this->user()->hasPermission(
-                config('trades.guiCreateMiddleware'));
-        }
-
-        return false;
+        // The host app decides who manages this area (gate defined in its AuthServiceProvider).
+        return Gate::inspect('myfinance2.manage', 'trades');
     }
 
     /**
@@ -38,19 +32,13 @@ class StoreTrade extends FormRequest
      */
     public function rules()
     {
-        $dbConnection = config('myfinance2.db_connection');
-        $accountsTableName = $dbConnection . '.' . (new Account())->getTable();
-        $currenciesTableName = $dbConnection . '.' . (new Currency())->getTable();
-
         return [
             'timestamp'         => 'required|date_format:Y-m-d H:i:s',
-            'account_id'        => 'required|integer|exists:' .
-                                        $accountsTableName . ',id',
-            'trade_currency_id' => 'required|integer|exists:' .
-                                        $currenciesTableName . ',id',
+            'account_id'        => ['required', 'integer', OwnRecord::of(Account::class)],
+            'trade_currency_id' => ['required', 'integer', OwnRecord::of(Currency::class)],
             'action'            => [
                 'required',
-                Rule::in(array_keys(config('trades.actions'))),
+                Rule::in(array_keys(config('myfinance2.trades.actions'))),
             ],
             'exchange_rate'     => 'required|numeric',
             'symbol'            => 'required|string|max:16',
@@ -69,7 +57,7 @@ class StoreTrade extends FormRequest
                 Rule::requiredIf(fn () => (bool) $this->disable_auto_fx_rate),
                 'nullable',
                 'integer',
-                'exists:' . $accountsTableName . ',id',
+                OwnRecord::of(Account::class),
             ],
         ];
     }

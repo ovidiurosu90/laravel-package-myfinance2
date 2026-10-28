@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 use ovidiuro\myfinance2\App\Models\CashBalance;
-use App\Models\User;
+use ovidiuro\myfinance2\App\Services\AppUser;
 
 return new class extends Migration
 {
@@ -24,17 +24,10 @@ return new class extends Migration
 
         Schema::connection($connection)->table($table, function (Blueprint $table)
         {
-            $usersDatabase = config('database.connections.' .
-                config('database.default') . '.database');
-            $usersTable = (new User())->getTable();
-
             $table->foreignId('user_id')
                 ->after('id')
-                ->nullable()
-                ->constrained(
-                    table: $usersDatabase . '.' . $usersTable,
-                    indexName: $table->getTable() . '_user_id'
-                );
+                ->nullable();
+            AppUser::addUserIdKey($table);
         });
     }
 
@@ -48,7 +41,7 @@ return new class extends Migration
 
         Schema::connection($connection)->table($table, function (Blueprint $table)
         {
-            $table->dropForeign($table->getTable() . '_user_id');
+            AppUser::dropUserIdKey($table);
             $table->dropColumn('user_id');
         });
     }

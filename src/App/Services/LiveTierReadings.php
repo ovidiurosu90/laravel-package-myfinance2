@@ -14,8 +14,8 @@ use Illuminate\Support\Facades\Cache;
  * figures behind the share of the portfolio; per user the stale markets.
  *
  * The pipeline takes about as long as a /watchlist-symbols load, so the result is kept per user for a few minutes
- * (watchlistsymbols.order_warnings.live_cache_seconds): the banner, the save and the re-check then read the same
- * figures. Cleared when a trade, dividend or split changes (InvalidatesSymbolPerformanceCache) and when a tier
+ * (myfinance2.watchlistsymbols.order_warnings.live_cache_seconds): the banner, the save and the re-check then read the
+ * same figures. Cleared when a trade, dividend or split changes (InvalidatesSymbolPerformanceCache) and when a tier
  * override is saved.
  *
  * Resolved from the container, so feature tests can bind a fake instead of running the pipeline.
@@ -30,7 +30,7 @@ class LiveTierReadings
      */
     public function forUser(int $userId): array
     {
-        $seconds = (int) config('watchlistsymbols.order_warnings.live_cache_seconds', 180);
+        $seconds = (int) config('myfinance2.watchlistsymbols.order_warnings.live_cache_seconds', 180);
         if ($seconds <= 0) {
             return $this->build();
         }

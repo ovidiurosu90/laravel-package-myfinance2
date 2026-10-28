@@ -208,7 +208,7 @@ trait FinanceApiCronQuotesTrait
             return null;
         }
 
-        $currenciesReverseMapping = config('general.currencies_reverse_mapping');
+        $currenciesReverseMapping = config('myfinance2.general.currencies_reverse_mapping');
         $currencyPairs = [];
         $symbols = [];
 

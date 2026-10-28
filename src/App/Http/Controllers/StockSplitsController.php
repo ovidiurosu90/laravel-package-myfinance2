@@ -196,7 +196,7 @@ class StockSplitsController extends MyFinance2Controller
      */
     private function _sendSplitAppliedEmail(StockSplit $split, array $summary): void
     {
-        $emailTo = config('alerts.email_to') ?: auth()->user()?->email;
+        $emailTo = config('myfinance2.alerts.email_to') ?: auth()->user()?->email;
         if (empty($emailTo)) {
             return;
         }

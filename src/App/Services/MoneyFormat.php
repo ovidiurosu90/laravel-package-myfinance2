@@ -156,8 +156,8 @@ class MoneyFormat
     public static function get_formatted_amount($currencyDisplayCode, $value,
         $type = 'credit', $numDecimals = 4
     ) {
-        $amountFormats = config('general.row-format-amount');
-        $formatAmount = config('general.row-format-amount.unknown');
+        $amountFormats = config('myfinance2.general.row-format-amount');
+        $formatAmount = config('myfinance2.general.row-format-amount.unknown');
         if (!empty($amountFormats[$type])) {
             $formatAmount = $amountFormats[$type];
         }

@@ -26,11 +26,11 @@ trait FinanceApiCronAlertsTrait
      */
     public function evaluateAlerts(): void
     {
-        if (!config('alerts.enabled', true)) {
+        if (!config('myfinance2.alerts.enabled', true)) {
             return;
         }
 
-        $intervalMinutes = (int) config('alerts.eval_interval_minutes', 5);
+        $intervalMinutes = (int) config('myfinance2.alerts.eval_interval_minutes', 5);
         $cacheKey = 'finance-api-cron:alerts:last-eval';
         $lastEvalTime = Cache::get($cacheKey, 0);
 

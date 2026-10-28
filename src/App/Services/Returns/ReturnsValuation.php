@@ -125,7 +125,7 @@ class ReturnsValuation
         Account $account
     ): array {
         $dateStr = $date->format('Y-m-d');
-        $positionOverrides = config('trades.position_date_overrides', []);
+        $positionOverrides = config('myfinance2.trades.position_date_overrides', []);
         if (empty($positionOverrides[$dateStr][$accountId])) {
             return $accountPositions;
         }
@@ -437,7 +437,7 @@ class ReturnsValuation
      */
     private function isDelistedSymbol(string $symbol): bool
     {
-        $delistedSymbols = config('trades.delisted_symbols', []);
+        $delistedSymbols = config('myfinance2.trades.delisted_symbols', []);
         return in_array($symbol, $delistedSymbols, true);
     }
 

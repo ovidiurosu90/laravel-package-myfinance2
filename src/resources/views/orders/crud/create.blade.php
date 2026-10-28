@@ -1,14 +1,14 @@
-@extends('layouts.app')
+@extends('myfinance2::layouts.app')
 
-@section('template_title')
+@section('myfinance2_title')
     {{ trans('myfinance2::general.titles.create-item', ['type' => 'Order']) }}
 @endsection
 
-@section('template_linked_css')
+@section('myfinance2_styles')
     @include('myfinance2::general.partials.styles')
 @endsection
 
-@section('content')
+@section('myfinance2_content')
 
     <div class="container">
         <div class="row">
@@ -17,7 +17,7 @@
                     <div class="card-header">
                         {!! trans('myfinance2::general.titles.create-item', ['type' => 'Order']) !!}
                         <div class="pull-right">
-                            <a href="{{ url('orders') }}"
+                            <a href="{{ route('myfinance2::orders.index') }}"
                                 class="btn btn-outline-secondary btn-sm float-right"
                                 data-bs-toggle="tooltip" data-bs-placement="left"
                                 title="Back to Orders">
@@ -66,7 +66,7 @@
 
 @endsection
 
-@section('footer_scripts')
+@section('myfinance2_scripts')
     @include('myfinance2::orders.scripts.selectize-item')
     @include('myfinance2::orders.scripts.placed-at-picker')
     @include('myfinance2::general.scripts.tooltips')

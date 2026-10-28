@@ -84,15 +84,15 @@ class FinanceAPI
      * Returns true for symbols that should be skipped in all API fetch operations:
      * unlisted symbols, obsolete symbols (acquired/merged), and delisted symbols.
      * Single source of truth — replaces the repeated pattern of checking both
-     * general.obsolete_symbols and trades.delisted_symbols at every callsite.
+     * myfinance2.general.obsolete_symbols and myfinance2.trades.delisted_symbols at every callsite.
      */
     public static function isSkippedSymbol(string $symbol): bool
     {
         if (self::isUnlisted($symbol)) {
             return true;
         }
-        $obsolete = config('general.obsolete_symbols', []);
-        $delisted = config('trades.delisted_symbols', []);
+        $obsolete = config('myfinance2.general.obsolete_symbols', []);
+        $delisted = config('myfinance2.trades.delisted_symbols', []);
         return in_array($symbol, $obsolete, true) || in_array($symbol, $delisted, true);
     }
 
@@ -153,8 +153,8 @@ class FinanceAPI
     {
         $missingCachedSymbols = [];
         $quotes = [];
-        $obsoleteSymbols = config('general.obsolete_symbols');
-        $delistedSymbols = config('trades.delisted_symbols', []);
+        $obsoleteSymbols = config('myfinance2.general.obsolete_symbols');
+        $delistedSymbols = config('myfinance2.trades.delisted_symbols', []);
 
         foreach ($symbols as $symbol) {
             $quote = $checkCache ? $this->getCachedQuote($symbol) : null;
@@ -221,7 +221,7 @@ class FinanceAPI
 
         $missingCachedSymbols = [];
         $quotes = [];
-        $obsoleteSymbols = config('general.obsolete_symbols');
+        $obsoleteSymbols = config('myfinance2.general.obsolete_symbols');
 
         foreach ($symbols as $symbol) {
             $quote = $checkCache ? $this->getCachedQuote($symbol) : null;

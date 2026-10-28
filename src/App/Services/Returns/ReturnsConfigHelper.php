@@ -33,7 +33,7 @@ class ReturnsConfigHelper
     ): ?float {
         $dateString = $date->format('Y-m-d');
         $configKey = "{$type}_overrides";
-        $config = config("trades.{$configKey}");
+        $config = config("myfinance2.trades.{$configKey}");
 
         if (empty($config)) {
             return null;

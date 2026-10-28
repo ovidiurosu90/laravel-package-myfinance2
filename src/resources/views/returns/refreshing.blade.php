@@ -1,6 +1,6 @@
-@extends('layouts.app')
+@extends('myfinance2::layouts.app')
 
-@section('content')
+@section('myfinance2_content')
 <div class="container">
     <div class="row justify-content-center mt-5">
         <div class="col-md-6 text-center">
@@ -28,6 +28,6 @@
 
 @endsection
 
-@section('footer_scripts')
+@section('myfinance2_scripts')
     @include('myfinance2::returns.scripts.refreshing')
 @endsection

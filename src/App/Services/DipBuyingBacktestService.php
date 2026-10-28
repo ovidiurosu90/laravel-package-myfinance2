@@ -243,7 +243,7 @@ class DipBuyingBacktestService
      */
     public function regimeSummary(int $userId): array
     {
-        $years      = (int) config('alerts.dip_buying.peak_lookback_years', 3);
+        $years      = (int) config('myfinance2.alerts.dip_buying.peak_lookback_years', 3);
         $from       = Carbon::today()->subYears($years)->format('Y-m-d');
         $vusaPrices = $this->_loadBenchmarkPrices($from);
         if (count($vusaPrices) < 2) {
@@ -457,7 +457,7 @@ class DipBuyingBacktestService
      */
     private function _resolveMinDrop(?float $minDrop): float
     {
-        $default = (float) config('alerts.dip_buying.min_drop_pct', 5);
+        $default = (float) config('myfinance2.alerts.dip_buying.min_drop_pct', 5);
         if ($minDrop === null || $minDrop <= 0.0) {
             return $default;
         }
@@ -726,10 +726,10 @@ class DipBuyingBacktestService
         float $minDd
     ): array
     {
-        $stallMons  = (int) config('alerts.dip_buying.stall_backstop_months', 6);
+        $stallMons  = (int) config('myfinance2.alerts.dip_buying.stall_backstop_months', 6);
         // The stall backstop is a ladder mechanic tied to the live band-1 floor, independent of the
         // (possibly lower) drop-visibility threshold used to isolate episodes.
-        $stallFloor = (float) config('alerts.dip_buying.min_episode_dd_pct', 10);
+        $stallFloor = (float) config('myfinance2.alerts.dip_buying.min_episode_dd_pct', 10);
         ksort($effDd);
 
         $episodes = [];
@@ -981,8 +981,8 @@ class DipBuyingBacktestService
             return null;
         }
 
-        $stallMons  = (int) config('alerts.dip_buying.stall_backstop_months', 6);
-        $stallFloor = (float) config('alerts.dip_buying.min_episode_dd_pct', 10);
+        $stallMons  = (int) config('myfinance2.alerts.dip_buying.stall_backstop_months', 6);
+        $stallFloor = (float) config('myfinance2.alerts.dip_buying.min_episode_dd_pct', 10);
 
         // Rebase each buy's entry drawdown onto the same local-from-recent-peak axis the band uses, so
         // the actual entry depths line up with the local drop rather than the all-time-high drawdown.
@@ -1538,7 +1538,7 @@ class DipBuyingBacktestService
         return [
             'from'            => $from,
             'to'              => $to,
-            'min_drop'        => (float) config('alerts.dip_buying.min_drop_pct', 5),
+            'min_drop'        => (float) config('myfinance2.alerts.dip_buying.min_drop_pct', 5),
             'drop_mode'       => self::DEFAULT_MODE,
             'pool_source'     => 'fallback',
             'pool_eur'        => null,

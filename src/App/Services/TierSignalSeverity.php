@@ -38,10 +38,10 @@ final class TierSignalSeverity
     public static function fromConfig(): self
     {
         return new self(
-            (float) config('watchlistsymbols.tier_history.size_high_pct', 5),
-            (float) config('watchlistsymbols.tier_history.max_position_pct', 10),
-            (float) config('alerts.peak_proximity.rsi_overbought', 70),
-            (array) config('alerts.peak_proximity.meaningful_windows', ['6m', '1y', '2y']),
+            (float) config('myfinance2.watchlistsymbols.tier_history.size_high_pct', 5),
+            (float) config('myfinance2.watchlistsymbols.tier_history.max_position_pct', 10),
+            (float) config('myfinance2.alerts.peak_proximity.rsi_overbought', 70),
+            (array) config('myfinance2.alerts.peak_proximity.meaningful_windows', ['6m', '1y', '2y']),
             (new PeakProximityAlertService())->windowThresholds(null)
         );
     }

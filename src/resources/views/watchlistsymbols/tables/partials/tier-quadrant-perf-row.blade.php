@@ -255,8 +255,8 @@ $actionColors = [
                             // Same per-window thresholds as the peak-proximity exit-hint email
                             // (finance:peak-proximity-alerts), so "near peak" here means the same
                             // thing as a fired alert: within N% of this window's peak.
-                            $nearThreshold = config("alerts.peak_proximity.window_thresholds.{$pKey}")
-                                ?? config('alerts.peak_proximity.threshold_pct', 5);
+                            $nearThreshold = config("myfinance2.alerts.peak_proximity.window_thresholds.{$pKey}")
+                                ?? config('myfinance2.alerts.peak_proximity.threshold_pct', 5);
                             $isNearPeak = $pdEz['proximity_pct'] >= -(float) $nearThreshold;
                         @endphp
                         <span class="text-nowrap" data-bs-toggle="tooltip" data-bs-html="true"

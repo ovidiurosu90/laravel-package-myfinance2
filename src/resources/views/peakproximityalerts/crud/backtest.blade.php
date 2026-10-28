@@ -1,11 +1,11 @@
 {{-- Signal backtest (phase 4, TierSignalBacktestService): how symbols did against VUSA.AS after each tier signal,
      replayed on the user's stored tier history without look-ahead. $report is one parameter cell. --}}
-@extends('layouts.app')
-@section('template_title', 'Tier Signal Backtest')
-@section('template_linked_css')
+@extends('myfinance2::layouts.app')
+@section('myfinance2_title', 'Tier Signal Backtest')
+@section('myfinance2_styles')
     @include('myfinance2::general.partials.styles')
 @endsection
-@section('content')
+@section('myfinance2_content')
     <div class="container-fluid">
         <div class="row">
             <div class="col-sm-12">

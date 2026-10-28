@@ -6,12 +6,12 @@
     $tierLabel = TierCalculationService::tierLabel($event->effective_tier);
     $tierKey   = strtoupper((string) $event->effective_tier);
     $tierIsBronze = $tierKey === 'BRONZE';
-    $exitTiers = array_map('strtoupper', config('alerts.peak_proximity.exit_tiers', ['RUST', 'BRONZE']));
+    $exitTiers = array_map('strtoupper', config('myfinance2.alerts.peak_proximity.exit_tiers', ['RUST', 'BRONZE']));
     $tierIsExit = in_array($tierKey, $exitTiers, true);
 
     // A range-bound alert (signal RANGE_HIGH / RANGE_LOW / RANGE_BUY) carries its reading in the summary: the same chip
     // as the watchlist, whatever the tier: TRIM near the high, ADD (BUY when not held)
-    // near the low. Only the signals in alerts.peak_proximity.range_emails email (ADD and BUY by default).
+    // near the low. Only the signals in myfinance2.alerts.peak_proximity.range_emails email (ADD and BUY by default).
     $summary    = is_array($event->summary) ? $event->summary : [];
     $isRange    = $event->isRangeSignal();
     $rangeBound = $isRange ? ($summary['range_bound'] ?? null) : null;
@@ -68,7 +68,7 @@
             'HIGH'   => 'High: RSI agrees with the swing (overbought for a TRIM, oversold for an ADD or a BUY).',
             'MEDIUM' => 'Medium: a range-bound alert'
                 . ($event->classification === PeakProximityAlertEvent::CLASS_ACTIONABLE
-                    ? '; a reminder every ' . (int) config('alerts.peak_proximity.range_reminder_days', 7)
+                    ? '; a reminder every ' . (int) config('myfinance2.alerts.peak_proximity.range_reminder_days', 7)
                         . ' days while the price stays in the zone.'
                     : ', shown here for your awareness (not emailed).'),
         ];
@@ -77,18 +77,19 @@
         $severityTips = [
             'HIGH'   => 'High: a long window (6M/1Y/2Y) near peak, or RSI overbought: the price backs the sale.',
             'MEDIUM' => 'Medium: in profit on a weak tier, not near a long-window peak; a reminder every '
-                . (int) config('alerts.peak_proximity.take_profit_reminder_days', 7) . ' days.',
+                . (int) config('myfinance2.alerts.peak_proximity.take_profit_reminder_days', 7) . ' days.',
         ];
     }
     if ($isTierSignal) {
+        $reminderDays = (int) config('myfinance2.alerts.peak_proximity.tier_signal_reminder_days', 7);
         $severityTips = [
             'HIGH'   => 'High: a SELL / TRIM the price backs (a position of 5 % or more of the portfolio, RSI'
                 . ' overbought, or a 6M/1Y/2Y window near peak).',
             'MEDIUM' => 'Medium: a SELL without that backing or an ADD / BUY (see the caution flags in the chip),'
-                . ' with a reminder every ' . (int) config('alerts.peak_proximity.tier_signal_reminder_days', 7)
+                . ' with a reminder every ' . $reminderDays
                 . ' days; or a REVIEW, emailed once (dismissing it holds while the drop lasts).',
             'LOW'    => 'Low: a TRIM without that backing; a reminder every '
-                . (int) config('alerts.peak_proximity.tier_signal_reminder_days', 7) . ' days.',
+                . $reminderDays . ' days.',
         ];
     }
     $severityTip = $severityTips[$event->severity] ?? '';

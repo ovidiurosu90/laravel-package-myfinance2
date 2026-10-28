@@ -123,7 +123,7 @@ class DipBuyingPlanService
     {
         $raw = is_array($override) && !empty($override)
             ? $override
-            : config('alerts.dip_buying.bands', []);
+            : config('myfinance2.alerts.dip_buying.bands', []);
 
         $bands = [];
         foreach ($raw as $band) {
@@ -421,9 +421,9 @@ class DipBuyingPlanService
 
         $deployedEur = $this->_deployedSince($userId, $vusa['anchor_date']);
 
-        $tolerance = (float) config('alerts.dip_buying.tolerance_pct', 5);
-        $minEpDd   = (float) config('alerts.dip_buying.min_episode_dd_pct', 10);
-        $stallMons = (int) config('alerts.dip_buying.stall_backstop_months', 6);
+        $tolerance = (float) config('myfinance2.alerts.dip_buying.tolerance_pct', 5);
+        $minEpDd   = (float) config('myfinance2.alerts.dip_buying.min_episode_dd_pct', 10);
+        $stallMons = (int) config('myfinance2.alerts.dip_buying.stall_backstop_months', 6);
 
         $ddSeries = $this->_effectiveDdSeries($vusaPrices, $vusa['anchor_date'], $portfolio['series']);
         $stall    = $this->computeStall($ddSeries, $bands, $stallMons, $minEpDd);
@@ -589,7 +589,7 @@ class DipBuyingPlanService
      */
     private function _trendRail(array $prices): array
     {
-        $period = (int) config('alerts.dip_buying.ma_trend_period', 200);
+        $period = (int) config('myfinance2.alerts.dip_buying.ma_trend_period', 200);
 
         $values = array_values($prices);
         $rail    = ['above' => null, 'ma' => null, 'period' => $period, 'current' => null, 'rsi_note' => null];
@@ -619,7 +619,7 @@ class DipBuyingPlanService
      */
     private function _rsiNote(array $values): ?array
     {
-        if (!config('alerts.dip_buying.rsi_note_enabled', false)) {
+        if (!config('myfinance2.alerts.dip_buying.rsi_note_enabled', false)) {
             return null;
         }
 
@@ -628,7 +628,7 @@ class DipBuyingPlanService
             return null;
         }
 
-        $oversoldLevel = (float) config('alerts.dip_buying.rsi_oversold_level', 30);
+        $oversoldLevel = (float) config('myfinance2.alerts.dip_buying.rsi_oversold_level', 30);
 
         return ['rsi' => $rsi, 'oversold' => $rsi < $oversoldLevel];
     }

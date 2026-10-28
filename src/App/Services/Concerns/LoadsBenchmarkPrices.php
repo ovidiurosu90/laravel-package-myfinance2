@@ -32,7 +32,7 @@ trait LoadsBenchmarkPrices
     protected function _loadBenchmarkPrices(?string $from = null): array
     {
         $from ??= Carbon::today()
-            ->subYears((int) config('alerts.dip_buying.peak_lookback_years', 3))
+            ->subYears((int) config('myfinance2.alerts.dip_buying.peak_lookback_years', 3))
             ->format('Y-m-d');
 
         $rows = StatHistorical::withoutGlobalScope(AssignedToUserScope::class)

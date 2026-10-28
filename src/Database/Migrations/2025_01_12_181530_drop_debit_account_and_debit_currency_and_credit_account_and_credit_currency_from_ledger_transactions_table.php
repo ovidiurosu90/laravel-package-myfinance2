@@ -91,7 +91,7 @@ return new class extends Migration
                 ->table($table, function (Blueprint $table)
             {
                 $table->enum('debit_account',
-                    array_keys(config('general.ledger_accounts')))
+                    array_keys(config('myfinance2.general.ledger_accounts')))
                     ->after('debit_account_id')
                     ->nullable();
             });
@@ -105,7 +105,7 @@ return new class extends Migration
                 ->table($table, function (Blueprint $table)
             {
                 $table->enum('debit_currency',
-                    array_keys(config('general.ledger_currencies')))
+                    array_keys(config('myfinance2.general.ledger_currencies')))
                     ->after('debit_account')
                     ->nullable();
             });
@@ -119,7 +119,7 @@ return new class extends Migration
                 ->table($table, function (Blueprint $table)
             {
                 $table->enum('credit_account',
-                    array_keys(config('general.ledger_accounts')))
+                    array_keys(config('myfinance2.general.ledger_accounts')))
                     ->after('debit_currency')
                     ->nullable();
             });
@@ -133,7 +133,7 @@ return new class extends Migration
                 ->table($table, function (Blueprint $table)
             {
                 $table->enum('credit_currency',
-                    array_keys(config('general.ledger_currencies')))
+                    array_keys(config('myfinance2.general.ledger_currencies')))
                     ->after('credit_account')
                     ->nullable();
             });

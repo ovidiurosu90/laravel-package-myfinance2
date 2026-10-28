@@ -20,7 +20,7 @@
 @section('body')
     <div class="section {{ $source === 'suggestion' ? 'suggestion' : '' }}">
         @if ($source === 'suggestion')
-            @php $thresholdPct = config('alerts.suggestion_threshold_pct', 3); @endphp
+            @php $thresholdPct = config('myfinance2.alerts.suggestion_threshold_pct', 3); @endphp
             <h2>Suggestion engine</h2>
             <p style="margin:0">
                 The suggestion engine created <strong>{{ count($alerts) }}</strong>

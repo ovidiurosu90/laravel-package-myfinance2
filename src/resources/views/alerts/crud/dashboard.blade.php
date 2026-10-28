@@ -1,9 +1,9 @@
-@extends('layouts.app')
-@section('template_title'){!! trans('myfinance2::alerts.titles.dashboard') !!}@endsection
-@section('template_linked_css')
+@extends('myfinance2::layouts.app')
+@section('myfinance2_title'){!! trans('myfinance2::alerts.titles.dashboard') !!}@endsection
+@section('myfinance2_styles')
     @include('myfinance2::general.partials.styles')
 @endsection
-@section('content')
+@section('myfinance2_content')
     <div class="container-fluid">
         <div class="row">
             <div class="col-sm-12">
@@ -45,7 +45,7 @@
                         </p>
                         <ul>
                             <li>
-                                Target price: <strong>{{ config('alerts.suggestion_threshold_pct', 3) }}%
+                                Target price: <strong>{{ config('myfinance2.alerts.suggestion_threshold_pct', 3) }}%
                                 below the lookback high</strong> for each symbol
                             </li>
                             <li>
@@ -84,7 +84,7 @@
         </div>
     </div>
 @endsection
-@section('footer_scripts')
+@section('myfinance2_scripts')
     @include('myfinance2::general.scripts.confirm-modal', ['formTrigger' => 'confirm-delete-modal'])
     @include('myfinance2::general.scripts.confirm-modal', ['formTrigger' => 'confirm-pause-modal'])
     @include('myfinance2::general.scripts.confirm-modal', ['formTrigger' => 'confirm-resume-modal'])

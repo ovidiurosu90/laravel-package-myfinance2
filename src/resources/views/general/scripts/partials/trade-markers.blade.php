@@ -129,7 +129,7 @@
         }
         $.ajax({
             type: 'GET',
-            url: "{{ url('/get-trades') }}",
+            url: "{{ route('myfinance2::get-trades') }}",
             data: { symbol: options.symbol },
             success: function(data)
             {

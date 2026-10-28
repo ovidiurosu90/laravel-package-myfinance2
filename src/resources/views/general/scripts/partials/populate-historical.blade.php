@@ -50,7 +50,7 @@ function reloadSymbolSeries(symbol, doneMessage)
 {
     $.ajax({
         type: 'GET',
-        url: "{{ url('/get-symbol-chart') }}",
+        url: "{{ route('myfinance2::get-symbol-chart') }}",
         data: { symbol: symbol },
         success: function(data)
         {
@@ -109,7 +109,7 @@ $(populateBtn).on('click', function()
 
     $.ajax({
         type: 'POST',
-        url: "{{ url('/populate-historical-data') }}",
+        url: "{{ route('myfinance2::populate-historical-data') }}",
         headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
         data: { symbol: symbol },
         success: function(data)

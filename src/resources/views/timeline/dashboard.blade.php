@@ -1,12 +1,12 @@
-@extends('layouts.app')
+@extends('myfinance2::layouts.app')
 
-@section('template_title'){!! trans('myfinance2::timeline.titles.dashboard') !!}@endsection
+@section('myfinance2_title'){!! trans('myfinance2::timeline.titles.dashboard') !!}@endsection
 
-@section('template_linked_css')
+@section('myfinance2_styles')
     @include('myfinance2::general.partials.styles')
 @endsection
 
-@section('content')
+@section('myfinance2_content')
 
     <div class="container-fluid">
 
@@ -22,7 +22,7 @@
 
 @endsection
 
-@section('footer_scripts')
+@section('myfinance2_scripts')
     @include('myfinance2::timeline.scripts.google-charts')
     @include('myfinance2::general.scripts.tooltips')
 @endsection

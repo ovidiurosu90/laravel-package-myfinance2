@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace ovidiuro\myfinance2\App\Services;
 
-use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -65,7 +64,7 @@ class AlertService
     {
         $stats = ['processed' => 0, 'triggered' => 0, 'skipped' => 0, 'deferred' => 0, 'time_ms' => 0];
         $startTime = microtime(true);
-        $maxSeconds = (int) config('alerts.eval_max_seconds', 20);
+        $maxSeconds = (int) config('myfinance2.alerts.eval_max_seconds', 20);
 
         $notifiedToday = $this->_getNotifiedTodayAlertIds($userId);
 
@@ -125,7 +124,7 @@ class AlertService
                 continue;
             }
 
-            if (config('alerts.market_hours_only', false)) {
+            if (config('myfinance2.alerts.market_hours_only', false)) {
                 $marketUtils = $quotes[$alert->symbol]['marketUtils'] ?? null;
                 if ($marketUtils) {
                     try {
@@ -278,7 +277,7 @@ class AlertService
             ->get(['id', 'display_code'])
             ->mapWithKeys(fn($c) => [$c->id => html_entity_decode(strip_tags($c->display_code), ENT_QUOTES | ENT_HTML5, 'UTF-8')])
             ->toArray();
-        $threshold = $thresholdPct ?? (float) config('alerts.suggestion_threshold_pct', 3);
+        $threshold = $thresholdPct ?? (float) config('myfinance2.alerts.suggestion_threshold_pct', 3);
         $now = now();
 
         foreach ($openSymbols as $symbol) {
@@ -623,7 +622,7 @@ class AlertService
         int $userId
     ): bool
     {
-        $emailTo = config('alerts.email_to') ?: $this->_getUserEmail($userId);
+        $emailTo = config('myfinance2.alerts.email_to') ?: $this->_getUserEmail($userId);
 
         if (empty($emailTo)) {
             Log::warning("AlertService: no email address for user {$userId}, skipping alert #{$alert->id}");
@@ -659,7 +658,7 @@ class AlertService
      */
     private function _sendSplitWarningEmail(PriceAlert $alert, float $currentPrice, int $userId): bool
     {
-        $emailTo = config('alerts.email_to') ?: $this->_getUserEmail($userId);
+        $emailTo = config('myfinance2.alerts.email_to') ?: $this->_getUserEmail($userId);
 
         if (empty($emailTo)) {
             return false;
@@ -807,7 +806,7 @@ class AlertService
      */
     private function _getUserEmail(int $userId): ?string
     {
-        $user = User::find($userId);
+        $user = AppUser::find($userId);
         return $user?->email;
     }
 }

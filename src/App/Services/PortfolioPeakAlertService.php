@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace ovidiuro\myfinance2\App\Services;
 
-use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
@@ -219,7 +218,7 @@ final class PortfolioPeakAlertService
      */
     private function _buildBreakdown(array $changeEurSeries, array $changePctSeries): array
     {
-        $minPeakAbs = (float) config('alerts.portfolio_peak.min_peak_abs_eur', 1000);
+        $minPeakAbs = (float) config('myfinance2.alerts.portfolio_peak.min_peak_abs_eur', 1000);
 
         $eur = $this->_metricBreakdown(
             $changeEurSeries,
@@ -276,8 +275,8 @@ final class PortfolioPeakAlertService
         }
 
         $current      = (float) end($series);
-        $triggerWins  = (array) config('alerts.portfolio_peak.windows', ['6m', '1y', '2y']);
-        $displayWins  = (array) config('alerts.portfolio_peak.display_windows', ['3m', '6m', '1y', '2y']);
+        $triggerWins  = (array) config('myfinance2.alerts.portfolio_peak.windows', ['6m', '1y', '2y']);
+        $displayWins  = (array) config('myfinance2.alerts.portfolio_peak.display_windows', ['3m', '6m', '1y', '2y']);
         $rows         = [];
 
         foreach ($displayWins as $window) {
@@ -296,7 +295,7 @@ final class PortfolioPeakAlertService
             $prox     = $proximity($current, (float) $peakVal);
             $isTrig   = in_array($window, $triggerWins, true);
             $threshold = (float) config(
-                "alerts.portfolio_peak.window_thresholds.{$metricKey}.{$window}", 5.0
+                "myfinance2.alerts.portfolio_peak.window_thresholds.{$metricKey}.{$window}", 5.0
             );
 
             $rows[] = [
@@ -339,7 +338,7 @@ final class PortfolioPeakAlertService
             return true;
         }
 
-        $reminderDays = (int) config('alerts.portfolio_peak.reminder_days', 1);
+        $reminderDays = (int) config('myfinance2.alerts.portfolio_peak.reminder_days', 1);
         return $last->sent_at->copy()->startOfDay()
             ->lte(now()->startOfDay()->subDays($reminderDays));
     }
@@ -379,9 +378,9 @@ final class PortfolioPeakAlertService
         array $changeEurSeries
     ): string
     {
-        $emailTo = config('alerts.portfolio_peak.email_to')
-            ?: config('alerts.email_to')
-            ?: User::find($userId)?->email;
+        $emailTo = config('myfinance2.alerts.portfolio_peak.email_to')
+            ?: config('myfinance2.alerts.email_to')
+            ?: AppUser::find($userId)?->email;
 
         if (empty($emailTo)) {
             Log::warning("PortfolioPeakAlertService: no email for user {$userId}, skipping.");

@@ -55,7 +55,7 @@ class WatchlistSymbolsController extends MyFinance2Controller
     /**
      * Store a newly created item.
      *
-     * @param \App\Http\Requests\StoreWatchlistSymbol $request
+     * @param \ovidiuro\myfinance2\App\Http\Requests\StoreWatchlistSymbol $request
      *
      * @return \Illuminate\Http\Response
      */
@@ -88,7 +88,7 @@ class WatchlistSymbolsController extends MyFinance2Controller
     /**
      * Update the specified item.
      *
-     * @param \App\Http\Requests\UpdateWatchlistSymbol $request
+     * @param \ovidiuro\myfinance2\App\Http\Requests\UpdateWatchlistSymbol $request
      * @param int                            $id
      *
      * @return \Illuminate\Http\Response

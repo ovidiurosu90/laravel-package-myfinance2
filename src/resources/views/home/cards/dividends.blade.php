@@ -4,7 +4,7 @@
             <div style="display: flex; justify-content: space-between;
                         align-items: center;">
                 <span id="card_title">
-                    <a target="_blank" href="{{ url('/dividends') }}">
+                    <a target="_blank" href="{{ route('myfinance2::dividends.index') }}">
                         {!! trans('myfinance2::dividends.titles.dashboard') !!}
                     </a>
                 </span>

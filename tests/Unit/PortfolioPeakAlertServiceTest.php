@@ -48,7 +48,7 @@ class PortfolioPeakAlertServiceTest extends TestCase
     }
 
     /**
-     * Bind a fresh container exposing config('alerts.portfolio_peak.*').
+     * Bind a fresh container exposing config('myfinance2.alerts.portfolio_peak.*').
      *
      * @param array $portfolioPeak
      *
@@ -58,7 +58,7 @@ class PortfolioPeakAlertServiceTest extends TestCase
     {
         $container = new Container();
         $container->instance('config', new ConfigRepository([
-            'alerts' => ['portfolio_peak' => $portfolioPeak],
+            'myfinance2' => ['alerts' => ['portfolio_peak' => $portfolioPeak]],
         ]));
         Container::setInstance($container);
     }

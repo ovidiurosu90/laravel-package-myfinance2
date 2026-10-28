@@ -352,7 +352,7 @@ class OverviewDashboard
     {
         $accountTotals = [];
         $symbolTotals = [];
-        $gainsAnnotations = config('trades.gains_annotations', []);
+        $gainsAnnotations = config('myfinance2.trades.gains_annotations', []);
 
         $allYears = array_unique(array_merge(
             array_keys($gainsPerYear),

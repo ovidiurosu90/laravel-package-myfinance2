@@ -1,6 +1,7 @@
 *.swp
 *.swo
 *cache
-vendor
+/vendor
 composer.lock
 
+node_modules

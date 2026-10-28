@@ -54,17 +54,20 @@ final class NearPeakReading
     {
         if ($thresholds === null) {
             $thresholds = [];
-            $fallback   = (float) config('alerts.peak_proximity.threshold_pct', 5);
-            foreach (config('alerts.peak_proximity.windows', ['3m', '6m', '1y', '2y']) as $window) {
-                $thresholds[$window] = (float) config("alerts.peak_proximity.window_thresholds.{$window}", $fallback);
+            $fallback   = (float) config('myfinance2.alerts.peak_proximity.threshold_pct', 5);
+            foreach (config('myfinance2.alerts.peak_proximity.windows', ['3m', '6m', '1y', '2y']) as $window) {
+                $thresholds[$window] = (float) config(
+                    "myfinance2.alerts.peak_proximity.window_thresholds.{$window}",
+                    $fallback
+                );
             }
         }
 
         return new self(
             $thresholds,
-            (array) config('alerts.peak_proximity.meaningful_windows', ['6m', '1y', '2y']),
-            array_map('strtoupper', (array) config('alerts.peak_proximity.exit_tiers', ['RUST', 'BRONZE'])),
-            (bool) config('alerts.peak_proximity.exit_focused', true)
+            (array) config('myfinance2.alerts.peak_proximity.meaningful_windows', ['6m', '1y', '2y']),
+            array_map('strtoupper', (array) config('myfinance2.alerts.peak_proximity.exit_tiers', ['RUST', 'BRONZE'])),
+            (bool) config('myfinance2.alerts.peak_proximity.exit_focused', true)
         );
     }
 

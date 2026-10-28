@@ -66,7 +66,7 @@ class PortfolioPeakAlert extends Mailable
 
         $settingsUrl = Route::has('myfinance2::portfolio-peak-alerts.index')
             ? route('myfinance2::portfolio-peak-alerts.index')
-            : url('/portfolio-peak-alerts');
+            : route('myfinance2::portfolio-peak-alerts.index');
 
         return $this->subject(
                 "{$label} Portfolio near highs => {$count} {$noun} ({$list})"

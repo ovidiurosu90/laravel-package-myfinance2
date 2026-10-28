@@ -16,7 +16,7 @@ use ovidiuro\myfinance2\App\Models\SymbolTierOverride;
  * The only real decision is *which* return percentage to bucket. This class
  * makes that decision with one ordered rule set, identical for every caller.
  *
- * Default (watchlistsymbols.tier_basis = 'market'): every symbol, owned or not, is tiered on its
+ * Default (myfinance2.watchlistsymbols.tier_basis = 'market'): every symbol, owned or not, is tiered on its
  * trailing 1Y market return when that figure is trustworthy, so all symbols are judged the same way
  * and the tier moves with the price (which the rare high / rare low signals need). Your own return is
  * shown separately. Only when the market figure is missing or untrustworthy does an owned position
@@ -102,7 +102,7 @@ final class TierClassifier
     {
         return new self(
             $tiers,
-            config('watchlistsymbols.tier_basis', self::BASIS_MODE_MARKET) !== self::BASIS_MODE_OWN
+            config('myfinance2.watchlistsymbols.tier_basis', self::BASIS_MODE_MARKET) !== self::BASIS_MODE_OWN
         );
     }
 

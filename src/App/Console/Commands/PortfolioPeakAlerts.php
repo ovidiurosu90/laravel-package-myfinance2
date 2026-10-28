@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace ovidiuro\myfinance2\App\Console\Commands;
 
-use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
 use ovidiuro\myfinance2\App\Services\PortfolioPeakAlertService;
+use ovidiuro\myfinance2\App\Services\AppUser;
 
 /**
  * Portfolio Peak Alerts email: fires when the portfolio's EUR gain or return on cost is within N%
@@ -38,8 +38,8 @@ class PortfolioPeakAlerts extends Command
 
     public function handle(): int
     {
-        if (!config('alerts.portfolio_peak.enabled', true)) {
-            $this->info('Portfolio Peak alerts are disabled (alerts.portfolio_peak.enabled).');
+        if (!config('myfinance2.alerts.portfolio_peak.enabled', true)) {
+            $this->info('Portfolio Peak alerts are disabled (myfinance2.alerts.portfolio_peak.enabled).');
             return Command::SUCCESS;
         }
 
@@ -72,7 +72,7 @@ class PortfolioPeakAlerts extends Command
         $failed  = 0;
 
         foreach ($userIds as $id) {
-            $user = User::find($id);
+            $user = AppUser::find($id);
             if (!$user) {
                 $this->warn("  User #{$id}: not found, skipping.");
                 continue;

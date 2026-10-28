@@ -54,7 +54,7 @@ $(document).ready(function ()
     $estimateGainButton.click(function() {
         $.ajax({
             type: 'GET',
-            url:  "{{ url('/get-currency-exchange-gain-estimate') }}",
+            url:  "{{ route('myfinance2::get-currency-exchange-gain-estimate') }}",
             data: {
                 debit_currency: debitCurrencySelectize.getValue(),
                 credit_currency: creditCurrencySelectize.getValue(),

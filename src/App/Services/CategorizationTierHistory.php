@@ -30,11 +30,11 @@ final class CategorizationTierHistory
 
     public function __construct(int $userId, private readonly Carbon $_day)
     {
-        $days             = (int) config('watchlistsymbols.tier_history.lookback_days', 365);
+        $days             = (int) config('myfinance2.watchlistsymbols.tier_history.lookback_days', 365);
         $this->_window    = (new TierHistoryRepository())->loadWindow($userId, $_day, $days);
         $this->_resolver  = SettledTierResolver::fromConfig();
         $this->_presenter = new TierHistoryPresenter(
-            (float) config('watchlistsymbols.tier_history.split_share_pct', 15)
+            (float) config('myfinance2.watchlistsymbols.tier_history.split_share_pct', 15)
         );
     }
 

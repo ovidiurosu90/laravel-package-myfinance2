@@ -22,7 +22,7 @@
 
     // The EUR-gain magnitude floor: change_eur windows whose |peak| is under this are shown n/a,
     // because proximity divides by |peak| and would explode near zero.
-    $minPeakAbs = (float) config('alerts.portfolio_peak.min_peak_abs_eur', 1000);
+    $minPeakAbs = (float) config('myfinance2.alerts.portfolio_peak.min_peak_abs_eur', 1000);
 @endphp
 
 @if (empty($breakdown))

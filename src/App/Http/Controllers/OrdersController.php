@@ -20,6 +20,7 @@ use ovidiuro\myfinance2\App\Services\TierVerdictSummary;
 use ovidiuro\myfinance2\App\Services\TradeTierSnapshots;
 use ovidiuro\myfinance2\App\Http\Requests\StoreOrder;
 use ovidiuro\myfinance2\App\Http\Requests\UpdateOrder;
+use ovidiuro\myfinance2\App\Rules\OwnRecord;
 
 class OrdersController extends MyFinance2Controller
 {
@@ -312,6 +313,7 @@ class OrdersController extends MyFinance2Controller
      */
     public function fill(Request $request, int $id)
     {
+        $request->validate(['trade_id' => ['nullable', 'integer', OwnRecord::of(Trade::class)]]);
         $item = Order::findOrFail($id);
 
         if ($item->status !== 'PLACED') {
@@ -352,7 +354,7 @@ class OrdersController extends MyFinance2Controller
                 'order_id'          => $item->id,
             ]);
 
-            return redirect(url('/trades/create?' . $params))->with('success', $message);
+            return redirect(route('myfinance2::trades.create') . '?' . $params)->with('success', $message);
         }
 
         return redirect()->route('myfinance2::orders.index', ['view' => 'all'])->with('success', $message);
@@ -510,7 +512,7 @@ class OrdersController extends MyFinance2Controller
      */
     public function linkTrade(Request $request, int $id)
     {
-        $request->validate(['trade_id' => 'required|integer']);
+        $request->validate(['trade_id' => ['required', 'integer', OwnRecord::of(Trade::class)]]);
 
         $item = Order::findOrFail($id);
         $item->trade_id = (int) $request->trade_id;

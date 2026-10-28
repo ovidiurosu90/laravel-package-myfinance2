@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace ovidiuro\myfinance2\App\Console\Commands;
 
-use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Auth;
 
 use ovidiuro\myfinance2\App\Services\TierSnapshotBackfill as Backfill;
+use ovidiuro\myfinance2\App\Services\AppUser;
 
 /**
  * Gives the orders and trades made before tier readings were saved a reading rebuilt once from the stored tier history,
@@ -37,7 +37,7 @@ class TierSnapshotBackfill extends Command
     public function handle(): int
     {
         $userId = (int) $this->option('user-id');
-        $user   = $userId > 0 ? User::find($userId) : null;
+        $user   = $userId > 0 ? AppUser::find($userId) : null;
         $only   = (string) $this->option('only');
         $id     = $this->option('id') !== null ? (int) $this->option('id') : null;
         if ($user === null) {

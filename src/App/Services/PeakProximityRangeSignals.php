@@ -15,8 +15,8 @@ use ovidiuro\myfinance2\Mail\PeakProximityAlert;
  * read on its swing instead of near-peak. Held: when its price enters the top of the 52-week range an alert opens
  * with signal RANGE_HIGH (TRIM, take the swing profit); the bottom, RANGE_LOW (ADD on the dip). Traded but no longer
  * held: the bottom opens RANGE_BUY (a good point to re-enter); the top (WAIT) raises nothing yet. Mid-range raises
- * nothing. Whatever the tier, a signal listed in alerts.peak_proximity.range_emails (by default ADD and BUY) is
- * ACTIONABLE and emails: once when an episode opens, then a reminder every range_reminder_days while the price stays
+ * nothing. Whatever the tier, a signal listed in myfinance2.alerts.peak_proximity.range_emails (by default ADD and BUY)
+ * is ACTIONABLE and emails: once when an episode opens, then a reminder every range_reminder_days while the price stays
  * in that zone, until dismissed. The others (by default TRIM) are inbox cards for your awareness (INFO), never
  * emailed. They share the inbox, the opt-in, the history and the one-email-per-symbol-per-day guard with the
  * near-peak alerts.
@@ -134,11 +134,12 @@ final class PeakProximityRangeSignals
     }
 
     /**
-     * Whether alerts of this signal email (listed in alerts.peak_proximity.range_emails); the others are inbox cards.
+     * Whether alerts of this signal email (listed in myfinance2.alerts.peak_proximity.range_emails); the others are
+     * inbox cards.
      */
     public static function emails(string $signal): bool
     {
-        return in_array($signal, (array) config('alerts.peak_proximity.range_emails', []), true);
+        return in_array($signal, (array) config('myfinance2.alerts.peak_proximity.range_emails', []), true);
     }
 
     /**
@@ -149,7 +150,7 @@ final class PeakProximityRangeSignals
         if ($event === null || $event->last_emailed_at === null) {
             return true;
         }
-        $days = (int) config('alerts.peak_proximity.range_reminder_days', 7);
+        $days = (int) config('myfinance2.alerts.peak_proximity.range_reminder_days', 7);
 
         return $event->last_emailed_at->lte(now()->subDays($days));
     }
@@ -163,8 +164,8 @@ final class PeakProximityRangeSignals
             return PeakProximityAlertEvent::SEVERITY_MEDIUM;
         }
         $agrees = $signal === PeakProximityAlertEvent::SIGNAL_RANGE_HIGH
-            ? (float) $rsi >= (float) config('alerts.peak_proximity.rsi_overbought', 70)
-            : (float) $rsi <= (float) config('alerts.peak_proximity.rsi_oversold', 30);
+            ? (float) $rsi >= (float) config('myfinance2.alerts.peak_proximity.rsi_overbought', 70)
+            : (float) $rsi <= (float) config('myfinance2.alerts.peak_proximity.rsi_oversold', 30);
 
         return $agrees ? PeakProximityAlertEvent::SEVERITY_HIGH : PeakProximityAlertEvent::SEVERITY_MEDIUM;
     }

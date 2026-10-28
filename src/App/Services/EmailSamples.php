@@ -34,7 +34,7 @@ class EmailSamples
      */
     public static function defaultRecipient(): ?string
     {
-        return config('alerts.email_to') ?: null;
+        return config('myfinance2.alerts.email_to') ?: null;
     }
 
     /**

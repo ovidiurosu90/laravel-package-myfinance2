@@ -20,7 +20,7 @@ final class TierHistoryPresenter
 
     /**
      * @param float $_splitSharePct The "split year" note shows when the settled tier held on fewer than this %
-     *                              of the days (watchlistsymbols.tier_history.split_share_pct).
+     *                              of the days (myfinance2.watchlistsymbols.tier_history.split_share_pct).
      */
     public function __construct(private readonly float $_splitSharePct = 15.0)
     {

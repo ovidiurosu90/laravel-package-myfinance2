@@ -32,16 +32,16 @@ class ReturnsAlerts
 
     public function __construct()
     {
-        $this->_apiPriceIssueSymbols = config('trades.api_price_issue_symbols', []);
-        $this->_priceOverrides = config('trades.price_overrides', []);
-        $this->_suppressionKeywords = config('trades.api_price_issue_suppression_keywords', []);
-        $this->_excludedTradeIds = config('trades.exclude_trades_from_returns', []);
-        $this->_exchangeRateOverrides = config('trades.exchange_rate_overrides', []);
-        $this->_requiredExchangeRatePairs = config('trades.required_exchange_rate_overrides', []);
-        $this->_positionDateOverrides = config('trades.position_date_overrides', []);
-        $this->_positionOverrideKeywords = config('trades.position_date_override_keywords', []);
-        $this->_withdrawalsOverrides = config('trades.withdrawals_overrides', []);
-        $this->_depositsOverrides = config('trades.deposits_overrides', []);
+        $this->_apiPriceIssueSymbols = config('myfinance2.trades.api_price_issue_symbols', []);
+        $this->_priceOverrides = config('myfinance2.trades.price_overrides', []);
+        $this->_suppressionKeywords = config('myfinance2.trades.api_price_issue_suppression_keywords', []);
+        $this->_excludedTradeIds = config('myfinance2.trades.exclude_trades_from_returns', []);
+        $this->_exchangeRateOverrides = config('myfinance2.trades.exchange_rate_overrides', []);
+        $this->_requiredExchangeRatePairs = config('myfinance2.trades.required_exchange_rate_overrides', []);
+        $this->_positionDateOverrides = config('myfinance2.trades.position_date_overrides', []);
+        $this->_positionOverrideKeywords = config('myfinance2.trades.position_date_override_keywords', []);
+        $this->_withdrawalsOverrides = config('myfinance2.trades.withdrawals_overrides', []);
+        $this->_depositsOverrides = config('myfinance2.trades.deposits_overrides', []);
     }
 
     /**

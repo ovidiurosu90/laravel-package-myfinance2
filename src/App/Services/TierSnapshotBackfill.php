@@ -49,7 +49,8 @@ final class TierSnapshotBackfill
     public function run(int $userId, string $only, ?int $id, bool $force, bool $dryRun): array
     {
         $force = $force && $id !== null;
-        $this->_rebuilt->preload($userId, (string) config('watchlistsymbols.tier_history.start_date', '2025-01-01'));
+        $startDate = (string) config('myfinance2.watchlistsymbols.tier_history.start_date', '2025-01-01');
+        $this->_rebuilt->preload($userId, $startDate);
         $rows = [];
         if ($only !== self::ONLY_TRADES) {
             foreach ($this->_orders($userId, $id, $force) as $order) {

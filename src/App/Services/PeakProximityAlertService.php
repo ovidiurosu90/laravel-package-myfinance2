@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace ovidiuro\myfinance2\App\Services;
 
-use App\Models\User;
 use Illuminate\Mail\Mailable;
 use Illuminate\Support\Facades\Log;
 
@@ -249,12 +248,13 @@ final class PeakProximityAlertService
         $meaningful     = $nearPeak->meaningful($triggered);
         $exitWorthy     = $nearPeak->exitWorthy($tier);
         $actionable     = $nearPeak->actionable($triggered, $tier);
-        $cadenceWindows = (bool) config('alerts.peak_proximity.exit_focused', true)
+        $cadenceWindows = (bool) config('myfinance2.alerts.peak_proximity.exit_focused', true)
             ? $meaningful
             : array_keys($triggered);
 
         $rsi        = $quoteData['technical_indicators']['rsi'] ?? null;
-        $overbought = $rsi !== null && (float) $rsi >= (float) config('alerts.peak_proximity.rsi_overbought', 70);
+        $overbought = $rsi !== null
+            && (float) $rsi >= (float) config('myfinance2.alerts.peak_proximity.rsi_overbought', 70);
 
         if (!$actionable) {
             $severity = PeakProximityAlertEvent::SEVERITY_LOW;
@@ -486,7 +486,7 @@ final class PeakProximityAlertService
      */
     private function _reminderInterval(int $count): int
     {
-        $map = config('alerts.peak_proximity.reminder_days_by_confluence', [1 => 7, 2 => 3, 3 => 1]);
+        $map = config('myfinance2.alerts.peak_proximity.reminder_days_by_confluence', [1 => 7, 2 => 3, 3 => 1]);
 
         if (isset($map[$count])) {
             return (int) $map[$count];
@@ -499,7 +499,7 @@ final class PeakProximityAlertService
             }
         }
 
-        return (int) config('alerts.peak_proximity.reminder_days_default', 7);
+        return (int) config('myfinance2.alerts.peak_proximity.reminder_days_default', 7);
     }
 
     /**
@@ -555,7 +555,7 @@ final class PeakProximityAlertService
     public function windowThresholds(?float $override): array
     {
         $thresholds = [];
-        foreach (config('alerts.peak_proximity.windows', ['3m', '6m', '1y', '2y']) as $window) {
+        foreach (config('myfinance2.alerts.peak_proximity.windows', ['3m', '6m', '1y', '2y']) as $window) {
             $thresholds[$window] = $this->_windowThreshold($window, $override);
         }
 
@@ -624,12 +624,12 @@ final class PeakProximityAlertService
             return $override;
         }
 
-        $perWindow = config("alerts.peak_proximity.window_thresholds.{$window}");
+        $perWindow = config("myfinance2.alerts.peak_proximity.window_thresholds.{$window}");
         if ($perWindow !== null) {
             return (float) $perWindow;
         }
 
-        return (float) config('alerts.peak_proximity.threshold_pct', 5);
+        return (float) config('myfinance2.alerts.peak_proximity.threshold_pct', 5);
     }
 
     /**
@@ -772,9 +772,9 @@ final class PeakProximityAlertService
      */
     public static function deliver(int $userId, string $symbol, array $record, Mailable $mail): bool
     {
-        $emailTo = config('alerts.peak_proximity.email_to')
-            ?: config('alerts.email_to')
-            ?: User::find($userId)?->email;
+        $emailTo = config('myfinance2.alerts.peak_proximity.email_to')
+            ?: config('myfinance2.alerts.email_to')
+            ?: AppUser::find($userId)?->email;
 
         if (empty($emailTo)) {
             Log::warning("PeakProximityAlertService: no email address for user {$userId}, skipping {$symbol}");

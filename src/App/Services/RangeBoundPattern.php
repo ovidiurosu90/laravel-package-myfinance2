@@ -29,10 +29,10 @@ namespace ovidiuro\myfinance2\App\Services;
  *   - BUY (traded before, near the low): supported on a tiny sample. Beat it in all 5, median +45 points.
  *   - TRIM (held, near the high): no edge. Trailed in 56 % of 57 episodes (the base rate), median -2.5 points: selling
  *     near the high did no better than any day, and no worse.
- *   Done since: TRIM is an inbox card, not emailed (alerts.peak_proximity.range_emails lists ADD and BUY). If a rerun
- *   (finance:tier-signal-backtest) shows TRIM has an edge, list RANGE_HIGH there again; if it still has none, demand
- *   more for it (a higher near_high_pct, or RSI overbought as a condition rather than a severity) or drop its card
- *   (PeakProximityRangeSignals); the chip can keep reading the swing.
+ *   Done since: TRIM is an inbox card, not emailed (myfinance2.alerts.peak_proximity.range_emails lists ADD and BUY).
+ *   If a rerun (finance:tier-signal-backtest) shows TRIM has an edge, list RANGE_HIGH there again; if it still has
+ *   none, demand more for it (a higher near_high_pct, or RSI overbought as a condition rather than a severity) or drop
+ *   its card (PeakProximityRangeSignals); the chip can keep reading the swing.
  */
 final class RangeBoundPattern
 {
@@ -89,7 +89,7 @@ final class RangeBoundPattern
 
     public static function fromConfig(): self
     {
-        $cfg = (array) config('watchlistsymbols.range_bound', []);
+        $cfg = (array) config('myfinance2.watchlistsymbols.range_bound', []);
 
         return new self(
             (float) ($cfg['max_abs_1y_pct'] ?? 10.0),

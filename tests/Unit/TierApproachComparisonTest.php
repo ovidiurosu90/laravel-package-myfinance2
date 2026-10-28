@@ -26,7 +26,9 @@ class TierApproachComparisonTest extends TestCase
         parent::setUp();
         $container = new Container();
         $container->instance('config', new ConfigRepository([
-            'watchlistsymbols' => ['tier_history' => ['min_history_days' => 60, 'consistency_pct' => 50]],
+            'myfinance2' => [
+                'watchlistsymbols' => ['tier_history' => ['min_history_days' => 60, 'consistency_pct' => 50]],
+            ],
         ]));
         Container::setInstance($container);
         $this->_cmp = new Cmp();

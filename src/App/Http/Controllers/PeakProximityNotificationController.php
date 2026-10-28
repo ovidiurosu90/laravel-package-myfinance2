@@ -107,9 +107,10 @@ class PeakProximityNotificationController extends MyFinance2Controller
      */
     public function rerun(): \Illuminate\Http\RedirectResponse
     {
-        if (!config('alerts.peak_proximity.enabled', true)) {
+        if (!config('myfinance2.alerts.peak_proximity.enabled', true)) {
             return redirect()->route('myfinance2::peak-proximity-alerts.history')
-                ->with('error', 'Peak-proximity alerts are globally disabled (alerts.peak_proximity.enabled).');
+                ->with('error', 'Peak-proximity alerts are globally disabled '
+                    . '(myfinance2.alerts.peak_proximity.enabled).');
         }
 
         $userId = (int) auth()->user()->id;

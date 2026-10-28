@@ -203,7 +203,7 @@ class FinanceUtils
             return [];
         }
 
-        $currenciesReverseMapping = config('general.currencies_reverse_mapping');
+        $currenciesReverseMapping = config('myfinance2.general.currencies_reverse_mapping');
 
         $currencyPairs = [];
         foreach ($exchangeRateData as $exchangeRateIndex => $exchangeRateDataItem) {
@@ -388,7 +388,7 @@ class FinanceUtils
             );
         }
 
-        $currenciesMapping = config('general.currencies_mapping');
+        $currenciesMapping = config('myfinance2.general.currencies_mapping');
         $i = 0;
         foreach ($results as $result) {
             //NOTE If date is provided, we look at historical data

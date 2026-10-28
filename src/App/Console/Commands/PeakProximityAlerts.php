@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace ovidiuro\myfinance2\App\Console\Commands;
 
-use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
 use ovidiuro\myfinance2\App\Services\PeakProximityAlertService;
+use ovidiuro\myfinance2\App\Services\AppUser;
 
 /**
  * Daily exit-hint email when an open position is within N% of its 3M / 6M / 1Y / 2Y peak.
@@ -54,8 +54,8 @@ class PeakProximityAlerts extends Command
      */
     public function handle(): int
     {
-        if (!config('alerts.peak_proximity.enabled', true)) {
-            $this->info('Peak-proximity alerts are disabled (alerts.peak_proximity.enabled).');
+        if (!config('myfinance2.alerts.peak_proximity.enabled', true)) {
+            $this->info('Peak-proximity alerts are disabled (myfinance2.alerts.peak_proximity.enabled).');
             return Command::SUCCESS;
         }
 
@@ -99,7 +99,7 @@ class PeakProximityAlerts extends Command
         $totals = ['processed' => 0, 'triggered' => 0, 'info' => 0, 'skipped' => 0, 'failed' => 0];
 
         foreach ($userIds as $id) {
-            $user = User::find($id);
+            $user = AppUser::find($id);
             if (!$user) {
                 $this->warn("  User #{$id}: not found, skipping.");
                 continue;

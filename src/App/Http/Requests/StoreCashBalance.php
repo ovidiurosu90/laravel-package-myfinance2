@@ -3,29 +3,23 @@
 namespace ovidiuro\myfinance2\App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 use ovidiuro\myfinance2\App\Models\Account;
+use ovidiuro\myfinance2\App\Rules\OwnRecord;
 
 class StoreCashBalance extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
      *
-     * @return bool
+     * @return \Illuminate\Auth\Access\Response
      */
     public function authorize()
     {
-        if (config('cashbalances.guiCreateMiddlewareType') == 'role') {
-            return $this->user()->hasRole(
-                config('cashbalances.guiCreateMiddleware'));
-        }
-        if (config('cashbalances.guiCreateMiddlewareType') == 'permissions') {
-            return $this->user()->hasPermission(
-                config('cashbalances.guiCreateMiddleware'));
-        }
-
-        return false;
+        // The host app decides who manages this area (gate defined in its AuthServiceProvider).
+        return Gate::inspect('myfinance2.manage', 'cashbalances');
     }
 
     /**
@@ -35,12 +29,9 @@ class StoreCashBalance extends FormRequest
      */
     public function rules()
     {
-        $dbConnection = config('myfinance2.db_connection');
-        $tableName = $dbConnection . '.' . (new Account())->getTable();
-
         return [
             'timestamp'   => 'required|date_format:Y-m-d H:i:s',
-            'account_id'  => 'required|integer|exists:' . $tableName . ',id',
+            'account_id'  => ['required', 'integer', OwnRecord::of(Account::class)],
             'amount'      => 'required|numeric',
             'description' => 'nullable|string|max:512',
         ];

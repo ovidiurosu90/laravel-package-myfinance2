@@ -1,47 +1,49 @@
 {{-- "How these alerts work", on the Manage and Inbox pages, collapsed until the "How it works" toggle next to the
      page title opens it (partials/rules-toggle): the four kinds of alert (near peak, take profit, tier signal,
      range-bound), each led by its chip's icon, what gates each, and how reminders and the inbox work. Figures come
-     from config/alerts.php and config/watchlistsymbols.php (range_bound, weak_tier_profit, tier_history), so the
+     from myfinance2.alerts and myfinance2.watchlistsymbols (range_bound, weak_tier_profit, tier_history), so the
      text follows any change there. --}}
 @use('ovidiuro\myfinance2\App\Services\MoneyFormat')
 @php
     $periodMap   = ['3m' => '3M', '6m' => '6M', '1y' => '1Y', '2y' => '2Y'];
-    $exitTiers   = config('alerts.peak_proximity.exit_tiers', ['RUST', 'BRONZE']);
+    $exitTiers   = config('myfinance2.alerts.peak_proximity.exit_tiers', ['RUST', 'BRONZE']);
     $exitLabels  = collect($exitTiers)->map(fn ($t) => ucfirst(strtolower((string) $t)))->implode(' or ');
-    $meaningful  = config('alerts.peak_proximity.meaningful_windows', ['6m', '1y', '2y']);
+    $meaningful  = config('myfinance2.alerts.peak_proximity.meaningful_windows', ['6m', '1y', '2y']);
     $longLabels  = collect($meaningful)->map(fn ($w) => $periodMap[$w] ?? strtoupper($w))->implode(' / ');
-    $shortLabels = collect(config('alerts.peak_proximity.short_windows', ['3m']))
+    $shortLabels = collect(config('myfinance2.alerts.peak_proximity.short_windows', ['3m']))
         ->map(fn ($w) => $periodMap[$w] ?? strtoupper($w))->implode(', ');
-    $cadence     = config('alerts.peak_proximity.reminder_days_by_confluence', [1 => 7, 2 => 3, 3 => 1]);
+    $cadence     = config('myfinance2.alerts.peak_proximity.reminder_days_by_confluence', [1 => 7, 2 => 3, 3 => 1]);
     $cadenceText = collect($cadence)
         ->map(function ($days, $count) {
             $every = (int) $days === 1 ? 'daily' : "every {$days} days";
             $win   = (int) $count === 1 ? 'window' : 'windows';
             return "{$count} {$win} near peak: {$every}";
         })->implode('; ');
-    $rangeDays   = (int) config('alerts.peak_proximity.range_reminder_days', 7);
-    // The range-bound signals that email (alerts.peak_proximity.range_emails); the others are inbox cards only.
+    $rangeDays   = (int) config('myfinance2.alerts.peak_proximity.range_reminder_days', 7);
+    // The range-bound signals that email (myfinance2.alerts.peak_proximity.range_emails); the others are inbox cards
+    // only.
     $rangeKinds  = ['RANGE_HIGH' => 'TRIMs', 'RANGE_LOW' => 'ADDs', 'RANGE_BUY' => 'BUYs'];
-    $rangeListed = array_flip((array) config('alerts.peak_proximity.range_emails', []));
+    $rangeListed = array_flip((array) config('myfinance2.alerts.peak_proximity.range_emails', []));
     $rangeMail   = implode(', ', array_intersect_key($rangeKinds, $rangeListed));
     $rangeInbox  = implode(', ', array_diff_key($rangeKinds, $rangeListed));
-    $rangeTop    = 100 - (int) config('watchlistsymbols.range_bound.near_high_pct', 70);
-    $rangeBottom = (int) config('watchlistsymbols.range_bound.near_low_pct', 30);
-    $profitTiers = collect(config('watchlistsymbols.weak_tier_profit.tiers', ['RUST', 'BRONZE']))
+    $rangeTop    = 100 - (int) config('myfinance2.watchlistsymbols.range_bound.near_high_pct', 70);
+    $rangeBottom = (int) config('myfinance2.watchlistsymbols.range_bound.near_low_pct', 30);
+    $profitTiers = collect(config('myfinance2.watchlistsymbols.weak_tier_profit.tiers', ['RUST', 'BRONZE']))
         ->map(fn ($t) => ucfirst(strtolower((string) $t)))->implode(' or ');
-    $profitMin   = (float) config('watchlistsymbols.weak_tier_profit.min_gain_pct', 0);
+    $profitMin   = (float) config('myfinance2.watchlistsymbols.weak_tier_profit.min_gain_pct', 0);
     $profitText  = $profitMin > 0
         ? 'up more than ' . MoneyFormat::get_formatted_number_plain($profitMin, 0) . "\u{00A0}%"
         : 'in profit';
-    $profitDays  = (int) config('alerts.peak_proximity.take_profit_reminder_days', 7);
-    $signalDays  = (int) config('alerts.peak_proximity.tier_signal_reminder_days', 7);
-    $rareShare   = (int) config('watchlistsymbols.tier_history.rare_share_pct', 20);
-    $persistDays = (int) config('watchlistsymbols.tier_history.deteriorate_persist_days', 20);
-    $sizeHigh    = (int) config('watchlistsymbols.tier_history.size_high_pct', 5);
-    // The tier signals that email (alerts.peak_proximity.tier_signal_emails); the others are inbox cards only.
+    $profitDays  = (int) config('myfinance2.alerts.peak_proximity.take_profit_reminder_days', 7);
+    $signalDays  = (int) config('myfinance2.alerts.peak_proximity.tier_signal_reminder_days', 7);
+    $rareShare   = (int) config('myfinance2.watchlistsymbols.tier_history.rare_share_pct', 20);
+    $persistDays = (int) config('myfinance2.watchlistsymbols.tier_history.deteriorate_persist_days', 20);
+    $sizeHigh    = (int) config('myfinance2.watchlistsymbols.tier_history.size_high_pct', 5);
+    // The tier signals that email (myfinance2.alerts.peak_proximity.tier_signal_emails); the others are inbox cards
+    // only.
     $signalMail  = implode(', ', array_intersect_key(
         ['RARE_HIGH' => 'rare highs', 'RARE_LOW' => 'rare lows', 'DETERIORATING' => 'deteriorations'],
-        array_flip((array) config('alerts.peak_proximity.tier_signal_emails', []))
+        array_flip((array) config('myfinance2.alerts.peak_proximity.tier_signal_emails', []))
     ));
 @endphp
 <div class="card border-info mb-2 collapse" id="peak-alert-rules">

@@ -302,8 +302,8 @@ $(document).ready(function()
         $currencyExchangeElement.html("EURUSD " + currencyExchangeLast.time);
 
         const eurusdRate = parseFloat(currencyExchangeLast.value);
-        const buyUsdAbove = {{ config('trades.eurusd_thresholds.buy_usd_above') }};
-        const sellUsdBelow = {{ config('trades.eurusd_thresholds.sell_usd_below') }};
+        const buyUsdAbove = {{ config('myfinance2.trades.eurusd_thresholds.buy_usd_above') }};
+        const sellUsdBelow = {{ config('myfinance2.trades.eurusd_thresholds.sell_usd_below') }};
         if (eurusdRate > buyUsdAbove) {
             $('#eurusd-signal').html('<span class="badge bg-success">buy $</span>');
         } else if (eurusdRate < sellUsdBelow) {

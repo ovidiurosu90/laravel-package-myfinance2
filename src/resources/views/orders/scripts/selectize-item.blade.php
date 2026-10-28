@@ -79,7 +79,7 @@ $(document).ready(function ()
             if (symbol && accountId) {
                 $.ajax({
                     type: 'GET',
-                    url: "{{ url('/get-finance-data') }}",
+                    url: "{{ route('myfinance2::get-finance-data') }}",
                     data: { symbol: symbol, account_id: accountId },
                     success: function(data)
                     {

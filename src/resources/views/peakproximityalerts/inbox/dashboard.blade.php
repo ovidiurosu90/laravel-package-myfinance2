@@ -1,8 +1,8 @@
 @use('ovidiuro\myfinance2\App\Services\MoneyFormat')
 @use('ovidiuro\myfinance2\App\Services\TierCalculationService')
-@extends('layouts.app')
-@section('template_title', 'Peak-Proximity Inbox')
-@section('template_linked_css')
+@extends('myfinance2::layouts.app')
+@section('myfinance2_title', 'Peak-Proximity Inbox')
+@section('myfinance2_styles')
     @include('myfinance2::general.partials.styles')
 @endsection
 @php
@@ -33,7 +33,7 @@
         return $date->format('D, M j, Y');
     };
 @endphp
-@section('content')
+@section('myfinance2_content')
     <div class="container-fluid">
         <div class="row">
             <div class="col-sm-12">
@@ -53,7 +53,7 @@
                                     Dismissed
                                 </a>
                             </div>
-                            <a href="{{ url('/watchlist-symbols') }}"
+                            <a href="{{ route('myfinance2::watchlist-symbols.index') }}"
                                class="btn btn-outline-secondary btn-sm"
                                data-bs-toggle="tooltip"
                                title="Open the watchlist symbols dashboard">
@@ -187,6 +187,6 @@
         <div class="clearfix mb-4"></div>
     </div>
 @endsection
-@section('footer_scripts')
+@section('myfinance2_scripts')
     @include('myfinance2::general.scripts.tooltips')
 @endsection

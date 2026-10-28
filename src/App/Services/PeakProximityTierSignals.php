@@ -20,11 +20,11 @@ use ovidiuro\myfinance2\Mail\PeakProximityAlert;
  *
  * By default every signal is an inbox card for your awareness (INFO), never emailed: since the production rehearsal
  * (2026-10-13), as the first backtest found no edge for the rare highs and the rare lows the wrong way (figures in
- * TierSignalChip). A signal listed in alerts.peak_proximity.tier_signal_emails is ACTIONABLE and emails: a rare high
- * or low (it fades by design, in weeks) once when the episode opens, for a SELL / TRIM at once again when a long
- * window (6M / 1Y / 2Y) newly comes near its peak, else a reminder every tier_signal_reminder_days, until dismissed;
- * a deterioration (it can last months) once, when it opens, with no reminders. A dismissed deterioration stays
- * dismissed while the same drop lasts (it opened on or after the drop's first day); a new drop opens a new card.
+ * TierSignalChip). A signal listed in myfinance2.alerts.peak_proximity.tier_signal_emails is ACTIONABLE and emails: a
+ * rare high or low (it fades by design, in weeks) once when the episode opens, for a SELL / TRIM at once again when a
+ * long window (6M / 1Y / 2Y) newly comes near its peak, else a reminder every tier_signal_reminder_days, until
+ * dismissed; a deterioration (it can last months) once, when it opens, with no reminders. A dismissed deterioration
+ * stays dismissed while the same drop lasts (it opened on or after the drop's first day); a new drop opens a new card.
  * Shares the inbox, the opt-in, the history and the one-email-per-symbol-per-day guard with the other alerts (an
  * inbox-only signal takes no email, so a near-peak alert of the same symbol still goes that day).
  */
@@ -149,12 +149,12 @@ final class PeakProximityTierSignals
     }
 
     /**
-     * Whether alerts of this signal email (listed in alerts.peak_proximity.tier_signal_emails); the others are inbox
-     * cards for your awareness.
+     * Whether alerts of this signal email (listed in myfinance2.alerts.peak_proximity.tier_signal_emails); the others
+     * are inbox cards for your awareness.
      */
     public static function emails(string $signal): bool
     {
-        return in_array($signal, (array) config('alerts.peak_proximity.tier_signal_emails', []), true);
+        return in_array($signal, (array) config('myfinance2.alerts.peak_proximity.tier_signal_emails', []), true);
     }
 
     public static function isDrop(array $chip): bool
@@ -212,7 +212,7 @@ final class PeakProximityTierSignals
         if ($isSell && !empty(array_diff($meaningful, $previous))) {
             return true;
         }
-        $days = (int) config('alerts.peak_proximity.tier_signal_reminder_days', 7);
+        $days = (int) config('myfinance2.alerts.peak_proximity.tier_signal_reminder_days', 7);
 
         return $event->last_emailed_at->lte(now()->subDays($days));
     }

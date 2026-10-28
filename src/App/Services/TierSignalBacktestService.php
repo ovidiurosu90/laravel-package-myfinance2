@@ -39,8 +39,8 @@ final class TierSignalBacktestService
     ): array
     {
         $from        = $from ?: $this->_defaultFrom();
-        $rareShare   = $rareShare ?? (float) config('watchlistsymbols.tier_history.rare_share_pct', 20);
-        $consistency = $consistency ?? (float) config('watchlistsymbols.tier_history.consistency_pct', 50);
+        $rareShare   = $rareShare ?? (float) config('myfinance2.watchlistsymbols.tier_history.rare_share_pct', 20);
+        $consistency = $consistency ?? (float) config('myfinance2.watchlistsymbols.tier_history.consistency_pct', 50);
         $key = 'myfinance2.tier_signal_backtest.' . $userId . '.' . $from . '.' . $rareShare . '.' . $consistency;
         if ($refresh) {
             Cache::forget($key);
@@ -70,7 +70,7 @@ final class TierSignalBacktestService
     private function _run(int $userId, string $from, float $rareShare, float $consistency): array
     {
         $data = $this->_load($userId);
-        $cfg  = config('watchlistsymbols.tier_history', []);
+        $cfg  = config('myfinance2.watchlistsymbols.tier_history', []);
         $resolver = new SettledTierResolver(
             $consistency,
             (int) ($cfg['min_history_days'] ?? 60),
@@ -113,7 +113,7 @@ final class TierSignalBacktestService
         // behind it): the forward returns start there and the range-bound reading needs its 52-week range. The
         // missing span before stats_historical comes from HistoricalPriceCache, under the same cache entries the
         // watchlist's 2-year windows keep warm (keyed by the start's year and the gap's last month).
-        $minDays = (int) config('watchlistsymbols.tier_history.min_history_days', 60);
+        $minDays = (int) config('myfinance2.watchlistsymbols.tier_history.min_history_days', 60);
         $first   = null;
         foreach ($history as $rows) {
             $date  = array_keys($rows)[$minDays] ?? null;
@@ -151,6 +151,6 @@ final class TierSignalBacktestService
 
     private function _defaultFrom(): string
     {
-        return (string) config('watchlistsymbols.tier_history.start_date', '2025-01-01');
+        return (string) config('myfinance2.watchlistsymbols.tier_history.start_date', '2025-01-01');
     }
 }

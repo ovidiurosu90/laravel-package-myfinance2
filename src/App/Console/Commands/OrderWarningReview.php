@@ -4,18 +4,19 @@ declare(strict_types=1);
 
 namespace ovidiuro\myfinance2\App\Console\Commands;
 
-use App\Models\User;
 use Illuminate\Console\Command;
 
 use ovidiuro\myfinance2\App\Services\MoneyFormat;
 use ovidiuro\myfinance2\App\Services\OrderTierWarnings;
 use ovidiuro\myfinance2\App\Services\OrderWarningReview as Review;
+use ovidiuro\myfinance2\App\Services\AppUser;
 
 /**
  * Calibration of the order warnings (step 0 of the order tier readings): rebuilds the tier reading of every past
  * trade's day, evaluates the order warnings on it and prints, per action and per code, how often it fired and how
  * those decisions did against VUSA.AS 21 / 63 / 126 trading days later, next to every decision of that action; then
- * the level the decision rule suggests and the config to paste (watchlistsymbols.order_warnings.levels). Read-only.
+ * the level the decision rule suggests and the config to paste (myfinance2.watchlistsymbols.order_warnings.levels).
+ * Read-only.
  */
 class OrderWarningReview extends Command
 {
@@ -36,7 +37,7 @@ class OrderWarningReview extends Command
     public function handle(): int
     {
         $userId = (int) $this->option('user-id');
-        if ($userId <= 0 || !User::find($userId)) {
+        if ($userId <= 0 || !AppUser::find($userId)) {
             $this->error('Provide --user-id=N of an existing user.');
             return Command::FAILURE;
         }
@@ -100,7 +101,7 @@ class OrderWarningReview extends Command
             . max(Review::HORIZONS) . ' days, at least ' . Review::MIN_DECISIONS . ' decisions, fires on under '
             . $this->_num(Review::MAX_SHARE_PCT, 0) . '% of them)');
         $this->table(['Code', 'Configured', 'Suggested', 'Why'], $rows);
-        $this->line("Paste into config watchlistsymbols.order_warnings.levels:\n" . implode("\n", $snippet));
+        $this->line("Paste into config myfinance2.watchlistsymbols.order_warnings.levels:\n" . implode("\n", $snippet));
     }
 
     private function _printDetails(array $decisions): void

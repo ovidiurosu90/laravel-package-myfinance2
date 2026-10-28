@@ -1,12 +1,13 @@
 {{-- How a tier is decided, in the health card's help text. Follows the configured basis
-     (watchlistsymbols.tier_basis): the 1Y market return for every symbol, or the legacy own-return rule. --}}
+     (myfinance2.watchlistsymbols.tier_basis): the 1Y market return for every symbol, or the legacy own-return rule.
+     --}}
 @php
     use ovidiuro\myfinance2\App\Services\MoneyFormat;
 
-    $isMarketBasis = config('watchlistsymbols.tier_basis', 'market') === 'market';
-    $consistency   = (float) config('watchlistsymbols.tier_history.consistency_pct', 50);
-    $minDays       = (int) config('watchlistsymbols.tier_history.min_history_days', 60);
-    $persistDays   = (int) config('watchlistsymbols.tier_history.deteriorate_persist_days', 20);
+    $isMarketBasis = config('myfinance2.watchlistsymbols.tier_basis', 'market') === 'market';
+    $consistency   = (float) config('myfinance2.watchlistsymbols.tier_history.consistency_pct', 50);
+    $minDays       = (int) config('myfinance2.watchlistsymbols.tier_history.min_history_days', 60);
+    $persistDays   = (int) config('myfinance2.watchlistsymbols.tier_history.deteriorate_persist_days', 20);
     $shareText     = $consistency === 50.0
         ? 'at least half of the last 12 months\' trading days (the median daily reading)'
         : 'at least ' . MoneyFormat::get_formatted_number_plain($consistency, 0)

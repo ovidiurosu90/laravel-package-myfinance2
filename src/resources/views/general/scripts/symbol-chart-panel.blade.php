@@ -4,7 +4,7 @@
     Reloads on symbol blur, on the Get Finance Data button and on the Listed/Unlisted
     toggle.
 
-    Usage (in footer_scripts, after the page's own finance script):
+    Usage (in myfinance2_scripts, after the page's own finance script):
         @include('myfinance2::general.scripts.symbol-chart-panel')
 --}}
 <script type="module">
@@ -71,7 +71,7 @@ $(document).ready(function()
 
     // Mirrors UnlistedSymbol::isUnlisted: the trades form's Listed/Unlisted toggle
     // prefixes the symbol, and unlisted symbols have no price history to chart.
-    const unlistedPrefix = '{{ config('trades.unlisted') }}';
+    const unlistedPrefix = '{{ config('myfinance2.trades.unlisted') }}';
 
     function loadSymbol()
     {
@@ -84,7 +84,7 @@ $(document).ready(function()
         const myReq = ++reqId;
         $.ajax({
             type: 'GET',
-            url: "{{ url('/get-symbol-chart') }}",
+            url: "{{ route('myfinance2::get-symbol-chart') }}",
             data: { symbol: symbol },
             success: function(data)
             {

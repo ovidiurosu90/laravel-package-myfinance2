@@ -101,7 +101,7 @@ class ReturnsCurrencyConverter
             return [];
         }
 
-        $config = config('trades.fees_exclusions', []);
+        $config = config('myfinance2.trades.fees_exclusions', []);
 
         // Check for account-specific overrides first, then fall back to global
         $byAccount = $config['by_account'] ?? [];

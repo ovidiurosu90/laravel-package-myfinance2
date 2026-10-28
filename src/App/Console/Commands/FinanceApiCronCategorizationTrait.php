@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace ovidiuro\myfinance2\App\Console\Commands;
 
 use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 use ovidiuro\myfinance2\App\Services\CategorizationService;
 use ovidiuro\myfinance2\App\Services\TierHistoryRecorder;
+use ovidiuro\myfinance2\App\Services\AppUser;
 
 trait FinanceApiCronCategorizationTrait
 {
@@ -26,7 +26,7 @@ trait FinanceApiCronCategorizationTrait
         Log::info('START app:finance-api-cron refreshCategorization()');
 
         try {
-            $userIds   = DB::table('users')->pluck('id');
+            $userIds   = AppUser::allIds();
             $service   = new CategorizationService();
             $processed = 0;
 
@@ -60,7 +60,7 @@ trait FinanceApiCronCategorizationTrait
             $started = microtime(true);
             $today   = Carbon::today();
             $from    = TierHistoryRecorder::weekdaysBefore(
-                $today, (int) config('watchlistsymbols.tier_history.recent_rewrite_days', 7)
+                $today, (int) config('myfinance2.watchlistsymbols.tier_history.recent_rewrite_days', 7)
             );
             $summary = (new TierHistoryRecorder())->recordRange(
                 $userId, $from, $today, null, TierHistoryRecorder::SOURCE_CRON

@@ -29,7 +29,48 @@ return [
         ],
     ],
 
-    'myfinance2_invite_token' => env('MYFINANCE2_INVITE_TOKEN'),
+    // The app's layout every MyFinance2 page renders in (e.g. 'layouts.app'), and the names of its sections that take
+    // the page's title, styles (<head>), content and scripts (end of <body>). Empty: the package's own minimal page
+    // (myfinance2::layouts.standalone), whose sections are these defaults.
+    'layout'          => null,
+    'layout_sections' => [
+        'title'   => 'title',
+        'styles'  => 'styles',
+        'content' => 'content',
+        'scripts' => 'scripts',
+    ],
+
+    // Every page loads the package's prebuilt JS / CSS (public/vendor/myfinance2/myfinance2.js / .css: charts, date
+    // pickers, toggles), which use the page's jQuery. With an app layout, turn this on when that layout does not load
+    // jQuery, Bootstrap, DataTables, selectize and Font Awesome itself: the package then loads its own
+    // (myfinance2-base.js / .css). The standalone layout always does.
+    'base_assets' => false,
+
+    // Show the outcome of the last action (saved, deleted, failed) and validation errors above each page. Turn it off
+    // when the app's layout already shows the session's 'success' / 'error' messages and $errors.
+    'flash_messages' => true,
+
+    // The host's config key holding its list of navbar menu partials (e.g. 'navigation.menus'); when set, the package
+    // adds 'myfinance2::partials.nav' to that list. Empty: the host includes the partial itself, or not at all.
+    'navbar_registry' => null,
+
+    // URL prefix of every MyFinance2 page and AJAX endpoint, e.g. 'finance' for /finance/positions; empty: at the root
+    // (/positions). Links are built from the route names (myfinance2::...), which never change.
+    'route_prefix' => env('MYFINANCE2_ROUTE_PREFIX', ''),
+
+    // Extra middleware for every MyFinance2 page and AJAX endpoint, e.g. the app's activity log or blocker; set it in
+    // the app's config/myfinance2.php. They run after 'web' and before the access gate (can:myfinance2.access), which
+    // are always applied and cannot be configured away (README, "Authorization").
+    'middleware' => [],
+
+    // The app's user model (MyFinance2 records belong to its users); empty: the model of the app's 'users' auth
+    // provider (App\Services\AppUser).
+    'user_model' => env('MYFINANCE2_USER_MODEL'),
+
+    // The migrations' user_id columns reference the users table with a cross-database foreign key, which needs both
+    // databases on the same MySQL server. Set to false before the first migrate when the users live elsewhere: a plain
+    // index then (AppUser::addUserIdKey()).
+    'users_foreign_key' => env('MYFINANCE2_USERS_FOREIGN_KEY', true),
 
     // Safety net for /positions, /watchlist-symbols and /returns (PositionsReconciliationService,
     // WatchlistReconciliationService, ReturnsReconciliationService). Each cross-checks the figures
