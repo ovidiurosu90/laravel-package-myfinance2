@@ -387,6 +387,8 @@ class Positions
 
                 $position['pre_market_price'] = !empty($quote['pre_market_price']) ?
                      $quote['pre_market_price'] : false;
+                // The pre-market figures come from the overnight session (OvernightSession).
+                $position['overnight_market'] = !empty($quote['overnight_market']);
                 $position['pre_market_day_change'] =
                     !empty($quote['pre_market_day_change'])
                     ? $quote['pre_market_day_change'] : false;

@@ -21,7 +21,7 @@ $(document).ready(function()
     {
         $fetchedTargetPrice.find('span')
             .text(data.price)
-            .attr('data-bs-original-title', data.quote_timestamp)
+            .attr('data-bs-original-title', fetchedPriceTitle(data))
             .end().show();
     };
 

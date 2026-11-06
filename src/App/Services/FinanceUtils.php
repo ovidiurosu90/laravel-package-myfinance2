@@ -25,7 +25,8 @@ class FinanceUtils
      * @param string $symbol
      * @param string|null $timestamp
      *
-     * @return array(price, currency, name, quote_timestamp) or null if failure
+     * @return array(price, currency, name, quote_timestamp, quote_session, ...) or null if failure;
+     *         price is the latest one (pre / post-market included) unless $timestamp is a past day
      */
     public function getFinanceDataBySymbol(string $symbol, ?string $timestamp = null): ?array
     {
@@ -36,16 +37,13 @@ class FinanceUtils
         }
 
         // LOG::debug('quote'); LOG::debug(var_export($quote, true));
-        $price = $quote->getRegularMarketPrice();
         $currency = $quote->getCurrency();
         $name = $quote->getLongName();
-        $quoteTimestamp = $quote->getRegularMarketTime();
 
-        // The current (last) price reflects pre/post-market when the live quote carries it, so
-        // surfaces that show a single current value (the range-bar marker) match the live price in
-        // the quote header instead of lagging on the regular close. For a historical lookup the
-        // close is the only meaningful "current" value.
-        $currentPrice = self::_effectiveCurrentPrice($quote, $price);
+        // The latest price, including pre/post-market when the live quote carries it, dated by
+        // its own session time: the same price getQuotes() gives the positions and watchlist, so
+        // the order / trade / alert forms prefill and describe against the price the user sees.
+        [$price, $quoteTimestamp, $session] = self::_latestPrice($quote);
 
         if (!empty($timestamp) && // Has timestamp
             date('Ymd') > date('Ymd', strtotime($timestamp)) // in the past
@@ -61,7 +59,7 @@ class FinanceUtils
             // LOG::debug(var_export($historicalData, true));
             $price = $historicalData->getClose();
             $quoteTimestamp = $historicalData->getDate();
-            $currentPrice = $price;
+            $session = null;
         }
 
         /*
@@ -76,15 +74,15 @@ class FinanceUtils
         // Closing-based 52-week range (highest / lowest daily close over the past year, native
         // currency, dated) so the chart modal can show it as the primary range alongside Yahoo's
         // intraday high / low. Null fields when there is no usable history.
-        $livePrice = is_numeric($currentPrice) ? (float) $currentPrice : null;
+        $livePrice = is_numeric($price) ? (float) $price : null;
         $closing = $this->closingExtremesNative($symbol, $livePrice);
 
         return [
             'price'           => $price,
-            'current_price'   => $currentPrice,
             'currency'        => $currency,
             'name'            => $name,
             'quote_timestamp' => $quoteTimestamp,
+            'quote_session'   => $session,
 
             'fiftyTwoWeekHigh'              => $quote->getFiftyTwoWeekHigh(),
             'fiftyTwoWeekHighChangePercent' =>
@@ -101,24 +99,34 @@ class FinanceUtils
     }
 
     /**
-     * Effective "current" price for a live quote: the pre or post-market value when Yahoo provides
-     * one, otherwise the regular-session price. Mirrors the pre/post overwrite getQuotes() applies,
-     * so a surface showing a single current price (e.g. the 52-week range-bar marker) matches the
-     * live price in the quote header rather than lagging on the regular close. Pre and post-market
-     * never overlap; pre takes precedence to match getQuotes().
+     * The latest price of a live quote with its time and session: the overnight, pre or post-market
+     * value when Yahoo provides one, otherwise the regular-session price. Mirrors the overwrites
+     * getQuotes() applies (overnight when it is the newest, then pre, then post); a session without
+     * its own time falls back to the regular-session time. The time is not yet timezone-fixed.
      *
-     * @param mixed $regularPrice Regular-session price to fall back to.
-     * @return mixed
+     * @return array{0: mixed, 1: mixed, 2: ?string} [price, time, 'overnight' | 'pre' | 'post' | null]
      */
-    private static function _effectiveCurrentPrice(Quote $quote, $regularPrice)
+    private static function _latestPrice(Quote $quote): array
     {
+        $overnight = OvernightSession::latest($quote);
+        if ($overnight !== null) {
+            return [$overnight[0], $overnight[1], 'overnight'];
+        }
         if (!empty($quote->getPreMarketPrice())) {
-            return $quote->getPreMarketPrice();
+            return [
+                $quote->getPreMarketPrice(),
+                $quote->getPreMarketTime() ?? $quote->getRegularMarketTime(),
+                'pre',
+            ];
         }
         if (!empty($quote->getPostMarketPrice())) {
-            return $quote->getPostMarketPrice();
+            return [
+                $quote->getPostMarketPrice(),
+                $quote->getPostMarketTime() ?? $quote->getRegularMarketTime(),
+                'post',
+            ];
         }
-        return $regularPrice;
+        return [$quote->getRegularMarketPrice(), $quote->getRegularMarketTime(), null];
     }
 
     /**
@@ -554,6 +562,9 @@ class FinanceUtils
                 $quotesArray[$sym]['day_change_percentage']          = (float) $preMarketChangePct;
                 $quotesArray[$sym]['pre_market_day_change_percentage'] = true;
             }
+
+            // Overnight (US stocks, 20:00 to 04:00 New York time): shown as pre-market, see the class.
+            $quotesArray[$sym] = OvernightSession::apply($quotesArray[$sym], $quote);
 
             // Recompute the 52-week high/low change percentages against the effective price (which
             // includes pre/post-market) so the watchlist "% High" / "% Low" columns stay consistent

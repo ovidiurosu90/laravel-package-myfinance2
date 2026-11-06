@@ -294,12 +294,20 @@ class PriceAlertsRelativeTargetFeatureTest extends TestCase
         $this->assertEqualsWithDelta(300.0, (float) $this->_latestAlert()->target_price, 0.000001);
     }
 
-    public function test_store_rejects_relative_target_on_order_alert(): void
+    /**
+     * A new alert follows no order (the "expire order, then create alert" flow tags it source =
+     * order), so it can use a relative target.
+     */
+    public function test_store_accepts_relative_target_on_order_alert(): void
     {
         $this->_seedCloses(self::SYMBOL, 400, 100.0);
 
         $this->_post(route('myfinance2::price-alerts.store'), $this->_relativePayload(['source' => 'order']))
-            ->assertSessionHasErrors('target_mode');
+            ->assertSessionHasNoErrors();
+
+        $alert = $this->_latestAlert();
+        $this->assertSame('order', $alert->source);
+        $this->assertSame('RELATIVE', $alert->target_mode);
     }
 
     public function test_store_rejects_window_without_enough_history(): void
@@ -389,6 +397,43 @@ class PriceAlertsRelativeTargetFeatureTest extends TestCase
         $this->assertEqualsWithDelta(100.0, $response->json('live_price'), 0.000001);
         $this->assertEqualsWithDelta(125.0, $response->json('references.HIGH:1y.price'), 0.000001);
         $this->assertCount(8, $response->json('references'));
+    }
+
+    /**
+     * The target value sits next to its mode: a FIXED alert shows the target price, a RELATIVE one
+     * the reference ± offset in its place (the other one hidden until the mode is switched).
+     */
+    public function test_edit_form_shows_only_the_target_of_the_saved_mode(): void
+    {
+        $relative = $this->_insertAlert($this->_user->id, ['alert_type' => 'PRICE_BELOW']);
+        $fixed    = $this->_insertAlert($this->_user->id, [
+            'target_mode' => 'FIXED', 'reference_type' => null, 'reference_window' => null, 'offset_pct' => null,
+        ]);
+
+        // Full middleware stack: the form reads $errors, which ShareErrorsFromSession provides
+        $html = $this->actingAs($this->_user)->get(route('myfinance2::price-alerts.edit', $relative->id))
+            ->assertOk()->getContent();
+        $this->assertMatchesRegularExpression('/id="fixed-target-col"\s+style="display: none"/', $html);
+        $this->assertDoesNotMatchRegularExpression('/id="relative-target-col"\s+style="display: none"/', $html);
+
+        $html = $this->actingAs($this->_user)->get(route('myfinance2::price-alerts.edit', $fixed->id))
+            ->assertOk()->getContent();
+        $this->assertDoesNotMatchRegularExpression('/id="fixed-target-col"\s+style="display: none"/', $html);
+        $this->assertMatchesRegularExpression('/id="relative-target-col"\s+style="display: none"/', $html);
+    }
+
+    /**
+     * A RELATIVE form does not submit a target price (the field is hidden); the server resolves it.
+     */
+    public function test_store_relative_alert_without_a_target_price(): void
+    {
+        $this->_seedCloses(self::SYMBOL, 400, 100.0);
+        $payload = $this->_relativePayload();
+        unset($payload['target_price']);
+
+        $this->_post(route('myfinance2::price-alerts.store'), $payload)->assertSessionHasNoErrors();
+
+        $this->assertEqualsWithDelta(95.0, (float) $this->_latestAlert()->target_price, 0.000001);
     }
 
     public function test_edit_form_preview_wording_and_currency_placement(): void

@@ -73,8 +73,9 @@ class PositionsController extends MyFinance2Controller
                     // can never show different figures.
                     $detail = (new DipBuyingBacktestService())->panelDetail($userId, $plan);
 
+                    // The plan on the current episode's basis: the same dip the email and its history use.
                     $data['dipPresent'] = DipBuyingPresenter::make(
-                        $plan, $detail['current'], $detail['firstBand'], $detail['regime']
+                        $detail['plan'], $detail['current'], $detail['firstBand'], $detail['regime']
                     );
                     // The shared current-episode card is included with the raw episode + first band.
                     $data['dipCurrent']   = $detail['current'];

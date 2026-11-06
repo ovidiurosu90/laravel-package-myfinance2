@@ -1,12 +1,16 @@
-{{-- Relative target preview on the alert form (create and edit). Fetches the closing highs / lows
-     of the symbol once (price-alerts/references) and recomputes the read-only target on every
-     input change. The business rule (offset direction, coverage) comes from the server; the
-     script only multiplies the returned reference. The server re-resolves the target on save. --}}
+{{-- Target mode on the alert form (create and edit): FIXED shows the target price, RELATIVE the
+     reference ± offset in its place, each mode keeping its own value. The relative preview fetches
+     the closing highs / lows of the symbol once (price-alerts/references) and recomputes the target
+     on every input change into the hidden (disabled, so never submitted) target price, which the
+     notes text reads. The business rule (offset direction, coverage) comes from the server; the
+     script only multiplies the returned reference. The server resolves the target on save. --}}
 <script type="module">
 $(document).ready(function()
 {
     var $modeInputs    = $('input[name="target_mode"]');
     var $relativeRow   = $('#relative-target-inputs');
+    var $relativeCol   = $('#relative-target-col');
+    var $fixedCol      = $('#fixed-target-col');
     var $offsetInput   = $('#offset_pct');
     var $referenceKey  = $('#reference_key-select');
     var $targetInput   = $('#target_price');
@@ -18,6 +22,10 @@ $(document).ready(function()
 
     var referenceData  = null;
     var referenceFetch = 0;
+    // The fixed price to restore when switching back from RELATIVE (null: keep the last computed
+    // relative target, e.g. an alert saved as RELATIVE switched to a fixed price).
+    var fixedPrice     = null;
+    var wasRelative    = null;
 
     var isRelative = function()
     {
@@ -164,16 +172,25 @@ $(document).ready(function()
     {
         var relative = isRelative();
 
-        // Disabled while hidden, so a FIXED alert never submits (or browser-validates) them.
-        $relativeRow.toggle(relative).find('select, input').prop('disabled', !relative);
-        $targetInput.prop('readonly', relative).prop('required', !relative);
+        // The hidden mode's inputs are disabled, so they are never submitted (or browser-validated).
+        $relativeCol.toggle(relative);
+        $relativeRow.find('select, input').prop('disabled', !relative);
+        $fixedCol.toggle(!relative);
+        $targetInput.prop('disabled', relative).prop('required', !relative);
 
         if (relative) {
+            if (wasRelative === false) {
+                fixedPrice = $targetInput.val();
+            }
             fetchReferences();
         } else {
+            if (wasRelative === true && fixedPrice !== null) {
+                $targetInput.val(fixedPrice).trigger('input');
+            }
             $targetInput.attr('title', '');
             $preview.hide();
         }
+        wasRelative = relative;
     };
 
     $modeInputs.on('change', applyMode);

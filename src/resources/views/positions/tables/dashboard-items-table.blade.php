@@ -5,9 +5,11 @@
     // the market status, and each affected figure only carries a small marker.
     $hasPreSession = false;
     $hasPostSession = false;
+    $hasOvernightSession = false;
     foreach ($items as $sessionItem) {
         $hasPreSession = $hasPreSession || !empty($sessionItem['pre_market_price']);
         $hasPostSession = $hasPostSession || !empty($sessionItem['post_market_price']);
+        $hasOvernightSession = $hasOvernightSession || !empty($sessionItem['overnight_market']);
     }
 @endphp
 <div class="table-responsive">
@@ -105,6 +107,7 @@
                             'price'              => $item['price'] ?? null,
                             'timestamp'          => $item['quote_timestamp_formatted'],
                             'isPreMarket'        => !empty($item['pre_market_price']),
+                            'isOvernight'        => !empty($item['overnight_market']),
                             'isPostMarket'       => !empty($item['post_market_price']),
                             'dayChange'          => $item['day_change'] ?? null,
                             'dayChangePct'       => $item['day_change_percentage'] ?? null,
@@ -123,6 +126,7 @@
                         'price'              => $item['price'] ?? null,
                         'timestamp'          => $item['quote_timestamp_formatted'],
                         'isPreMarket'        => !empty($item['pre_market_price']),
+                        'isOvernight'        => !empty($item['overnight_market']),
                         'isPostMarket'       => !empty($item['post_market_price']),
                         'dayChange'          => $item['day_change'] ?? null,
                         'dayChangePct'       => $item['day_change_percentage'] ?? null,
@@ -135,9 +139,9 @@
                         'marketOpen'         => !empty($item['marketUtils'])
                             && $item['marketUtils']->isOpen(),
                         'content'            => $item['current_unit_price_in_trade_currency_formatted'],
-                    ])@include('myfinance2::general.partials.session-marker', [
-                        'session' => $rowSession,
-                    ])<br>
+                    ]){{-- As on the watchlist, the row-level session pill rides alongside the price; it
+                          stands in for the marker here, which would only repeat what the pill says. --}}
+                    {!! MarketUtils::getSessionBadgeFormatted($rowSession) !!}<br>
                     <div class="chart-symbol"
                         data-account_id="{{ $accountId }}"
                         data-symbol="{{ $item['symbol'] }}"
@@ -152,7 +156,7 @@
                 <td class="text-nowrap">
                     <div class="row m-0">
                         {!! !empty($item['marketUtils'])
-                            ? $item['marketUtils']->getMarketStatusFormatted($rowSession)
+                            ? $item['marketUtils']->getMarketStatusFormatted()
                             : '' !!}
                     </div>
                 </td>
@@ -162,6 +166,7 @@
                         'price'              => $item['price'] ?? null,
                         'timestamp'          => $item['quote_timestamp_formatted'],
                         'isPreMarket'        => !empty($item['pre_market_price']),
+                        'isOvernight'        => !empty($item['overnight_market']),
                         'isPostMarket'       => !empty($item['post_market_price']),
                         'dayChange'          => $item['day_change'] ?? null,
                         'dayChangePct'       => $item['day_change_percentage'] ?? null,
@@ -343,6 +348,7 @@
     @include('myfinance2::general.partials.session-legend', [
         'hasPreSession'  => $hasPreSession,
         'hasPostSession' => $hasPostSession,
+        'hasOvernightSession' => $hasOvernightSession,
     ])
 
     <div class="clearfix mb-3"></div>

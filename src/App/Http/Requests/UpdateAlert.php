@@ -11,7 +11,6 @@ use Illuminate\Validation\Rule;
 
 use ovidiuro\myfinance2\App\Http\Requests\Concerns\ValidatesRelativeTarget;
 use ovidiuro\myfinance2\App\Models\Currency;
-use ovidiuro\myfinance2\App\Models\PriceAlert;
 use ovidiuro\myfinance2\App\Rules\OwnRecord;
 
 class UpdateAlert extends FormRequest
@@ -64,15 +63,5 @@ class UpdateAlert extends FormRequest
             'notes'             => $this->notes,
             'expires_at'        => $this->expires_at,
         ], $this->relativeTargetFillData());
-    }
-
-    /**
-     * The source is not editable, so it comes from the stored alert.
-     */
-    protected function alertSource(): ?string
-    {
-        $id = $this->route('price_alert');
-
-        return $id !== null ? PriceAlert::find((int) $id)?->source : null;
     }
 }

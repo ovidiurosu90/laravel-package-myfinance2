@@ -1,6 +1,9 @@
 @use('ovidiuro\myfinance2\App\Services\MoneyFormat')
 @use('ovidiuro\myfinance2\App\Services\TierVerdictPresenter')
-<table class="table table-sm table-striped data-table order-items-table">
+{{-- prefilter-active + data-active: hides the rows the Active view drops until the script applies its filter
+     (general/partials/styles). --}}
+<table class="table table-sm table-striped data-table order-items-table
+              {{ $view === 'active' ? 'prefilter-active' : '' }}">
         <thead class="thead">
             <tr role="row">
                 <th>Id</th>
@@ -17,8 +20,9 @@
                 <th>Action</th>
                 <th class="text-right text-nowrap no-search">
                     Limit <i class="fas fa-info-circle fa-xs text-muted" aria-hidden="true" data-bs-toggle="tooltip"
-                        title="The limit price; beneath, today's price and how far the limit is from it. Sorts by that
-                            gap."></i>
+                        title="The limit price (▼ a BUY fills at or below it, ▲ a SELL at or above); beneath, today's
+                            price and, for an open order, how far it has to move to reach the limit, or Reached when
+                            it is past it. Sorts by that distance, reached first."></i>
                 </th>
                 <th class="text-right text-nowrap">
                     <span data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
@@ -54,7 +58,7 @@
                     ])->render()
                     : '';
             @endphp
-            <tr>
+            <tr data-active="{{ $item->isOpen() ? '1' : '0' }}">
                 <td>{{ $item->id }}</td>
                 <td data-order="{{ $item->placed_at ? $item->placed_at->timestamp : 0 }}">
                     <span class="badge {{ $item->getStatusBadgeClass() }}">
@@ -139,53 +143,16 @@
                         @endforeach
                     @endif
                 </td>
+                @php
+                    $distance = $item->isOpen() && $cp !== null && $item->limit_price
+                        ? $item->limitDistance((float) $cp) : null;
+                @endphp
+                {{-- Sorts like the alerts' Target Price: reached first (furthest past the limit), then by how far
+                     the price still has to move; orders without a distance (closed, no quote) last. --}}
                 <td class="text-right text-nowrap"
-                    data-order="{{ $cp !== null && $item->limit_price
-                        ? (float) $item->limit_price - $cp
-                        : -999999 }}">
-                    @if ($cp !== null && $item->limit_price && $currencyCode)
-                        @php
-                            $delta     = (float) $item->limit_price - $cp;
-                            $deltaPct  = $cp > 0 ? ($delta / $cp) * 100 : 0;
-                            $deltaSign = $delta >= 0 ? '+' : '−';
-                        @endphp
-                        {{-- The limit price, then today's price and how far the limit is from it (stacked, so
-                             the column stays narrow; the gap in money in the % tooltip). The two parts of the second
-                             line wrap onto two lines when the column is tight. --}}
-                        <div class="text-nowrap">{!! $item->getFormattedLimitPrice() !!}</div>
-                        <div class="text-muted small text-wrap">
-                            <span class="d-inline-block text-nowrap">now
-                            @include('myfinance2::partials.price-tooltip', [
-                                'currency'           => $currencyCode,
-                                'price'              => $qd['price'] ?? null,
-                                'timestamp'          => $qd['quote_timestamp'] ?? null,
-                                'isPreMarket'        => !empty($qd['pre_market_price']),
-                                'isPostMarket'       => !empty($qd['post_market_price']),
-                                'dayChange'          => $qd['day_change'] ?? null,
-                                'dayChangePct'       => $qd['day_change_pct'] ?? null,
-                                'regularPrice'       => $qd['regular_market_price'] ?? null,
-                                'regularTimestamp'   => $qd['regular_market_timestamp'] ?? null,
-                                'regularDayChange'   => $qd['regular_market_day_change'] ?? null,
-                                'regularDayChangePct'=> $qd['regular_market_day_change_pct'] ?? null,
-                                'postChange'         => $qd['post_market_change'] ?? null,
-                                'postChangePct'      => $qd['post_market_change_pct'] ?? null,
-                                'marketOpen'         => $qd['market_open'] ?? false,
-                                'content'            => MoneyFormat::get_formatted_price_display($currencyCode, $cp, true),
-                            ])</span>
-                            <span class="d-inline-block text-nowrap" data-bs-toggle="tooltip"
-                                title="Limit vs now: {{ $deltaSign }}{{ html_entity_decode(strip_tags(
-                                    MoneyFormat::get_formatted_price_display($currencyCode, abs($delta))
-                                ), ENT_QUOTES | ENT_HTML5, 'UTF-8') }}"
-                                >{{ $deltaSign }}{{ MoneyFormat::get_formatted_pct(abs($deltaPct)) }}%</span>
-                        </div>
-                    @else
-                        {!! $item->getFormattedLimitPrice() !!}
-                    @endif
-                    @if ($item->exchange_rate && $item->exchange_rate != 1)
-                        <div class="text-nowrap text-muted small">
-                            FX {{ $item->exchange_rate + 0 }}
-                        </div>
-                    @endif
+                    data-order="{{ $distance && $distance['pct'] !== null
+                        ? ($distance['reached'] ? -$distance['pct'] : $distance['pct']) : 999999 }}">
+                    @include('myfinance2::orders.tables.partials.limit-price-cell')
                 </td>
                 @include('myfinance2::orders.tables.partials.amount-cell', [
                     'order' => $item, 'gain' => $gain, 'currencyCode' => $currencyCode,
@@ -262,4 +229,7 @@
             </tr>
         </tfoot>
     </table>
+@if ($view === 'active')
+    @include('myfinance2::general.scripts.prefilter-failsafe')
+@endif
 <div class="clearfix mb-3"></div>

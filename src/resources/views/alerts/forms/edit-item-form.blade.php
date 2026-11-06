@@ -1,7 +1,12 @@
+{{-- autocomplete off: the browser never restores typed values on reload (by field position, so a
+     layout change swaps them); the form always starts from the saved values or the old input. --}}
 <form action="{{ route('myfinance2::price-alerts.update', $id) }}" method="POST"
-    accept-charset="utf-8" class="mb-0 needs-validation" role="form">
+    accept-charset="utf-8" class="mb-0 needs-validation" role="form" autocomplete="off">
     {{ method_field('PUT') }}
     <div class="card-body">
+        @if ($linkedOrder)
+            @include('myfinance2::alerts.partials.linked-order-warning')
+        @endif
         @include('myfinance2::alerts.forms.item-form')
     </div>
     <div class="card-footer">

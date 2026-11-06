@@ -9,7 +9,7 @@
 <div class="btn-group btn-group-sm" role="group" aria-label="Dip-buying sections">
     <a href="{{ route('myfinance2::dip-buying-alerts.index') }}"
        class="btn {{ $active === 'settings' ? 'btn-primary' : 'btn-outline-secondary' }}"
-       data-bs-toggle="tooltip" title="Pool size, alerts and ladder settings">
+       data-bs-toggle="tooltip" title="Fallback pool, alerts and ladder settings">
         <i class="fa fa-fw fa-sliders" aria-hidden="true"></i> Settings
     </a>
     <a href="{{ route('myfinance2::dip-buying-alerts.backtest') }}"

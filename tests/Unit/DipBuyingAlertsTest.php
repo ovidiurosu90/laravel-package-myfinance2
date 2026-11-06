@@ -83,6 +83,22 @@ class DipBuyingAlertsTest extends TestCase
         $this->assertSame('new_episode', $this->_trigger($plan, $last));
     }
 
+    /**
+     * An earlier start is the same dip read on a better basis (the current episode's own peak instead of
+     * VUSA.AS's, 2026-11-02), not a new dip: no "new dip" email; the usual triggers still apply.
+     */
+    public function test_new_episode_does_not_fire_when_the_start_moves_earlier(): void
+    {
+        $plan = $this->_plan(targetPct: 30.0, anchorDate: '2026-08-14');
+        $last = $this->_lastNotif(
+            targetPct: 30.0,
+            verdict: DipBuyingPlanService::VERDICT_BEHIND,
+            anchorDate: Carbon::parse('2026-10-12')
+        );
+
+        $this->assertNull($this->_trigger($plan, $last));
+    }
+
     public function test_new_episode_does_not_fire_when_target_is_zero(): void
     {
         // Anchor changed but dd is still under the first band, so target=0.

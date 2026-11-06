@@ -4,6 +4,29 @@ return [
     'titles' => [
         'dashboard' => 'Price Alerts',
     ],
+    // The alert an open order created and keeps in sync (PriceAlert::linkedOrder()).
+    'linked-order' => [
+        'title'          => 'Linked to order #:id',
+        'title-tooltip'  => 'Order #:id (:action :symbol at :price) keeps this alert in sync: it updates the'
+            . ' alert when its limit price, action or symbol changes, and deletes it when filled or expired.',
+        // :order is the link to the order ('order' below), :fields the changed fields ('fields' below).
+        'order'          => 'order #:id',
+        'warning'        => 'Attention: changing :fields breaks the link to :order.',
+        'warning-detail' => "The order will stop updating this alert and won't delete it when filled or expired.",
+        'reset'          => 'Reset',
+        'reset-tooltip'  => 'Restore the linked symbol, alert type, status, target and expiry',
+        'confirm-title'  => 'Break the link to :order?',
+        'confirm-accept' => 'Save anyway',
+        'confirm-back'   => 'Go back',
+        'fields'         => [
+            'symbol'       => 'the symbol',
+            'alert_type'   => 'the alert type',
+            'status'       => 'the status',
+            'target_mode'  => 'the target mode',
+            'target_price' => 'the target price',
+            'expires_at'   => 'the expiry',
+        ],
+    ],
     'items-table' => [
         'caption' => '{1} :count alert|[2,*] :count alerts',
         'none'    => 'No Price Alerts',
@@ -11,6 +34,7 @@ return [
     'flash-messages' => [
         'item-created'       => 'Successfully created Alert with id :id',
         'item-updated'       => 'Successfully updated Alert with id :id',
+        'item-unlinked'      => '. It no longer follows order #:order',
         'item-deleted'       => 'Alert with id :id has been deleted',
         'alert-paused'       => 'Alert #:id has been paused',
         'alert-resumed'      => 'Alert #:id has been resumed (now Active)',
@@ -47,8 +71,7 @@ return [
                 'placeholder' => 'Input Target Price',
             ],
             'target_mode' => [
-                'label'          => 'Target',
-                'order-disabled' => "Order alerts follow the order's limit price",
+                'label' => 'Target',
             ],
             'relative_target' => [
                 'label'        => 'Target = closing high / low ± offset',

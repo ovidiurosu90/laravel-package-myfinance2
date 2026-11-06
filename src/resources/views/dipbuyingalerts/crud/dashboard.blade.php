@@ -1,4 +1,5 @@
 @use('ovidiuro\myfinance2\App\Services\MoneyFormat')
+@use('ovidiuro\myfinance2\App\Services\DipBuyingPresenter')
 @extends('myfinance2::layouts.app')
 @section('myfinance2_title', 'Dip Buying Plan Alerts')
 @section('myfinance2_styles')
@@ -46,9 +47,9 @@
                                     @endphp
                                     <div class="mb-3">
                                         <label class="form-label small fw-semibold" for="dip-pool">
-                                            Fallback dip-buying pool (EUR)
+                                            Fallback pool (EUR)
                                             <span class="text-muted fw-normal">
-                                                used only when there is no actual cash at a dip's start
+                                                each dip is priced on your actual cash at its start
                                             </span>
                                         </label>
                                         <div class="input-group">
@@ -65,20 +66,22 @@
                                                 </button>
                                             @endif
                                         </div>
-                                        @if (!is_null($currentCashEur))
-                                            <div class="form-text">
+                                        <div class="form-text">
+                                            This amount is used only for a dip whose start has no recorded
+                                            cash, and for the ladder euros while there is no dip. It must be
+                                            above 0 for the plan to run.
+                                            @if (!is_null($currentCashEur))
                                                 @if ((float) $setting->pool_amount_eur <= 0)
                                                     Prefilled from your current cash across all accounts
                                                     (&euro;{{ MoneyFormat::get_formatted_number_plain((float) $currentCashEur, $cashDec) }},
-                                                    from the /positions user overview). Adjust to the share you
-                                                    actually earmark for dips.
+                                                    from the /positions user overview).
                                                 @else
                                                     Current cash across all accounts:
                                                     &euro;{{ MoneyFormat::get_formatted_number_plain((float) $currentCashEur, $cashDec) }}
                                                     (from the /positions user overview).
                                                 @endif
-                                            </div>
-                                        @endif
+                                            @endif
+                                        </div>
                                     </div>
 
                                     <div class="mb-3">
@@ -112,11 +115,39 @@
                                         </label>
                                     </div>
 
+                                    @php
+                                        // The live ladder (/positions, the email) prices the current dip on
+                                        // your cash at its start; show it next to the fallback pool.
+                                        $dipNow  = ($dipChart['drop_mode'] ?? 'effective') === 'effective'
+                                            ? ($dipChart['current_drop'] ?? null) : null;
+                                        $dipPool = $dipNow['pool_eur'] ?? null;
+                                        $dipFrom = $dipNow ? DipBuyingPresenter::shortDate($dipNow['peak_date']) : null;
+                                        $num0    = fn ($v) => MoneyFormat::get_formatted_number_plain((float) $v, 0);
+                                        $dipTip  = 'The same targets on the pool the current dip uses (as on /positions'
+                                            . ' and in the email): your cash at its start.';
+                                        $poolTip = 'Share of the pool to have deployed at this depth, in euros on the'
+                                            . ' fallback pool above.';
+                                    @endphp
                                     <div class="mb-3">
                                         <div class="table-responsive mb-2">
                                             <table class="table table-sm mb-0">
                                                 <thead>
-                                                    <tr><th>Drawdown</th><th class="text-end">Target deployed</th></tr>
+                                                    <tr>
+                                                        <th>Drawdown</th>
+                                                        <th class="text-end">
+                                                            <span data-bs-toggle="tooltip"
+                                                                  title="{{ $poolTip }}">Target</span>
+                                                        </th>
+                                                        @if ($dipPool)
+                                                            <th class="text-end">
+                                                                <span data-bs-toggle="tooltip"
+                                                                      title="{{ $dipTip }}">Current dip</span>
+                                                                <div class="small text-muted fw-normal">
+                                                                    &euro;{{ $num0($dipPool) }} since {{ $dipFrom }}
+                                                                </div>
+                                                            </th>
+                                                        @endif
+                                                    </tr>
                                                 </thead>
                                                 <tbody>
                                                 @foreach ($bands as $band)
@@ -132,15 +163,22 @@
                                                             <span class="dip-band-eur text-muted small ms-1"
                                                                   data-target="{{ (float) $band['target'] }}"></span>
                                                         </td>
+                                                        @if ($dipPool)
+                                                            <td class="text-end text-muted small">
+                                                                @if ($band['target'] > 0)
+                                                                    &euro;{{ $num0($band['target'] / 100 * $dipPool) }}
+                                                                @endif
+                                                            </td>
+                                                        @endif
                                                     </tr>
                                                 @endforeach
                                                 </tbody>
                                             </table>
                                         </div>
                                         <div class="form-text">
-                                            Euro amounts here preview this configured pool. The live
-                                            /positions plan and the backtest deploy against your actual cash
-                                            at each dip's start instead, so those euro figures can differ.
+                                            Target euros use the fallback pool above. The live /positions plan,
+                                            the email and the backtest price each dip on your actual cash at its
+                                            start instead{{ $dipPool ? ', shown for the current dip' : '' }}.
                                         </div>
                                     </div>
                                 </div>

@@ -15,6 +15,9 @@
                             <span class="badge {{ $alertModel->getStatusBadgeClass() }} ms-2">
                                 {{ $alertModel->getEffectiveStatus() }}
                             </span>
+                            @if ($linkedOrder)
+                                @include('myfinance2::alerts.partials.linked-order-title')
+                            @endif
                         </span>
                         <div>
                             <a href="{{ route('myfinance2::price-alerts.index') }}"
@@ -38,5 +41,8 @@
     @include('myfinance2::alerts.scripts.relative-target')
     @include('myfinance2::general.scripts.symbol-chart-panel')
     @include('myfinance2::alerts.scripts.expires-at-picker')
+    @if ($linkedOrder)
+        @include('myfinance2::alerts.scripts.linked-order')
+    @endif
     @include('myfinance2::general.scripts.tooltips')
 @endsection

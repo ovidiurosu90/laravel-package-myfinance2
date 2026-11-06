@@ -10,12 +10,17 @@ use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use ovidiuro\myfinance2\App\Models\PriceAlert;
 use ovidiuro\myfinance2\App\Services\AlertService;
+use ovidiuro\myfinance2\App\Services\SplitDetectionService;
 
 /**
  * Unit tests for AlertService — pure logic without DB or FinanceAPI calls.
  *
  * Tests the private _isPotentialSplitAnomaly() method via reflection,
- * same pattern as MoversServiceTest::_rankGains.
+ * same pattern as MoversServiceTest::_rankGains. Its first half (the target's
+ * distance from the price) is pure; a target far enough away is only an anomaly
+ * with a split-sized jump in the stored closes, which reads the database
+ * (SplitDetectionService::hasSplitJumpSince(), tests/Feature/SplitJumpFeatureTest),
+ * so the flagged cases assert the distance rule (isAlertTargetStale()) directly.
  */
 class AlertServiceTest extends TestCase
 {
@@ -78,8 +83,7 @@ class AlertServiceTest extends TestCase
      */
     public function test_split_anomaly_price_above_above_ratio_returns_true(): void
     {
-        $alert = $this->_makeAlert('PRICE_ABOVE', 300.0);
-        $this->assertTrue($this->_invokeIsPotentialSplitAnomaly($alert, 99.0));
+        $this->assertTrue(SplitDetectionService::isAlertTargetStale('PRICE_ABOVE', 300.0, 99.0));
     }
 
     /**
@@ -98,8 +102,7 @@ class AlertServiceTest extends TestCase
      */
     public function test_split_anomaly_price_below_below_ratio_returns_true(): void
     {
-        $alert = $this->_makeAlert('PRICE_BELOW', 10.0);
-        $this->assertTrue($this->_invokeIsPotentialSplitAnomaly($alert, 33.0));
+        $this->assertTrue(SplitDetectionService::isAlertTargetStale('PRICE_BELOW', 10.0, 33.0));
     }
 
     /**

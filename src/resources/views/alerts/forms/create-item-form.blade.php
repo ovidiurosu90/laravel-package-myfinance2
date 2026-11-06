@@ -1,5 +1,5 @@
 <form action="{{ route('myfinance2::price-alerts.store') }}" method="POST"
-    accept-charset="utf-8" class="mb-0 needs-validation" role="form">
+    accept-charset="utf-8" class="mb-0 needs-validation" role="form" autocomplete="off">
     {{ method_field('POST') }}
     <input type="hidden" name="source" value="{{ $source ?? 'manual' }}">
     <div class="card-body">

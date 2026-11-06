@@ -531,9 +531,11 @@ date). Env (all optional): `MYFINANCE2_PEAK_PROXIMITY_ENABLED` (true); `MYFINANC
 
 ### finance:dip-buying-alerts
 
-The inverse of peak-proximity: paces spending a fixed EUR dip-buying pool as the market falls. Damage control for cash
-you keep anyway, not a promise to beat staying invested. One engine (`DipBuyingPlanService`) feeds the `/positions`
-panel, this email, the settings page `/dip-buying-alerts` and the backtest `/dip-buying-backtest`.
+The inverse of peak-proximity: paces deploying your cash as the market falls. Each dip's pool is your EUR cash across
+all accounts at its start (the fallback pool from the settings when none is recorded, and for the ladder while there is
+no dip), so buying during the dip does not shrink it. Damage control for cash you keep anyway, not a promise to beat
+staying invested. One engine (`DipBuyingPlanService`) feeds the `/positions` panel, this email, the settings page
+`/dip-buying-alerts` and the backtest `/dip-buying-backtest`.
 
 - **Drawdown**: `max(VUSA.AS trailing-peak drawdown, your portfolio drawdown)`.
 - **Ladder** (cumulative % of the pool deployed): 10%->30%, 15%->55%, 20%->75%, 25%->90%, 30%->100%.
@@ -572,8 +574,8 @@ php artisan finance:dip-buying-backtest --user-id=1
 php artisan finance:dip-buying-backtest --user-id=1 --from=2025-01-01 --pool=10000
 ```
 
-**Off by default**: set the pool and enable the feature and the email channel at `/dip-buying-alerts` (an advanced
-JSON override replaces the default ladder). Env (all optional): `MYFINANCE2_DIP_BUYING_ENABLED` (true);
+**Off by default**: set a fallback pool above 0 and enable the feature and the email channel at `/dip-buying-alerts`
+(an advanced JSON override replaces the default ladder). Env (all optional): `MYFINANCE2_DIP_BUYING_ENABLED` (true);
 `MYFINANCE2_DIP_BUYING_TOLERANCE_PCT` (5); `MYFINANCE2_DIP_BUYING_PEAK_LOOKBACK_YEARS` (3);
 `MYFINANCE2_DIP_BUYING_MA_TREND_PERIOD` (200); `MYFINANCE2_DIP_BUYING_STALL_BACKSTOP_MONTHS` (6);
 `MYFINANCE2_DIP_BUYING_MIN_EPISODE_DD_PCT` (10); `MYFINANCE2_DIP_BUYING_MIN_DROP_PCT` (5: the depth from which the

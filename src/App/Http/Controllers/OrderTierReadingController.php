@@ -9,6 +9,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 use ovidiuro\myfinance2\App\Models\Order;
+use ovidiuro\myfinance2\App\Services\LiveTierReadings;
+use ovidiuro\myfinance2\App\Services\OrderSide;
 use ovidiuro\myfinance2\App\Services\OrderTierSnapshots;
 use ovidiuro\myfinance2\App\Services\OrderTierWarnings;
 
@@ -16,7 +18,8 @@ use ovidiuro\myfinance2\App\Services\OrderTierWarnings;
  * The tier block at the top of the order create / edit form, loaded by AJAX when the symbol and action are set and
  * refreshed when the quantity or limit price change: the warnings (serious, then soft), the tier reading (live, or
  * the one saved with the order, locked) and, on edit, how today's reading differs. Also returns the serious codes
- * still to be confirmed, so the form asks before it saves.
+ * still to be confirmed, so the form asks before it saves. With only the symbol set, it returns the side the tier
+ * reading points to, as a hint for the user's pick.
  */
 class OrderTierReadingController extends MyFinance2Controller
 {
@@ -30,7 +33,12 @@ class OrderTierReadingController extends MyFinance2Controller
         $symbol = strtoupper(trim((string) $request->query('symbol', '')));
         $action = strtoupper(trim((string) $request->query('action', '')));
         if ($symbol === '' || !in_array($action, ['BUY', 'SELL'], true)) {
-            return response()->json(['html' => '', 'missing' => [], 'confirm_html' => '']);
+            return response()->json([
+                'html'         => '',
+                'missing'      => [],
+                'confirm_html' => '',
+                'hint'         => $symbol !== '' ? $this->_sideHint((int) auth()->id(), $symbol) : null,
+            ]);
         }
         $order    = $request->filled('order_id') ? Order::with('tierSnapshot')->find((int) $request->query('order_id'))
             : null;
@@ -76,6 +84,35 @@ class OrderTierReadingController extends MyFinance2Controller
                 )),
             ])->render(),
         ]);
+    }
+
+    /**
+     * Before a side is picked: the action today's tier reading calls for (its range-bound, take-profit or tier-signal
+     * chip, in that order, as the alert emails read it) and the side it points to (null for HOLD / REVIEW). Only a
+     * hint for the form: the side is always the user's pick. Null without a reading or a chip.
+     *
+     * @return array{action: string, side: string|null, label: string}|null
+     */
+    private function _sideHint(int $userId, string $symbol): ?array
+    {
+        try {
+            $chips = app(LiveTierReadings::class)->forUser($userId)['symbols'][$symbol]['reading']['chips'] ?? [];
+        } catch (\Throwable $e) {
+            Log::warning('OrderTierReadingController: no side hint for ' . $symbol . ': ' . $e->getMessage());
+            return null;
+        }
+        foreach (['range_bound', 'take_profit', 'tier_signal'] as $chip) {
+            $action = $chips[$chip]['action'] ?? null;
+            if (!empty($action)) {
+                return [
+                    'action' => (string) $action,
+                    'side'   => OrderSide::forAction((string) $action),
+                    'label'  => (string) ($chips[$chip]['label'] ?? $action),
+                ];
+            }
+        }
+
+        return null;
     }
 
     /**

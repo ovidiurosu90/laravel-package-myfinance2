@@ -46,6 +46,13 @@
             + parseFloat(low52w).toFixed(2) + ' ' + sym;
     };
 
+    // Tooltip for a fetched price: its time, prefixed with the session for an extended-hours
+    // price ("After hours: 2026-10-30 00:59:59"), as in the quote header.
+    var fetchedPriceTitle = function(data)
+    {
+        return (data.quote_session_label ? data.quote_session_label + ': ' : '') + data.quote_timestamp;
+    };
+
     var storeFetchedData = function(data)
     {
         fetchedPrice = data.price;

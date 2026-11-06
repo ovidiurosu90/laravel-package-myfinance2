@@ -4,6 +4,7 @@ namespace ovidiuro\myfinance2\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
+use Scheb\YahooFinanceApi\Results\Quote;
 use ovidiuro\myfinance2\App\Services\FinanceUtils;
 
 /**
@@ -78,5 +79,63 @@ class FinanceUtilsTest extends TestCase
 
         $this->assertEqualsWithDelta(9.13, $result['change'], 0.0001);
         $this->assertEqualsWithDelta(2.65, $result['percentage'], 0.0001);
+    }
+
+    private function _latestPrice(array $fields): array
+    {
+        $m = new ReflectionMethod(FinanceUtils::class, '_latestPrice');
+        $m->setAccessible(true);
+        return $m->invoke(null, new Quote(array_merge([
+            'symbol'             => 'TST.A',
+            'regularMarketPrice' => 243.79,
+            'regularMarketTime'  => new \DateTime('2026-10-29 20:00:01'),
+        ], $fields)));
+    }
+
+    /**
+     * After hours the order / trade / alert forms take the post-market price, dated by its own
+     * time, not the regular close.
+     */
+    public function test_latest_price_takes_post_market(): void
+    {
+        [$price, $time, $session] = $this->_latestPrice([
+            'postMarketPrice' => 225.99,
+            'postMarketTime'  => new \DateTime('2026-10-29 23:59:59'),
+        ]);
+
+        $this->assertSame(225.99, $price);
+        $this->assertSame('2026-10-29 23:59:59', $time->format('Y-m-d H:i:s'));
+        $this->assertSame('post', $session);
+    }
+
+    public function test_latest_price_prefers_pre_market_over_post_market(): void
+    {
+        [$price, $time, $session] = $this->_latestPrice([
+            'postMarketPrice' => 225.99,
+            'postMarketTime'  => new \DateTime('2026-10-29 23:59:59'),
+            'preMarketPrice'  => 230.10,
+            'preMarketTime'   => new \DateTime('2026-10-30 12:30:00'),
+        ]);
+
+        $this->assertSame(230.10, $price);
+        $this->assertSame('2026-10-30 12:30:00', $time->format('Y-m-d H:i:s'));
+        $this->assertSame('pre', $session);
+    }
+
+    public function test_latest_price_falls_back_to_regular_session(): void
+    {
+        [$price, $time, $session] = $this->_latestPrice([]);
+
+        $this->assertSame(243.79, $price);
+        $this->assertSame('2026-10-29 20:00:01', $time->format('Y-m-d H:i:s'));
+        $this->assertNull($session);
+    }
+
+    public function test_latest_price_without_session_time_keeps_regular_time(): void
+    {
+        [$price, $time] = $this->_latestPrice(['postMarketPrice' => 225.99]);
+
+        $this->assertSame(225.99, $price);
+        $this->assertSame('2026-10-29 20:00:01', $time->format('Y-m-d H:i:s'));
     }
 }

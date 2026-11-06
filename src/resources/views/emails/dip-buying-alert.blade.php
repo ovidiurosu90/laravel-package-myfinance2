@@ -1,6 +1,6 @@
-{{-- Dip Buying Plan email: the verdict, the drawdown by basis, the ladder and the current episode. Every display
-     decision comes from DipBuyingPresenter, the same view model the /positions panel renders, so its figures read
-     exactly as the panel does ("€1,234", "-12.3%"). --}}
+{{-- Dip Buying Plan email: the verdict, the drawdown by basis, the ladder and the current episode with its trades.
+     Every display decision comes from DipBuyingPresenter, the same view model the /positions panel renders, so its
+     figures read exactly as the panel does ("€1,234", "-12.3%"). --}}
 @extends('myfinance2::emails.layouts.base')
 @use('ovidiuro\myfinance2\App\Services\MoneyFormat')
 @use('ovidiuro\myfinance2\App\Services\DipBuyingPresenter')
@@ -79,8 +79,10 @@
         <h2>{{ $verdict['label'] }}</h2>
         @if ($trigger === 'new_episode')
             <p style="font-weight:600;color:#0d6efd;">
-                New dip cycle: {!! $vusaLink !!} reached a new high and is pulling back again.<br>
-                At -{{ $dd }}% drawdown, your plan calls for
+                {{-- Names what is falling: the drawdown's driver (your portfolio or VUSA.AS). --}}
+                New dip: {!! $driver === 'VUSA.AS' ? $vusaLink : e($driver) !!} is falling from its
+                {{ DipBuyingPresenter::shortDate($plan['anchor_date']) }} peak.<br>
+                At -{{ $present['dip_dd_fmt'] }}% below that peak, your plan calls for
                 {{ (int) round($plan['target_pct']) }}% of the pool deployed.
             </p>
         @endif
@@ -142,7 +144,7 @@
     <div class="label">Ladder</div>
     <p style="margin:4px 0 0;">Deployed so far
         <strong>{{ round($ladder['deployed_pct'], 1) }}%</strong>
-        <span class="text-muted">(€{{ $num($ladder['deployed_eur']) }})</span>
+        <span class="text-muted">({{ $ladder['deployed_note'] ?? '€' . $num($ladder['deployed_eur']) }})</span>
     </p>
     <table style="margin-bottom:18px;">
         <thead>
@@ -179,11 +181,12 @@
             $runningDd = $ce['running_dd'] ?? null;
             $peakDd    = $ce['peak_dd'] ?? null;
             $athSuffix = $present['ath_suffix'];
+            $labels    = DipBuyingPresenter::ceLabels($ce);
         @endphp
         <div class="section episode">
-            <h2 class="blue">Current episode (pending)</h2>
+            <h2 class="blue">{{ $labels['title'] }}</h2>
             <p class="text-muted">
-                Now <span class="blue">-{{ $ce['current_dd'] }}%</span> from the local peak on
+                Now <span class="blue">-{{ $ce['current_dd'] }}%</span> from {{ $labels['peak'] }} on
                 {{ DipBuyingPresenter::shortDate($ce['peak_date']) }}@if ($ce['max_dd'] > $ce['current_dd']); deepest
                 -{{ $ce['max_dd'] }}% on {{ DipBuyingPresenter::shortDate($ce['low_date']) }}@endif.
                 <br>Cash pool €{{ $num($ce['pool_eur']) }} as of
@@ -197,13 +200,13 @@
                     <span class="text-muted">(the effective drawdown the ladder deploys on)</span>
                 </p>
                 <p>
-                    <span class="blue">-{{ $ce['current_dd'] }}%</span> below the most recent local
-                    peak on {{ DipBuyingPresenter::shortDate($ce['peak_date']) }}
-                    <span class="text-muted">(a fresh near-term pullback)</span>
+                    <span class="blue">-{{ $ce['current_dd'] }}%</span> below {{ $labels['peak'] }}
+                    on {{ DipBuyingPresenter::shortDate($ce['peak_date']) }}
+                    <span class="text-muted">({{ $labels['pullback'] }})</span>
                 </p>
                 @if (!is_null($peakDd))
                     <p class="text-muted">
-                        That local peak, on {{ DipBuyingPresenter::shortDate($ce['peak_date']) }}, was itself
+                        That peak, on {{ DipBuyingPresenter::shortDate($ce['peak_date']) }}, was itself
                         -{{ $peakDd }}% below the all-time high{!! $athSuffix !!}.
                     </p>
                 @endif
@@ -242,6 +245,8 @@
                     </td>
                 </tr>
             </table>
+
+            @include('myfinance2::emails.partials.dip-episode-trades', ['trades' => $present['episode_trades']])
         </div>
     @endif
 

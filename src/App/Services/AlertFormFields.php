@@ -61,6 +61,9 @@ class AlertFormFields extends MyFormFields
             'id'                 => $id,
             'alertModel'         => $item,
             'tradeCurrencyModel' => $item->tradeCurrencyModel,
+            // The open order keeping this alert in sync: named in the title, and the form warns
+            // before an edit breaks the link.
+            'linkedOrder'        => $item->linkedOrder(),
         ];
 
         foreach ($fieldNames as $field) {

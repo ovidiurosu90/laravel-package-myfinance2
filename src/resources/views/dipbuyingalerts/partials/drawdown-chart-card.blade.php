@@ -160,9 +160,19 @@
                         chosen drawdown fell at least {{ $minDropDisplay }}% below a peak. It is shaded from the
                         peak to the trough (the lowest point), the dashed red line marks the
                         {{ $minDropDisplay }}% enter cutoff, and the vertical line pins the low.
-                        {{ count($dipChart['episodes']) }} found in this window.
+                        @php($openDip = !empty($dipChart['current_drop']['is_open']))
+                        {{ count($dipChart['episodes']) }} found in this
+                        window{{ $openDip ? ', the last one still in progress (in blue)' : '' }}.
                     </li>
-                    @if (!empty($dipChart['current_drop']))
+                    @if (!empty($dipChart['current_drop']['is_open']))
+                    <li>
+                        The <span style="color:rgba(13,110,253,1);">blue band</span> is the dip still in
+                        progress: <span style="color:rgba(13,110,253,1);">down
+                        {{ (float) $dipChart['current_drop']['current_dd'] }}% now</span> from its peak on
+                        {{ $dipChart['current_drop']['peak_date'] }}. It turns into a shaded episode once the drawdown
+                        recovers.
+                    </li>
+                    @elseif (!empty($dipChart['current_drop']))
                     <li>
                         The <span style="color:rgba(13,110,253,1);">blue band</span> shows where you are right
                         now: <span style="color:rgba(13,110,253,1);">down {{ (float) $dipChart['current_drop']['current_dd'] }}%

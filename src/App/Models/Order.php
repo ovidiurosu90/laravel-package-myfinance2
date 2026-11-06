@@ -103,6 +103,40 @@ class Order extends MyFinance2Model
         return in_array($this->status, ['DRAFT', 'PLACED'], true);
     }
 
+    /**
+     * Whether a price has reached the limit: at or below it for a BUY, at or above it for a SELL
+     * (where a limit order can fill). False without a limit price.
+     */
+    public function isLimitReachedAt(float $price): bool
+    {
+        if (empty($this->limit_price)) {
+            return false;
+        }
+
+        return $this->action === 'SELL'
+            ? $price >= (float) $this->limit_price
+            : $price <= (float) $this->limit_price;
+    }
+
+    /**
+     * How far the current price is from the limit, measured on the current price in both states,
+     * the way PriceAlert::targetDistance() measures an alert's target: how far the price has to
+     * move to reach the limit, or how far it has moved past it. Amount and percentage are
+     * absolute; 'reached' says which of the two it is.
+     *
+     * @return array{reached: bool, amount: float, pct: ?float}
+     */
+    public function limitDistance(float $currentPrice): array
+    {
+        $amount = abs((float) $this->limit_price - $currentPrice);
+
+        return [
+            'reached' => $this->isLimitReachedAt($currentPrice),
+            'amount'  => $amount,
+            'pct'     => $currentPrice > 0 ? $amount / $currentPrice * 100 : null,
+        ];
+    }
+
     public function isEditable(): bool
     {
         return in_array($this->status, ['DRAFT', 'PLACED', 'FILLED']);

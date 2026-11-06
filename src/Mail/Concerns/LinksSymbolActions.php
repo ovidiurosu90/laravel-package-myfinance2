@@ -6,30 +6,20 @@ namespace ovidiuro\myfinance2\Mail\Concerns;
 
 use Illuminate\Support\Facades\Route;
 
+use ovidiuro\myfinance2\App\Services\OrderSide;
+
 /**
  * The links at the end of a per-symbol alert email (price alert, peak-proximity alert): a prefilled order, the
  * watchlist and the symbol's quote, built the same way in each.
  */
 trait LinksSymbolActions
 {
-    /** The order side each reading action points to; an action not listed (HOLD, REVIEW) prefills no side. */
-    private static array $_orderSides = [
-        'ACCUMULATE'  => 'BUY',
-        'ADD'         => 'BUY',
-        'BUY'         => 'BUY',
-        'REDUCE'      => 'SELL',
-        'EXIT'        => 'SELL',
-        'TRIM'        => 'SELL',
-        'TAKE PROFIT' => 'SELL',
-        'SELL'        => 'SELL',
-    ];
-
     /**
-     * The order side (BUY / SELL) an action calls for, or null when it calls for none.
+     * The order side (BUY / SELL) an action calls for, or null when it calls for none (HOLD, REVIEW).
      */
     public static function orderSideFor(?string $action): ?string
     {
-        return self::$_orderSides[$action] ?? null;
+        return OrderSide::forAction($action);
     }
 
     /**

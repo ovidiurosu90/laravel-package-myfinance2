@@ -4,11 +4,20 @@ declare(strict_types=1);
 
 namespace ovidiuro\myfinance2\App\Services;
 
+/**
+ * The prefill figures the forms take from a symbol's quote.
+ *
+ * compute() guesses a side from the price's distance to the 52-week high and is still read by the alert form (alert
+ * type and target, 2.5 % away) and the trade form (the "weak signal" note). The order form no longer guesses a side:
+ * it asks forSide() for the figures of the side the user picked, with a limit 1 % from the price (price alerts already
+ * cover the targets further away).
+ */
 class OrderSuggestion
 {
-    private const TARGET_AMOUNT    = 5000.0;
-    private const PRICE_OFFSET_PCT = 0.025;
-    private const STRONG_BUY_PCT   = 15.0;
+    private const TARGET_AMOUNT          = 5000.0;
+    private const PRICE_OFFSET_PCT       = 0.025;
+    private const ORDER_PRICE_OFFSET_PCT = 0.01;
+    private const STRONG_BUY_PCT         = 15.0;
 
     /**
      * Compute a suggested order based on finance data and account context.
@@ -38,21 +47,7 @@ class OrderSuggestion
         ?float $availableQuantity = null
     ): array
     {
-        $price         = (float) $financeData['price'];
-        $tradeCurrency = (string) $financeData['currency'];
-
-        // Distances measured against the closing-based 52-week high/low (highest / lowest daily
-        // close over the past year), so the suggested action and the displayed percentages match
-        // the watchlist columns and the form note text. Fall back to Yahoo's intraday change
-        // percentages only when no closing range is available.
-        $closingHigh = $financeData['closingHigh'] ?? null;
-        $closingLow  = $financeData['closingLow'] ?? null;
-        $pctBelowHigh = ($closingHigh !== null && (float) $closingHigh > 0.0)
-            ? ((float) $closingHigh - $price) / (float) $closingHigh * 100
-            : -(float) $financeData['fiftyTwoWeekHighChangePercent'] * 100;
-        $pctAboveLow = ($closingLow !== null && (float) $closingLow > 0.0)
-            ? ($price - (float) $closingLow) / (float) $closingLow * 100
-            : (float) $financeData['fiftyTwoWeekLowChangePercent'] * 100;
+        [$pctBelowHigh, $pctAboveLow] = $this->_distances($financeData);
 
         $hasStrongBuySignal = $pctBelowHigh > self::STRONG_BUY_PCT;
         $hasOpenPositions   = $openQuantity > 0;
@@ -60,30 +55,15 @@ class OrderSuggestion
         $action     = (!$hasStrongBuySignal && $hasOpenPositions) ? 'SELL' : 'BUY';
         $weakSignal = $action === 'BUY' && !$hasStrongBuySignal;
 
-        $limitPrice = $action === 'BUY'
-            ? round($price * (1 - self::PRICE_OFFSET_PCT), 4)
-            : round($price * (1 + self::PRICE_OFFSET_PCT), 4);
-
-        $targetInTrade = $accountCurrency !== null
-            ? $this->_targetInTradeCurrency($accountCurrency, $tradeCurrency, $eurRate)
-            : self::TARGET_AMOUNT; // fallback: 5000 in trade currency
-
+        $limitPrice    = self::_limitPrice($action, (float) $financeData['price'], self::PRICE_OFFSET_PCT);
+        $targetInTrade = $this->_target($accountCurrency, (string) $financeData['currency'], $eurRate);
         $suggestedQty  = round($targetInTrade / $limitPrice);
         $isPartialSell = false;
 
         if ($action === 'SELL') {
-            $sellCap = $availableQuantity ?? $openQuantity;
-
-            $suggestedQty = min($suggestedQty, $sellCap);
-
-            $remainderQty   = $sellCap - $suggestedQty;
-            $remainderValue = $remainderQty * $limitPrice;
-
-            if ($remainderQty > 0 && $remainderValue < $targetInTrade) {
-                $suggestedQty = $sellCap; // sell all — remainder too small
-            }
-
-            $isPartialSell = $suggestedQty < $sellCap;
+            [$suggestedQty, $isPartialSell] = self::_sellQuantity(
+                $suggestedQty, $availableQuantity ?? $openQuantity, $limitPrice, $targetInTrade
+            );
         }
 
         return [
@@ -98,13 +78,104 @@ class OrderSuggestion
         ];
     }
 
-    private function _targetInTradeCurrency(
-        string $accountCurrency,
-        string $tradeCurrency,
-        float $eurRate
-    ): float
+    /**
+     * The order form's figures for the side the user picked: a limit 1 % below the price for a BUY (1 % above for a
+     * SELL) and a quantity worth about 5,000 in the account's currency, a SELL capped at what the account holds (and
+     * all of it when the rest would be worth less than that). Weak signal: a BUY within 15 % of the 52-week high.
+     *
+     * @param string      $side            BUY / SELL
+     * @param array       $financeData     Result from FinanceUtils::getFinanceDataBySymbol()
+     * @param float       $eurRate         EUR → trade_currency exchange rate (1.0 if EUR)
+     * @param string|null $accountCurrency the account's ISO currency code; null = unknown
+     * @param float       $sellCap         what the account holds of the symbol (SELL only)
+     *
+     * @return array{limit_price: float, suggested_qty: float|null, is_partial_sell: bool, weak_signal: bool}
+     */
+    public function forSide(
+        string $side,
+        array $financeData,
+        float $eurRate,
+        ?string $accountCurrency,
+        float $sellCap = 0.0
+    ): array
     {
-        if ($accountCurrency === $tradeCurrency) {
+        [$pctBelowHigh] = $this->_distances($financeData);
+
+        $limitPrice    = self::_limitPrice($side, (float) $financeData['price'], self::ORDER_PRICE_OFFSET_PCT);
+        $targetInTrade = $this->_target($accountCurrency, (string) $financeData['currency'], $eurRate);
+        $suggestedQty  = $limitPrice > 0.0 ? round($targetInTrade / $limitPrice) : null;
+        $isPartialSell = false;
+
+        if ($side === 'SELL') {
+            [$suggestedQty, $isPartialSell] = $sellCap > 0.0 && $suggestedQty !== null
+                ? self::_sellQuantity($suggestedQty, $sellCap, $limitPrice, $targetInTrade)
+                : [null, false];
+        }
+
+        return [
+            'limit_price'     => $limitPrice,
+            'suggested_qty'   => $suggestedQty,
+            'is_partial_sell' => $isPartialSell,
+            'weak_signal'     => $side === 'BUY' && $pctBelowHigh <= self::STRONG_BUY_PCT,
+        ];
+    }
+
+    /**
+     * The price's distance below the 52-week high and above the 52-week low, in %. Measured against the
+     * closing-based range (highest / lowest daily close over the past year), so the figures match the watchlist
+     * columns and the form note text; Yahoo's intraday change percentages only when no closing range is available.
+     *
+     * @return array{0: float, 1: float}
+     */
+    private function _distances(array $financeData): array
+    {
+        $price       = (float) $financeData['price'];
+        $closingHigh = $financeData['closingHigh'] ?? null;
+        $closingLow  = $financeData['closingLow'] ?? null;
+
+        $pctBelowHigh = ($closingHigh !== null && (float) $closingHigh > 0.0)
+            ? ((float) $closingHigh - $price) / (float) $closingHigh * 100
+            : -(float) ($financeData['fiftyTwoWeekHighChangePercent'] ?? 0) * 100;
+        $pctAboveLow = ($closingLow !== null && (float) $closingLow > 0.0)
+            ? ($price - (float) $closingLow) / (float) $closingLow * 100
+            : (float) ($financeData['fiftyTwoWeekLowChangePercent'] ?? 0) * 100;
+
+        return [$pctBelowHigh, $pctAboveLow];
+    }
+
+    private static function _limitPrice(string $side, float $price, float $offsetPct): float
+    {
+        return $side === 'BUY'
+            ? round($price * (1 - $offsetPct), 4)
+            : round($price * (1 + $offsetPct), 4);
+    }
+
+    /**
+     * A SELL's quantity: the target's worth capped at what is held, and all of it when the rest would be worth less
+     * than the target.
+     *
+     * @return array{0: float, 1: bool} the quantity, and whether it is a partial sell
+     */
+    private static function _sellQuantity(float $quantity, float $sellCap, float $limitPrice, float $target): array
+    {
+        $quantity       = min($quantity, $sellCap);
+        $remainderQty   = $sellCap - $quantity;
+        $remainderValue = $remainderQty * $limitPrice;
+
+        if ($remainderQty > 0 && $remainderValue < $target) {
+            $quantity = $sellCap; // sell all: the remainder is too small
+        }
+
+        return [$quantity, $quantity < $sellCap];
+    }
+
+    /**
+     * The target amount (5,000 in the account's currency) in the trade currency; 5,000 in the trade currency when
+     * the account is unknown.
+     */
+    private function _target(?string $accountCurrency, string $tradeCurrency, float $eurRate): float
+    {
+        if ($accountCurrency === null || $accountCurrency === $tradeCurrency) {
             return self::TARGET_AMOUNT;
         }
         if ($accountCurrency === 'EUR') {

@@ -133,7 +133,9 @@ class EmailSamples
         }
         $detail = (new DipBuyingBacktestService())->panelDetail($userId, $plan);
 
-        return new DipBuyingAlert($plan, 'band_deepened', $detail['regime'], $detail['current'], $detail['firstBand']);
+        return new DipBuyingAlert(
+            $detail['plan'], 'band_deepened', $detail['regime'], $detail['current'], $detail['firstBand']
+        );
     }
 
     /**

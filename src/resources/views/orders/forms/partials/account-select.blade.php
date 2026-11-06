@@ -14,6 +14,10 @@
             </option>
             @endforeach
         </select>
+        {{-- A SELL from one account while others hold the symbol too (orders/scripts/finance). --}}
+        <div id="account-note" class="small text-muted mt-1" style="display:none">
+            Also held in: <span></span>
+        </div>
     </div>
     @if ($errors->has('account_id'))
         <div class="col-12">

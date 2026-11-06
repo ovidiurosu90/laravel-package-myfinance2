@@ -17,7 +17,8 @@ use ovidiuro\myfinance2\App\Models\Scopes\AssignedToUserScope;
  * Orders and RELATIVE price alerts: a relative alert whose moving target happens to equal an
  * order's limit price is never treated as the order's companion alert (never shown as "Linked to
  * this order", never rewritten or deleted by an order edit or fill). Synthetic TST.* rows only,
- * rolled back on both connections.
+ * rolled back on both connections. The companion alert an open order still keeps in sync names the
+ * order on its edit form, and an edit that breaks the link needs a confirmation.
  */
 class OrdersRelativeAlertsTest extends TestCase
 {
@@ -142,5 +143,163 @@ class OrdersRelativeAlertsTest extends TestCase
             ->get(route('myfinance2::orders.open-alerts-for-symbol', ['symbol' => self::SYMBOL]))
             ->assertOk()
             ->assertSee('(20% below 2Y high)');
+    }
+
+    /**
+     * The FIXED companion alert an order creates: source = order, ACTIVE, expiring, at the limit price.
+     */
+    private function _companionAlert(array $fields = []): PriceAlert
+    {
+        return $this->_alertAtLimitPrice(array_merge([
+            'source' => 'order', 'target_mode' => 'FIXED', 'reference_type' => null,
+            'reference_window' => null, 'offset_pct' => null, 'reference_price' => null,
+            'reference_resolved_at' => null,
+        ], $fields));
+    }
+
+    private function _editForm(PriceAlert $alert): string
+    {
+        // Full middleware stack: the form reads $errors, which ShareErrorsFromSession provides
+        return $this->actingAs($this->_user)
+            ->get(route('myfinance2::price-alerts.edit', $alert->id))
+            ->assertOk()
+            ->getContent();
+    }
+
+    private function _update(PriceAlert $alert, array $fields): \Illuminate\Testing\TestResponse
+    {
+        return $this->withoutMiddleware()->actingAs($this->_user)
+            ->from(route('myfinance2::price-alerts.edit', $alert->id))
+            ->put(route('myfinance2::price-alerts.update', $alert->id), array_merge([
+                'symbol'       => self::SYMBOL,
+                'alert_type'   => 'PRICE_BELOW',
+                'target_mode'  => 'FIXED',
+                'target_price' => '100',
+                'status'       => 'ACTIVE',
+                'expires_at'   => $alert->expires_at?->format('Y-m-d H:i:s'),
+            ], $fields));
+    }
+
+    public function test_companion_alert_edit_form_names_the_order_and_warns_before_unlinking(): void
+    {
+        $order     = $this->_placedBuyOrder();
+        $companion = $this->_companionAlert();
+
+        $this->assertSame($order->id, $companion->linkedOrder()?->id);
+        $html = $this->_editForm($companion);
+
+        // The title and the confirmation link to the order, in a new tab (the form's edits are kept).
+        $orderLink = '<a href="' . route('myfinance2::orders.edit', $order->id) . '" target="_blank" rel="noopener"';
+        $this->assertStringContainsString($orderLink, $html);
+        $this->assertStringContainsString('Linked to order #' . $order->id, $html);
+        $this->assertMatchesRegularExpression(
+            '/id="linked-order-confirm-title">.*Break the link to ' . preg_quote($orderLink, '/') . '[^>]*>order #'
+                . $order->id . '<\/a>\?/s',
+            $html
+        );
+        $this->assertStringContainsString('id="linked-order-warning"', $html);
+        $this->assertStringContainsString('id="linked-order-reset"', $html);
+        $this->assertStringContainsString('id="linked-order-dismiss"', $html);
+        $this->assertStringContainsString('id="linked-order-confirm-modal"', $html);
+        // Every field stays editable: the target mode is not locked.
+        $this->assertDoesNotMatchRegularExpression('/id="target_mode-(relative|fixed)"[^>]*disabled/s', $html);
+    }
+
+    /**
+     * The alerts list shows the order a linked alert follows next to its "order" source, linked in a
+     * new tab; an "order" alert no open order follows shows the source only.
+     */
+    public function test_alerts_list_links_the_order_of_a_linked_alert(): void
+    {
+        $order     = $this->_placedBuyOrder();
+        $companion = $this->_companionAlert();
+        $paused    = $this->_companionAlert(['status' => 'PAUSED']);
+
+        $this->assertSame([$companion->id], array_keys(PriceAlert::linkedOrders([$companion, $paused])));
+
+        $html = $this->actingAs($this->_user)
+            ->get(route('myfinance2::price-alerts.index', ['view' => 'all']))
+            ->assertOk()
+            ->getContent();
+
+        $orderLink = '<a href="' . route('myfinance2::orders.edit', $order->id) . '"';
+        $this->assertSame(1, substr_count($html, $orderLink));
+        $this->assertMatchesRegularExpression(
+            '/' . preg_quote($orderLink, '/') . '\s+target="_blank" rel="noopener"[^>]*>#' . $order->id . '<\/a>/',
+            $html
+        );
+    }
+
+    public function test_unlinking_edit_needs_a_confirmation(): void
+    {
+        $this->_placedBuyOrder();
+        $companion = $this->_companionAlert();
+
+        $this->_update($companion, ['target_price' => '95'])
+            ->assertRedirect(route('myfinance2::price-alerts.edit', $companion->id))
+            ->assertSessionHas('unlink_confirm', true)
+            ->assertSessionHasInput('target_price', '95');
+        $this->assertEqualsWithDelta(100.0, (float) $companion->fresh()->target_price, 0.000001);
+
+        $this->_update($companion, ['target_price' => '95', 'confirm_unlink' => '1'])
+            ->assertRedirect(route('myfinance2::price-alerts.index'))
+            ->assertSessionHas('success', fn ($message) => str_contains($message, 'no longer follows order'));
+        $this->assertEqualsWithDelta(95.0, (float) $companion->fresh()->target_price, 0.000001);
+        $this->assertNull($companion->fresh()->linkedOrder());
+    }
+
+    public function test_pausing_or_switching_to_relative_also_needs_a_confirmation(): void
+    {
+        $this->_placedBuyOrder();
+        $companion = $this->_companionAlert();
+
+        $this->_update($companion, ['status' => 'PAUSED'])->assertSessionHas('unlink_confirm', true);
+        $this->_update($companion, ['target_mode' => 'RELATIVE', 'reference_key' => 'HIGH:1y', 'offset_pct' => '5'])
+            ->assertSessionHas('unlink_confirm', true);
+        $this->_update($companion, ['expires_at' => ''])->assertSessionHas('unlink_confirm', true);
+
+        $this->assertSame('ACTIVE', $companion->fresh()->status);
+        $this->assertSame('FIXED', $companion->fresh()->target_mode);
+    }
+
+    public function test_edit_keeping_the_link_saves_without_a_confirmation(): void
+    {
+        $order     = $this->_placedBuyOrder();
+        $companion = $this->_companionAlert();
+
+        $this->_update($companion, ['notes' => 'still linked'])
+            ->assertRedirect(route('myfinance2::price-alerts.index'))
+            ->assertSessionMissing('unlink_confirm')
+            ->assertSessionHas('success', fn ($message) => !str_contains($message, 'no longer follows'));
+
+        $this->assertSame('still linked', $companion->fresh()->notes);
+        $this->assertSame($order->id, $companion->fresh()->linkedOrder()?->id);
+    }
+
+    /**
+     * An alert with source = order that no open order keeps in sync (created after expiring an
+     * order, the order gone, paused, or re-priced) is not linked: no order in the title, no warning.
+     */
+    public function test_order_alert_no_open_order_follows_is_not_linked(): void
+    {
+        $withoutOrder = $this->_companionAlert(['expires_at' => null]);
+        $this->assertNull($withoutOrder->linkedOrder());
+
+        $this->_placedBuyOrder();
+        $paused    = $this->_companionAlert(['status' => 'PAUSED']);
+        $repriced  = $this->_companionAlert(['target_price' => 95.0]);
+        $noExpiry  = $this->_companionAlert(['expires_at' => null]);
+
+        foreach ([$paused, $repriced, $noExpiry] as $alert) {
+            $this->assertNull($alert->linkedOrder(), 'alert ' . $alert->id);
+        }
+
+        $html = $this->_editForm($paused);
+        $this->assertStringNotContainsString('Linked to order', $html);
+        $this->assertStringNotContainsString('id="linked-order-warning"', $html);
+
+        $this->_update($paused, ['status' => 'PAUSED', 'target_price' => '90'])
+            ->assertSessionMissing('unlink_confirm')
+            ->assertRedirect(route('myfinance2::price-alerts.index'));
     }
 }

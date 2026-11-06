@@ -39,7 +39,7 @@
 
 @section('myfinance2_scripts')
     @include('myfinance2::general.scripts.confirm-modal', ['formTrigger' => 'confirm-delete-modal'])
-    @include('myfinance2::general.scripts.tooltips')
+    @include('myfinance2::general.scripts.tooltips', ['lazy' => true])
     @include('myfinance2::watchlistsymbols.scripts.datatables')
     @include('myfinance2::watchlistsymbols.scripts.tier-override')
     @include('myfinance2::watchlistsymbols.scripts.tier-history-chart')

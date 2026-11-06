@@ -211,6 +211,36 @@ class PriceAlert extends MyFinance2Model
     }
 
     /**
+     * Whether the price has reached the target: the rule the engine fires on (AlertService).
+     */
+    public function isReachedAt(float $price): bool
+    {
+        return match ($this->alert_type) {
+            'PRICE_ABOVE' => $price >= (float) $this->target_price,
+            'PRICE_BELOW' => $price <= (float) $this->target_price,
+            default       => false,
+        };
+    }
+
+    /**
+     * How far the current price is from the target, measured on the current price in both states:
+     * how far the price has to move to reach the target, or how far it has moved past it. Amount
+     * and percentage are absolute; 'reached' says which of the two it is.
+     *
+     * @return array{reached: bool, amount: float, pct: ?float}
+     */
+    public function targetDistance(float $currentPrice): array
+    {
+        $amount = abs((float) $this->target_price - $currentPrice);
+
+        return [
+            'reached' => $this->isReachedAt($currentPrice),
+            'amount'  => $amount,
+            'pct'     => $currentPrice > 0 ? $amount / $currentPrice * 100 : null,
+        ];
+    }
+
+    /**
      * Whether the target follows a rolling closing high / low instead of a fixed price.
      */
     public function isRelative(): bool
@@ -416,6 +446,86 @@ class PriceAlert extends MyFinance2Model
     public function scopeForSymbol($query, string $symbol)
     {
         return $query->where('symbol', $symbol);
+    }
+
+    /**
+     * The temporary alert an order creates with its limit price, still matched by the order: ACTIVE,
+     * source 'order', a FIXED target, a non-expired expiry and the order's limit price. The order
+     * keeps it in sync (price, type, symbol) and deletes it when filled or expired. A paused, expired
+     * or re-priced one is no longer matched and stays a standalone alert.
+     */
+    public function scopeTiedToOrder($query, string $symbol, string $alertType, mixed $limitPrice)
+    {
+        return $query->where('symbol', $symbol)
+            ->where('alert_type', $alertType)
+            ->where('status', 'ACTIVE')
+            ->where('source', 'order')
+            ->where('target_mode', 'FIXED')
+            ->whereNotNull('expires_at')
+            ->where('expires_at', '>', now())
+            ->where('target_price', $limitPrice);
+    }
+
+    /**
+     * The open order that keeps this (stored) alert in sync with its limit price, or null. An alert
+     * with source 'order' that no open order matches (e.g. created after expiring an order, or
+     * paused) follows nothing. When several open orders match, the latest one.
+     */
+    public function linkedOrder(): ?Order
+    {
+        return static::linkedOrders([$this])[$this->id] ?? null;
+    }
+
+    /**
+     * linkedOrder() for many alerts with one query (the alerts list): the open order keeping each
+     * linked alert in sync, keyed by alert id. Alerts that follow no order are left out.
+     *
+     * @param iterable<PriceAlert> $alerts
+     *
+     * @return array<int, Order>
+     */
+    public static function linkedOrders(iterable $alerts): array
+    {
+        $candidates = collect($alerts)->filter(fn (PriceAlert $alert) => $alert->exists
+            && $alert->source === 'order' && is_numeric($alert->target_price));
+        if ($candidates->isEmpty()) {
+            return [];
+        }
+
+        $openOrders = Order::whereIn('symbol', $candidates->pluck('symbol')->unique()->all())
+            ->whereIn('status', ['DRAFT', 'PLACED'])
+            ->orderByDesc('id')
+            ->get();
+
+        $linked = [];
+        foreach ($candidates as $alert) {
+            $order = $openOrders->first(fn (Order $order) => $alert->matchesOrder($order));
+            if ($order !== null) {
+                $linked[$alert->id] = $order;
+            }
+        }
+
+        return $linked;
+    }
+
+    /**
+     * Whether the order still matches this alert as its companion, on the alert's current (possibly
+     * unsaved) values: the in-memory twin of scopeTiedToOrder, so the edit form can tell whether a
+     * save breaks the link. Keep the two in sync.
+     */
+    public function matchesOrder(Order $order): bool
+    {
+        return $this->source === 'order'
+            && $this->status === 'ACTIVE'
+            && $this->target_mode === 'FIXED'
+            // An emptied expiry field may reach here as '' rather than null.
+            && !empty($this->getAttributes()['expires_at'] ?? null)
+            && $this->expires_at->isFuture()
+            && $this->symbol === $order->symbol
+            && $this->alert_type === ($order->action === 'BUY' ? 'PRICE_BELOW' : 'PRICE_ABOVE')
+            && is_numeric($this->target_price)
+            && is_numeric($order->limit_price)
+            && bccomp((string) $this->target_price, (string) $order->limit_price, 6) === 0;
     }
 
     /**

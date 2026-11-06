@@ -40,7 +40,12 @@ class OrdersController extends MyFinance2Controller
     {
         $view = $request->query('view', 'active');
 
-        $items = Order::with('accountModel', 'tradeCurrencyModel', 'tierSnapshot')->get();
+        // In the list's first sort (orders/scripts/datatables: Status column, by placed_at descending, unplaced last,
+        // ties in row order), so the rows don't reshuffle when DataTables builds the table.
+        $items = Order::with('accountModel', 'tradeCurrencyModel', 'tierSnapshot')
+            ->orderByDesc('placed_at')
+            ->orderBy('id')
+            ->get();
 
         $trades = Trade::with('accountModel', 'tradeCurrencyModel')
             ->where('status', 'OPEN')
@@ -87,13 +92,8 @@ class OrdersController extends MyFinance2Controller
             $data['symbol'] = $symbolPrefill;
             $data['status'] = 'PLACED';
             $data['placed_at'] = now()->format('Y-m-d H:i:s');
-
-            $existingTrade = Trade::where('symbol', $symbolPrefill)
-                ->where('status', 'OPEN')
-                ->first();
-            if ($existingTrade) {
-                $data['account_id'] = $existingTrade->account_id;
-            }
+            // No account here: the form picks it once the side is known (OrderSidePrefill), the account holding the
+            // most for a SELL, the one last bought in for a BUY.
 
             $duplicateOrders = Order::where('symbol', $symbolPrefill)
                 ->whereIn('status', ['DRAFT', 'PLACED'])
@@ -906,15 +906,7 @@ class OrdersController extends MyFinance2Controller
 
         $oldAlertType = $oldAction === 'BUY' ? 'PRICE_BELOW' : 'PRICE_ABOVE';
 
-        $alert = PriceAlert::where('symbol', $oldSymbol)
-            ->where('alert_type', $oldAlertType)
-            ->where('status', 'ACTIVE')
-            ->where('source', 'order')
-            ->where('target_mode', 'FIXED')
-            ->whereNotNull('expires_at')
-            ->where('expires_at', '>', now())
-            ->where('target_price', $oldLimitPrice)
-            ->first();
+        $alert = PriceAlert::tiedToOrder($oldSymbol, $oldAlertType, $oldLimitPrice)->first();
 
         if (!$alert) {
             return false;
@@ -960,15 +952,7 @@ class OrdersController extends MyFinance2Controller
 
         $alertType = $item->action === 'BUY' ? 'PRICE_BELOW' : 'PRICE_ABOVE';
 
-        $alert = PriceAlert::where('symbol', $item->symbol)
-            ->where('alert_type', $alertType)
-            ->where('status', 'ACTIVE')
-            ->where('source', 'order')
-            ->where('target_mode', 'FIXED')
-            ->whereNotNull('expires_at')
-            ->where('expires_at', '>', now())
-            ->where('target_price', $item->limit_price)
-            ->first();
+        $alert = PriceAlert::tiedToOrder($item->symbol, $alertType, $item->limit_price)->first();
 
         if (!$alert) {
             return false;

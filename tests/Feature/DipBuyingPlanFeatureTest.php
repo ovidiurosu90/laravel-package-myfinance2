@@ -203,6 +203,84 @@ class DipBuyingPlanFeatureTest extends TestCase
         $this->assertCount(0, $this->_invoke($service, '_episodeSpans', [$effDd, 12.0]));
     }
 
+    /**
+     * An episode still open at the end of the series (not back under T/2) is the current dip: the
+     * local drop is measured from its own peak, not from the bounce off its low. Today's case: a dip
+     * from a calm peak to -12%, then a bounce to -10.5% while still deep, must read "down ~10.5% from
+     * the peak", not "a new dip at 0%" (which contradicted the ladder sitting in the 10% band).
+     */
+    public function test_open_episode_is_the_current_drop(): void
+    {
+        $service = new DipBuyingBacktestService();
+        $effDd   = [
+            '2026-08-14' => 0.0,   // peak
+            '2026-09-15' => 6.0,   // enter (T = 5)
+            '2026-10-30' => 12.0,  // low
+            '2026-11-02' => 10.5,  // bounce, still far above the exit (2.5): open
+        ];
+
+        $spans = $this->_invoke($service, '_episodeSpans', [$effDd, 5.0]);
+        $this->assertCount(1, $spans);
+        $this->assertTrue($spans[0]['is_open']);
+
+        $drop = $service->currentLocalDropFromSeries($effDd, 5.0);
+        $this->assertSame('2026-08-14', $drop['peak_date']);
+        $this->assertSame('2026-10-30', $drop['low_date']);
+        $this->assertSame(10.5, $drop['drop_pct']);
+    }
+
+    /**
+     * Once the episode has closed (back under T/2), the next local drop starts after its trough, as
+     * before: a closed episode is history, not the current dip.
+     */
+    public function test_closed_episode_starts_a_new_local_drop(): void
+    {
+        $service = new DipBuyingBacktestService();
+        $effDd   = [
+            '2026-08-14' => 0.0,
+            '2026-09-15' => 6.0,
+            '2026-10-30' => 12.0,
+            '2026-11-02' => 2.0,   // recovered under the exit (2.5): closed, and the calmest day since
+            '2026-11-03' => 3.0,   // a fresh 1% pullback from that local peak
+        ];
+
+        $spans = $this->_invoke($service, '_episodeSpans', [$effDd, 5.0]);
+        $this->assertFalse($spans[0]['is_open']);
+
+        $drop = $service->currentLocalDropFromSeries($effDd, 5.0);
+        $this->assertSame('2026-11-02', $drop['peak_date']);
+        $this->assertEqualsWithDelta(1.02, $drop['drop_pct'], 0.01);
+    }
+
+    /**
+     * The plan on the current episode's basis: one dip for the trigger, the history row and the email
+     * (start, pool, deployed, target, verdict from the episode). Unchanged without an episode.
+     */
+    public function test_plan_on_current_episode_uses_the_episode(): void
+    {
+        $plan = [
+            'anchor_date' => '2026-10-12', 'pool_amount_eur' => 100000.0, 'deployed_eur' => -1500.0,
+            'deployed_pct' => -1.5, 'target_pct' => 30.0, 'verdict' => 'behind', 'stall_active' => false,
+        ];
+        $current = [
+            'peak_date' => '2026-08-14', 'pool_eur' => 120000.0,
+            'actual'    => ['deployed_eur' => 0.0, 'deployed_pct' => 0.0],
+            'guided'    => ['target_pct' => 30.0],
+        ];
+
+        $merged = DipBuyingBacktestService::planOnCurrentEpisode($plan, $current);
+
+        $this->assertSame('2026-08-14', $merged['anchor_date']);
+        $this->assertSame(120000.0, $merged['pool_amount_eur']);
+        $this->assertSame(0.0, $merged['deployed_pct']);
+        $this->assertSame(30.0, $merged['target_pct']);
+        $this->assertSame('behind', $merged['verdict']);
+        $this->assertEqualsWithDelta(36000.0, $merged['suggested_tranche_eur'], 0.01);
+        $this->assertSame(DipBuyingNotification::BASIS_CURRENT_DIP, $merged['basis']);
+
+        $this->assertSame($plan, DipBuyingBacktestService::planOnCurrentEpisode($plan, null));
+    }
+
     public function test_min_drop_resolves_and_clamps(): void
     {
         $service = new DipBuyingBacktestService();

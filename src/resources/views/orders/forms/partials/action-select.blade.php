@@ -10,6 +10,12 @@
             <option @if ($action == 'BUY') selected @endif value="BUY">Buy</option>
             <option @if ($action == 'SELL') selected @endif value="SELL">Sell</option>
         </select>
+        {{-- Shown while no side is set (orders/scripts/action-pick): the form never picks one by itself. --}}
+        <div id="action-pick" class="small mt-1" style="display:none">
+            <button type="button" class="btn btn-sm btn-outline-success py-0 px-2" data-side="BUY">Buy</button>
+            <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" data-side="SELL">Sell</button>
+            <span id="action-pick-hint" class="text-muted ms-1"></span>
+        </div>
     </div>
     @if ($errors->has('action'))
         <div class="col-12">

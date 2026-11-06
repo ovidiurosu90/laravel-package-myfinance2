@@ -26,7 +26,7 @@ class DipBuyingBacktest extends Command
     protected $signature = 'finance:dip-buying-backtest
         {--user-id= : User to backtest (required)}
         {--from= : Window start date Y-m-d (default 2025-01-01)}
-        {--pool= : Override the configured pool size in EUR}';
+        {--pool= : Fixed pool in EUR for every episode, instead of your cash at each episode start}';
 
     /**
      * @var string

@@ -68,6 +68,10 @@
                                             <td class="text-nowrap"
                                                 data-order="{{ $notif->sent_at ? $notif->sent_at->timestamp : 0 }}">
                                                 {{ $notif->sent_at ? $notif->sent_at->timezone(config('app.timezone'))->format('Y-m-d H:i') : '-' }}
+                                                @if (!$notif->isOnCurrentDipBasis())
+                                                    <sup class="text-muted" data-bs-toggle="tooltip"
+                                                         title="On the plan's own basis (see below the table)">*</sup>
+                                                @endif
                                             </td>
                                             <td class="text-nowrap">
                                                 @switch($notif->trigger)
@@ -123,6 +127,15 @@
                                     @endforeach
                                     </tbody>
                                 </table>
+                                @if ($items->contains(fn ($notif) => !$notif->isOnCurrentDipBasis()))
+                                    <div class="small text-muted px-3 pb-2">
+                                        <i class="fa fa-info-circle" aria-hidden="true"></i>
+                                        Rows marked * measured deployment from VUSA.AS's own peak, on the pool set in
+                                        the settings (now only a fallback): the alerts sent before they used the
+                                        current dip, and any sent while no dip could be measured. The other rows use
+                                        the current dip: its peak, your cash then, and the cash used since.
+                                    </div>
+                                @endif
                             </div>
                         </div>
                     </div>

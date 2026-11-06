@@ -104,7 +104,7 @@ $(document).ready(function()
 
                 showFetchedTradeCurrency(data);
                 $fetchedUnitPrice.find('span').text(data.price)
-                    .attr('data-bs-original-title', data.quote_timestamp).end().show();
+                    .attr('data-bs-original-title', fetchedPriceTitle(data)).end().show();
 
                 // Trade currency tracks the symbol, so keep the select in sync.
                 setFetchedTradeCurrency(data);

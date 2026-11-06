@@ -28,6 +28,9 @@ final class DipBuyingPresenter
     /** A passed band counts as "behind" once the deployed gap exceeds this (percentage points). */
     private const PASSED_BEHIND_PCT = 0.05;
 
+    /** How many of the current episode's trades the email lists (newest first). */
+    public const EPISODE_TRADES_SHOWN = 10;
+
     /** The blue "local peak" accent (the fresh-pullback ruler), shared by every dip surface. */
     public const LOCAL_PEAK_COLOR = 'rgba(13,110,253,1)';
 
@@ -57,7 +60,12 @@ final class DipBuyingPresenter
         return [
             'effective_dd_pct' => $effDd,
             'dd_fmt'           => MoneyFormat::get_formatted_pct($effDd),
-            'driver'           => ($plan['driver'] ?? 'vusa') === 'portfolio' ? 'your portfolio' : 'VUSA.AS',
+            // The drop from the dip's own peak (the plan's anchor), on which its target is priced; the effective
+            // drawdown when there is no current dip (the plan is then anchored at the trailing peak).
+            'dip_dd_fmt'       => MoneyFormat::get_formatted_pct(
+                $current !== null ? (float) $current['current_dd'] : $effDd
+            ),
+            'driver'         => ($plan['driver'] ?? 'vusa') === 'portfolio' ? 'your portfolio' : 'VUSA.AS',
             'vusa_dd_pct'      => isset($plan['vusa_dd_pct']) ? (float) $plan['vusa_dd_pct'] : null,
             'portfolio_dd_pct' => isset($plan['portfolio_dd_pct']) ? (float) $plan['portfolio_dd_pct'] : null,
             'trend'            => $plan['trend'] ?? [],
@@ -69,7 +77,152 @@ final class DipBuyingPresenter
             'ladder'           => $ladder,
             'regime'           => self::regimeRows($regime),
             'summary'          => self::summary($plan, $current, $verdict),
+            'no_dip_note'      => self::noDipNote($plan, $current),
+            'deployed_tooltip' => self::deployedTooltip($current),
+            'episode_trades'   => self::episodeTrades($current),
         ];
+    }
+
+    /**
+     * How the cards and the email name the current dip and its reference peak: the open episode itself
+     * (still in progress, measured from its own peak), or a fresh pullback from the most recent local
+     * peak after the last episode closed.
+     *
+     * @param array $ce
+     *
+     * @return array{title: string, peak: string, pullback: string, badge_tip: string}
+     */
+    public static function ceLabels(array $ce): array
+    {
+        if (!empty($ce['is_open'])) {
+            return [
+                'title'     => 'Current dip',
+                'peak'      => "this dip's peak",
+                'pullback'  => 'the dip still in progress',
+                'badge_tip' => 'Still in progress: the drawdown has not recovered yet, so this dip is the one the'
+                    . ' ladder acts on now. It is listed with the closed episodes once it recovers.',
+            ];
+        }
+
+        return [
+            'title'     => 'Current pullback',
+            'peak'      => 'the most recent local peak',
+            'pullback'  => 'a fresh near-term pullback',
+            'badge_tip' => 'In progress, measured from the most recent local peak (after the last episode'
+                . ' recovered), not the all-time high the numbered episodes use, so it is not directly'
+                . ' comparable to them.',
+        ];
+    }
+
+    /**
+     * HTML tooltip explaining "Deployed so far" on the current-episode basis: the definition (cash used
+     * from the reserve, so buys paid for by sells do not count), then the episode's flows: what was
+     * bought and sold (with the biggest symbols), other money in or out, and the cash at both ends.
+     * Null without a current episode or its flows. Escaped here; shown with data-bs-html.
+     *
+     * @param array|null $ce
+     *
+     * @return string|null
+     */
+    public static function deployedTooltip(?array $ce): ?string
+    {
+        $flows = $ce['actual']['flows'] ?? null;
+        if ($flows === null) {
+            return null;
+        }
+
+        $eur  = fn ($v) => '€' . MoneyFormat::get_formatted_number_plain(abs((float) $v), 0);
+        $row  = fn (string $label, string $value) => '<div class="d-flex justify-content-between gap-3"><span>'
+            . $label . '</span><span class="text-nowrap">' . $value . '</span></div>';
+        $tops = fn (array $top) => empty($top) ? '' : '<div class="small opacity-75 mb-1">'
+            . implode(', ', array_map(fn ($symbol, $v) => e($symbol) . ' ' . $eur($v), array_keys($top), $top))
+            . '</div>';
+        $since = self::shortDate($ce['peak_date']);
+
+        $html = '<div class="text-start"><strong>Deployed = cash used from your reserve</strong>: your cash at '
+            . "this dip's start minus your cash now. Buys paid for by sells do not use the reserve.<hr class=\"my-1\">"
+            . '<div class="fw-semibold mb-1">Since ' . e($since) . '</div>'
+            . $row('Bought (' . self::plural($flows['buy_count'], 'buy') . ')', $eur($flows['bought_eur']))
+            . $tops($flows['top_buys'])
+            . $row('Sold (' . self::plural($flows['sell_count'], 'sell') . ')', $eur($flows['sold_eur']))
+            . $tops($flows['top_sells']);
+
+        if ($flows['cash_change_eur'] !== null) {
+            $change = (float) $flows['cash_change_eur'];
+            $other  = (float) $flows['other_eur'];
+            $html  .= $row(
+                $other >= 0 ? 'Other money in' : 'Other money out',
+                $eur($other)
+            ) . '<div class="small opacity-75 mb-1">dividends, interest, deposits, FX</div>'
+                . $row('Cash', $eur($flows['cash_start_eur']) . ' → ' . $eur($flows['cash_end_eur'])
+                    . ' (' . ($change >= 0 ? '+' : '-') . $eur($change) . ')')
+                . '<hr class="my-1">'
+                . ($change >= 0
+                    ? 'Your cash rose ' . $eur($change) . ', so none of the reserve was used: deployed 0%.'
+                    : 'Your cash fell ' . $eur($change) . ': deployed '
+                        . round((float) $ce['actual']['deployed_pct'], 1) . '% of the ' . $eur($ce['pool_eur'])
+                        . ' pool.');
+        }
+
+        return $html . '</div>';
+    }
+
+    /**
+     * The current episode's trades, newest first, as the email lists them under "Your actual (this dip)": the date,
+     * the trade ("buy MSFT 53x @ 150.00 $"), its EUR amount and, for a buy, its entry drawdown below the dip's peak
+     * (the axis of the average entry drawdown). Only the newest EPISODE_TRADES_SHOWN rows; 'more' counts the rest.
+     *
+     * @param array|null $ce
+     *
+     * @return array{rows: array<int, array{date: string, action: string, trade: string, eur: string,
+     *               entry_dd: ?string}>, more: int}
+     */
+    public static function episodeTrades(?array $ce): array
+    {
+        $trades = $ce['actual']['flows']['trades'] ?? [];
+        $decode = fn (string $s): string => html_entity_decode($s, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $rows   = [];
+        foreach (array_slice($trades, 0, self::EPISODE_TRADES_SHOWN) as $trade) {
+            $detail = $trade['quantity'] !== null && $trade['unit_price'] !== null
+                ? ' ' . MoneyFormat::get_formatted_quantity_plain($trade['quantity']) . 'x @ ' . trim($decode(
+                    MoneyFormat::get_formatted_price_display($trade['currency'], (float) $trade['unit_price'], true)
+                ))
+                : '';
+            $rows[] = [
+                'date'     => self::shortDate($trade['date']),
+                'action'   => strtolower($trade['action']),
+                'trade'    => strtolower($trade['action']) . ' ' . $trade['symbol'] . $detail,
+                'eur'      => '€' . MoneyFormat::get_formatted_number_plain((float) $trade['eur'], 0),
+                'entry_dd' => $trade['dd'] !== null ? self::ddFmt($trade['dd']) : null,
+            ];
+        }
+
+        return ['rows' => $rows, 'more' => max(0, count($trades) - self::EPISODE_TRADES_SHOWN)];
+    }
+
+    /**
+     * The panel's note when there is no current episode (a fresh high, or too little history to measure
+     * one): it only claims "above the first band" when the plan's band agrees, so it never contradicts
+     * the ladder. Null while an episode is in progress (the current-episode card shows it instead).
+     *
+     * @param array      $plan
+     * @param array|null $current
+     *
+     * @return string|null
+     */
+    public static function noDipNote(array $plan, ?array $current): ?string
+    {
+        if ($current !== null) {
+            return null;
+        }
+
+        $dd = self::ddFmt($plan['effective_dd_pct'] ?? 0);
+
+        return (float) ($plan['target_pct'] ?? 0) <= 0.0
+            ? "No current dip: at {$dd} you are above the ladder's first band, so the guided plan deploys"
+                . ' nothing yet.'
+            : "No current dip could be measured (too little recent history), so the ladder uses the plan's own"
+                . " figures: at {$dd} its band targets " . (int) $plan['target_pct'] . '% of the fallback pool.';
     }
 
     /**
@@ -309,7 +462,8 @@ final class DipBuyingPresenter
      * @param array      $plan
      * @param array|null $current
      *
-     * @return array{rows: array<int, array>, collapse: bool, deployed_pct: float, deployed_eur: float, pool_eur: float}
+     * @return array{rows: array<int, array>, collapse: bool, deployed_pct: float, deployed_eur: float,
+     *               pool_eur: float, deployed_note: ?string}
      */
     public static function ladder(array $plan, ?array $current): array
     {
@@ -339,11 +493,12 @@ final class DipBuyingPresenter
         }
 
         return [
-            'rows'         => $rows,
-            'collapse'     => $collapse,
-            'deployed_pct' => $deployed,
-            'deployed_eur' => $basis['deployed_eur'],
-            'pool_eur'     => $pool,
+            'rows'          => $rows,
+            'collapse'      => $collapse,
+            'deployed_pct'  => $deployed,
+            'deployed_eur'  => $basis['deployed_eur'],
+            'pool_eur'      => $pool,
+            'deployed_note' => $basis['note'],
         ];
     }
 
@@ -509,24 +664,39 @@ final class DipBuyingPresenter
      * @param array      $plan
      * @param array|null $current
      *
-     * @return array{deployed_pct: float, deployed_eur: float, pool_eur: float, target_pct: float}
+     * Deployed never reads below 0: when more money came back than went in, it is 0 with a note
+     * instead ("cash +€20,000 since 14 Aug '26", or "net sold €1,500 since ..." on the plan basis).
+     *
+     * @return array{deployed_pct: float, deployed_eur: float, pool_eur: float, target_pct: float, note: ?string}
      */
     public static function deployBasis(array $plan, ?array $current): array
     {
+        $num = fn ($v) => MoneyFormat::get_formatted_number_plain((float) $v, 0);
+
         if ($current !== null) {
+            $cashChange = (float) ($current['actual']['cash_change_eur'] ?? 0);
+
             return [
                 'deployed_pct' => (float) $current['actual']['deployed_pct'],
                 'deployed_eur' => (float) $current['actual']['deployed_eur'],
                 'pool_eur'     => (float) $current['pool_eur'],
                 'target_pct'   => (float) $current['guided']['target_pct'],
+                'note'         => $cashChange > 0.5
+                    ? 'cash +€' . $num($cashChange) . ' since ' . self::shortDate($current['peak_date'])
+                    : null,
             ];
         }
 
+        $deployedEur = (float) ($plan['deployed_eur'] ?? 0);
+
         return [
-            'deployed_pct' => (float) ($plan['deployed_pct'] ?? 0),
-            'deployed_eur' => (float) ($plan['deployed_eur'] ?? 0),
+            'deployed_pct' => max(0.0, (float) ($plan['deployed_pct'] ?? 0)),
+            'deployed_eur' => max(0.0, $deployedEur),
             'pool_eur'     => (float) ($plan['pool_amount_eur'] ?? 0),
             'target_pct'   => (float) ($plan['target_pct'] ?? 0),
+            'note'         => $deployedEur < -0.5 && !empty($plan['anchor_date'])
+                ? 'net sold €' . $num(-$deployedEur) . ' since ' . self::shortDate($plan['anchor_date'])
+                : null,
         ];
     }
 

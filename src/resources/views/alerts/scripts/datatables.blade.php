@@ -1,7 +1,7 @@
 <script type="module">
 $(document).ready(function()
 {
-    // Col 0: checkbox, 1: Status, 2: Id, 3: Symbol, 4: Account(s), 5: Type, 6: Current→Target
+    // Col 0: checkbox, 1: Status, 2: Id, 3: Symbol, 4: Account(s), 5: Type, 6: Target Price
     const STATUS_COLUMN = 1;
     const ACTIVE_FILTER = 'ACTIVE';
 
@@ -58,15 +58,39 @@ $(document).ready(function()
     $('<span>', { class: 'text-muted small fw-semibold text-uppercase' }).text('Filter').appendTo($filterBar);
     $filterBar.append($typeFilter).append($durationFilter);
 
+    // Reached targets: a toggle counting the reached alerts among the rows the other filters keep
+    // (data-reached on each <tr>, set by the server with the engine's rule); on, it lists only those.
+    let reachedOnly = false;
+    const $reachedFilter = $('<button>', {
+        type: 'button', id: 'alert-reached-filter', class: 'btn btn-sm text-nowrap', 'aria-pressed': 'false',
+        'data-bs-toggle': 'tooltip', title: 'Alerts whose price reached the target; click to list only those',
+    });
+    $filterBar.append($reachedFilter);
+    $reachedFilter.tooltip();
+
+    function updateReachedFilter()
+    {
+        const count = table.rows({ search: 'applied' }).nodes().toArray()
+            .filter((row) => String($(row).data('reached')) === '1').length;
+
+        $reachedFilter.html('<i class="fa fa-check" aria-hidden="true"></i> ' + count + ' reached')
+            .toggleClass('btn-success', reachedOnly)
+            .toggleClass('btn-outline-success', !reachedOnly)
+            .attr('aria-pressed', reachedOnly ? 'true' : 'false')
+            .toggle(count > 0 || reachedOnly);
+    }
+
     $.fn.dataTable.ext.search.push(function (settings, searchData, dataIndex)
     {
         if (settings.nTable !== table.table().node()) { return true; }
 
         const typeVal     = $typeFilter.val();
         const durationVal = $durationFilter.val();
-        if (!typeVal && !durationVal) { return true; }
+        if (!typeVal && !durationVal && !reachedOnly) { return true; }
 
         const $row = $(table.row(dataIndex).node());
+
+        if (reachedOnly && String($row.data('reached')) !== '1') { return false; }
 
         if (typeVal && $row.data('alert-type') !== typeVal) { return false; }
         if (durationVal) {
@@ -82,6 +106,15 @@ $(document).ready(function()
         clearSelection();
         table.draw();
     });
+    $reachedFilter.on('click', function ()
+    {
+        reachedOnly = !reachedOnly;
+        $reachedFilter.tooltip('hide');
+        clearSelection();
+        table.draw();
+    });
+    table.on('draw', updateReachedFilter);
+    updateReachedFilter();
 
     // ── Bulk selection ───────────────────────────────────────────────────────
     // Declared before applyViewFilter because clearSelection is called inside it
@@ -194,6 +227,8 @@ $(document).ready(function()
     }
 
     applyViewFilter('{{ $view }}', false);
+    // DataTables filters now; drop the first-paint hiding (general/partials/styles) so "All" shows every row.
+    $(table.table().node()).removeClass('prefilter-active');
     applySymbolGrouping();
 
     $('#alerts-view-toggle button').on('click', function ()

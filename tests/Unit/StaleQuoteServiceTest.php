@@ -133,6 +133,82 @@ class StaleQuoteServiceTest extends TestCase
     }
 
     /**
+     * The regression this guards: at the opening bell the freshest European price is still the
+     * previous session's close (about 15 hours old) until Yahoo's delayed feed delivers the first
+     * prints, which used to raise the banner every morning between 9:00 and about 9:15.
+     */
+    public function testMarketThatJustOpenedIsNotStaleYet(): void
+    {
+        $quotes = ['TST.AS' => $this->_scheduledQuote('Europe/Amsterdam', 15 * 3600 + 25 * 60, 7)];
+
+        $this->assertSame([], $this->_service->detect($quotes));
+    }
+
+    /**
+     * Once the market has been open for longer than its threshold without a new price, the feed is
+     * frozen and the banner reports the price's real age, not the time since the open.
+     */
+    public function testMarketOpenLongerThanItsThresholdWithoutNewPricesIsStale(): void
+    {
+        $ageSeconds = 16 * 3600;
+        $quotes     = ['TST.AS' => $this->_scheduledQuote('Europe/Amsterdam', $ageSeconds, 31 * 60)];
+
+        $alerts = $this->_service->detect($quotes);
+
+        $this->assertCount(1, $alerts);
+        $this->assertGreaterThanOrEqual($ageSeconds, $alerts[0]['age_seconds']);
+    }
+
+    /**
+     * The opening grace follows each market's own threshold: a real-time US feed is judged five
+     * minutes after the open, not thirty.
+     */
+    public function testOpeningGraceUsesTheMarketsOwnThreshold(): void
+    {
+        $quotes = ['TST' => $this->_scheduledQuote('America/New_York', 17 * 3600, 6 * 60)];
+
+        $this->assertCount(1, $this->_service->detect($quotes));
+    }
+
+    /**
+     * A quote array whose market the schedule reports OPEN since $openedSecondsAgo, with its freshest
+     * regular-session price $ageSeconds old. getMarketStatus() is stubbed so no script runs.
+     */
+    private function _scheduledQuote(string $timezone, int $ageSeconds, int $openedSecondsAgo): array
+    {
+        $quote = new Quote([
+            'symbol'               => 'TST',
+            'fullExchangeName'     => 'Test Exchange',
+            'exchangeTimezoneName' => $timezone,
+            'market'               => 'test_market',
+            'marketState'          => 'PRE',
+        ]);
+        $openTimestamp = time() - $openedSecondsAgo;
+        $marketUtils   = new class ($quote, $openTimestamp) extends MarketUtils
+        {
+            public function __construct(Quote $quote, private int $_openTimestamp)
+            {
+                parent::__construct($quote);
+            }
+
+            public function getMarketStatus()
+            {
+                return [
+                    'market_state'    => 'PRE',
+                    'status'          => 'OPEN',
+                    'open_timestamp'  => (string) $this->_openTimestamp,
+                    'close_timestamp' => (string) ($this->_openTimestamp + 8 * 3600),
+                ];
+            }
+        };
+
+        return [
+            'marketUtils'              => $marketUtils,
+            'regular_market_timestamp' => (new \DateTime())->setTimestamp(time() - $ageSeconds),
+        ];
+    }
+
+    /**
      * A quote array for a market that is open right now, whose freshest regular-session price is
      * $ageSeconds old.
      */

@@ -31,6 +31,11 @@ use Illuminate\Support\Facades\Log;
  * amount of refreshing on our side can shorten. A healthy European price is therefore always about
  * 15 minutes old, so those markets are measured against their own, larger threshold instead of
  * warning on every page load.
+ *
+ * Right after the opening bell the freshest price is still the previous session's close, many
+ * hours old, until the first prints of the new session reach us (about 15 minutes on the delayed
+ * European feeds). That is not a frozen feed, so a market is only judged once it has been open for
+ * at least its threshold: before that the feed has not yet had the chance to deliver a new price.
  */
 class StaleQuoteService
 {
@@ -106,6 +111,11 @@ class StaleQuoteService
                 continue;
             }
 
+            // Just after the open the freshest price is still the previous close (see class doc).
+            if ($market['session_open'] !== null && $now - $market['session_open'] < $marketThreshold) {
+                continue;
+            }
+
             sort($market['symbols']);
             $alerts[] = [
                 'market_key'            => $key,
@@ -131,11 +141,13 @@ class StaleQuoteService
 
     /**
      * Group the open markets and track, per market, the freshest regular-market timestamp, the
-     * symbols seen and whether the exchange is one Yahoo serves on a delayed feed. Symbols without
-     * a live quote (unlisted / missing) or whose market is not open right now are skipped.
+     * symbols seen, whether the exchange is one Yahoo serves on a delayed feed and when the current
+     * session opened (null when the schedule is unknown). Symbols without a live quote (unlisted /
+     * missing) or whose market is not open right now are skipped.
      *
      * @return array<string, array{label: string, symbols: array<int, string>,
-     *                             latest: \DateTimeInterface, delayed_feed: bool}>
+     *                             latest: \DateTimeInterface, delayed_feed: bool,
+     *                             session_open: int|null}>
      */
     private function _groupOpenMarkets(array $quotes): array
     {
@@ -145,7 +157,11 @@ class StaleQuoteService
                 continue;
             }
             $marketUtils = $quote['marketUtils'];
-            if (!($marketUtils instanceof MarketUtils) || !$this->_marketIsOpen($marketUtils)) {
+            if (!($marketUtils instanceof MarketUtils)) {
+                continue;
+            }
+            [$isOpen, $sessionOpen] = $this->_marketOpenState($marketUtils);
+            if (!$isOpen) {
                 continue;
             }
 
@@ -161,6 +177,7 @@ class StaleQuoteService
                     'symbols'      => [],
                     'latest'       => $timestamp,
                     'delayed_feed' => self::isDelayedFeed($marketUtils->getExchangeTimezone()),
+                    'session_open' => $sessionOpen,
                 ];
             }
             $byMarket[$key]['symbols'][] = (string) $symbol;
@@ -177,22 +194,27 @@ class StaleQuoteService
      * (MarketUtils::getMarketStatus(), cached per market) so a frozen quote's own market-state
      * field cannot mask a stale feed. Falls back to the quote's market state when the schedule is
      * unknown (e.g. crypto, which has no exchange session) or the status lookup fails.
+     *
+     * @return array{0: bool, 1: int|null} whether it is open, and the unix time the current
+     *                                     session opened when the schedule knows it
      */
-    private function _marketIsOpen(MarketUtils $marketUtils): bool
+    private function _marketOpenState(MarketUtils $marketUtils): array
     {
         try {
-            $status = $marketUtils->getMarketStatus()['status'] ?? 'UNKNOWN';
-            if ($status === 'OPEN') {
-                return true;
+            $status = $marketUtils->getMarketStatus();
+            if (($status['status'] ?? 'UNKNOWN') === 'OPEN') {
+                $open = (int) ($status['open_timestamp'] ?? 0);
+
+                return [true, $open > 0 ? $open : null];
             }
-            if ($status === 'CLOSED') {
-                return false;
+            if (($status['status'] ?? 'UNKNOWN') === 'CLOSED') {
+                return [false, null];
             }
         } catch (\Throwable $e) {
             // Fall through to the quote's own market state below.
         }
 
-        return $marketUtils->isOpen();
+        return [$marketUtils->isOpen(), null];
     }
 
     /**

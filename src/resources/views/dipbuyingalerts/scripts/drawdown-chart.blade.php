@@ -362,6 +362,8 @@ $(document).ready(function()
         {
             // Shade only the drawdown leg (peak to trough), so each band marks the drop itself, not
             // the long grind back to recovery; a labeled line pins the low (e.g. the 2025-04-09 low).
+            // An episode still open is the current drop: the blue "now" band below draws it instead.
+            if (ep.is_open && dipCurrentDrop) return;
             if (ep.low_date < vr.from || ep.peak_date > vr.to) return;
             let xPeak = ts.timeToCoordinate(ep.peak_date);
             let xLow  = ts.timeToCoordinate(ep.low_date);
@@ -404,7 +406,8 @@ $(document).ready(function()
                 const left  = clampX(Math.min(xPeak, xLow));
                 const right = clampX(Math.max(xPeak, xLow));
                 const band  = document.createElement('div');
-                band.title = 'Current drop -' + cd.current_dd + '% from local peak ' + cd.peak_date
+                band.title = (cd.is_open ? 'Dip in progress: -' : 'Current drop -') + cd.current_dd + '% from '
+                    + (cd.is_open ? 'its peak ' : 'local peak ') + cd.peak_date
                     + ' (deepest -' + cd.max_dd + '% on ' + cd.low_date + ')';
                 band.style.cssText = 'position:absolute;top:0;bottom:0;background:rgba(13,110,253,0.10);'
                     + 'border-left:1px dashed rgba(13,110,253,0.55);'

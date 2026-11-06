@@ -2,6 +2,14 @@
 .no-padding {
     padding: 0;
 }
+/* Lists with an Active / All toggle filtered by DataTables (orders, price alerts): in the Active view the server
+   marks the table and each row (data-active), so the dropped rows stay hidden from the first paint until the
+   list's script, deferred as a module, applies its own filter and removes the class (general/scripts/
+   prefilter-failsafe shows them again should that script fail). Keep data-active in step with that script's
+   ACTIVE_FILTER. */
+.data-table.prefilter-active > tbody > tr[data-active="0"] {
+    display: none;
+}
 .pointer {
     cursor: pointer;
 }

@@ -38,6 +38,8 @@ $(document).ready(function()
 
     // Apply initial filter (no URL update, already set by server)
     applyViewFilter('{{ $view }}', false);
+    // DataTables filters now; drop the first-paint hiding (general/partials/styles) so "All" shows every row.
+    $(table.table().node()).removeClass('prefilter-active');
 
     // Toggle click handler
     $('#orders-view-toggle button').on('click', function ()

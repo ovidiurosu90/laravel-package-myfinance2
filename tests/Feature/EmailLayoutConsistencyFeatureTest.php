@@ -12,7 +12,10 @@ use ovidiuro\myfinance2\App\Models\Currency;
 use ovidiuro\myfinance2\App\Models\PriceAlert;
 use ovidiuro\myfinance2\App\Models\StockSplit;
 use ovidiuro\myfinance2\App\Models\Scopes\AssignedToUserScope;
+use ovidiuro\myfinance2\App\Services\DipBuyingBacktestService;
 use ovidiuro\myfinance2\App\Services\DipBuyingPlanService;
+use ovidiuro\myfinance2\App\Services\DipBuyingPresenter;
+use ovidiuro\myfinance2\App\Services\MoneyFormat;
 use ovidiuro\myfinance2\App\Services\StoredTierReading;
 use ovidiuro\myfinance2\App\Services\TierCalculationService;
 use ovidiuro\myfinance2\Mail\DipBuyingAlert;
@@ -265,5 +268,83 @@ class EmailLayoutConsistencyFeatureTest extends TestCase
         $this->assertStringContainsString('Dip Buying Plan: ', $subject);
         self::_assertSharedFrame($html, 'Dip Buying Plan');
         $this->assertStringContainsString('→ Open the Panel', $html);
+    }
+
+    /**
+     * Covers: the Dip Buying email lists the current dip's trades in its episode card, built as the alert command
+     * builds it (panelDetail, read-only on the first user's data), newest first and capped; a synthetic list renders
+     * a sell without an entry drawdown and counts the trades left out.
+     */
+    public function test_dip_buying_alert_lists_the_trades_of_the_current_dip(): void
+    {
+        $partial = view('myfinance2::emails.partials.dip-episode-trades', ['trades' => [
+            'rows' => [
+                ['date' => "20 Oct '26", 'action' => 'sell', 'trade' => 'sell TST 2x @ 10.00 €', 'eur' => '€20',
+                 'entry_dd' => null],
+                ['date' => "03 Sep '26", 'action' => 'buy', 'trade' => 'buy TST 5x @ 9.00 €', 'eur' => '€45',
+                 'entry_dd' => '-7.84%'],
+            ],
+            'more' => 3,
+        ]])->render();
+        $this->assertStringContainsString('Trades this dip', $partial);
+        $this->assertMatchesRegularExpression('/<tr\s+class="text-muted"\s*>\s*<td[^>]*>20 Oct/', $partial);
+        $this->assertStringContainsString('buy TST 5x @ 9.00 €', $partial);
+        $this->assertStringContainsString('-7.84%', $partial);
+        $this->assertStringContainsString('And 3 earlier trades', $partial);
+        $this->assertSame('', trim(view('myfinance2::emails.partials.dip-episode-trades', ['trades' => [
+            'rows' => [], 'more' => 0,
+        ]])->render()));
+
+        $userId = (int) $this->_user->id;
+        $plan   = (new DipBuyingPlanService())->buildForUser($userId);
+        if ($plan === null) {
+            $this->markTestSkipped('The first user has no Dip Buying Plan enabled.');
+        }
+        $detail = (new DipBuyingBacktestService())->panelDetail($userId, $plan);
+        $trades = $detail['current']['actual']['flows']['trades'] ?? [];
+        if (empty($trades)) {
+            $this->markTestSkipped('The first user has no trades in the current dip.');
+        }
+
+        [, $html] = self::_render(new DipBuyingAlert(
+            $detail['plan'], 'band_deepened', $detail['regime'], $detail['current'], $detail['firstBand']
+        ));
+
+        $this->assertStringContainsString('Trades this dip', $html);
+        $this->assertStringContainsString(e(DipBuyingPresenter::shortDate($trades[0]['date'])), $html);
+        $dates  = array_column($trades, 'date');
+        $sorted = $dates;
+        rsort($sorted);
+        $this->assertSame($sorted, $dates, 'the trades are listed newest first');
+        $flows = $detail['current']['actual']['flows'];
+        $this->assertSame($flows['buy_count'] + $flows['sell_count'], count($trades));
+    }
+
+    /**
+     * Covers: the "New dip" line names the dip's peak and the drop from that same peak (the one its target is priced
+     * on), not the drawdown from the all-time high. Read-only on the first user's data.
+     */
+    public function test_dip_buying_new_dip_line_reads_the_drop_from_the_peak_it_names(): void
+    {
+        $userId = (int) $this->_user->id;
+        $plan   = (new DipBuyingPlanService())->buildForUser($userId);
+        if ($plan === null) {
+            $this->markTestSkipped('The first user has no Dip Buying Plan enabled.');
+        }
+        $detail = (new DipBuyingBacktestService())->panelDetail($userId, $plan);
+        if ($detail['current'] === null) {
+            $this->markTestSkipped('The first user has no current dip.');
+        }
+
+        [, $html] = self::_render(new DipBuyingAlert(
+            $detail['plan'], 'new_episode', $detail['regime'], $detail['current'], $detail['firstBand']
+        ));
+
+        $text = preg_replace('/\s+/', ' ', strip_tags($html));
+        $this->assertStringContainsString(
+            e(DipBuyingPresenter::shortDate($detail['plan']['anchor_date'])) . ' peak. At -'
+                . MoneyFormat::get_formatted_pct((float) $detail['current']['current_dd']) . '% below that peak',
+            $text
+        );
     }
 }

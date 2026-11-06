@@ -10,6 +10,7 @@ use Illuminate\Queue\SerializesModels;
 
 use ovidiuro\myfinance2\App\Models\PriceAlert;
 use ovidiuro\myfinance2\App\Services\MoneyFormat;
+use ovidiuro\myfinance2\App\Services\PositionTimeline;
 use ovidiuro\myfinance2\App\Services\TierCalculationService;
 use ovidiuro\myfinance2\App\Services\TierSignalChip;
 use ovidiuro\myfinance2\Mail\Concerns\DescribesPeakProximityReading;
@@ -19,7 +20,7 @@ use ovidiuro\myfinance2\Mail\Concerns\LinksSymbolActions;
 /**
  * Price alert email (and its split-anomaly warning), laid out as the peak-proximity alert: the subject and header
  * lead with the symbol and its tier reading ("ABN.AS (Gold) above target 39.00 € => now 39.12 €"),
- * then a Summary with today's move and the unrealized gain, the position and the same row of buttons.
+ * then a Summary with today's move and the unrealized gain, the position with its trades and the same row of buttons.
  */
 class PriceAlertTriggered extends Mailable
 {
@@ -37,7 +38,8 @@ class PriceAlertTriggered extends Mailable
      * @param PriceAlert $alert
      * @param float      $currentPrice
      * @param array|null $position       AlertService::emailPosition(): today's move and, when held, the quantity,
-     *                                   the average cost and the unrealized gain if sold now (fees included, EUR)
+     *                                   the average cost, the unrealized gain if sold now (fees included, EUR) and
+     *                                   the trades / splits timeline
      * @param bool       $isSplitWarning
      * @param array|null $tierReading    StoredTierReading::forSymbol(), null when the symbol has no stored tier
      */
@@ -64,6 +66,7 @@ class PriceAlertTriggered extends Mailable
     public function build()
     {
         $alert         = $this->_alert;
+        $timeline      = $this->_position['timeline'] ?? [];
         $currencyHtml  = html_entity_decode($alert->tradeCurrencyModel?->display_code ?? '', ENT_HTML5, 'UTF-8');
         $currencyLabel = html_entity_decode(strip_tags($currencyHtml), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $direction     = $this->_direction();
@@ -102,6 +105,9 @@ class PriceAlertTriggered extends Mailable
                 'sellGainPct'    => $this->_position['gain_pct'] ?? null,
                 'quantity'       => $this->_position['quantity'] ?? null,
                 'avgUnitCost'    => $this->_position['avg_unit_cost'] ?? null,
+                // The position's trades and splits, as the peak-proximity alert's Open positions card lists them.
+                'timeline'       => $timeline,
+                'showAccount'    => PositionTimeline::spansAccounts($timeline),
                 'currencyHtml'   => $currencyHtml,
                 'currencyLabel'  => $currencyLabel,
                 'links'          => $this->_links(),

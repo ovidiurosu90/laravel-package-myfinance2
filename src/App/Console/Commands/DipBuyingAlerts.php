@@ -136,6 +136,18 @@ class DipBuyingAlerts extends Command
             return 'skipped'; // one email per day
         }
 
+        // The regime breakdown and current episode, from the one shared computation /positions also uses
+        // (DipBuyingBacktestService::panelDetail), and the plan on that episode's basis, so the trigger,
+        // the history row and the email read the same dip as the panel. Never fatal: without it the core
+        // plan still drives the alert.
+        $detail = ['regime' => [], 'current' => null, 'firstBand' => null];
+        try {
+            $detail = (new DipBuyingBacktestService())->panelDetail($userId, $plan);
+            $plan   = $detail['plan'];
+        } catch (\Throwable $e) {
+            Log::warning("DipBuyingAlerts: panel detail build failed for user {$userId}: " . $e->getMessage());
+        }
+
         $last    = $this->_lastNotification($userId);
         $trigger = $this->_resolveTrigger($plan, $last);
         if ($trigger === null) {
@@ -148,7 +160,7 @@ class DipBuyingAlerts extends Command
             return 'sent';
         }
 
-        return $this->_send($plan, $trigger, $userId);
+        return $this->_send($plan, $detail, $trigger, $userId);
     }
 
     /**
@@ -174,10 +186,12 @@ class DipBuyingAlerts extends Command
             return $verdict === DipBuyingPlanService::VERDICT_BEHIND ? 'crossed_behind' : null;
         }
 
-        // New dip episode: anchor changed and we are inside an actionable band.
+        // New dip episode: it starts after the last alert's (a later peak) and we are inside an actionable
+        // band. An earlier start is the same dip read on a better basis (e.g. the current episode's own
+        // peak instead of VUSA.AS's), not a new one.
         if ($anchorDate !== null
             && $last->anchor_date !== null
-            && $anchorDate !== $last->anchor_date->format('Y-m-d')
+            && $anchorDate > $last->anchor_date->format('Y-m-d')
             && $targetPct > 1e-9
         ) {
             return 'new_episode';
@@ -202,13 +216,14 @@ class DipBuyingAlerts extends Command
      * Send the email and record the audit/throttle row (record as SENT first, mark FAILED on error,
      * mirroring the peak-proximity alert flow).
      *
-     * @param array  $plan
+     * @param array  $plan    on the current episode's basis (DipBuyingBacktestService::planOnCurrentEpisode)
+     * @param array  $detail  panelDetail: regime, current, firstBand
      * @param string $trigger
      * @param int    $userId
      *
      * @return string  'sent', 'skipped' (no recipient) or 'failed' (the email did not go out)
      */
-    private function _send(array $plan, string $trigger, int $userId): string
+    private function _send(array $plan, array $detail, string $trigger, int $userId): string
     {
         $emailTo = config('myfinance2.alerts.dip_buying.email_to')
             ?: config('myfinance2.alerts.email_to')
@@ -226,6 +241,8 @@ class DipBuyingAlerts extends Command
             'portfolio_dd_pct'      => $plan['portfolio_dd_pct'] ?? null,
             'driver'                => $plan['driver'] ?? null,
             'anchor_date'           => $plan['anchor_date'] ?? null,
+            // Null on the plan's own basis (no current dip, or the panel detail could not be built).
+            'basis'                 => $plan['basis'] ?? null,
             'target_pct'            => (int) round($plan['target_pct']),
             'deployed_pct'          => $plan['deployed_pct'],
             'deployed_eur'          => $plan['deployed_eur'],
@@ -237,25 +254,10 @@ class DipBuyingAlerts extends Command
             'status'                => 'SENT',
         ]);
 
-        // The regime breakdown and current-episode block let the email mirror the /positions panel,
-        // from the one shared computation the controller also uses (DipBuyingBacktestService::panelDetail).
-        // Never fatal: an alert with the core plan still goes out if the richer figures cannot be built.
-        $regime    = [];
-        $current   = null;
-        $firstBand = null;
-        try {
-            $detail    = (new DipBuyingBacktestService())->panelDetail($userId, $plan);
-            $regime    = $detail['regime'];
-            $current   = $detail['current'];
-            $firstBand = $detail['firstBand'];
-        } catch (\Throwable $e) {
-            Log::warning("DipBuyingAlerts: panel detail build failed for user {$userId}: " . $e->getMessage());
-        }
-
         try {
             AlertMailer::send(
                 $emailTo,
-                new DipBuyingAlert($plan, $trigger, $regime, $current, $firstBand),
+                new DipBuyingAlert($plan, $trigger, $detail['regime'], $detail['current'], $detail['firstBand']),
                 'DipBuyingAlerts'
             );
         } catch (\Throwable $e) {

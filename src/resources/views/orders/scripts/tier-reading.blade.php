@@ -31,6 +31,9 @@ $(document).ready(function ()
         if (!data.symbol || !data.action) {
             $wrapper.html('');
             missing = [];
+            if (data.symbol && !orderId) {
+                requestHint(data);
+            }
             return;
         }
         const reqId = ++requestId;
@@ -48,6 +51,23 @@ $(document).ready(function ()
                 $wrapper.find('[data-bs-toggle="tooltip"]').tooltip();
                 missing = response.missing || [];
                 $('#tier-confirm-body').html(response.confirm_html || '');
+            },
+        });
+    }
+
+    // No side yet: only the side today's reading points to, for the picker (orders/scripts/action-pick).
+    function requestHint(data)
+    {
+        const reqId = ++requestId;
+        $.ajax({
+            type: 'GET',
+            url: fetchUrl,
+            data: { symbol: data.symbol },
+            success: function (response)
+            {
+                if (reqId === requestId) {
+                    $(document).trigger('order-side-hint', [response.hint || null]);
+                }
             },
         });
     }

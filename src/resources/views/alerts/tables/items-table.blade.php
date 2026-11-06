@@ -42,7 +42,10 @@
     </form>
 </div>
 
-<table class="table table-sm table-striped data-table alert-items-table">
+{{-- prefilter-active + data-active: hides the rows the Active view drops until the script applies its filter
+     (general/partials/styles). --}}
+<table class="table table-sm table-striped data-table alert-items-table
+              {{ $view === 'active' ? 'prefilter-active' : '' }}">
         <thead class="thead">
             <tr role="row">
                 <th class="no-sort no-search" style="width: 1px;">
@@ -53,7 +56,7 @@
                 <th>Symbol</th>
                 <th>Account(s)</th>
                 <th>Type</th>
-                <th class="text-right text-nowrap no-search">Current → Target Price</th>
+                <th class="text-right text-nowrap no-search">Target Price</th>
                 <th class="text-right text-nowrap">Projected Gain</th>
                 <th class="text-center text-nowrap">
                     <span data-bs-toggle="tooltip"
@@ -74,8 +77,12 @@
                 $qd           = $quoteData[$item->symbol] ?? null;
                 $cp           = $qd['price'] ?? null;
                 $currencyCode = $item->tradeCurrencyModel ? $item->tradeCurrencyModel->display_code : '';
+                $distance     = $cp !== null ? $item->targetDistance((float) $cp) : null;
+                $reached      = $distance !== null && $distance['reached'];
             @endphp
-            <tr data-symbol="{{ $item->symbol }}" data-alert-type="{{ $item->alert_type }}"
+            <tr data-active="{{ $item->getEffectiveStatus() === 'ACTIVE' ? '1' : '0' }}"
+                data-symbol="{{ $item->symbol }}" data-alert-type="{{ $item->alert_type }}"
+                data-reached="{{ $reached ? '1' : '0' }}"
                 data-temporary="{{ $item->expires_at ? '1' : '0' }}">
                 <td>
                     <input type="checkbox"
@@ -117,6 +124,14 @@
                     </span>
                     <div>
                         <span class="badge bg-light text-dark border">{{ $item->source }}</span>
+                        @if (!empty($linkedOrders[$item->id]))
+                            {{-- The order keeping this alert in sync, in a new tab. --}}
+                            <a href="{{ route('myfinance2::orders.edit', $linkedOrders[$item->id]->id) }}"
+                                target="_blank" rel="noopener" class="small" data-bs-toggle="tooltip"
+                                title="{{ trans('myfinance2::alerts.linked-order.title', [
+                                    'id' => $linkedOrders[$item->id]->id,
+                                ]) }}">#{{ $linkedOrders[$item->id]->id }}</a>
+                        @endif
                     </div>
                     @if ($item->expires_at)
                         <div class="mt-1">
@@ -126,45 +141,11 @@
                         </div>
                     @endif
                 </td>
-                <td class="text-right text-nowrap"
-                    data-order="{{ $cp !== null ? (float) $item->target_price - $cp : -999999 }}">
-                    @if ($cp !== null)
-                        @php
-                            $delta     = (float) $item->target_price - $cp;
-                            $deltaPct  = $cp > 0 ? ($delta / $cp) * 100 : 0;
-                            $deltaSign = $delta >= 0 ? '+' : '−';
-                        @endphp
-                        <div class="text-nowrap">
-                            @include('myfinance2::partials.price-tooltip', [
-                                'currency'           => $currencyCode,
-                                'price'              => $qd['price'] ?? null,
-                                'timestamp'          => $qd['quote_timestamp'] ?? null,
-                                'isPreMarket'        => !empty($qd['pre_market_price']),
-                                'isPostMarket'       => !empty($qd['post_market_price']),
-                                'dayChange'          => $qd['day_change'] ?? null,
-                                'dayChangePct'       => $qd['day_change_pct'] ?? null,
-                                'regularPrice'       => $qd['regular_market_price'] ?? null,
-                                'regularTimestamp'   => $qd['regular_market_timestamp'] ?? null,
-                                'regularDayChange'   => $qd['regular_market_day_change'] ?? null,
-                                'regularDayChangePct'=> $qd['regular_market_day_change_pct'] ?? null,
-                                'postChange'         => $qd['post_market_change'] ?? null,
-                                'postChangePct'      => $qd['post_market_change_pct'] ?? null,
-                                'marketOpen'         => $qd['market_open'] ?? false,
-                                'content'            => MoneyFormat::get_formatted_price_display($currencyCode, $cp, true),
-                            ])
-                            → {!! MoneyFormat::get_formatted_price_display($currencyCode, (float) $item->target_price, true) !!}
-                        </div>
-                        <div class="text-muted small text-nowrap">
-                            delta: {{ $deltaSign }}{!! MoneyFormat::get_formatted_monetary_display($currencyCode, abs($delta)) !!}
-                            ({{ $deltaSign }}{{ MoneyFormat::get_formatted_pct(abs($deltaPct)) }}%)
-                        </div>
-                    @else
-                        <div class="text-nowrap">
-                            <span class="text-muted">—</span>
-                            → {!! MoneyFormat::get_formatted_price_display($currencyCode, (float) $item->target_price, true) !!}
-                        </div>
-                    @endif
-                    @include('myfinance2::alerts.tables.partials.relative-target-info', ['alert' => $item])
+                {{-- Sorted by the distance to the target: reached first (furthest past), then the closest. --}}
+                <td @class(['text-right text-nowrap', 'alert-reached-cell' => $reached])
+                    data-order="{{ $distance && $distance['pct'] !== null
+                        ? ($reached ? -$distance['pct'] : $distance['pct']) : 999999 }}">
+                    @include('myfinance2::alerts.tables.partials.target-price-cell')
                 </td>
                 @php
                     $multiAccount = isset($accountNames[$item->symbol])
@@ -308,4 +289,7 @@
             </tr>
         </tfoot>
     </table>
+@if ($view === 'active')
+    @include('myfinance2::general.scripts.prefilter-failsafe')
+@endif
 <div class="clearfix mb-3"></div>

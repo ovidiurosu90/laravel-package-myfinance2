@@ -9,10 +9,14 @@ use Cache;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Exception\ServerException;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Middleware;
+use GuzzleHttp\Psr7\Uri;
+use Psr\Http\Message\RequestInterface;
 use Illuminate\Support\Facades\Log;
 use Scheb\YahooFinanceApi\UserAgent;
 use Scheb\YahooFinanceApi\ApiClient;
-use Scheb\YahooFinanceApi\ApiClientFactory;
+use Scheb\YahooFinanceApi\ValueMapper;
 use Scheb\YahooFinanceApi\Results\Quote;
 use Scheb\YahooFinanceApi\Results\HistoricalData;
 
@@ -35,11 +39,37 @@ class FinanceAPI
         UserAgent::setUserAgents([self::USER_AGENT_CHROME_116]);
     }
 
-    public function getClient(): ApiClient
+    /**
+     * @param bool $overnightPrice flag the quote requests for the overnight session's fields (OvernightQuotes); a
+     *                             flagged response leaves out the after-hours fields, so it is only asked for on top
+     *                             of the unflagged one
+     */
+    public function getClient(bool $overnightPrice = false): ApiClient
     {
-        $options = [/*...*/];
-        $guzzleClient = new Client($options);
-        return ApiClientFactory::createApiClient($guzzleClient);
+        $handler = HandlerStack::create();
+        if ($overnightPrice) {
+            $handler->push(Middleware::mapRequest([self::class, 'withOvernightPrice']), 'overnight_price');
+        }
+        $guzzleClient = new Client(['handler' => $handler]);
+
+        // The library's own decoder drops the overnight session fields (LiveQuote), so the
+        // client is built with ours instead of through ApiClientFactory.
+        return new ApiClient($guzzleClient, new LiveQuoteDecoder(new ValueMapper()));
+    }
+
+    /**
+     * Yahoo only sends the overnight session fields (overnightMarketPrice, ...) when the quote
+     * request asks for them with overnightPrice=true. The library builds that URL itself, so the
+     * flag is added here, to the quote requests only (not the crumb or history calls).
+     */
+    public static function withOvernightPrice(RequestInterface $request): RequestInterface
+    {
+        $uri = $request->getUri();
+        if (!str_ends_with($uri->getPath(), '/v7/finance/quote')) {
+            return $request;
+        }
+
+        return $request->withUri(Uri::withQueryValue($uri, 'overnightPrice', 'true'));
     }
 
     /**
@@ -130,6 +160,7 @@ class FinanceAPI
                     return null;
                 }
                 if (!empty($quote)) {
+                    $quote = $this->_withOvernight([$quote])[0];
                     $this->cacheQuote($quote, $persistStats);
                 }
             } catch (\Exception $e) {
@@ -193,7 +224,7 @@ class FinanceAPI
                     fn () => $client->getQuotes($missingCachedSymbols),
                     'getQuotes(' . join(', ', $missingCachedSymbols) . ')'
                 );
-                $apiQuotes = self::_withMarketData($apiQuotes);
+                $apiQuotes = $this->_withOvernight(self::_withMarketData($apiQuotes));
                 $this->cacheQuotes($apiQuotes, $persistStats);
                 $quotes = array_merge($quotes, $apiQuotes);
             } catch (\Exception $e) {
@@ -211,6 +242,22 @@ class FinanceAPI
         }
 
         return $quotes;
+    }
+
+    /**
+     * The quotes with the overnight session's fields added to the US ones while it runs (OvernightQuotes): fetched
+     * once more with the flag, so no session's latest price is lost.
+     *
+     * @param Quote[] $quotes
+     *
+     * @return Quote[]
+     */
+    private function _withOvernight(array $quotes): array
+    {
+        return OvernightQuotes::add($quotes, fn (array $symbols): array => $this->_withRetry(
+            fn () => $this->getClient(true)->getQuotes($symbols),
+            'getQuotes(' . implode(', ', $symbols) . ', overnight)'
+        ));
     }
 
     /**
@@ -257,7 +304,8 @@ class FinanceAPI
     public function getExchangeRates(
         array $currencyPairs,
         bool $checkCache = true,
-        bool $persistStats = true
+        bool $persistStats = true,
+        bool $warnOnError = true
     ): ?array
     {
         if (empty($currencyPairs)) {
@@ -299,11 +347,10 @@ class FinanceAPI
                 );
                 $this->cacheQuotes($quotes, $persistStats);
             } catch (\Exception $e) {
-                Log::warning(
-                    "Couldn't get exchange rates for currencyPairs" .
+                $message = "Couldn't get exchange rates for currencyPairs" .
                     print_r($currencyPairs, true) .
-                    ". Exception message: " . $e->getMessage()
-                );
+                    ". Exception message: " . $e->getMessage();
+                $warnOnError ? Log::warning($message) : Log::info($message);
             }
         }
 

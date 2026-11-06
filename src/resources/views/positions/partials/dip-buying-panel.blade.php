@@ -85,7 +85,7 @@
                         @endif
                         <a href="{{ route('myfinance2::dip-buying-alerts.index') }}"
                            class="btn btn-outline-secondary btn-sm py-0 px-1 lh-1"
-                           data-bs-toggle="tooltip" title="Pool size, alerts and ladder settings">
+                           data-bs-toggle="tooltip" title="Fallback pool, alerts and ladder settings">
                             <i class="fa fa-fw fa-cog" aria-hidden="true"></i>
                         </a>
                     </span>
@@ -163,10 +163,21 @@
                 {{-- Mirrors the left column's "Drawdown now" label; the deployed figure is constant across
                      bands, so it lives here once and each ladder row's Gap is measured against it. --}}
                 <div class="d-flex justify-content-between align-items-baseline gap-2 mb-2">
-                    <span class="label text-muted text-uppercase fw-bold">Deployed so far</span>
+                    <span class="label text-muted text-uppercase fw-bold">
+                        Deployed so far
+                        @if (!empty($present['deployed_tooltip']))
+                            {{-- The definition and the dip's buys / sells / cash (DipBuyingPresenter). --}}
+                            <i class="fa fa-info-circle" aria-hidden="true" data-bs-toggle="tooltip"
+                               data-bs-html="true" data-bs-custom-class="tooltip-wide"
+                               title="{{ $present['deployed_tooltip'] }}"></i>
+                        @endif
+                    </span>
                     <span class="d-flex align-items-baseline gap-2">
                         <span class="fw-semibold">{{ round($ladder['deployed_pct'], 1) }}%</span>
-                        <span class="text-muted">(&euro;{{ $num($ladder['deployed_eur']) }})</span>
+                        {{-- 0% with a note when more came back than went in (cash rose / net sold). --}}
+                        <span class="text-muted">
+                            ({{ $ladder['deployed_note'] ?? '€' . $num($ladder['deployed_eur']) }})
+                        </span>
                     </span>
                 </div>
                 <div class="table-responsive">
@@ -175,10 +186,10 @@
                             @php
                                 $ladderPoolNote = $dipCurrent
                                     ? 'Euro amounts use your actual cash at the start of this dip (€'
-                                        . $num($ladder['pool_eur']) . '), not the pool set on the settings page. '
-                                        . 'That configured pool is only a fallback, used when no cash is '
-                                        . "recorded for the dip's start date."
-                                    : 'No active dip, so euro amounts use your configured settings pool (€'
+                                        . $num($ladder['pool_eur']) . '), not the fallback pool on the settings '
+                                        . "page, which is used only when no cash is recorded for the dip's start "
+                                        . 'date.'
+                                    : 'No active dip, so euro amounts use the fallback pool on the settings page (€'
                                         . $num($ladder['pool_eur']) . '). During a dip they switch to your actual '
                                         . "cash at the dip's start.";
                             @endphp
@@ -248,11 +259,9 @@
                     'cardClass' => 'mb-0',
                 ])
             </div>
-        @else
+        @elseif (!empty($present['no_dip_note']))
             <div class="small text-muted mt-3">
-                <i class="fa fa-shield" aria-hidden="true"></i>
-                No current dip: at -{{ $present['dd_fmt'] }}% you are above the ladder's first band, so the guided plan
-                deploys nothing yet.
+                <i class="fa fa-shield" aria-hidden="true"></i> {{ $present['no_dip_note'] }}
             </div>
         @endif
         @if (!empty($stall['active']))

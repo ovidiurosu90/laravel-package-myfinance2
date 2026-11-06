@@ -1,13 +1,19 @@
 <script type="module">
 $(document).ready(function()
 {
+    // The Open Positions column's width and its cards' wrapping come from the CSS (tables/items-table), by screen
+    // width.
     const $tbody = $('.watchlist-symbol-items-table.data-table tbody');
 
-    // On narrow screens wrap the account cards so DataTables measures one-card column width
-    let isWide = window.innerWidth >= 1400;
-    if (!isWide) {
-        $tbody.find('.open-positions-cards').addClass('flex-wrap');
-    }
+    // Without the performance rows (detached below until drawCallback puts them back) the page is less than half as
+    // tall while DataTables builds and measures the table. Firefox then pushes a restored mid-page scroll down to the
+    // short page's bottom, and its scroll anchoring keeps the last rows on screen as the rows come back, so a refresh
+    // lands on the last row. Hold the table's height and turn anchoring off until the table is built (released right
+    // after the DataTable() call), then put the scroll back if it still moved.
+    const tableWrapper   = $tbody.closest('.table-responsive')[0];
+    const scrollBeforeDt = window.scrollY;
+    tableWrapper.style.minHeight = tableWrapper.offsetHeight + 'px';
+    document.documentElement.style.overflowAnchor = 'none';
 
     // Detach performance rows before DataTables init so they are never treated as data rows
     const perfRows = {};
@@ -16,8 +22,6 @@ $(document).ready(function()
         const sym = $(this).data('symbol');
         perfRows[sym] = $(this).detach();
     });
-
-    const openPositionsWidth = '550px';
 
     // Column indices (0-based): 0=Symbol,1=Price,2=DayChg,3=52W,4=%Low,5=%High,
     // 6=OpenPositions,7=Orders,8=Alerts,9=Actions (Edit + Delete stacked),
@@ -29,9 +33,6 @@ $(document).ready(function()
         { targets: 10, visible: false, searchable: false, type: 'num' },
         { targets: 11, visible: false, searchable: false, type: 'num' },
     ];
-    if (isWide) {
-        columnDefs.push({ targets: 6, width: openPositionsWidth });
-    }
 
     const rowPairs = new Map();
 
@@ -116,6 +117,14 @@ $(document).ready(function()
             });
         }
     });
+
+    // The table is built with its performance rows back (first drawCallback): release the held height and the
+    // anchoring (see above). 'instant': Bootstrap's smooth scroll-behavior would otherwise animate the correction.
+    tableWrapper.style.minHeight = '';
+    if (Math.abs(window.scrollY - scrollBeforeDt) > 1) {
+        window.scrollTo({ top: scrollBeforeDt, behavior: 'instant' });
+    }
+    document.documentElement.style.overflowAnchor = '';
 
     // ── Populate combined sort + filter toolbar ──
     const $bar = $(dt.table().container()).find('.sort-filter-placeholder');
@@ -222,28 +231,9 @@ $(document).ready(function()
 
     const nonWatchlistTemplate = document.getElementById('non-watchlist-template');
     if (nonWatchlistTemplate) {
-        const $content = $(nonWatchlistTemplate.content.cloneNode(true));
-        if (!isWide) {
-            $content.find('.open-positions-cards').addClass('flex-wrap');
-        }
-        $content.appendTo('.watchlist-symbol-items-table');
+        $(nonWatchlistTemplate.content.cloneNode(true)).appendTo('.watchlist-symbol-items-table');
         nonWatchlistTemplate.remove();
     }
-
-    let resizeTimer;
-    $(window).on('resize', function()
-    {
-        clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(function()
-        {
-            const nowWide = window.innerWidth >= 1400;
-            if (nowWide === isWide) return;
-            isWide = nowWide;
-            $tbody.find('.open-positions-cards').toggleClass('flex-wrap', !isWide);
-            $(dt.column(6).header()).css('width', isWide ? openPositionsWidth : '');
-            dt.columns.adjust();
-        }, 200);
-    });
 
     // The real toolbar is now in place; drop the reserved-height placeholder. This runs in the
     // same synchronous task as the toolbar build, so the browser paints the real toolbar and the

@@ -18,6 +18,12 @@ use ovidiuro\myfinance2\App\Services\Stats;
  */
 trait FinanceApiCronQuotesTrait
 {
+    /** A failed exchange-rate fetch this soon after a successful one is transient (logged as INFO). */
+    private static int $_ratesTransientSeconds = 15 * 60;
+
+    /** A symbol missing from a quotes fetch for less than this is transient (logged as INFO). */
+    private static int $_quoteMissTransientSeconds = 15 * 60;
+
     public function getAllUsedSymbols(): array
     {
         $dividends = Dividend::select('symbol')->distinct()->pluck('symbol')->toArray();
@@ -81,9 +87,52 @@ trait FinanceApiCronQuotesTrait
             $message .= ', skipped: ' . implode(', ', $skipped);
         }
         Log::info($message);
-        if (!empty($unableToFetch)) {
-            Log::warning('refreshQuotes() unable to fetch: ' . implode(', ', $unableToFetch));
+
+        [$missing, $transient] = $this->_splitQuoteMisses($symbols, $fetchedSymbols, $unableToFetch);
+        if (!empty($transient)) {
+            Log::info('refreshQuotes() not in this fetch (transient, fetched within the last '
+                . intdiv(self::$_quoteMissTransientSeconds, 60) . 'm): ' . implode(', ', $transient));
         }
+        if (!empty($missing)) {
+            Log::warning('refreshQuotes() unable to fetch: ' . implode(', ', $missing));
+        }
+    }
+
+    /**
+     * Split the symbols missing from this fetch into the ones missing for a while (or never fetched) and the ones
+     * fetched recently. Yahoo drops a few symbols from a batch now and then, typically right at the US open
+     * (a few US stocks for a few minutes), and they come back on their own: only a symbol without a quote for
+     * $_quoteMissTransientSeconds is worth a warning. The last fetch time of each symbol is kept in the cache.
+     *
+     * @param string[] $symbols        every symbol asked for
+     * @param string[] $fetchedSymbols the ones Yahoo returned
+     * @param string[] $unableToFetch  the ones it did not (skipped symbols excluded)
+     *
+     * @return array{0: string[], 1: string[]} [missing for a while, transient]
+     */
+    private function _splitQuoteMisses(array $symbols, array $fetchedSymbols, array $unableToFetch): array
+    {
+        $key  = 'finance_api_quotes_last_fetched';
+        $now  = time();
+        $last = Cache::get($key, []);
+        $last = is_array($last) ? array_intersect_key($last, array_flip(array_map('strtoupper', $symbols))) : [];
+        foreach ($fetchedSymbols as $symbol) {
+            $last[strtoupper((string) $symbol)] = $now;
+        }
+        Cache::put($key, $last, 7 * 24 * 3600);
+
+        $missing   = [];
+        $transient = [];
+        foreach ($unableToFetch as $symbol) {
+            $fetchedAt = $last[strtoupper((string) $symbol)] ?? null;
+            if ($fetchedAt !== null && $now - $fetchedAt < self::$_quoteMissTransientSeconds) {
+                $transient[] = $symbol;
+            } else {
+                $missing[] = $symbol;
+            }
+        }
+
+        return [array_values($missing), array_values($transient)];
     }
 
     public function refreshExchangeRates(): void
@@ -98,15 +147,27 @@ trait FinanceApiCronQuotesTrait
         $currencyPairs = $currencyPairsData['pairs'];
         $symbols = $currencyPairsData['symbols'];
 
+        // Yahoo fails a single run now and then (an invalid result for a minute); rates move slowly, so a failure
+        // within $_ratesTransientSeconds of the last success is transient (INFO), only a longer outage an ERROR.
+        $lastSuccess   = Cache::get('finance_api_exchange_rates_last_success');
+        $recentSuccess = $lastSuccess !== null && (time() - $lastSuccess) <= self::$_ratesTransientSeconds;
+
         $financeAPI = new FinanceAPI();
         // don't check cache
-        $quotes = $financeAPI->getExchangeRates($currencyPairs, false);
+        $quotes = $financeAPI->getExchangeRates($currencyPairs, false, true, !$recentSuccess);
 
         if (empty($quotes)) {
-            Log::error('END app:finance-api-cron refreshExchangeRates() => '
-                       . "ERROR! We couldn't get the exchange rates! Exiting...");
+            if ($recentSuccess) {
+                Log::info('END app:finance-api-cron refreshExchangeRates() => '
+                    . "Couldn't get the exchange rates (transient, last success was recent). Skipping...");
+            } else {
+                Log::error('END app:finance-api-cron refreshExchangeRates() => '
+                           . "ERROR! We couldn't get the exchange rates! Exiting...");
+            }
             return;
         }
+
+        Cache::put('finance_api_exchange_rates_last_success', time(), 3600);
 
         $fetchedSymbols = [];
         foreach ($quotes as $quote) {

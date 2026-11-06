@@ -39,12 +39,19 @@ class PriceAlertController extends MyFinance2Controller
     {
         $view = $request->query('view', 'active');
 
-        $items = PriceAlert::with('tradeCurrencyModel')->get();
+        // In the list's first sort (alerts/scripts/datatables: Symbol, case-insensitive, ties in row order), so the
+        // rows don't reshuffle when DataTables builds the table. Sorted in PHP: strcmp matches DataTables' comparison,
+        // the database collation orders punctuation (BRK-B, SXR8.DE, ^GSPC) differently; the sort is stable.
+        $items = PriceAlert::with('tradeCurrencyModel')->orderBy('id')->get()
+            ->sortBy(fn (PriceAlert $alert) => strtolower($alert->symbol), SORT_STRING)
+            ->values();
 
         $projectedGains      = $this->_buildProjectedGains($items);
         $recentNotifications = $this->_buildRecentNotifications($items);
         $quoteData    = $this->_buildQuoteData($items);
         $accountNames = $this->_buildAccountNames($items);
+        // The open order keeping each linked alert in sync, shown next to its "order" source.
+        $linkedOrders = PriceAlert::linkedOrders($items);
 
         return view('myfinance2::alerts.crud.dashboard', [
             'items'               => $items,
@@ -53,6 +60,7 @@ class PriceAlertController extends MyFinance2Controller
             'recentNotifications' => $recentNotifications,
             'quoteData'           => $quoteData,
             'accountNames'        => $accountNames,
+            'linkedOrders'        => $linkedOrders,
         ]);
     }
 
@@ -99,7 +107,7 @@ class PriceAlertController extends MyFinance2Controller
             $data['source'] = $sourcePrefill;
         }
 
-        $data = array_merge($data, $this->_relativeTargetPrefill($request, $data['source'] ?? 'manual'));
+        $data = array_merge($data, $this->_relativeTargetPrefill($request));
 
         $data['symbolPrefill'] = $symbolPrefill;
 
@@ -154,14 +162,28 @@ class PriceAlertController extends MyFinance2Controller
     public function update(UpdateAlert $request, int $id)
     {
         $item = PriceAlert::findOrFail($id);
+        $linkedOrder = $item->linkedOrder();
         $item->fill($request->fillData($id));
+
+        // Breaking the link to the order that keeps this alert in sync needs a confirmation (the
+        // form asks on save; back to it, with the confirmation open, when it was not given).
+        $unlinks = $linkedOrder !== null && !$item->matchesOrder($linkedOrder);
+        if ($unlinks && !$request->boolean('confirm_unlink')) {
+            return redirect()->back()->withInput($request->except('confirm_unlink'))
+                ->with('unlink_confirm', true);
+        }
+
         if ($item->isRelative()) {
             app(RelativeAlertTargetService::class)->resolveForSave($item);
         }
         $item->save();
 
-        return redirect()->route('myfinance2::price-alerts.index')->with('success',
-            trans('myfinance2::alerts.flash-messages.item-updated', ['id' => $item->id]));
+        $message = trans('myfinance2::alerts.flash-messages.item-updated', ['id' => $item->id]);
+        if ($unlinks) {
+            $message .= trans('myfinance2::alerts.flash-messages.item-unlinked', ['order' => $linkedOrder->id]);
+        }
+
+        return redirect()->route('myfinance2::price-alerts.index')->with('success', $message);
     }
 
     /**
@@ -538,17 +560,15 @@ class PriceAlertController extends MyFinance2Controller
 
     /**
      * Relative-target prefill from the query string (target_mode, reference_type,
-     * reference_window, offset_pct), validated like the other prefill params. Order alerts follow
-     * the order's limit price, so they never prefill a relative target.
+     * reference_window, offset_pct), validated like the other prefill params.
      *
      * @param Request $request
-     * @param string  $source
      *
      * @return array
      */
-    private function _relativeTargetPrefill(Request $request, string $source): array
+    private function _relativeTargetPrefill(Request $request): array
     {
-        if ($request->query('target_mode') !== 'RELATIVE' || $source === 'order') {
+        if ($request->query('target_mode') !== 'RELATIVE') {
             return [];
         }
 

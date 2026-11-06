@@ -13,6 +13,7 @@ use ovidiuro\myfinance2\App\Services\MoneyFormat;
 use ovidiuro\myfinance2\App\Services\CashBalancesUtils;
 use ovidiuro\myfinance2\App\Services\CurrencyUtils;
 use ovidiuro\myfinance2\App\Services\OrderSuggestion;
+use ovidiuro\myfinance2\App\Services\OrderSidePrefill;
 use ovidiuro\myfinance2\App\Services\ChartsBuilder;
 use ovidiuro\myfinance2\App\Services\HistoricalBackfill;
 use ovidiuro\myfinance2\App\Services\Stats;
@@ -102,7 +103,7 @@ class AjaxController extends MyFinance2Controller
                 $accountCurrency = $account->currency->iso_code;
             }
         } else {
-            $suggestedAccountId = $this->_suggestAccountForCurrency($currency);
+            $suggestedAccountId = OrderSidePrefill::accountForCurrency($currency);
             if ($suggestedAccountId) {
                 $account = Account::with('currency')->find($suggestedAccountId);
                 if ($account) {
@@ -126,15 +127,31 @@ class AjaxController extends MyFinance2Controller
             $suggestion['exchange_rate'] = round($eurRate, 4);
         }
 
+        // The order form picks no side by itself: it fills the figures of the side the user picks, for both sides.
+        if ($request->boolean('order_sides')) {
+            $suggestion['order_sides'] = (new OrderSidePrefill())->build(
+                $symbol,
+                $financeData,
+                $eurRate,
+                $request->filled('account_id') ? (int) $request->account_id : null
+            );
+        }
+
         return response()->json([
+            // The latest price (pre / post-market included), as in the quote header; the close of
+            // the requested day for a past timestamp.
             'price'           => round($financeData['price'], 2),
-            // Current (last) price for the range-bar marker: reflects pre/post-market so it matches
-            // the live price in the quote header. Falls back to the regular price when unavailable.
-            'current_price'   => round($financeData['current_price'] ?? $financeData['price'], 2),
             'currency'        => $currency,
             'name'            => $financeData['name'],
             'quote_timestamp' => $financeData['quote_timestamp']
                 ->format(trans('myfinance2::general.datetime-format')),
+            // The quote header's label for an extended-hours price, null for a regular one.
+            'quote_session_label' => match ($financeData['quote_session']) {
+                'overnight' => 'Overnight',
+                'pre'       => 'Pre-market',
+                'post'      => 'After hours',
+                default     => null,
+            },
 
             'available_quantity' => $availableQuantity,
             'suggestion'         => $suggestion,
@@ -199,6 +216,7 @@ class AjaxController extends MyFinance2Controller
             'price'              => $q['price'] ?? null,
             'timestamp'          => $fmtTs($q['quote_timestamp'] ?? null),
             'isPreMarket'        => !empty($q['pre_market_price']),
+            'isOvernight'        => !empty($q['overnight_market']),
             'isPostMarket'       => !empty($q['post_market_price']),
             'dayChange'          => $q['day_change'] ?? null,
             'dayChangePct'       => $q['day_change_percentage'] ?? null,
@@ -278,12 +296,9 @@ class AjaxController extends MyFinance2Controller
             // green/red the way the positions and watchlist charts do. Null when there
             // is no open position, which leaves the series fully green.
             'base_value'   => Trade::openBuyAverageUnitPrice($symbol),
-            // Raw price (number) for the 52W range bar; the formatted price is
-            // already shown in the quote header.
-            'price'        => $q['regular_market_price'] ?? $q['price'] ?? null,
-            // Current (last) price for the range-bar marker: $q['price'] already includes
-            // pre/post-market, so the marker matches the live price in the quote header.
-            'current_price' => $q['price'] ?? $q['regular_market_price'] ?? null,
+            // Raw latest price (number) for the 52W range-bar marker: $q['price'] already
+            // includes pre/post-market, so the marker matches the live price in the quote header.
+            'price'        => $q['price'] ?? $q['regular_market_price'] ?? null,
 
             'fiftyTwoWeekHigh'              => $q['fiftyTwoWeekHigh'] ?? null,
             'fiftyTwoWeekHighChangePercent' => $q['fiftyTwoWeekHighChangePercent'] ?? null,
@@ -379,30 +394,6 @@ class AjaxController extends MyFinance2Controller
             'message' => $numEntries . ' data point(s) populated for ' . $symbol
                 . ' (' . $start . ' to ' . $end . ').',
         ]);
-    }
-
-    /**
-     * Find the trade account with the highest cash balance for a given currency ISO code.
-     */
-    private function _suggestAccountForCurrency(string $currencyIsoCode): ?int
-    {
-        $accounts = Account::with('currency')
-            ->where('is_trade_account', 1)
-            ->whereHas('currency', fn($q) => $q->where('iso_code', $currencyIsoCode))
-            ->get();
-
-        $bestAccountId = null;
-        $bestBalance   = null;
-
-        foreach ($accounts as $account) {
-            $balance = (new CashBalancesUtils($account->id, null, $account))->getAmount();
-            if ($balance !== null && ($bestBalance === null || $balance > $bestBalance)) {
-                $bestBalance   = $balance;
-                $bestAccountId = $account->id;
-            }
-        }
-
-        return $bestAccountId;
     }
 
     /**

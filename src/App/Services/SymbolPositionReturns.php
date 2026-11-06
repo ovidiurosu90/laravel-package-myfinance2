@@ -114,9 +114,10 @@ class SymbolPositionReturns
     }
 
     /**
-     * Every held symbol's figures for a user (symbol => fromOpenPositions()), computed as that user from
-     * Positions::handle() so they match /positions and the watchlist. Runs once per user per instance; an empty
-     * array when the positions cannot be loaded (the email then goes without them).
+     * Every held symbol's figures for a user (symbol => fromOpenPositions() plus 'trades', the Trade models of every
+     * account holding it), computed as that user from Positions::handle() so they match /positions and the
+     * watchlist. Runs once per user per instance; an empty array when the positions cannot be loaded (the email then
+     * goes without them).
      *
      * @param int $userId
      *
@@ -179,6 +180,9 @@ class SymbolPositionReturns
         $returns  = [];
         foreach ($bySymbol as $symbol => $positions) {
             $returns[$symbol] = self::fromOpenPositions($positions, $eurRates);
+            // The trades of every account holding it, for the price alert's trades table (PositionTimeline).
+            $returns[$symbol]['trades'] = array_merge(...array_map(fn (array $p): array => $p['trades'] ?? [],
+                $positions));
         }
 
         return $returns;

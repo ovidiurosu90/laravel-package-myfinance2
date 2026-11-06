@@ -9,8 +9,7 @@
         || $errors->has('reference_type') || $errors->has('reference_window');
     $referenceGroups   = ['HIGH' => 'Closing highs', 'LOW' => 'Closing lows'];
 @endphp
-<div id="relative-target-inputs" class="mb-3 has-feedback row {{ $relativeErrors ? 'has-error' : '' }}"
-    @if (old('target_mode', $target_mode ?? 'FIXED') !== 'RELATIVE') style="display: none" @endif>
+<div id="relative-target-inputs" class="mb-3 has-feedback row {{ $relativeErrors ? 'has-error' : '' }}">
     <label for="reference_key-select" class="col-12 control-label">
         {{ trans('myfinance2::alerts.forms.item-form.relative_target.label') }}
     </label>

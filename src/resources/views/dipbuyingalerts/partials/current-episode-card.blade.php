@@ -24,22 +24,30 @@
     // Card badge class per verdict key (web presentation only).
     $verdictBadge = ['behind' => 'bg-danger', 'ahead' => 'bg-success', 'on_plan' => 'bg-success'];
 
-    $rec = DipBuyingPresenter::recommendation($ce, $firstBand);
+    $rec     = DipBuyingPresenter::recommendation($ce, $firstBand);
+    $labels  = DipBuyingPresenter::ceLabels($ce);
+    $deepest = $ce['max_dd'] > $ce['current_dd']
+        ? '; deepest -' . $ce['max_dd'] . '% on ' . DipBuyingPresenter::shortDate($ce['low_date'])
+        : '';
 @endphp
 <div class="card {{ $cardClass ?? 'mb-3' }} border-start border-4 border-primary">
     <div class="card-body">
         <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
-            <span class="fw-semibold" style="color:{{ $cLocal }};">Current episode (pending)</span>
+            <span class="fw-semibold" style="color:{{ $cLocal }};">{{ $labels['title'] }}</span>
             <span class="text-muted small">
                 now <span style="color:{{ $cLocal }};">-{{ $ce['current_dd'] }}%</span>
-                from local peak on {{ DipBuyingPresenter::shortDate($ce['peak_date']) }}@if ($ce['max_dd'] > $ce['current_dd']); deepest -{{ $ce['max_dd'] }}% on {{ DipBuyingPresenter::shortDate($ce['low_date']) }}@endif.
+                from {{ $labels['peak'] }} on {{ DipBuyingPresenter::shortDate($ce['peak_date']) }}{{ $deepest }}.
                 Cash pool &euro;{{ $num($ce['pool_eur']) }} as of {{ DipBuyingPresenter::shortDate($ce['peak_date']) }}
                 <i class="fa fa-info-circle" aria-hidden="true"
                    data-bs-toggle="tooltip" data-bs-custom-class="tooltip-wide"
-                   title="The pool here is your actual cash across all accounts on {{ DipBuyingPresenter::shortDate($ce['peak_date']) }}, this dip's local peak, read from your overview cash series. It is the cash you had available to deploy when the dip began, so every target on the ladder is priced on it. It is not the pool you set on the Dip Buying settings page: that configured pool is only a fallback, used when no cash is recorded for this date. So the ladder here can differ from the settings page, which always prices on the configured pool."></i>.
+                   title="The pool here is your actual cash across all accounts on
+                          {{ DipBuyingPresenter::shortDate($ce['peak_date']) }}, the start of this dip, read from your
+                          overview cash series. It is the cash you had available to deploy when the dip began, so every
+                          target on the ladder is priced on it. The fallback pool on the Dip Buying settings page is
+                          used instead only when no cash is recorded for this date. The settings page shows the ladder
+                          on both pools."></i>.
             </span>
-            <span class="badge bg-primary ms-auto" data-bs-toggle="tooltip"
-                  title="In progress, measured from the most recent local peak (not the all-time high the numbered episodes use), so it is not directly comparable to them.">
+            <span class="badge bg-primary ms-auto" data-bs-toggle="tooltip" title="{{ $labels['badge_tip'] }}">
                 <i class="fa fa-location-arrow" aria-hidden="true"></i> in progress
             </span>
             @if ($ceTarget > 0)
@@ -71,12 +79,12 @@
                     <i class="fa fa-circle" style="color:{{ $cLocal }};font-size:0.6rem;"
                        aria-hidden="true"></i>
                     <span class="fw-semibold" style="color:{{ $cLocal }};">-{{ $ce['current_dd'] }}%</span>
-                    below the most recent local peak on {{ DipBuyingPresenter::shortDate($ce['peak_date']) }}
-                    <span class="text-muted">(a fresh near-term pullback)</span>
+                    below {{ $labels['peak'] }} on {{ DipBuyingPresenter::shortDate($ce['peak_date']) }}
+                    <span class="text-muted">({{ $labels['pullback'] }})</span>
                 </div>
                 @if (!is_null($peakDd))
                     <div class="text-muted mt-1">
-                        That local peak, on {{ DipBuyingPresenter::shortDate($ce['peak_date']) }}, was itself
+                        That peak, on {{ DipBuyingPresenter::shortDate($ce['peak_date']) }}, was itself
                         -{{ $peakDd }}% below the all-time high{!! $athSuffix !!}.
                     </div>
                 @endif
@@ -100,11 +108,22 @@
                     Your actual (this dip)
                 </div>
                 <div class="small">
-                    <span data-bs-toggle="tooltip"
-                          title="Cash actually consumed since the local peak: your cash at the peak minus your cash now, so sells that returned money reduce it (not the gross sum of buys).">Net deployed</span>
+                    @php($deployedTip = DipBuyingPresenter::deployedTooltip($ce))
+                    @if ($deployedTip)
+                        <span data-bs-toggle="tooltip" data-bs-html="true" data-bs-custom-class="tooltip-wide"
+                              title="{{ $deployedTip }}">Net deployed</span>
+                    @else
+                        <span data-bs-toggle="tooltip"
+                              title="Cash actually consumed since the local peak: your cash at the peak minus your cash
+                              now, so sells that returned money reduce it (not the gross sum of
+                              buys).">Net deployed</span>
+                    @endif
                     <span class="fw-semibold">&euro;{{ $num($ce['actual']['deployed_eur']) }}</span>
                     ({{ $ce['actual']['deployed_pct'] }}% of &euro;{{ $num($ce['pool_eur']) }})
                 </div>
+                @if ($deployedNote = DipBuyingPresenter::deployBasis([], $ce)['note'])
+                    <div class="small text-muted">{{ $deployedNote }}</div>
+                @endif
                 <div class="small">
                     Avg entry drawdown -{{ $ce['actual']['avg_entry_dd'] }}%
                     <span class="text-muted">({{ DipBuyingPresenter::plural($ce['actual']['buy_count'], 'buy') }}, {{ DipBuyingPresenter::plural($ce['actual']['sell_count'] ?? 0, 'sell') }})</span>

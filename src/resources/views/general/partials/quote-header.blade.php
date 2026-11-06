@@ -1,8 +1,8 @@
 @use('ovidiuro\myfinance2\App\Services\MoneyFormat')
 @php
     // Renders the quote header shown at the top of the symbol chart modal:
-    // an "At close" block plus, during extended hours, a "Pre-market" /
-    // "After hours" block. Each block shows a large price and a green/red
+    // an "At close" block plus, during extended hours, an "Overnight" /
+    // "Pre-market" / "After hours" block. Each block shows a large price and a green/red
     // change (amount and %), with a label + timestamp underneath.
     $qh_isPre    = !empty($isPreMarket);
     $qh_isPost   = !empty($isPostMarket);
@@ -39,7 +39,8 @@
         $qh_extChange    = $qh_isPost ? ($postChange ?? null) : ($dayChange ?? null);
         $qh_extChangePct = $qh_isPost ? ($postChangePct ?? null) : ($dayChangePct ?? null);
         $qh_blocks[] = [
-            'label'     => $qh_isPre ? 'Pre-market' : 'After hours',
+            // The overnight session is shown as pre-market (OvernightSession), under its own label.
+            'label'     => $qh_isPre ? (!empty($isOvernight) ? 'Overnight' : 'Pre-market') : 'After hours',
             'price'     => $price ?? null,
             'change'    => $qh_extChange,
             'changePct' => $qh_extChangePct,

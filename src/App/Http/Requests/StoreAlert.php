@@ -66,9 +66,4 @@ class StoreAlert extends FormRequest
             'expires_at'           => $this->expires_at,
         ], $this->relativeTargetFillData());
     }
-
-    protected function alertSource(): ?string
-    {
-        return $this->input('source') ?? 'manual';
-    }
 }

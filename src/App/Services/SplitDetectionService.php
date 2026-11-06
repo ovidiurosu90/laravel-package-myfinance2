@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace ovidiuro\myfinance2\App\Services;
 
+use Carbon\Carbon;
+
+use ovidiuro\myfinance2\App\Models\Scopes\AssignedToUserScope;
+use ovidiuro\myfinance2\App\Models\StatHistorical;
+
 /**
  * Centralised stock-split detection logic.
  *
@@ -73,7 +78,7 @@ class SplitDetectionService
      *
      * Uses a threshold (not proximity matching) so that ANY ratio beyond the smallest
      * known split ratio is flagged — not just values close to a specific split factor.
-     * This mirrors AlertService::_isPotentialSplitAnomaly() exactly.
+     * AlertService::_isPotentialSplitAnomaly() also requires a split-sized jump (hasSplitJumpSince()).
      *
      * @param string $alertType   'PRICE_ABOVE' | 'PRICE_BELOW'
      * @param float  $targetPrice
@@ -94,6 +99,41 @@ class SplitDetectionService
             'PRICE_BELOW' => $targetPrice < $currentPrice / $threshold,
             default       => false,
         };
+    }
+
+    /**
+     * Whether the symbol's price made a split-sized jump since a date: between two stored daily closes
+     * (stats_historical keeps the unadjusted closes until a split is applied, ApplySplitService then refetches the
+     * adjusted ones) or from the last stored close to the current price (a split that took effect today).
+     *
+     * A target far from the price is only a split anomaly with such a jump: a stock that fell to a third of an old
+     * target over weeks (e.g. -29 % on an earnings day) has a real price, not an unapplied split.
+     *
+     * @param string             $symbol
+     * @param \DateTimeInterface $since        the alert's creation (the day before is included, so a jump on that
+     *                                         day counts)
+     * @param float|null         $currentPrice today's price, compared with the last stored close
+     */
+    public static function hasSplitJumpSince(string $symbol, \DateTimeInterface $since, ?float $currentPrice): bool
+    {
+        $closes = StatHistorical::withoutGlobalScope(AssignedToUserScope::class)
+            ->where('symbol', $symbol)
+            ->where('date', '>=', Carbon::instance($since)->subDay()->format('Y-m-d'))
+            ->orderBy('date')
+            ->pluck('unit_price')
+            ->map(fn ($price) => (float) $price)
+            ->all();
+        if ($currentPrice !== null && $currentPrice > 0) {
+            $closes[] = $currentPrice;
+        }
+
+        for ($i = 1; $i < count($closes); $i++) {
+            if ($closes[$i - 1] > 0 && self::looksLikeSplitRatio($closes[$i] / $closes[$i - 1])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

@@ -1,5 +1,6 @@
-{{-- The Open positions card of the peak-proximity alert: each account's position and its trade / split timeline.
-     Included by peak-proximity-alert, whose variables it reads. --}}
+{{-- The Open positions card of the peak-proximity alert: each account's position and its trade / split timeline
+     (partials/position-trades, shared with the price alert). Included by peak-proximity-alert, whose variables it
+     reads. --}}
 @use('ovidiuro\myfinance2\App\Services\MoneyFormat')
 @if (!empty($openPositions))
 <div class="section" style="border-left-color:#28a745;">
@@ -36,37 +37,7 @@
             </tr>
         </table>
 
-        <table>
-            <tr>
-                <th>Date</th>
-                <th>Action</th>
-                <th>Quantity</th>
-                <th>Unit price</th>
-            </tr>
-            @foreach ($openPosition['timeline'] as $event)
-            @if ($event['type'] === 'split')
-            @php $splitItem = $event['data']; @endphp
-            <tr class="text-muted">
-                <td class="text-nowrap">{{ $splitItem->split_date->format('Y-m-d') }}</td>
-                <td colspan="3">&#9988; {{ $splitItem->getRatioLabel() }} split</td>
-            </tr>
-            @else
-            @php $trade = $event['data']; @endphp
-            <tr>
-                <td class="text-nowrap">{{ $trade->timestamp->format('Y-m-d') }}</td>
-                <td>{{ strtolower($trade->action) }}</td>
-                <td class="text-nowrap">{{ MoneyFormat::get_formatted_quantity_plain($trade->quantity) }}x</td>
-                <td class="text-nowrap">
-                    {!! $decode(MoneyFormat::get_formatted_price_display(
-                        $trade->tradeCurrencyModel->display_code,
-                        (float) $trade->unit_price,
-                        true
-                    )) !!}
-                </td>
-            </tr>
-            @endif
-            @endforeach
-        </table>
+        @include('myfinance2::emails.partials.position-trades', ['timeline' => $openPosition['timeline']])
     </div>
     @endforeach
 </div>

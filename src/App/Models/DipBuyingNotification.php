@@ -14,6 +14,14 @@ use Illuminate\Database\Eloquent\Model;
 class DipBuyingNotification extends Model
 {
     /**
+     * The 'basis' of an alert measured on the current dip: its peak, your cash then and the cash used since
+     * (DipBuyingBacktestService::planOnCurrentEpisode). Null: the plan's own basis, VUSA.AS's peak and the
+     * settings pool (every row sent before the column existed, and an alert sent without a current dip). Rows
+     * are kept as they were sent; the history page says which basis they use.
+     */
+    public const BASIS_CURRENT_DIP = 'current_dip';
+
+    /**
      * The attributes that are not mass assignable.
      *
      * @var array
@@ -46,6 +54,7 @@ class DipBuyingNotification extends Model
         'portfolio_dd_pct',
         'driver',
         'anchor_date',
+        'basis',
         'target_pct',
         'deployed_pct',
         'deployed_eur',
@@ -57,6 +66,14 @@ class DipBuyingNotification extends Model
         'status',
         'error_message',
     ];
+
+    /**
+     * Whether this alert measured deployment on the current dip (BASIS_CURRENT_DIP).
+     */
+    public function isOnCurrentDipBasis(): bool
+    {
+        return $this->basis === self::BASIS_CURRENT_DIP;
+    }
 
     public function getConnectionName()
     {

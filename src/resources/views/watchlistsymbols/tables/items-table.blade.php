@@ -25,10 +25,27 @@
     .open-positions .trades td:nth-child(3) {
         width: 100%;
     }
+    /* The Open Positions column's width and its cards' wrapping are set here, not by the datatables script, so the
+       first paint already has them and the columns do not snap when DataTables starts: wide screens give the column
+       550px (cards side by side), narrow ones wrap the cards so the column stays one card wide. */
     @media (min-width: 1400px) {
         .open-positions-cards {
             max-width: 550px;
         }
+        .watchlist-symbol-items-table > thead > tr > th:nth-child(7) {
+            width: 550px;
+        }
+    }
+    @media (max-width: 1399.98px) {
+        .open-positions-cards {
+            flex-wrap: wrap;
+        }
+    }
+    /* The price sparkline's box (general/scripts/quote-price-graphs: 100 x 25), reserved before the chart is drawn so
+       the rows do not grow when it is. */
+    .watchlist-symbol-items-table .chart-symbol {
+        width: 100px;
+        height: 25px;
     }
     .watchlist-symbol-items-table .symbol-perf-windows {
         --bs-table-bg: transparent;
@@ -98,9 +115,11 @@
     // in the Price cell, and each affected figure only carries a small marker.
     $hasPreSession = false;
     $hasPostSession = false;
+    $hasOvernightSession = false;
     foreach ($items as $sessionItem) {
         $hasPreSession = $hasPreSession || !empty($sessionItem['pre_market_price']);
         $hasPostSession = $hasPostSession || !empty($sessionItem['post_market_price']);
+        $hasOvernightSession = $hasOvernightSession || !empty($sessionItem['overnight_market']);
     }
 
     $healthSymbolIndex = [];
@@ -202,7 +221,8 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                     <div class="d-none d-xl-block small text-muted">{{ $quoteData['name'] }}</div>
                     @endif
                 </td>
-                <td class="text-right">
+                {{-- text-nowrap keeps the session pill on the price's line whatever the price's width --}}
+                <td class="text-right text-nowrap">
                     @php
                         $wl_qtFormatted = ($quoteData['quote_timestamp'] ?? null) instanceof \DateTime
                             ? $quoteData['quote_timestamp']->format(trans('myfinance2::general.datetime-format'))
@@ -224,6 +244,7 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                             'price'              => $quoteData['price'],
                             'timestamp'          => $wl_qtFormatted,
                             'isPreMarket'        => !empty($quoteData['pre_market_price']),
+                            'isOvernight'        => !empty($quoteData['overnight_market']),
                             'isPostMarket'       => !empty($quoteData['post_market_price']),
                             'dayChange'          => $quoteData['day_change'] ?? null,
                             'dayChangePct'       => $quoteData['day_change_percentage'] ?? null,
@@ -242,6 +263,7 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                         'price'              => $quoteData['price'],
                         'timestamp'          => $wl_qtFormatted,
                         'isPreMarket'        => !empty($quoteData['pre_market_price']),
+                        'isOvernight'        => !empty($quoteData['overnight_market']),
                         'isPostMarket'       => !empty($quoteData['post_market_price']),
                         'dayChange'          => $quoteData['day_change'] ?? null,
                         'dayChangePct'       => $quoteData['day_change_percentage'] ?? null,
@@ -302,13 +324,25 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
                 @endif
                 </td>
                 <td{!! $hasPerfRow ? ' rowspan="2"' : '' !!}>
-                    <a class="btn btn-sm btn-outline-success w-100 mb-1 text-nowrap"
-                        href="{{ route('myfinance2::orders.create',
-                                       ['symbol' => $symbol]) }}"
-                        data-bs-toggle="tooltip"
-                        title="Create Order for {{ $symbol }}">
-                        Order <i class="fa fa-fw fa-plus-circle" aria-hidden="true"></i>
-                    </a>
+                    {{-- The side is the user's pick: the order form never guesses it. Sell only when held. --}}
+                    <div class="btn-group w-100 mb-1" role="group" aria-label="Create order">
+                        <a class="btn btn-sm btn-outline-success text-nowrap px-1"
+                            href="{{ route('myfinance2::orders.create',
+                                           ['symbol' => $symbol, 'action' => 'BUY']) }}"
+                            data-bs-toggle="tooltip"
+                            title="Create a Buy order for {{ $symbol }}">
+                            <i class="fa fa-plus-circle" aria-hidden="true"></i> Buy
+                        </a>
+                        @if(!empty($quoteData['open_positions']))
+                        <a class="btn btn-sm btn-outline-danger text-nowrap px-1"
+                            href="{{ route('myfinance2::orders.create',
+                                           ['symbol' => $symbol, 'action' => 'SELL']) }}"
+                            data-bs-toggle="tooltip"
+                            title="Create a Sell order for {{ $symbol }}">
+                            <i class="fa fa-minus-circle" aria-hidden="true"></i> Sell
+                        </a>
+                        @endif
+                    </div>
                     @if (!empty($quoteData['open_orders']))
                         @foreach ($quoteData['open_orders'] as $openOrder)
                         @php
@@ -425,6 +459,7 @@ Updated: {{ $quoteData['item']->updated_at }}</p>">
     @include('myfinance2::general.partials.session-legend', [
         'hasPreSession'  => $hasPreSession,
         'hasPostSession' => $hasPostSession,
+        'hasOvernightSession' => $hasOvernightSession,
     ])
     <div class="clearfix mb-3"></div>
 </div>

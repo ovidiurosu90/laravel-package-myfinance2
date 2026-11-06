@@ -38,7 +38,7 @@
                             @if ($report['pool_source'] === 'override')
                                 fixed at &euro;{{ $num($report['pool_eur']) }}
                             @else
-                                your cash at the start of each episode
+                                your cash at the start of each episode (the fallback pool when none is recorded)
                             @endif
                         </div>
                         <p class="text-muted small">
@@ -110,7 +110,10 @@
                                             </div>
                                             <div class="small">
                                                 <span data-bs-toggle="tooltip"
-                                                      title="Total you bought during this drop, gross of any sells. The live current-episode figure is Net deployed instead (cash actually drawn down, so sells reduce it), which is why the two can differ.">Deployed</span>
+                                                      title="Total you bought during this drop, gross of any sells. The
+                                                            current dip shows Net deployed instead (cash used from your
+                                                            reserve, so buys paid for by sells do not
+                                                            count).">Bought</span>
                                                 <span class="fw-semibold">&euro;{{ $num($ep['actual']['deployed_eur']) }}</span>
                                                 ({{ $ep['actual']['deployed_pct'] }}% of &euro;{{ $num($ep['pool_eur']) }})
                                                 @if ($ep['actual']['exhaustion_dd'] !== null)
@@ -149,7 +152,10 @@
                                             </div>
                                             <div class="small">
                                                 <span data-bs-toggle="tooltip"
-                                                      title="Gap between the ladder's target and what you deployed, as percentage points of the pool and the EUR equivalent. Positive = you deployed less than the ladder target at this depth.">Deployed vs target:</span>
+                                                      title="Gap between the ladder's target and what you bought (gross
+                                                            of sells), as percentage points of the pool and the EUR
+                                                            equivalent. Positive = you bought less than the ladder
+                                                            target at this depth.">Bought vs target:</span>
                                                 <span class="fw-semibold">{{ $gapTxt }}</span> pts of pool
                                                 ({{ $gapEurTxt }})
                                             </div>

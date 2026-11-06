@@ -51,8 +51,7 @@ trait ValidatesRelativeTarget
     }
 
     /**
-     * Rules that depend on several fields: the offset bound per reference type, and no RELATIVE
-     * target on an order alert (order alerts follow the order's limit price).
+     * Rules that depend on several fields: the offset bound per reference type.
      */
     public function withValidator(Validator $validator): void
     {
@@ -69,13 +68,6 @@ trait ValidatesRelativeTarget
                 $validator->errors()->add(
                     'offset_pct',
                     "The offset for a {$this->_referenceTypeLabel($type)} reference must be at most {$max}%."
-                );
-            }
-
-            if ($this->alertSource() === 'order') {
-                $validator->errors()->add(
-                    'target_mode',
-                    "Order alerts follow the order's limit price and cannot use a relative target."
                 );
             }
         });
@@ -106,11 +98,6 @@ trait ValidatesRelativeTarget
             'reference_resolved_at' => null,
         ];
     }
-
-    /**
-     * Source of the alert being validated ('manual', 'watchlist', 'order', ...).
-     */
-    abstract protected function alertSource(): ?string;
 
     private function _referenceTypeLabel(string $type): string
     {

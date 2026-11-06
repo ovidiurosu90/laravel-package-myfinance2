@@ -1,6 +1,9 @@
 <style>
 tr.alert-group-a td:first-child { border-left: 3px solid #0d6efd !important; }
 tr.alert-group-b td:first-child { border-left: 3px solid #198754 !important; }
+/* Reached target: a tint on the target cell (the row's left border marks the same-symbol groups). An inset shadow,
+   as Bootstrap paints its striping, so the tint replaces the stripe instead of hiding under it. */
+td.alert-reached-cell { box-shadow: inset 0 0 0 9999px rgba(25, 135, 84, 0.12) !important; }
 </style>
 <div class="card card-default">
     <div class="card-header">

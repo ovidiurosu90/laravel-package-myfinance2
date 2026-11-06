@@ -46,8 +46,10 @@
         $blocks[] = $buildBlock('Together', $price, $dayChange ?? null, $dayChangePct ?? null,
             null, $currency);
     } elseif ($isPreMarket) {
-        // Pre-market change is already the full move vs the previous close; no cumulation.
-        $blocks[] = $buildBlock('Pre-market', $price, $dayChange ?? null, $dayChangePct ?? null,
+        // Pre-market change is already the full move vs the previous close; no cumulation. The
+        // overnight session is shown the same way (OvernightSession), under its own label.
+        $blocks[] = $buildBlock(!empty($isOvernight) ? 'Overnight' : 'Pre-market', $price,
+            $dayChange ?? null, $dayChangePct ?? null,
             $timestamp ?? null, $currency);
         if (!empty($regularPrice)) {
             $blocks[] = $buildBlock('At close', $regularPrice, $regularDayChange ?? null,

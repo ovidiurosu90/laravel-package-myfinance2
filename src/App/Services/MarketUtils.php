@@ -158,10 +158,22 @@ class MarketUtils
     }
 
     /**
-     * @param string|null $session 'pre' or 'post' to flag that the displayed
-     *                             quote comes from an extended-hours session.
+     * Yahoo's market state mapped to the regular session's status (OPEN / CLOSED), to compare it
+     * with the schedule's. Every extended session is CLOSED for the regular one, including
+     * OVERNIGHT, which Yahoo reports for US stocks from 20:00 to 04:00 New York time when the
+     * request asks for the overnight price (FinanceAPI::withOvernightPrice()). Other states (e.g.
+     * CLOSED) are returned as they are.
      */
-    public function getMarketStatusFormatted(?string $session = null)
+    public static function regularSessionState(string $marketState): string
+    {
+        if (in_array($marketState, ['PREPRE', 'PRE', 'POST', 'POSTPOST', 'OVERNIGHT'], true)) {
+            return 'CLOSED';
+        }
+
+        return $marketState === 'REGULAR' ? 'OPEN' : $marketState;
+    }
+
+    public function getMarketStatusFormatted()
     {
         $text = 'UNKNOWN';
         $class = 'bg-danger';
@@ -198,18 +210,9 @@ class MarketUtils
 
         #NOTE Mapping market state to a known status
         if (!empty($data['market_state'])) {
-            if ($data['market_state'] == 'PREPRE'
-                || $data['market_state'] == 'PRE'
-                || $data['market_state'] == 'POST'
-                || $data['market_state'] == 'POSTPOST'
-            ) {
-                $data['market_state'] = 'CLOSED';
-            }
-            if ($data['market_state'] == 'REGULAR') {
-                $data['market_state'] = 'OPEN';
-                if ($data['status'] == 'UNKNOWN') {
-                    $data['status'] = 'OPEN';
-                }
+            $data['market_state'] = self::regularSessionState($data['market_state']);
+            if ($data['market_state'] == 'OPEN' && $data['status'] == 'UNKNOWN') {
+                $data['status'] = 'OPEN';
             }
         }
 
@@ -220,9 +223,10 @@ class MarketUtils
         }
 
         if ($warningText != '') {
-            $warning = '<i class="btn p-0 m-0 fa fa-exclamation" '
-                . 'data-bs-toggle="tooltip" title="' . $warningText
-                . '" style="font-size: 24px;"></i>';
+            // A pill of its own right after the status pill, so it has the same height and line.
+            $warning = '<span class="badge rounded-pill bg-warning text-dark ms-1" '
+                . 'data-bs-toggle="tooltip" title="' . $warningText . '">'
+                . '<i class="fa fa-exclamation" aria-hidden="true"></i></span>';
         }
 
         if ($countdownClass != '' && $countdownTimestamp != '') {
@@ -236,12 +240,12 @@ class MarketUtils
                 . '"></span>';
         }
 
-        $output = $warning . '<div class="col-md-auto p-0">'
+        $output = '<div class="col-md-auto p-0 text-nowrap">'
             . '<span class="market_status text-left badge rounded-pill ' . $class
             . '" data-bs-toggle="tooltip" data-bs-custom-class="tooltip-md" '
             . 'data-bs-html="true" title="<p class=\'text-left\'>'
             . $tooltip . '</p>">' . $text
-            . '</span>' . self::getSessionBadgeFormatted($session)
+            . '</span>' . $warning
             . '</div> <div class="p-0">' . $countdown . "</div>";
 
         return $output;
@@ -256,6 +260,10 @@ class MarketUtils
      */
     public static function getQuoteSession(array $quote): ?string
     {
+        if (!empty($quote['overnight_market'])) {
+            return 'overnight';
+        }
+
         if (!empty($quote['post_market_price'])) {
             return 'post';
         }
@@ -275,14 +283,17 @@ class MarketUtils
      */
     public static function getSessionBadgeFormatted(?string $session): string
     {
-        if ($session !== 'pre' && $session !== 'post') {
+        $badges = [
+            'overnight' => ['ON', 'Overnight: quotes update between 20:00 and 04:00 New York time,'
+                . ' before pre-market.'],
+            'pre'       => ['PRE', 'Pre-market: quotes update before the regular session opens.'],
+            'post'      => ['AH', 'After hours: quotes update after the regular session closed.'],
+        ];
+        if (!isset($badges[$session])) {
             return '';
         }
 
-        $text = $session === 'pre' ? 'PRE' : 'AH';
-        $title = $session === 'pre'
-            ? 'Pre-market: quotes update before the regular session opens.'
-            : 'After hours: quotes update after the regular session closed.';
+        [$text, $title] = $badges[$session];
 
         return '<span class="badge rounded-pill bg-info opacity-50 ms-1" '
             . 'data-bs-toggle="tooltip" title="' . $title . '">' . $text

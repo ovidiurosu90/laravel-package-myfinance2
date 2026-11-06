@@ -12,11 +12,12 @@ use ovidiuro\myfinance2\App\Services\DipBuyingBacktestService;
 use ovidiuro\myfinance2\App\Services\DipBuyingPlanService;
 
 /**
- * Settings UI for the Dip Buying Plan: the single EUR pool, the master enable, the daily-email
- * toggle and an optional advanced override of the reserve ladder.
+ * Settings UI for the Dip Buying Plan: the fallback EUR pool, the master enable, the daily-email
+ * toggle and an optional advanced override of the reserve ladder. Each dip is priced on the user's
+ * cash at its start; the fallback pool covers a start with no recorded cash and the no-dip ladder.
  *
  * Off by default (no row = DISABLED): the /positions panel and the daily email stay dark until the
- * user sets a pool and enables the feature here. User-scoped; one row per user.
+ * user sets a fallback pool above 0 and enables the feature here. User-scoped; one row per user.
  */
 class DipBuyingAlertController extends MyFinance2Controller
 {

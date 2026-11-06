@@ -13,6 +13,7 @@ use ovidiuro\myfinance2\Mail\PriceAlertTriggered;
 use ovidiuro\myfinance2\App\Models\Currency;
 use ovidiuro\myfinance2\App\Models\PriceAlert;
 use ovidiuro\myfinance2\App\Models\PriceAlertNotification;
+use ovidiuro\myfinance2\App\Models\StockSplit;
 use ovidiuro\myfinance2\App\Models\Trade;
 use ovidiuro\myfinance2\App\Models\Scopes\AssignedToUserScope;
 
@@ -151,13 +152,7 @@ class AlertService
                 continue;
             }
 
-            $triggered = match ($alert->alert_type) {
-                'PRICE_ABOVE' => $currentPrice >= (float) $alert->target_price,
-                'PRICE_BELOW' => $currentPrice <= (float) $alert->target_price,
-                default       => false,
-            };
-
-            if (!$triggered) {
+            if (!$alert->isReachedAt((float) $currentPrice)) {
                 $stats['skipped']++;
                 continue;
             }
@@ -550,11 +545,11 @@ class AlertService
 
     /**
      * Detect potential stock-split anomaly: target price is suspiciously far from the
-     * current price — beyond the smallest known split ratio — suggesting the alert was
-     * set before an unapplied split.
+     * current price (beyond the smallest known split ratio) AND the price made a
+     * split-sized jump since the alert was created, suggesting an unapplied split.
      *
-     * Uses a threshold (not a proximity match) so that any ratio ≥ min(SPLIT_RATIOS)
-     * is flagged, not just values close to a specific split factor.
+     * The distance alone is not enough: a stock that really fell to a third of an old
+     * target (e.g. after a -29 % earnings day) raised a "split" maintenance email every day.
      *
      * @param PriceAlert $alert
      * @param float      $currentPrice
@@ -563,9 +558,17 @@ class AlertService
      */
     private function _isPotentialSplitAnomaly(PriceAlert $alert, float $currentPrice): bool
     {
-        return SplitDetectionService::isAlertTargetStale(
+        if (!SplitDetectionService::isAlertTargetStale(
             $alert->alert_type,
             (float) $alert->target_price,
+            $currentPrice
+        )) {
+            return false;
+        }
+
+        return SplitDetectionService::hasSplitJumpSince(
+            $alert->symbol,
+            $alert->created_at ?? now()->subYear(),
             $currentPrice
         );
     }
@@ -581,7 +584,8 @@ class AlertService
      * @param array      $quote         FinanceUtils::getQuotes() entry of the symbol
      * @param array|null $projectedGain _calculateProjectedGainForUser()
      *
-     * @return array ['today_gain_eur', 'today_gain_pct', 'gain_eur', 'gain_pct', 'quantity', 'avg_unit_cost']
+     * @return array ['today_gain_eur', 'today_gain_pct', 'gain_eur', 'gain_pct', 'quantity', 'avg_unit_cost',
+     *               'timeline' (the trades and the symbol's splits, PositionTimeline::merge(); empty when not held)]
      */
     public function emailPosition(int $userId, string $symbol, array $quote, ?array $projectedGain): array
     {
@@ -602,7 +606,31 @@ class AlertService
             'gain_pct'       => $figures['raw_pct'] ?? null,
             'quantity'       => $figures['quantity'] ?? null,
             'avg_unit_cost'  => $figures['avg_unit_cost2'] ?? null,
+            'timeline'       => $this->_positionTimeline($userId, $symbol, $figures['trades'] ?? []),
         ];
+    }
+
+    /**
+     * The trades table of the alert email: the position's trades and the symbol's stock splits, newest first (the
+     * same rows as the peak-proximity alert's Open positions card). Empty when there are no trades.
+     *
+     * @param int    $userId
+     * @param string $symbol
+     * @param array  $trades Trade models of every account holding the symbol
+     *
+     * @return array PositionTimeline::merge()
+     */
+    private function _positionTimeline(int $userId, string $symbol, array $trades): array
+    {
+        if (empty($trades)) {
+            return [];
+        }
+        $splits = StockSplit::withoutGlobalScope(AssignedToUserScope::class)
+            ->where('user_id', $userId)
+            ->where('symbol', $symbol)
+            ->get();
+
+        return PositionTimeline::merge($trades, $splits);
     }
 
     /**

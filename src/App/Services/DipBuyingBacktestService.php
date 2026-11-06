@@ -6,6 +6,7 @@ namespace ovidiuro\myfinance2\App\Services;
 
 use Carbon\Carbon;
 
+use ovidiuro\myfinance2\App\Models\DipBuyingNotification;
 use ovidiuro\myfinance2\App\Models\DipBuyingSetting;
 use ovidiuro\myfinance2\App\Models\StatHistorical;
 use ovidiuro\myfinance2\App\Models\Trade;
@@ -53,7 +54,7 @@ class DipBuyingBacktestService
      *
      * @param int         $userId
      * @param string|null $from    Y-m-d window start (default Jan 2025)
-     * @param float|null  $poolEur override the user's configured pool
+     * @param float|null  $poolEur fixed pool for every episode, instead of the cash at each episode start
      * @param float|null  $minDrop minimum drawdown (%) that counts as a drop episode
      * @param string|null $mode    drop axis: effective (default), change (portfolio) or vusa
      *
@@ -89,27 +90,35 @@ class DipBuyingBacktestService
 
         $bands = $this->_engine->resolveBands($setting?->bands);
 
-        $vusaPrices = $this->_loadBenchmarkPrices($from);
+        $peakPrices = $this->_loadPeakPrices($from);
+        $vusaPrices = $this->_fromDate($peakPrices, $from);
         if (count($vusaPrices) < 2) {
             return $this->_emptyReport($from, $to, 'No VUSA.AS history in this window.');
         }
 
         // Drops are measured on the selected axis: the effective drawdown (max of the VUSA and
-        // portfolio drawdowns, the live default), the portfolio change %, or VUSA.AS alone.
-        $effDd     = $this->_ddSeries($vusaPrices, $userId, $mode);
+        // portfolio drawdowns, the live default), the portfolio change %, or VUSA.AS alone; from the
+        // live plan's trailing peak, then kept from $from.
+        $effDd     = $this->_fromDate($this->_ddSeries($peakPrices, $userId, $mode), $from);
         $eurRates  = $this->_buildEurRates();
         $buys      = $this->_loadBuysInEur($userId, $from, $to, $eurRates, $effDd);
-        $sellDates = $this->_loadSellDates($userId, $from, $to);
+        $sells     = $this->_loadSellsInEur($userId, $from, $to, $eurRates);
         $episodes  = $this->_detectEpisodes(
             $effDd, $bands, $buys, $cashSeries, $explicitPool, $fallbackPool, $minDd
         );
 
         $currentEpisode = $this->_buildCurrentEpisode(
-            $effDd, $episodes, $bands, $buys, $sellDates, $cashSeries, $explicitPool, $fallbackPool,
-            $vusaPrices, $userId
+            $effDd, $episodes, $bands, $buys, $sells, $cashSeries, $explicitPool, $fallbackPool,
+            $peakPrices, $userId
         );
 
         $baselines = $this->_baselines($vusaPrices, $bands);
+
+        // An open episode IS the current dip, shown by the current-episode card (on the cash-used basis):
+        // list only the closed episodes, so the same dip never appears twice with two verdicts.
+        $listed = $currentEpisode !== null
+            ? array_values(array_filter($episodes, fn (array $episode) => empty($episode['is_open'])))
+            : $episodes;
 
         return [
             'from'            => $from,
@@ -118,11 +127,11 @@ class DipBuyingBacktestService
             'drop_mode'       => $mode,
             'pool_source'     => $poolSource,
             'pool_eur'        => $explicitPool !== null ? round($explicitPool, 2) : null,
-            'episodes'        => $episodes,
+            'episodes'        => $listed,
             'current_episode' => $currentEpisode,
             'first_band'      => $this->_firstBand($bands),
             'baselines'       => $baselines,
-            'headline'        => $this->_headline($episodes),
+            'headline'        => $this->_headline($listed),
             'note'            => 'Single-path personal sanity check, not statistical proof.',
         ];
     }
@@ -139,7 +148,7 @@ class DipBuyingBacktestService
      * @param int   $userId
      * @param array $plan    the DipBuyingPlanService plan (for the pinned drawdown column)
      *
-     * @return array{regime: array, current: ?array, firstBand: ?array}
+     * @return array{regime: array, current: ?array, firstBand: ?array, plan: array}
      */
     public function panelDetail(int $userId, array $plan): array
     {
@@ -152,11 +161,54 @@ class DipBuyingBacktestService
 
         $report = $this->build($userId);
 
+        $current = $report['current_episode'] ?? null;
+
         return [
             'regime'    => $regime,
-            'current'   => $report['current_episode'] ?? null,
+            'current'   => $current,
             'firstBand' => $report['first_band'] ?? null,
+            'plan'      => self::planOnCurrentEpisode($plan, $current),
         ];
+    }
+
+    /**
+     * The plan on the current episode's basis, so every surface reads ONE dip: the alert's trigger and
+     * its history row, the email and the panel all use the same start (the episode's peak), pool (cash
+     * at that peak), deployed (cash used since then), target and verdict as the current-episode card.
+     * The plan alone anchors deployment at VUSA.AS's own peak and prices it on the configured pool, so
+     * it can disagree with the card. Unchanged without a current episode (at a fresh high). While the
+     * stall backstop is active, its released target is kept when it is higher.
+     *
+     * @param array      $plan
+     * @param array|null $current
+     *
+     * @return array
+     */
+    public static function planOnCurrentEpisode(array $plan, ?array $current): array
+    {
+        if ($current === null) {
+            return $plan;
+        }
+
+        $stallTarget = !empty($plan['stall_active']) ? (float) ($plan['target_pct'] ?? 0) : 0.0;
+        if ($stallTarget > (float) $current['guided']['target_pct']) {
+            $current['guided']['target_pct'] = $stallTarget;
+        }
+        $verdict = DipBuyingPresenter::ceVerdict($current);
+
+        return array_merge($plan, [
+            'anchor_date'           => $current['peak_date'],
+            'pool_amount_eur'       => round($verdict['pool_eur'], 2),
+            'deployed_eur'          => round($verdict['deployed_eur'], 2),
+            'deployed_pct'          => round($verdict['deployed_pct'], 1),
+            'target_pct'            => round($verdict['target_pct'], 1),
+            'target_eur'            => round($verdict['target_pct'] / 100.0 * $verdict['pool_eur'], 2),
+            'gap_pct'               => round($verdict['gap_pct'], 1),
+            'suggested_tranche_eur' => round(max(0.0, $verdict['gap_eur']), 2),
+            'verdict'               => $verdict['key'],
+            // Recorded with the alert, so its history row says which basis it used.
+            'basis'                 => DipBuyingNotification::BASIS_CURRENT_DIP,
+        ]);
     }
 
     /**
@@ -186,18 +238,19 @@ class DipBuyingBacktestService
         $empty = ['from' => $from, 'min_drop' => round($minDd, 2), 'drop_mode' => $mode,
                   'series' => [], 'vusa_mvalue_eur' => null, 'episodes' => [], 'current_drop' => null];
 
-        $vusaPrices = $this->_loadBenchmarkPrices($from);
-        if (count($vusaPrices) < 2) {
+        $peakPrices = $this->_loadPeakPrices($from);
+        if (count($this->_fromDate($peakPrices, $from)) < 2) {
             return $empty;
         }
 
         // Episodes are isolated on the selected basis (the dropdown decides the windows), but the
         // plotted red line is ALWAYS the effective drawdown (Portfolio vs VUSA.AS), so the effective
-        // signal stays visible no matter which basis the user is isolating windows on.
-        $episodeDd = $this->_ddSeries($vusaPrices, $userId, $mode);
+        // signal stays visible no matter which basis the user is isolating windows on. Both measured
+        // from the live plan's trailing peak, like build().
+        $episodeDd = $this->_fromDate($this->_ddSeries($peakPrices, $userId, $mode), $from);
         $lineDd    = $mode === 'effective'
             ? $episodeDd
-            : $this->_ddSeries($vusaPrices, $userId, 'effective');
+            : $this->_fromDate($this->_ddSeries($peakPrices, $userId, 'effective'), $from);
 
         $episodes = [];
         foreach ($this->_episodeSpans($episodeDd, $minDd) as $span) {
@@ -206,6 +259,8 @@ class DipBuyingBacktestService
                 'low_date'  => $span['low_date'],
                 'end_date'  => $span['end_date'],
                 'max_dd'    => round($span['max_dd'], 1),
+                // Still open: it is the current drop, drawn as the blue "now" band instead.
+                'is_open'   => $span['is_open'],
             ];
         }
 
@@ -224,8 +279,32 @@ class DipBuyingBacktestService
             // peak (a navigation aid, not a historical episode). Threshold-independent (T=0), so the
             // blue overlay is always drawn however shallow, matching the current-episode card. Null
             // only at a genuine fresh high (no drawdown).
-            'current_drop' => $this->_currentDrop($episodeDd, $episodes, 0.0),
+            'current_drop' => $this->_withPool($this->_currentDrop($episodeDd, $episodes, 0.0), $userId),
         ];
+    }
+
+    /**
+     * The current drop with the pool the live plan prices it on: your cash at its peak (as an episode's
+     * pool in _buildEpisode), else the settings pool. Lets the settings page show the ladder at both.
+     *
+     * @param array|null $drop
+     * @param int        $userId
+     *
+     * @return array|null
+     */
+    private function _withPool(?array $drop, int $userId): ?array
+    {
+        if ($drop === null) {
+            return null;
+        }
+
+        $setting = DipBuyingSetting::where('user_id', $userId)->first();
+        $cash    = $this->_cashOnOrBefore($drop['peak_date'], $this->_loadCashSeries($userId));
+        $drop['pool_eur'] = $cash !== null && $cash > 0.0
+            ? round($cash, 2)
+            : ($setting ? (float) $setting->pool_amount_eur : null);
+
+        return $drop;
     }
 
     /**
@@ -420,6 +499,38 @@ class DipBuyingBacktestService
     private function _resolveMode(?string $mode): string
     {
         return array_key_exists((string) $mode, self::dropModes()) ? (string) $mode : self::DEFAULT_MODE;
+    }
+
+    /**
+     * VUSA.AS prices from the earlier of $from and the live plan's peak-lookback start, so drawdowns
+     * computed on them run from the same trailing peak as the plan (DipBuyingPlanService); callers trim
+     * the results back to $from (_fromDate). Without this, a window starting after VUSA's peak would
+     * measure from a lower peak and the backtest, chart and current dip could drift from the panel.
+     *
+     * @param string $from
+     *
+     * @return array<string, float>
+     */
+    private function _loadPeakPrices(string $from): array
+    {
+        $lookbackStart = Carbon::today()
+            ->subYears((int) config('myfinance2.alerts.dip_buying.peak_lookback_years', 3))
+            ->format('Y-m-d');
+
+        return $this->_loadBenchmarkPrices(min($from, $lookbackStart));
+    }
+
+    /**
+     * The entries of a date-keyed series on or after $from.
+     *
+     * @param array<string, mixed> $series
+     * @param string               $from
+     *
+     * @return array<string, mixed>
+     */
+    private function _fromDate(array $series, string $from): array
+    {
+        return array_filter($series, fn ($date) => (string) $date >= $from, ARRAY_FILTER_USE_KEY);
     }
 
     /**
@@ -743,10 +854,13 @@ class DipBuyingBacktestService
                 continue;
             }
 
-            $episodes[] = $this->_buildEpisode(
+            $episode = $this->_buildEpisode(
                 $span['peak_date'], $span['end_date'], $segment,
                 $bands, $buys, $cashSeries, $explicitPool, $fallbackPool, $stallFloor, $stallMons
             );
+            // Still open at the end of the window: not yet recovered under the exit level (T/2).
+            $episode['is_open'] = $span['is_open'];
+            $episodes[]         = $episode;
         }
 
         return $episodes;
@@ -767,7 +881,7 @@ class DipBuyingBacktestService
      * @param array<string, float> $effDd  effective drawdown % by date, ascending
      * @param float                $T      enter threshold (the configured drop %)
      *
-     * @return array<int, array{peak_date: string, low_date: string, end_date: string, max_dd: float}>
+     * @return array<int, array{peak_date: string, low_date: string, end_date: string, max_dd: float, is_open: bool}>
      */
     private function _episodeSpans(array $effDd, float $T): array
     {
@@ -798,7 +912,7 @@ class DipBuyingBacktestService
                 if ($dd + 1e-9 >= $T) {
                     $inEpisode = true;
                     $cur = ['peak_date' => $anchor, 'low_date' => $date,
-                            'end_date' => $date, 'max_dd' => $dd];
+                            'end_date' => $date, 'max_dd' => $dd, 'is_open' => false];
                 }
                 continue;
             }
@@ -817,7 +931,8 @@ class DipBuyingBacktestService
             }
         }
         if ($inEpisode && $cur !== null) {
-            $spans[] = $cur;
+            $cur['is_open'] = true;
+            $spans[]        = $cur;
         }
 
         return $spans;
@@ -854,6 +969,8 @@ class DipBuyingBacktestService
             'end_date'   => $ctx['end_date'],
             'max_dd'     => round($ctx['max_dd'], 1),
             'current_dd' => round($ctx['current_dd'], 1),
+            // The open episode itself (still in progress), rather than a pullback after a closed one.
+            'is_open'    => !empty($episodes) && !empty(end($episodes)['is_open']),
         ];
     }
 
@@ -878,8 +995,12 @@ class DipBuyingBacktestService
         }
         ksort($effDd);
 
-        // Tail = the stretch after the last episode's trough (or the whole window if none).
-        $tailStart = empty($episodes) ? (string) array_key_first($effDd) : end($episodes)['low_date'];
+        // Tail = the stretch after the last CLOSED episode's trough (or the whole window if none). An
+        // episode still open (not yet back under its exit level) is the current dip itself, so its own
+        // peak is the local peak: starting the tail at its low instead would turn every bounce off that
+        // low into a "new dip" at 0%, contradicting the ladder, which still sits in its band.
+        $closed = array_values(array_filter($episodes, fn (array $episode) => empty($episode['is_open'])));
+        $tailStart = empty($closed) ? (string) array_key_first($effDd) : end($closed)['low_date'];
         $tail = array_filter(
             $effDd,
             static fn ($date) => (string) $date >= (string) $tailStart,
@@ -951,7 +1072,7 @@ class DipBuyingBacktestService
      * @param array                $episodes     historical episodes (used only to find the tail start)
      * @param array                $bands
      * @param array                $buys         chronological [date, eur, dd] on the all-time-high axis
-     * @param array<int, string>   $sellDates    SELL trade dates (Y-m-d) in the window, for the count
+     * @param array<int, array>    $sells        SELL trades in the window (_loadSellsInEur)
      * @param array<string, float> $cashSeries
      * @param float|null           $explicitPool
      * @param float                $fallbackPool
@@ -965,7 +1086,7 @@ class DipBuyingBacktestService
         array $episodes,
         array $bands,
         array $buys,
-        array $sellDates,
+        array $sells,
         array $cashSeries,
         ?float $explicitPool,
         float $fallbackPool,
@@ -976,6 +1097,7 @@ class DipBuyingBacktestService
         // Ignore the drop threshold here: the current standing ("where are we now") is always shown,
         // however shallow, like the regime table's "Down now" and the chart's blue band. The threshold
         // governs only the numbered historical episodes. Null only at a genuine fresh high (no drawdown).
+        // An episode still open is the current dip itself (see _localDropContext).
         $ctx = $this->_localDropContext($effDd, $episodes, 0.0);
         if ($ctx === null) {
             return null;
@@ -992,7 +1114,7 @@ class DipBuyingBacktestService
             {
                 $local = $denom > 0.0 ? max(0.0, ($buy['dd'] - $ctx['peak_dd']) / $denom) : $buy['dd'];
 
-                return ['date' => $buy['date'], 'eur' => $buy['eur'], 'dd' => round($local, 2)];
+                return ['dd' => round($local, 2)] + $buy;
             },
             $buys
         );
@@ -1006,6 +1128,8 @@ class DipBuyingBacktestService
         // (cash at the peak minus cash now), so sells that returned cash reduce it, instead of the
         // gross sum of buys. This is the honest "how much of the pool have I committed" read for the
         // deploy-more decision. Keep the gross buy total only when no cash series is available.
+        $startCash = null;
+        $endCash   = null;
         if (!empty($cashSeries)) {
             $pool      = (float) $episode['pool_eur'];
             $startCash = $this->_cashOnOrBefore($ctx['peak_date'], $cashSeries) ?? $pool;
@@ -1017,15 +1141,22 @@ class DipBuyingBacktestService
                 ? round(min(100.0, $netEur / $pool * 100.0), 1)
                 : 0.0;
             $episode['actual']['net_of_sells'] = true;
+            // Signed change in cash since the peak: positive when sells (or deposits) brought in more
+            // than the buys used, which the clamped deployed figure (0) alone would hide.
+            $episode['actual']['cash_change_eur'] = round($endCash - $startCash, 2);
         }
 
-        // Sells in the episode window, so the card can show what came back alongside the buys.
-        $episode['actual']['sell_count'] = count(array_filter(
-            $sellDates,
-            fn ($d) => $d >= $ctx['peak_date'] && $d <= $ctx['end_date']
-        ));
+        // What went in and came back in the episode window, so the deployed figure can be explained; the buys carry
+        // their local entry drawdown, the axis of the card's average entry drawdown.
+        $episode['actual']['flows'] = $this->_episodeFlows(
+            $localBuys, $sells, $ctx['peak_date'], $ctx['end_date'], $startCash, $endCash
+        );
+        $episode['actual']['sell_count'] = $episode['actual']['flows']['sell_count'];
 
         $episode['is_current'] = true;
+        // The open episode itself (not yet recovered), rather than a fresh pullback after a closed one:
+        // the cards name it as the dip still in progress, measured from its own peak.
+        $episode['is_open']    = !empty($episodes) && !empty(end($episodes)['is_open']);
         $episode['current_dd'] = round($ctx['current_dd'], 1);
         // The two rulers and the bridge between them, so the card can show and connect both:
         //   running_dd = how far below the ALL-TIME high you are now (the effective drawdown the ladder
@@ -1168,14 +1299,14 @@ class DipBuyingBacktestService
                 . "deploying toward the {$guided['target_pct']}%-of-pool target instead of leaving it parked.";
         } elseif ($status === 'good') {
             $headline = 'Your pacing tracked the ladder closely (entry depth within '
-                . $entryDeeper . ' drawdown points, amount deployed within ' . abs($deployGap)
+                . $entryDeeper . ' drawdown points, amount bought within ' . abs($deployGap)
                 . ' percentage points of the pool).';
         } elseif ($deployGap > 0.0) {
-            $headline = "You deployed {$deployGap} percentage points less of your pool than the ladder "
+            $headline = "You bought {$deployGap} percentage points less of your pool than the ladder "
                 . "targets at this depth; it would also have entered about {$entryDeeper} drawdown points "
                 . "deeper on average.";
         } else {
-            $headline = 'You deployed ' . abs($deployGap) . ' percentage points more of your pool than '
+            $headline = 'You bought ' . abs($deployGap) . ' percentage points more of your pool than '
                 . 'the ladder targets at this depth, leaving less in reserve for a deeper leg.';
         }
 
@@ -1408,42 +1539,167 @@ class DipBuyingBacktestService
                 + (float) $trade->fee * ($eurRates[$acctCur] ?? 1.0);
 
             $date = $trade->timestamp->format('Y-m-d');
-            $buys[] = ['date' => $date, 'eur' => $eur, 'dd' => $this->_ddOnOrBefore($date, $effDd)];
+            $buys[] = [
+                'date' => $date, 'eur' => $eur, 'dd' => $this->_ddOnOrBefore($date, $effDd), 'symbol' => $trade->symbol,
+            ] + self::_tradeDetail($trade);
         }
 
         return $buys;
     }
 
     /**
-     * The user's SELL trade dates (Y-m-d) in the window, transfers excluded. Only the dates are
-     * needed (to count sells per episode); the EUR proceeds are already reflected in the net-deployed
-     * cash figure, so they are not reloaded here.
+     * The trades behind an episode's deployed figure: gross buys and sell proceeds in its window (EUR),
+     * the biggest symbols each way, and the cash at both ends. "other_eur" is what the trades do not
+     * explain (dividends, interest, deposits, FX): cash change minus (sold - bought). Null cash fields
+     * without a cash series.
      *
-     * @param int    $userId
-     * @param string $from
-     * @param string $to
+     * @param array<int, array{date: string, eur: float, symbol?: string}> $buys
+     * @param array<int, array{date: string, eur: float, symbol: string}>  $sells
+     * @param string     $from
+     * @param string     $to
+     * @param float|null $startCash
+     * @param float|null $endCash
      *
-     * @return array<int, string>
+     * @return array{bought_eur: float, buy_count: int, sold_eur: float, sell_count: int,
+     *               top_buys: array<string, float>, top_sells: array<string, float>, cash_start_eur: ?float,
+     *               cash_end_eur: ?float, cash_change_eur: ?float, other_eur: ?float, trades: array}
      */
-    private function _loadSellDates(int $userId, string $from, string $to): array
+    private function _episodeFlows(
+        array $buys,
+        array $sells,
+        string $from,
+        string $to,
+        ?float $startCash,
+        ?float $endCash
+    ): array
+    {
+        $inWindow = fn (array $trade) => $trade['date'] >= $from && $trade['date'] <= $to;
+        $topBy    = function (array $trades): array
+        {
+            $bySymbol = [];
+            foreach ($trades as $trade) {
+                $symbol = $trade['symbol'] ?? '?';
+                $bySymbol[$symbol] = ($bySymbol[$symbol] ?? 0.0) + $trade['eur'];
+            }
+            arsort($bySymbol);
+
+            return array_map(fn ($eur) => round($eur, 2), array_slice($bySymbol, 0, 3, true));
+        };
+
+        $buys   = array_values(array_filter($buys, $inWindow));
+        $sells  = array_values(array_filter($sells, $inWindow));
+        $bought = array_sum(array_column($buys, 'eur'));
+        $sold   = array_sum(array_column($sells, 'eur'));
+        $change = $startCash !== null && $endCash !== null ? $endCash - $startCash : null;
+
+        return [
+            'bought_eur'      => round($bought, 2),
+            'buy_count'       => count($buys),
+            'sold_eur'        => round($sold, 2),
+            'sell_count'      => count($sells),
+            'top_buys'        => $topBy($buys),
+            'top_sells'       => $topBy($sells),
+            'cash_start_eur'  => $startCash !== null ? round($startCash, 2) : null,
+            'cash_end_eur'    => $endCash !== null ? round($endCash, 2) : null,
+            'cash_change_eur' => $change !== null ? round($change, 2) : null,
+            'other_eur'       => $change !== null ? round($change - ($sold - $bought), 2) : null,
+            'trades'          => self::_episodeTrades($buys, $sells),
+        ];
+    }
+
+    /**
+     * The episode's buys and sells as one newest-first list (by trade time, so same-day trades latest first), each
+     * tagged with its action; a sell has no entry drawdown.
+     *
+     * @param array $buys  in-window buys (_loadBuysInEur, local entry drawdown)
+     * @param array $sells in-window sells (_loadSellsInEur)
+     *
+     * @return array<int, array{date: string, time: string, action: string, symbol: string, eur: float, dd: ?float,
+     *                          quantity: ?float, unit_price: ?float, currency: string}>
+     */
+    private static function _episodeTrades(array $buys, array $sells): array
+    {
+        $row    = fn (array $trade, string $action): array => [
+            'date'       => $trade['date'],
+            'time'       => $trade['time'] ?? $trade['date'],
+            'action'     => $action,
+            'symbol'     => $trade['symbol'] ?? '?',
+            'eur'        => round((float) $trade['eur'], 2),
+            'dd'         => $action === 'BUY' && isset($trade['dd']) ? round((float) $trade['dd'], 1) : null,
+            'quantity'   => $trade['quantity'] ?? null,
+            'unit_price' => $trade['unit_price'] ?? null,
+            'currency'   => $trade['currency'] ?? '',
+        ];
+        $trades = array_merge(
+            array_map(fn (array $buy): array => $row($buy, 'BUY'), $buys),
+            array_map(fn (array $sell): array => $row($sell, 'SELL'), $sells)
+        );
+        // Newest first by trade time (the date alone would put a day's sells above its buys, whatever their times).
+        $order = array_keys($trades);
+        usort($order, fn (int $a, int $b): int => strcmp(
+            $trades[$b]['time'] ?? $trades[$b]['date'],
+            $trades[$a]['time'] ?? $trades[$a]['date']
+        ) ?: $b <=> $a);
+
+        return array_map(fn (int $index): array => $trades[$index], $order);
+    }
+
+    /**
+     * The user's SELL trades in the window, transfers excluded, with their EUR proceeds (net of the fee)
+     * converted like the buys (_loadBuysInEur), so the current episode can show what came back next to
+     * what went in.
+     *
+     * @param int                  $userId
+     * @param string               $from
+     * @param string               $to
+     * @param array<string, float> $eurRates
+     *
+     * @return array<int, array{date: string, eur: float, symbol: string}>
+     */
+    private function _loadSellsInEur(int $userId, string $from, string $to, array $eurRates): array
     {
         $trades = Trade::withoutGlobalScope(AssignedToUserScope::class)
             ->where('user_id', $userId)
             ->where('action', 'SELL')
             ->where('timestamp', '>=', $from . ' 00:00:00')
             ->where('timestamp', '<=', $to . ' 23:59:59')
+            ->with(['tradeCurrencyModel', 'accountModel.currency'])
             ->orderBy('timestamp')
-            ->get(['timestamp', 'is_transfer']);
+            ->get();
 
-        $dates = [];
+        $sells = [];
         foreach ($trades as $trade) {
             if (!empty($trade->is_transfer)) {
                 continue;
             }
-            $dates[] = $trade->timestamp->format('Y-m-d');
+            $tradeCur = $trade->tradeCurrencyModel->iso_code ?? 'EUR';
+            $acctCur  = $trade->accountModel->currency->iso_code ?? 'EUR';
+            $eur      = (float) $trade->quantity * (float) $trade->unit_price * ($eurRates[$tradeCur] ?? 1.0)
+                - (float) $trade->fee * ($eurRates[$acctCur] ?? 1.0);
+
+            $sells[] = ['date' => $trade->timestamp->format('Y-m-d'), 'eur' => $eur, 'symbol' => $trade->symbol]
+                + self::_tradeDetail($trade);
         }
 
-        return $dates;
+        return $sells;
+    }
+
+    /**
+     * What the episode's trades list shows of a trade besides its date, symbol and EUR amount: the quantity, the
+     * unit price and its currency; its time orders same-day trades.
+     *
+     * @param Trade $trade
+     *
+     * @return array{time: string, quantity: float, unit_price: float, currency: string}
+     */
+    private static function _tradeDetail(Trade $trade): array
+    {
+        return [
+            'time'       => $trade->timestamp->format('Y-m-d H:i:s'),
+            'quantity'   => (float) $trade->quantity,
+            'unit_price' => (float) $trade->unit_price,
+            'currency'   => (string) ($trade->tradeCurrencyModel->display_code ?? ''),
+        ];
     }
 
     /**

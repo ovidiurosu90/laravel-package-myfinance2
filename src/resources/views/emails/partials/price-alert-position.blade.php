@@ -1,5 +1,6 @@
-{{-- The Position card of the price alert email: quantity, average cost (fees included) and current price; the gain
-     itself is the unrealized gain line of the Summary. "No open position" when the symbol is not held. Included by
+{{-- The Position card of the price alert email: quantity, average cost (fees included) and current price, then the
+     trades and splits (partials/position-trades, shared with the peak-proximity alert); the gain itself is the
+     unrealized gain line of the Summary. "No open position" when the symbol is not held. Included by
      price-alert-triggered, whose variables it reads. --}}
 @use('ovidiuro\myfinance2\App\Services\MoneyFormat')
 @if ($quantity !== null)
@@ -22,6 +23,7 @@
                 {!! $currencyHtml !!}</td>
         </tr>
     </table>
+    @include('myfinance2::emails.partials.position-trades')
     @if ($isLoss)
     <p class="text-muted" style="margin-top:8px;font-size:12px;">
         ⚠️ This is a loss-minimizing alert: the best available exit based on the recent high.

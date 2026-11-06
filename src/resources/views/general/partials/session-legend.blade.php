@@ -1,15 +1,18 @@
 {{-- One-line explanation of the extended-hours marker, rendered once per table
      and only when that table actually holds pre-market or after-hours figures.
      Params:
-       $hasPreSession  - true when any row carries a pre-market quote
-       $hasPostSession - true when any row carries an after-hours quote --}}
+       $hasPreSession       - true when any row carries a pre-market quote
+       $hasPostSession      - true when any row carries an after-hours quote
+       $hasOvernightSession - true when any of the pre-market quotes come from the
+                              overnight session (OvernightSession) --}}
 @if(!empty($hasPreSession) || !empty($hasPostSession))
 @php
+    $preLegend = !empty($hasOvernightSession) ? 'overnight or pre-market' : 'pre-market';
     if (!empty($hasPreSession) && !empty($hasPostSession)) {
         $sessionLegendText = 'includes extended-hours trading'
-            . ' (pre-market or after hours)';
+            . ' (' . $preLegend . ' or after hours)';
     } elseif (!empty($hasPreSession)) {
-        $sessionLegendText = 'includes pre-market trading,'
+        $sessionLegendText = 'includes ' . $preLegend . ' trading,'
             . ' before the regular session opens';
     } else {
         $sessionLegendText = 'includes after-hours trading,'

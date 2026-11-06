@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Route;
 use ovidiuro\myfinance2\App\Models\PeakProximityAlertEvent;
 use ovidiuro\myfinance2\App\Services\MoneyFormat;
 use ovidiuro\myfinance2\App\Services\PeakProximityAlertService;
+use ovidiuro\myfinance2\App\Services\PositionTimeline;
 use ovidiuro\myfinance2\App\Services\QuadrantClassifier;
 use ovidiuro\myfinance2\App\Services\RangeBoundPattern;
 use ovidiuro\myfinance2\App\Services\TierCalculationService;
@@ -390,33 +391,11 @@ class PeakProximityAlert extends Mailable
         $splits    = $this->_quoteData['stock_splits'] ?? [];
 
         foreach ($positions as &$position) {
-            $position['timeline'] = $this->_positionTimeline($position, $splits);
+            $position['timeline'] = PositionTimeline::merge($position['trades'] ?? [], $splits);
         }
         unset($position);
 
         return $positions;
-    }
-
-    /**
-     * Merge a position's trades and the symbol's stock splits into one newest-first timeline.
-     *
-     * @param array $position
-     * @param array $splits
-     *
-     * @return array
-     */
-    private function _positionTimeline(array $position, array $splits): array
-    {
-        $timeline = [];
-        foreach ($position['trades'] ?? [] as $trade) {
-            $timeline[] = ['type' => 'trade', 'ts' => $trade->timestamp, 'data' => $trade];
-        }
-        foreach ($splits as $split) {
-            $timeline[] = ['type' => 'split', 'ts' => $split->split_date, 'data' => $split];
-        }
-        usort($timeline, fn ($a, $b) => $b['ts'] <=> $a['ts']);
-
-        return $timeline;
     }
 
     /**

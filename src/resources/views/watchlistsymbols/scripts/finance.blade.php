@@ -73,7 +73,8 @@ $(document).ready(function()
                 $fetchedSymbolData.html(
                     '<p><b>Name</b>: ' + data.name + '</p>' +
                     '<p><b>Price</b>: ' + data.price + ' ' + data.currency
-                        + ' on ' + data.quote_timestamp + '</p>' +
+                        + ' on ' + data.quote_timestamp
+                        + (data.quote_session_label ? ' (' + data.quote_session_label + ')' : '') + '</p>' +
                     rangeHtml
                 );
                 // console.log(data);
